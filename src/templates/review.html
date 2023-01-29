@@ -1,0 +1,130 @@
+{% include "layout_top.html" %}
+<script src="/js/bindiff.js"></script>
+<script>
+  function acceptTag(tagId){
+    window.location.href = `/AcceptTag/${tagId}`;
+  }
+  function denyTag(tagId){
+      window.location.href = `/DenyTag/${tagId}`;
+  }
+</script>
+<div class="container">
+  <div class="row">
+  <div class="col-12">
+      <div class="card">
+          <div class="card-body text-center">
+              <h5 class="card-title m-b-0">Review Note</h5>
+              <p>Last Update: {{ note.last_update }}</p>              
+	      <p>Deck: {{ note.deck }}</p>
+              <p>Status:</p>
+              <div class="note {% if note.reviewed %}published{% else %}under-review{% endif %}">
+                {% if note.reviewed %}published{% else %}under review{% endif %}
+              </div>    
+              <div>
+              {% if user and note.owner == user.id and note.reviewed == false %}
+                <a href="/AcceptNote/{{note.id}}" class="btn accept">Publish Note with all suggestions <span class="fa fa-check"></span></a>
+                <a href="/DeleteNote/{{note.id}}" class="btn deny">Delete <span class="fa fa-close"></span></a>
+              {% endif %}      
+              </div>
+              <button class="btn btn-primary accept" style="background-color:#006699" id="toggle-html"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 30 25" width="30px" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"></path>
+            </svg><span id="toggle-html-text">Show Source</span></button>
+          </div>
+          <div class="split_container">            
+            <div><!-- Left Side -->
+              <div><h4>Fields:</h1>
+                  {% for field in note.reviewed_fields %}
+                    <span class="counter">Field {{field.position}}</span>
+                    <div class="note_fields_highlighted" data-original='{{ field.content }}' data-new-content='{{field.content}}'></div>
+                  {% endfor %}
+              </div>
+              <hr />
+              {% for tag in note.reviewed_tags %}
+                <button class="note_tag" role="button">{{tag.content}}</button>
+              {% endfor %}
+            </div>
+
+            <div> <!-- Right Side -->
+              <div><h4>Suggested Changes:</h1>
+                {% for field in note.unconfirmed_fields %}
+                  <span class="counter">Field {{field.position}}</span>
+                  {% if user and note.owner == user.id %}
+                    <a href="/AcceptField/{{field.id}}" class="btn accept"><span class="fa fa-check"></span></a><a href="/DenyField/{{field.id}}" class="btn deny"><span class="fa fa-close"></span></a>
+                  {% endif %}
+                  <div class="note_fields_highlighted" data-original='{{ note.reviewed_fields[field.position].content }}' data-new-content='{{field.content}}'></div>
+                  
+                {% endfor %}
+            </div>
+            <hr />
+            {% for tag in note.new_tags %}
+              <div class="note_tag_container">
+                <button class="note_tag note_tag_new" role="button">{{tag.content}}</button>
+                {% if user and note.owner == user.id %}
+                <div class="tag_actions">
+                    <button class="tag_accept_button" role="button" onclick="acceptTag({{tag.id}})">
+                        <i class="fas fa-check"></i>
+                    </button>
+                    <button class="tag_deny_button" role="button" onclick="denyTag({{tag.id}})">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                {% endif %}
+              </div>            
+            {% endfor %}
+            {% for tag in note.removed_tags %}
+              <div class="note_tag_container">
+                <button class="note_tag note_tag_removed" role="button">{{tag.content}}</button>
+                {% if user and note.owner == user.id %}
+                <div class="tag_actions">
+                    <button class="tag_accept_button" role="button" onclick="acceptTag({{tag.id}})">
+                        <i class="fas fa-check"></i>
+                    </button>
+                    <button class="tag_deny_button" role="button" onclick="denyTag({{tag.id}})">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                {% endif %}
+              </div>
+            {% endfor %}
+
+            </div>
+          </div>
+              
+      </div>
+  </div>
+</div>
+</div> 
+<script>
+  $(document).ready(function() {
+
+    function toggleHTML() {
+      $(".note_fields_highlighted").each(function() {
+        let originalContent = $(this).data("original");
+        let content = $(this).data("new-content");
+        let res = String(htmldiff(originalContent,content));
+        if (!$(this).data("eval")) {
+          $(this).data("eval", res);
+          res = res.replace(/(<[^>]*>)/g, function(match) {
+            if(match === "<ins>" || match === "</ins>" || match === "<del>" || match === "</del>"){
+                return match;
+            }else{
+                return match.replace(/</g,"&lt;").replace(/>/g,"&gt;");
+            }
+          });
+          $(this).html(res);
+          $("#toggle-html-text").html("Show HTML");
+        } else {
+          $(this).html($(this).data("eval"));
+          $(this).removeData("eval");
+          $("#toggle-html-text").html("Show Source");
+        }
+      });
+    }
+    $("#toggle-html").on("click", function() {
+      toggleHTML();
+    });
+    toggleHTML();
+    toggleHTML();
+});
+</script>
+{% include "layout_bottom.html" %}

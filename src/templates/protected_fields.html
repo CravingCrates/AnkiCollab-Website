@@ -1,0 +1,67 @@
+{% include "layout_top.html" %}
+<style>
+  *, *:before, *:after {
+    -webkit-box-sizing: border-box;
+    -moz-box-sizing: border-box;
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+  }
+
+</style>
+<div class="container">
+  <div class="row">
+    <div class="col-12">
+      <div class="card">
+        <div class="card-body text-center">
+          <h5 class="card-title m-b-0">Pick the protected fields</h5>
+        </div>
+        <div class="container-fluid neww">
+          <form>
+            <div>
+              {% for notetype in notetypes %}
+              <div style="margin-top: 50px">
+                <p style="font-weight:bold">{{notetype.name}}</p>
+                {% for fieldInfo in notetype.fields %}
+                <div class="form-group">
+                  <input type="checkbox" id="{{fieldInfo.id}}" name="{{fieldInfo.id}}" value="field_{{fieldInfo.id}}" {% if fieldInfo.protected %} checked{% endif %}>
+                  <label for="{{fieldInfo.id}}" class="">{{fieldInfo.name}}</label>
+                </div>
+                {% endfor %}
+              </div>
+              {% endfor %}
+            </div>
+            <button class="btn btn-primary" type="submit">Save!</button>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  const form = document.querySelector('form');
+
+  form.addEventListener('submit', event => {
+    event.preventDefault();
+
+    const formData = {};    
+    const checkboxes = document.querySelectorAll('input[type="checkbox"]');
+    
+    checkboxes.forEach(checkbox => {
+      const key = parseInt(checkbox.name, 10);
+      formData[key] = checkbox.checked;
+    });
+    const data = {
+      items: formData
+    };
+    fetch('/protected_fields', {
+      method: 'POST',
+      body: JSON.stringify(data),
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    });  
+  });
+  </script>
+{% include "layout_bottom.html" %}

@@ -1,0 +1,29 @@
+{% include "layout_top.html" %}
+
+<div class="container">
+    <div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body text-center">
+                <h5 class="card-title m-b-0">
+                    {% if user %}
+                    Welcome back!
+                    {% endif %}
+                    {% if not user %}
+                    Hello, stranger.
+                    {% endif %}
+                </h5>
+            </div>
+
+            <br>
+            <p>This is AnkiCollab, an attempt to offer a free platform to collaborate on Anki Decks together, without limitations or barriers.</p>
+            <br>
+            <p><i>Education is not the filling of a pail, but the lighting of a fire. And collaboration is the spark that ignites the flame.</i></p>
+            <br />
+            <br />
+            <p>AnkiCollab is non-profit and unaffiliated with Ankitects Pty Ltd and related projects, Anki, AnkiWeb, AnkiHub or AnkiMobile. </p>
+        </div>
+    </div>
+    </div>
+</div> 
+{% include "layout_bottom.html" %}

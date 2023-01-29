@@ -1,0 +1,43 @@
+{% include "layout_top.html" %}
+
+<div class="container">
+  <div class="row">
+  <div class="col-12">
+      <div class="card">
+          <div class="card-body text-center">
+              <h5 class="card-title m-b-0">All Decks</h5>
+          </div>
+          <link rel="stylesheet" href="https://cdn.datatables.net/1.10.2/css/jquery.dataTables.min.css">
+          <script type="text/javascript" src="https://cdn.datatables.net/1.10.2/js/jquery.dataTables.min.js"></script>
+              <div class="table-responsive">
+                  <table name="deckOverview" id="deckOverview" class="table table-striped">
+                      <thead class="thead-light">
+                          <tr>
+                              <th scope="col">Last Update</th>
+                              <th scope="col">Name</th>
+                              <th scope="col">Description</th>
+                              <th scope="col">Notes</th>
+                          </tr>
+                      </thead>
+                      <tbody class="customtable">
+                        {% for deck in decks %}
+                          <tr>
+                              <td><a href="/notes/{{deck.hash}}">{{ deck.last_update }}</a></td>
+                              <td><a href="/notes/{{deck.hash}}">{{ deck.name }}</a></td>
+                              <td><a href="/notes/{{deck.hash}}">{{ deck.desc | striptags | truncate(length=125) }}</a></td>
+                                <td><a href="/notes/{{deck.hash}}">{{ deck.notes }}</a></td>
+                          </tr> 
+                        {% endfor %}                         
+                      </tbody>
+                  </table>
+              </div>
+      </div>
+  </div>
+</div>
+</div> 
+<script>
+  $(document).ready(function() {
+    $('#deckOverview').DataTable();
+} );
+</script>
+{% include "layout_bottom.html" %}

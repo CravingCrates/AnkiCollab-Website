@@ -1,0 +1,234 @@
+html, body { overflow-x: hidden; }
+body { font-family: 'Kumbh Sans', sans-serif; }
+div, a, p { color: #666666; }
+p, address { line-height: 1.8; }
+a {	transition: all 0.3s ease; }
+a:hover {
+	color: #006699;
+	text-decoration: none;
+}
+
+.container-fluid { margin-left: 0; }
+
+.btn-primary {
+	padding: 12px 50px;
+    border-radius: 0;
+    background: #006699;
+    font-size: 1.2rem;
+    border: 0;
+}
+
+.btn-primary:hover { background: #068ccf; }
+.tm-text-primary { color: #006699; }
+.tm-text-secondary { color: #009999; }
+hr { border-top: 4px solid #CCC; }
+
+.tm-hr-short {
+	border-top: 1px solid #006699;
+	width: 238px;
+	margin-left: auto;
+	margin-right: auto;
+}
+
+/* Layout */
+
+.tm-main { width: 100%; }
+
+.tm-row-home { 
+	padding-left: 15px;
+	padding-right: 15px;
+}
+
+.tm-mt-100 { margin-top: 100px; }
+
+.tm-sidebar {
+	background-color: #fff;
+	position: fixed;
+	top: 0;
+	bottom: 0;
+	left: 0;
+	z-index: 1000;
+	padding-left: 40px;
+	padding-top: 40px;
+	width: 280px;
+}
+
+.tm-section-wrap {
+	width: calc(100% - 350px);
+	margin-left: 350px;
+	margin-right: 0;
+	position: relative;
+}
+
+.tm-section { padding: 50px 70px 50px 0; }
+
+/* Hide scrollbar */
+.tm-sidebar {
+	overflow-y: scroll;
+	scrollbar-width: none; /* Firefox */
+	-ms-overflow-style: none; /* IE 10+ */
+}
+.tm-sidebar::-webkit-scrollbar {
+	/* WebKit */
+	width: 0;
+	height: 0;
+}
+
+.tm-sidebar-sticky {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+}
+
+.tm-nav {
+	display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    height: 100%;
+}
+
+.navbar-toggler { display: none; }
+
+.tm-brand-box {
+	width: 240px;
+    height: 180px;
+    background: #006699;
+    color: white;
+    display: flex;
+    align-items: center;
+	justify-content: center;
+	margin-bottom: 100px;
+}
+
+#tm-main-nav {
+	padding: 0;
+	margin: 0;
+}
+
+.nav-item {
+	list-style: none;
+	margin-top: 10px;
+	margin-bottom: 10px;
+}
+
+.nav-link {
+	position: relative;
+	color: #006699;
+	font-size: 1.4rem;
+	padding-top: 15px;
+	padding-bottom: 15px;
+}
+
+.triangle-right {
+	position: absolute;
+	top: 9px;
+	left: -40px;
+	width: 0;
+	height: 0;
+	border-top: 21px solid transparent;
+	border-left: 20px solid #006699;
+	border-bottom: 21px solid transparent;
+	opacity: 0;
+	transition: all 0.3s ease;
+}
+
+.nav-item:hover .nav-link,
+.nav-link.current {
+	background-color: #F2F2F2;
+	color: #006699;
+	padding-left: 30px;
+}
+
+.nav-item:hover > .nav-link > .triangle-right,
+.nav-link.current > .triangle-right {
+	opacity: 1;
+}
+
+.nav-icon {
+	width: 40px;
+	margin-right: 20px;
+}
+
+.tm-copyright { padding: 50px 70px 20px 0; }
+
+@media (max-width: 1400px) {
+	.tm-section-wrap {
+		width: calc(100% - 630px);
+		margin-left: 630px;
+	}
+}
+
+@media (max-width: 1200px) {
+	.tm-col-home {
+		flex: 0 0 100%;
+		max-width: 100%;
+		padding-right: 15px;
+	}
+
+	.tm-img-home-container {
+		width: 100%;
+		height: 0;
+		padding-top: 133.28%;
+		background-image: url('../img/img-home-01-big.jpg');
+		background-size: contain;		
+	}
+}
+
+/* Hide the leftside bar */
+@media (max-width: 991px) {
+	.tm-sidebar {
+		left: -280px;
+		transition: all 0.3s ease;
+	}
+
+	.navbar-toggler {
+		display: block;
+		position: fixed;
+		left: 0;
+		top: 0;
+		background-color: rgb(0 102 153 / 0.80);
+		color: white;
+		padding: 10px 15px;
+		transition: all 0.3s ease;
+		border-radius: 0;
+		border-top-right-radius: 5px;
+		border-bottom-right-radius: 5px;
+		top: 40px;
+		z-index: 10000;
+	}
+
+	.navbar-toggler:focus { outline: none; }
+	.tm-sidebar.show { left: 0; }
+	.tm-sidebar.show .navbar-toggler { left: 280px; }
+
+	.tm-parallax {
+		width: 280px;
+    	left: -280px;
+	}
+
+	.tm-section-wrap {
+		width: calc(100% - 280px);
+		margin-left: 280px;		
+	}
+
+	.tm-section {
+		padding-left: 30px;
+		padding-right: 30px;
+	}
+
+	.tm-text-container { max-width: 100%; }	
+}
+
+@media (max-width: 700px) {
+	.tm-parallax {
+		position: static;
+		height: 360px;
+		width: 100%;
+	}
+
+	.tm-section-wrap {
+		width: 100%;
+		margin-left: 0;
+	}
+}

@@ -1,0 +1,100 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-Y483YFWJ5Z"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+
+  gtag('config', 'G-Y483YFWJ5Z');
+</script>
+
+    <meta charset="UTF-8">
+    <title>AnkiCollab - Free Platform for collaborative Anki Decks</title>
+    <meta name="description" content="AnkiCollab is a free platform for creating and working on shared Anki decks with friends. Discover the power of collaborative learning with AnkiCollab.">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="robots" content="index, follow">
+    <link href="https://fonts.googleapis.com/css2?family=Kumbh+Sans&display=swap" rel="stylesheet"> <!-- https://fonts.google.com/specimen/Kumbh+Sans -->
+    <link rel="stylesheet" href="/css/bootstrap.min.css">
+    <link rel="stylesheet" href="/css/templatemo-upright.css">
+    <link rel="icon" type="image/x-icon" href="https://www.iconsdb.com/icons/download/caribbean-blue/star-128.ico">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.2.1/css/all.min.css" integrity="sha512-MV7K8+y+gLIBoVD59lQIYicR65iaqukzvf/nwasF0nqhPay5w/9lJmVM2hMDcnK1OnMGCdVK+iQrJ7lzPJQd1w==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <link rel="stylesheet" href="/css/style.css">
+    <script src="/js/jquery-3.4.1.min.js"></script>
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.0/js/bootstrap.min.js"></script>
+    <!-- Parts of the design are from https://templatemo.com/ -->
+</head>
+<body>    
+    <div class="container-fluid">
+        <div class="row">
+            <!-- Leftside bar -->
+            <div id="tm-sidebar" class="tm-sidebar"> 
+                <nav class="tm-nav">
+                    <button class="navbar-toggler" type="button" aria-label="Toggle navigation">
+                        <i class="fas fa-bars"></i>
+                    </button>
+                    <div><a href="/">
+                        <div class="tm-brand-box">
+                            <h1 class="tm-brand">AnkiCollab</h1>
+                        </div></a>         
+                        <ul id="tm-main-nav">
+                            <li class="nav-item">                                
+                                <a href="/decks" class="nav-link">
+                                    <div class="triangle-right"></div>
+                                    Deck Browser
+                                </a>
+                            </li>
+                                {% if not user %}                            
+				<li class="nav-item">
+                                    <a href="/login" class="nav-link">
+                                        <div class="triangle-right"></div>
+                                        Login
+                                    </a>                            
+				</li>            
+                                {% else %}	                 
+				<li class="nav-item">			    
+				    <a href="/reviews" class="nav-link">
+                                        <div class="triangle-right"></div>
+                                        All Reviews
+                                    </a>                        
+				</li>                     
+				<li class="nav-item">
+                                    <a href="/protected_fields" class="nav-link">
+                                        <div class="triangle-right"></div>
+                                        Protected Fields
+                                    </a>                    
+				</li>        
+                                {% endif %}
+               
+                            <li class="nav-item">
+                                <a href="https://discord.gg/7k6Nvj2Cwk" class="nav-link">
+                                    <div class="triangle-right"></div>
+                                    Discord
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a href="https://ankiweb.net/shared/info/1957538407" class="nav-link external" target="_parent" rel="sponsored">
+                                    <div class="triangle-right"></div>
+                                    Anki Plugin
+                                </a>
+                            </li>
+                        </ul>
+                    </div>
+                    <footer class="mb-3 tm-mt-100">
+                    {% if user %}
+                        <a target="_parent" rel="sponsored" href="/logout">Log out</a>
+                    {% endif %}
+                    </footer>
+                </nav>
+            </div>
+            
+            <div class="tm-main">
+                <!-- Home section -->
+                <div class="tm-section-wrap">         
+                    <section id="home" class="tm-section">
+                        <h2 class="tm-text-primary">Welcome to AnkiCollab</h2>
+                        <hr class="mb-5">
+                        <div class="row tm-row-home">

@@ -1,0 +1,68 @@
+{% include "layout_top.html" %}
+<div class="container">
+  <div class="row">
+  <div class="col-12">
+      <div class="card">
+          <div class="card-body text-center">
+              <h5 class="card-title m-b-0">Notes in Deck {{ deck.name }}</h5>
+              <p>To Subscribe to this deck, use Key: <span style="font-weight:bold; color: #006699;">{{ deck.hash }}</span></p>
+          </div>
+          <link rel="stylesheet" href="https://cdn.datatables.net/1.10.2/css/jquery.dataTables.min.css">
+          <p>{{ deck.desc | safe }}</p>
+          <script type="text/javascript" src="https://cdn.datatables.net/1.10.2/js/jquery.dataTables.min.js"></script>
+	{% if deck.children |length > 0 %}
+ 	  <br /><h5>Subdecks:</h5>
+		<div class="table-responsive container">
+                <table id="burr" class="table table-striped">
+                  <thead>
+                    <tr>
+                      <th class="col-md-5 col-xs-5">Name</th>
+                    </tr>
+                    <tr class="warning no-result">
+                      <td colspan="4"><i class="fa fa-warning"></i>No Subdecks found</td>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {% for child in deck.children %}
+                    <tr>
+                      <td><a href="/notes/{{ child.human_hash }}">{{ child.name }}</a></td>
+                    </tr> 
+                    {% endfor %}      
+                  </tbody>
+                </table>
+              </div>
+	{% endif %}
+              <div class="table-responsive container">
+                <table id="notes" class="table table-striped table-bordered">
+                  <thead>
+                    <tr>
+                      <th class="col-md-5 col-xs-5">Status</th>
+                      <th class="col-md-5 col-xs-5">Last Update</th>
+                      <th class="col-md-4 col-xs-4">Fields</th>
+                    </tr>
+                    <tr class="warning no-result">
+                      <td colspan="4"><i class="fa fa-warning"></i>No Notes found</td>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {% for note in notes %}
+                    <tr>
+                      <td><a href="/review/{{ note.id }}">{% if note.status == 0 %}New Card{% elif note.status == 1%}New Suggestions{% else %}Published{% endif %}</a></td>
+                        <td><a href="/review/{{ note.id }}">{{ note.last_update }}</a></td>
+                        <td><a href="/review/{{ note.id }}">{{ note.fields | striptags | truncate(length=150) }}</a></td>
+
+                    </tr> 
+                    {% endfor %}      
+                  </tbody>
+                </table>
+              </div>
+      </div>
+  </div>
+</div>
+</div> 
+<script>
+  $(document).ready(function() {
+    $('#notes').DataTable();
+} );
+</script>
+{% include "layout_bottom.html" %}
