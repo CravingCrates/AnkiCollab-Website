@@ -153,6 +153,48 @@ async fn post_prot_fields(user: User, ProtectedFieldsData: Json<structs::Protect
     return Ok(Redirect::to("/"));
 }
 
+#[get("/ApproveCommit/<commit_id>")]
+async fn approve_commit(commit_id: i32, user: User) -> Result<Redirect, Error> {    
+    match decks::merge_by_commit(commit_id, true, user).await {
+        Ok(_res) => return Ok(Redirect::to(format!("/reviews"))),
+        Err(error) => {println!("Error: {}", error); return Ok(Redirect::to("/")) },
+    };    
+}
+
+#[get("/DenyCommit/<commit_id>")]
+async fn deny_commit(commit_id: i32, user: User) -> Result<Redirect, Error> {    
+    match decks::merge_by_commit(commit_id, false, user).await {
+        Ok(_res) => return Ok(Redirect::to(format!("/reviews"))),
+        Err(error) => {println!("Error: {}", error); return Ok(Redirect::to("/")) },
+    };    
+}
+
+
+#[get("/commit/<commit_id>")]
+async fn review_commit(commit_id: i32, user: User) -> content::RawHtml<String> {
+    
+    let mut context = tera::Context::new();
+    
+    let notes = match decks::notes_by_commit(commit_id).await {
+        Ok(notes) => notes,
+        Err(error) => return content::RawHtml(format!("Error: {}", error)),
+    };
+
+    let commit = match decks::get_commit_info(commit_id).await {
+        Ok(commit) => commit,
+        Err(error) => return content::RawHtml(format!("Error: {}", error)),
+    };
+    
+    context.insert("notes", &notes);
+    context.insert("commit", &commit);
+    context.insert("user", &user);
+    
+    let rendered_template = TEMPLATES.render("commit.html", &context).expect("Failed to render template");
+
+    // Return the rendered HTML as the response
+    content::RawHtml(rendered_template)
+}
+
 #[get("/review/<note_id>")]
 async fn review_note(note_id: i64, user: Option<User>) -> content::RawHtml<String> {
     
@@ -283,27 +325,16 @@ async fn all_reviews(user: User) -> content::RawHtml<String> {
         Ok(notes) => notes,
         Err(error) => return content::RawHtml(format!("Error: {}", error)),
     };
-
-    context.insert("notes", &notes);
-    context.insert("user", &user);
-    
-    let rendered_template = TEMPLATES.render("reviews.html", &context).expect("Failed to render template");
-    content::RawHtml(rendered_template)
-}
-
-#[get("/commits")]
-async fn commit_reviews(user: User) -> content::RawHtml<String> {
-    let mut context = tera::Context::new();
-
     let commits = match decks::commits_review(user.id()).await {
         Ok(commits) => commits,
         Err(error) => return content::RawHtml(format!("Error: {}", error)),
     };
 
     context.insert("commits", &commits);
+    context.insert("notes", &notes);
     context.insert("user", &user);
     
-    let rendered_template = TEMPLATES.render("commits.html", &context).expect("Failed to render template");
+    let rendered_template = TEMPLATES.render("reviews.html", &context).expect("Failed to render template");
     content::RawHtml(rendered_template)
 }
 
@@ -381,8 +412,8 @@ async fn main() {
         .mount("/", FileServer::from("src/templates/static/"))
         .mount("/", rocket::routes![
                 deck_overview, get_notes_from_deck,
-                review_note, accept_note, deny_note, all_reviews,
-                commit_reviews,
+                review_note, accept_note, deny_note, all_reviews, 
+                review_commit, approve_commit, deny_commit,
                 accept_field, deny_field, accept_tag, deny_tag,
                 get_prot_fields, post_prot_fields,
                 index, terms, privacy,

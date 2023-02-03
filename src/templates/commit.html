@@ -1,45 +1,143 @@
 {% include "layout_top.html" %}
+<script src="/js/bindiff.js"></script>
+<script>
+  function acceptTag(tagId){
+    window.location.href = `/AcceptTag/${tagId}`;
+  }
+  function denyTag(tagId){
+      window.location.href = `/DenyTag/${tagId}`;
+  }
+</script>
 <div class="container">
   <div class="row">
   <div class="col-12">
-      <div class="card">
-          <div class="card-body text-center">
-              <h5 class="card-title m-b-0">All Notes that require your attention</h5>
-          </div>
-          <link rel="stylesheet" href="https://cdn.datatables.net/1.10.2/css/jquery.dataTables.min.css">
-          <script type="text/javascript" src="https://cdn.datatables.net/1.10.2/js/jquery.dataTables.min.js"></script>
-              <div class="table-responsive container">
-                <table id="notes" class="table table-striped table-bordered">
-                  <thead>
-                    <tr>
-                      <th class="col-md-5 col-xs-5">Status</th>
-                      <th class="col-md-5 col-xs-5">Last Update</th>
-                      <th class="col-md-5 col-xs-5">Deck</th>
-                      <th class="col-md-4 col-xs-4">Fields</th>
-                    </tr>
-                    <tr class="warning no-result">
-                      <td colspan="4"><i class="fa fa-warning"></i>No Notes found</td>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {% for note in notes %}
-                    <tr>
-                      <td><a href="/review/{{ note.id }}">{% if note.status == 0 %}New Card{% else %}New Suggestions{% endif %}</a></td>
-                        <td><a href="/review/{{ note.id }}">{{ note.last_update }}</a></td>
-                        <td><a href="/review/{{ note.id }}">{{ note.full_path }}</a></td>
-                        <td><a href="/review/{{ note.id }}">{{ note.fields | striptags | truncate(length=150) }}</a></td>
-                    </tr> 
-                    {% endfor %}      
-                  </tbody>
-                </table>
-              </div>
+    <div class="card">
+      <div class="card-body text-center">
+          <h5 class="card-title m-b-0">Review Commit from {{ commit.timestamp }}</h5>
+          <p>Rationale: {{ commit.rationale }}</p>              
+          <p>Deck: {{ commit.deck }}</p>        
+          <a href="/ApproveCommit/{{commit.id}}" class="btn accept">Accept all Suggestions <span class="fa fa-check"></span></a>
+          <a href="/DenyCommit/{{commit.id}}" class="btn deny">Deny all Suggestions <span class="fa fa-close"></span></a>
       </div>
+    </div>
+    <hr />
+    {% for note in notes %}
+      <div id="{{note.id}}" class="card" style="border-radius: 4px; box-shadow: rgba(9, 30, 66, 0.31) 0px 0px 1px 0px, rgba(9, 30, 66, 0.25) 0px 1px 1px 0px; margin:15px; padding: 5px;">
+          <div class="card-body text-right">
+              <h6 class="card-title m-b-0 text-center">Review Note</h5>
+              <p class="text-center">Note Last Update: {{ note.last_update }}, Deck:  {{ note.deck }}</p>
+              <a href="/review/{{note.id}}" class="btn deny" style="background-color:#1E95C4">Go to full Review</a>
+              <button class="btn btn-primary accept toggle-html" style="background-color:#006699" id="toggle-html-{{note.id}}"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 30 25" width="30px" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"></path>
+              </svg><span id="toggle-html-text-{{note.id}}">Show Source</span></button>
+              <div class="text-center note {% if note.reviewed %}published{% else %}under-review{% endif %}">
+                {% if note.reviewed %}published{% else %}new card{% endif %}
+              </div>    
+              <div>
+              {% if user and note.owner == user.id and note.reviewed == false %}
+                <a href="/AcceptNote/{{note.id}}" class="btn accept">Publish Note <span class="fa fa-check"></span></a>
+                <a href="/DeleteNote/{{note.id}}" class="btn deny">Delete Note <span class="fa fa-close"></span></a>
+              {% endif %}      
+              </div>
+              
+          </div>
+          <div class="split_container">            
+            <div><!-- Left Side -->
+              <div><h4>Fields:</h1>
+                  {% for field in note.fields %}
+                    <span class="counter">Field {{field.position}}</span>
+                    <div class="note_fields_highlighted" data-original='{{ field.reviewed_content }}' data-new-content='{{field.reviewed_content}}'></div>
+                  {% endfor %}
+              </div>
+            </div>
+
+            <div> <!-- Right Side -->
+              <div><h4>Suggested Changes:</h1>
+                {% for field in note.fields %}
+                  <span class="counter">Field {{field.position}}</span>
+                  {% if user and note.owner == user.id %}
+                    <a href="/AcceptField/{{field.id}}" class="btn accept"><span class="fa fa-check"></span></a><a href="/DenyField/{{field.id}}" class="btn deny"><span class="fa fa-close"></span></a>
+                  {% endif %}
+                  <div class="note_fields_highlighted" data-original='{{ field.reviewed_content }}' data-new-content='{{field.content}}'></div>                  
+                {% endfor %}
+            </div>
+            <hr />
+            {% for tag in note.new_tags %}
+              <div class="note_tag_container">
+                <button class="note_tag note_tag_new" role="button">{{tag.content}}</button>
+                {% if user and note.owner == user.id %}
+                <div class="tag_actions">
+                    <button class="tag_accept_button" role="button" onclick="acceptTag({{tag.id}})">
+                        <i class="fas fa-check"></i>
+                    </button>
+                    <button class="tag_deny_button" role="button" onclick="denyTag({{tag.id}})">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                {% endif %}
+              </div>            
+            {% endfor %}
+            {% for tag in note.removed_tags %}
+              <div class="note_tag_container">
+                <button class="note_tag note_tag_removed" role="button">{{tag.content}}</button>
+                {% if user and note.owner == user.id %}
+                <div class="tag_actions">
+                    <button class="tag_accept_button" role="button" onclick="acceptTag({{tag.id}})">
+                        <i class="fas fa-check"></i>
+                    </button>
+                    <button class="tag_deny_button" role="button" onclick="denyTag({{tag.id}})">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                {% endif %}
+              </div>
+            {% endfor %}
+
+            </div>
+          </div>
+              
+      </div>
+    {% endfor %}
   </div>
 </div>
 </div> 
 <script>
   $(document).ready(function() {
-    $('#notes').DataTable();
-} );
+
+    function toggleHTML(id) {
+      let $noteFields = $("#" + id).find(".note_fields_highlighted");
+      $noteFields.each(function() {
+        let originalContent = $(this).data("original");
+        let content = $(this).data("new-content");
+        let res = String(htmldiff(originalContent,content));
+        if (!$(this).data("eval")) {
+          $(this).data("eval", res);
+          res = res.replace(/(<[^>]*>)/g, function(match) {
+            if(match === "<ins>" || match === "</ins>" || match === "<del>" || match === "</del>"){
+                return match;
+            }else{
+                return match.replace(/</g,"&lt;").replace(/>/g,"&gt;");
+            }
+          });
+          $(this).html(res);
+          $("#toggle-html-text-" + id).html("Show HTML");
+        } else {
+          $(this).html($(this).data("eval"));
+          $(this).removeData("eval");
+          $("#toggle-html-text-" + id).html("Show Source");
+        }
+      });
+    }
+  
+    $(".toggle-html").on("click", function() {
+      toggleHTML($(this).attr("id").split("-")[2]);
+    });
+
+    $('.card').each(function() {
+      var wrapperId = $(this).attr('id');
+      toggleHTML(wrapperId); // Toggle to source
+      toggleHTML(wrapperId); // Toggle to html (should be the default)
+    });
+  });
 </script>
 {% include "layout_bottom.html" %}

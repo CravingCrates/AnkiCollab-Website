@@ -30,6 +30,30 @@ pub struct CommitsOverview {
 }
 
 #[derive(Serialize)]
+pub struct FieldsReviewInfo {
+    pub id: i64,
+    pub position: u32,
+    pub content: String,
+    pub reviewed_content: String,
+}
+
+#[derive(Serialize)]
+pub struct CommitData {
+    pub commit_id: i32,
+    // all these fields are note_x fields.
+    pub id: i64,
+    pub guid: String,
+    pub deck: String,
+    pub owner: i32,
+    pub last_update: String,
+    pub reviewed: bool,
+    pub fields: Vec<FieldsReviewInfo>,
+    pub new_tags: Vec<TagsInfo>,
+    pub removed_tags: Vec<TagsInfo>,
+}
+
+
+#[derive(Serialize)]
 pub struct FieldsInfo {
     pub id: i64,
     pub position: u32,

@@ -1,5 +1,6 @@
 
 use std::collections::HashSet;
+use std::thread::current;
 
 use rocket_auth::User;
 
@@ -97,6 +98,7 @@ pub async fn approve_tag_change(tag_id: i64, user: User) -> Result<String, Box<d
     }
     let note_id: i64 = rows[0].get(0);
 
+    // DUplicated CODE ARGHHH
     let update_query = "
     UPDATE tags SET reviewed = true WHERE id = $1 AND id IN (
         SELECT id FROM tags WHERE id = $1 AND note IN (
@@ -316,6 +318,26 @@ fn get_string_from_rationale(input: i32) -> &'static str {
     }
 }
 
+pub async fn get_commit_info(commit_id: i32) -> Result<CommitsOverview, Box<dyn std::error::Error>> {
+    let query = r#"    
+        SELECT c.commit_id, c.rationale,
+        TO_CHAR(c.timestamp, 'MM/DD/YYYY') AS last_update,
+        d.name
+        FROM commits c
+        JOIN decks d on d.id = c.deck
+        WHERE c.commit_id = $1
+    "#; 
+    let client = unsafe { database::TOKIO_POSTGRES_CLIENT.as_mut().unwrap() };
+    let row = client.query_one(query, &[&commit_id]).await?;
+    let commit = CommitsOverview {
+        id: row.get(0),
+        rationale: get_string_from_rationale(row.get(1)).into(),
+        timestamp: row.get(2),
+        deck: row.get(3)
+    };
+    Ok(commit)
+}
+
 pub async fn commits_review(uid: i32) -> Result<Vec<CommitsOverview>, Box<dyn std::error::Error>> {
     
     let query = r#"
@@ -327,8 +349,11 @@ pub async fn commits_review(uid: i32) -> Result<Vec<CommitsOverview>, Box<dyn st
         d.name
         FROM commits AS c
         LEFT JOIN owned d ON d.id = c.deck
+        LEFT JOIN notes n ON n.deck = c.deck
         WHERE
-            c.deck in (select id from owned)            
+            c.deck in (select id from owned) AND
+            (EXISTS (SELECT 1 FROM fields WHERE fields.note = n.id AND fields.reviewed = false AND fields.commit = c.commit_id) OR
+            EXISTS (SELECT 1 FROM tags WHERE tags.note = n.id AND tags.reviewed = false AND tags.commit = c.commit_id))            
         GROUP BY c.commit_id, c.rationale, d.name
         ORDER BY c.commit_id ASC
     "#;
@@ -346,6 +371,111 @@ pub async fn commits_review(uid: i32) -> Result<Vec<CommitsOverview>, Box<dyn st
     .collect::<Vec<_>>();
 
     Ok(rows)
+}
+
+
+pub async fn notes_by_commit(commit_id: i32) -> Result<Vec<CommitData>, Box<dyn std::error::Error>> {
+    let client = unsafe { database::TOKIO_POSTGRES_CLIENT.as_mut().unwrap() };
+
+    let get_notes = "
+        SELECT DISTINCT id FROM notes
+        WHERE notes.id IN (SELECT fields.note FROM fields WHERE fields.commit = $1 UNION SELECT tags.note FROM tags WHERE tags.commit = $1)
+    ";
+    let affected_notes = client.query(get_notes, &[&commit_id])
+    .await?
+    .into_iter()
+    .map(|row| row.get::<_, i64>("id"))
+    .collect::<Vec<i64>>();
+
+    if affected_notes.is_empty() {
+        return Err("No notes affected by this commit.".into());
+    }
+
+
+    let note_info_query = "
+        SELECT id, guid, TO_CHAR(last_update, 'MM/DD/YYYY HH12:MI AM') AS last_update, reviewed, 
+        (Select owner from decks where id = notes.deck), (select full_path from decks where id = notes.deck) as full_path
+        FROM notes
+        WHERE id = $1
+    ";
+
+    let fields_query = "
+        SELECT f1.id, f1.position, f1.content, COALESCE(f2.content, '') AS reviewed_content 
+        FROM fields f1 
+        LEFT JOIN fields f2 
+        ON f1.note = f2.note AND f1.position = f2.position AND f2.reviewed = true 
+        WHERE f1.reviewed = false AND f1.commit = $1 AND f1.note = $2
+        ORDER BY position
+    ";
+
+    let tags_query = "
+        SELECT id, content, action
+        FROM tags
+        WHERE commit = $1 and note = $2 and reviewed = false
+    ";
+   
+    let mut commit_info = vec![];
+    commit_info.reserve(affected_notes.len());
+
+    for note_id in affected_notes {
+        let mut current_note = CommitData {
+            commit_id,
+            id: 0,
+            guid: String::new(),
+            deck: String::new(),
+            owner: 0,
+            last_update: String::new(),
+            reviewed: false,
+            fields: Vec::new(),
+            new_tags: Vec::new(),
+            removed_tags: Vec::new(),
+        };
+    
+        // Fill generic note info
+        let note_res = client.query_one(note_info_query, &[&note_id]).await?;
+        let note_guid: String = note_res.get(1);
+        let note_last_update: String = note_res.get(2);
+        let note_reviewed: bool = note_res.get(3);
+        let note_owner: i32 = note_res.get(4);
+        let note_deck: String = note_res.get(5);
+
+        current_note.id = note_id;
+        current_note.guid = note_guid;
+        current_note.last_update = note_last_update;
+        current_note.reviewed = note_reviewed;
+        current_note.owner = note_owner;
+        current_note.deck = note_deck;
+
+        // Now get to the actual good bits (unreviewed material!)
+        let fields_rows = client.query(fields_query, &[&commit_id, &note_id]).await?;
+        for row in fields_rows {
+            let id = row.get(0);
+            let position = row.get(1);
+            let content = row.get(2);
+            let reviewed = row.get(3);
+            if let Some(content) = content {
+                current_note.fields.push(FieldsReviewInfo { id, position, content: ammonia::clean(content), reviewed_content: ammonia::clean(reviewed) });
+            }
+        
+        }
+        let tags_rows = client.query(tags_query, &[&commit_id, &note_id]).await?;
+        for row in tags_rows {
+            let id = row.get(0);
+            let content = row.get(1);
+            let action = row.get(2);
+            if let Some(content) = content {
+                if action { // New suggested tag
+                    current_note.new_tags.push(TagsInfo {id, content});
+                } else { // Tag got removed                    
+                    current_note.removed_tags.push(TagsInfo {id, content});
+                }
+            }
+        }
+        if current_note.fields.len() > 0 || current_note.new_tags.len() > 0 || current_note.removed_tags.len() > 0 {
+            commit_info.push(current_note);
+        }
+    }
+    Ok::<Vec<CommitData>, Box<dyn std::error::Error>>(commit_info)
 }
 
 pub async fn under_review(uid: i32) -> Result<Vec<ReviewOverview>, Box<dyn std::error::Error>> {
@@ -403,6 +533,57 @@ pub async fn get_notes_count_in_deck(deck: i64) -> Result<i64, Box<dyn std::erro
 
     let count: i64 = rows[0].get(0);
     Ok(count)
+}
+
+pub async fn merge_by_commit(commit_id: i32, approve: bool, user: User) -> Result<String, Box<dyn std::error::Error>> {
+    let client = unsafe { database::TOKIO_POSTGRES_CLIENT.as_mut().unwrap() };
+
+    let owner_check_row = client.query("SELECT 1 FROM decks WHERE (owner = $1 OR $2) AND id = (Select deck from commits where commit_id = $3)", &[&user.id(), &user.is_admin, &commit_id]).await?;
+    if owner_check_row.is_empty() {
+        println!("Access denied");
+        return Err("Access denied.".into());
+    }
+
+    let affected_tags = client.query("SELECT id FROM tags WHERE commit = $1", &[&commit_id])
+    .await?.into_iter().map(|row| row.get::<_, i64>("id")).collect::<Vec<i64>>();
+
+    let affected_notes = client.query("SELECT DISTINCT id FROM notes WHERE notes.id IN (SELECT fields.note FROM fields 
+                                       WHERE fields.commit = $1 UNION SELECT tags.note FROM tags WHERE tags.commit = $1) AND reviewed = false
+                                      ", &[&commit_id])
+    .await?.into_iter().map(|row| row.get::<_, i64>("id")).collect::<Vec<i64>>();
+
+    let affected_fields = client.query("SELECT id FROM fields WHERE commit = $1", &[&commit_id])
+    .await?.into_iter().map(|row| row.get::<_, i64>("id")).collect::<Vec<i64>>();
+
+    // Slightly less performant to do it in single queries than doing a bigger query here, but for readability and easier code maintenance, we keep it that way. 
+    // The performance difference is not relevant in this case
+    if approve {
+        for tag in affected_tags {
+            approve_tag_change(tag, user.clone()).await?;
+        }
+
+        for field in affected_fields {
+            approve_field_change(field, user.clone()).await?;
+        }
+
+        for note in affected_notes {
+            client.query("UPDATE notes SET reviewed = true WHERE id = $1", &[&note]).await?;        
+        }
+    } else {
+        for tag in affected_tags {
+            deny_tag_change(tag, user.clone()).await?;
+        }
+
+        for field in affected_fields {
+            deny_field_change(field, user.clone()).await?;
+        }
+
+        for note in affected_notes {
+            client.query("DELETE FROM notes WHERE id = $1", &[&note]).await?;        
+        }
+    }
+
+    Ok("Success".into())
 }
 
 pub async fn get_name_by_hash(deck: &String) -> Result<Option<String>, Box<dyn std::error::Error>> {
