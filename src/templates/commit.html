@@ -16,8 +16,10 @@
           <h5 class="card-title m-b-0">Review Commit from {{ commit.timestamp }}</h5>
           <p>Rationale: {{ commit.rationale }}</p>              
           <p>Deck: {{ commit.deck }}</p>        
+          {% if user and owned == true %}
           <a href="/ApproveCommit/{{commit.id}}" class="btn accept">Accept all Suggestions <span class="fa fa-check"></span></a>
           <a href="/DenyCommit/{{commit.id}}" class="btn deny">Deny all Suggestions <span class="fa fa-close"></span></a>
+          {% endif %} 
       </div>
     </div>
     <hr />

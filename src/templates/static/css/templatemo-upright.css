@@ -1,4 +1,8 @@
-html, body { overflow-x: hidden; }
+html, body { 
+	overflow-x: hidden;   
+	height: 100%;
+	margin: 0; 
+}
 body { font-family: 'Kumbh Sans', sans-serif; }
 div, a, p { color: #666666; }
 p, address { line-height: 1.8; }
@@ -116,8 +120,8 @@ hr { border-top: 4px solid #CCC; }
 	position: relative;
 	color: #006699;
 	font-size: 1.4rem;
-	padding-top: 15px;
-	padding-bottom: 15px;
+	padding-top: 12px;
+	padding-bottom: 12px;
 }
 
 .triangle-right {
@@ -152,12 +156,12 @@ hr { border-top: 4px solid #CCC; }
 
 .tm-copyright { padding: 50px 70px 20px 0; }
 
-@media (max-width: 1400px) {
+/* @media (max-width: 1400px) {
 	.tm-section-wrap {
 		width: calc(100% - 630px);
 		margin-left: 630px;
 	}
-}
+} */
 
 @media (max-width: 1200px) {
 	.tm-col-home {
@@ -208,8 +212,8 @@ hr { border-top: 4px solid #CCC; }
 	}
 
 	.tm-section-wrap {
-		width: calc(100% - 280px);
-		margin-left: 280px;		
+		width: 100%;
+		margin-left: 0;
 	}
 
 	.tm-section {

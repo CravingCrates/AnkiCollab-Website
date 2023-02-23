@@ -274,6 +274,8 @@ ins {
  .form-group {
    display: block;
    margin-bottom: 15px;
+   padding-left: 30px;
+   font-size: .9rem;
  }
  
  .form-group input {
@@ -296,7 +298,7 @@ ins {
    background-color: transparent;
    border: 2px solid #0079bf;
    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05), inset 0px -15px 10px -12px rgba(0, 0, 0, 0.05);
-   padding: 10px;
+   padding: 7px;
    display: inline-block;
    position: relative;
    vertical-align: middle;
@@ -305,14 +307,47 @@ ins {
  }
  
  .form-group input:checked + label:after {
-   content: '';
-   display: block;
-   position: absolute;
-   top: 5px;
-   left: 9px;
-   width: 6px;
-   height: 14px;
-   border: solid #0079bf;
-   border-width: 0 2px 2px 0;
-   transform: rotate(45deg);
+    content: '';
+    display: block;
+    position: absolute;
+    top: 5px;
+    left: 6px;
+    width: 6px;
+    height: 12px;
+    border: solid #0079bf;
+    border-width: 0 2px 2px 0;
+    transform: rotate(45deg);
  }
+
+ .panel-group .panel {
+  border-radius: 0;
+  box-shadow: none;
+  border-color: #EEEEEE;
+}
+
+.panel-default > .panel-heading {
+  padding: 0;
+  border-radius: 0;
+  color: #212121;
+  background-color: #FAFAFA;
+  border-color: #EEEEEE;
+}
+
+.panel-title {
+  font-size: 1rem;
+}
+
+.panel-title > a {
+  display: block;
+  padding: 15px;
+  text-decoration: none;
+}
+
+.more-less {
+  float: right;
+  color: #212121;
+}
+
+.panel-default > .panel-heading + .panel-collapse > .panel-body {
+  border-top-color: #EEEEEE;
+}

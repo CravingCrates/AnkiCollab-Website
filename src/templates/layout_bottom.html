@@ -5,5 +5,29 @@
             </div> <!-- .tm-main -->                      
         </div> <!-- .row -->
     </div> <!-- .container-fluid -->
+    <script>
+        
+$(document).ready(function () {
+
+    /*************** Navigation *****************/
+
+    $(".navbar-toggler").on("click", function(e) {
+        $(".tm-sidebar").toggleClass("show");
+        e.stopPropagation();
+    });
+
+    $("html").click(function(e) {
+        var sidebar = document.getElementById("tm-sidebar");
+
+        if (!sidebar.contains(e.target)) {
+            $(".tm-sidebar").removeClass("show");
+        }
+    });
+
+    $("#tm-sidebar .nav-link").click(function(e) {
+        $(".tm-sidebar").removeClass("show");
+    });
+});
+    </script>
 </body>
 </html>

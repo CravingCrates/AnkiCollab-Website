@@ -1,0 +1,35 @@
+User-agent: *
+Disallow: /search
+Disallow: /login
+Disallow: /register
+Disallow: /account
+
+Disallow: /cgi-bin/
+Disallow: /wp-admin/
+Disallow: /wp-includes/
+
+Disallow: /tags/
+Disallow: /category/
+
+Disallow: /*?*
+Disallow: /*.php$
+
+Sitemap: https://www.ankicollab.com/sitemap.xml
+
+User-agent: Googlebot
+Allow: /
+Disallow: /search
+Disallow: /login
+Disallow: /register
+Disallow: /account
+Disallow: /*?*
+Disallow: /*.php$
+
+User-agent: Bingbot
+Allow: /
+Disallow: /search
+Disallow: /login
+Disallow: /register
+Disallow: /account
+Disallow: /*?*
+Disallow: /*.php$

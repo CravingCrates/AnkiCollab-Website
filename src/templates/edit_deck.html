@@ -18,9 +18,16 @@
         </div>
         <div class="container-fluid neww">
           <form>
-            <h5 class="card-title m-b-0">Update the deck description</h5>
-            <textarea rows="4" cols="50" name="description">{{description}}</textarea>
-            <h5 class="card-title m-b-0">Select the protected fields</h5>
+            <div style="margin-top: 20px">
+              <h5 class="card-title m-b-0">Update the deck description</h5>
+              <textarea rows="5" cols="60" name="description">{{description}}</textarea>
+            </div>
+            <div style="margin-top: 20px">
+              <h5 class="card-title m-b-0">Make Deck private (unlisted)</h5>
+              <input type="checkbox" id="private" name="private" value="private" {% if private %} checked{% endif %}>
+              <label for="private">Private Deck</label>
+            </div>
+            <h5 class="card-title m-b-0" style="margin-top:20px">Select the protected fields</h5>
             <div class="panel-group" id="accordion" role="tablist" aria-multiselectable="true">
               {% for notetype in notetypes %}
               <div class="panel panel-default">
@@ -47,8 +54,8 @@
             </div><!-- panel-group -->
             <button class="btn btn-primary accept" type="submit">Save!</button>
           </form>
-          <div style="border: 1px solid red"> 
-            <h5 style="color:red">Danger Zone</h5>
+          <div style="border: 1px solid red; margin-top: 50px; padding: 10px"> 
+            <h5 style="color:red">Danger Zone</h5><br />
             <button class="btn btn-primary" id="delete-btn" type="button">Delete this Deck.</button>
             <p style="color:red">Deleting a deck will delete all the cards and subdecks in it. This action cannot be undone.</p>
           </div>
@@ -76,18 +83,23 @@
     const formData = {};    
     const checkboxes = document.querySelectorAll('input[type="checkbox"]');
     const description = document.querySelector('textarea[name="description"]').value;
+    const isPrivate = document.querySelector('input[name="private"]').checked;
 
     checkboxes.forEach(checkbox => {
-      const key = parseInt(checkbox.name, 10);
-      formData[key] = checkbox.checked;
+      if (checkbox.name !== "private") {
+        const key = parseInt(checkbox.name, 10);
+        formData[key] = checkbox.checked;
+      }
     });
 
     const data = {
       items: formData,      
-      description: description
+      description: description,
+      hash: '{{hash}}',
+      is_private: isPrivate
     };
 
-    fetch('/edit_deck', {
+    fetch('/EditDeck', {
       method: 'POST',
       body: JSON.stringify(data),
       headers: {

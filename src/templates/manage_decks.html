@@ -5,7 +5,7 @@
   <div class="col-12">
       <div class="card">
           <div class="card-body text-center">
-              <h5 class="card-title m-b-0">All Decks</h5>
+              <h5 class="card-title m-b-0">Edit your Decks</h5>
           </div>
           <link rel="stylesheet" href="https://cdn.datatables.net/1.10.2/css/jquery.dataTables.min.css">
           <script type="text/javascript" src="https://cdn.datatables.net/1.10.2/js/jquery.dataTables.min.js"></script>
@@ -23,11 +23,11 @@
                       <tbody class="customtable">
                         {% for deck in decks %}
                           <tr>
-                              <td><a href="/notes/{{deck.hash}}">{{ deck.last_update }}</a></td>
-                              <td><a href="/notes/{{deck.hash}}">{{ deck.name }}</a></td>
-                              <td><a href="/notes/{{deck.hash}}">{{ deck.desc | striptags | truncate(length=125) }}</a></td>
-                              <td><a href="/notes/{{deck.hash}}">{{ deck.notes }}</a></td>
-                              <td><a href="/notes/{{deck.hash}}">{{ deck.subscriptions }}</a></td>
+                              <td><a href="/EditDeck/{{deck.hash}}">{{ deck.last_update }}</a></td>
+                              <td><a href="/EditDeck/{{deck.hash}}">{{ deck.name }}</a></td>
+                              <td><a href="/EditDeck/{{deck.hash}}">{{ deck.desc | striptags | truncate(length=125) }}</a></td>
+                              <td><a href="/EditDeck/{{deck.hash}}">{{ deck.notes }}</a></td>
+                              <td><a href="/EditDeck/{{deck.hash}}">{{ deck.subscriptions }}</a></td>
                           </tr> 
                         {% endfor %}                         
                       </tbody>
