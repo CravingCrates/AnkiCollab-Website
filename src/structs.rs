@@ -98,6 +98,7 @@ pub struct DeckOverview {
     pub id: i64,
     pub notes: i64,
     pub children: Vec<BasicDeckInfo>,
+    pub subscriptions: i64,
 }
 
 #[derive(Serialize)]
@@ -121,6 +122,9 @@ pub struct NoteModel {
 }
 
 #[derive(Deserialize, Serialize)]
-pub struct ProtectedFieldsData {
-  pub items: HashMap<i64, bool>
+pub struct EditDecksData {
+  pub items: HashMap<i64, bool>,
+  pub description: String,
+  pub hash: String,
+  pub is_private: bool,
 }
