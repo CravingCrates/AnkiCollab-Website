@@ -125,6 +125,7 @@ pub struct NoteModel {
 pub struct EditDecksData {
   pub items: HashMap<i64, bool>,
   pub description: String,
+  pub media_url: String,
   pub hash: String,
   pub is_private: bool,
 }

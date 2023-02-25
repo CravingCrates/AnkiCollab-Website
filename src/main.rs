@@ -119,13 +119,21 @@ fn logout(auth: Auth<'_>) -> Result<content::RawHtml<String>, Error> {
 #[get("/EditDeck/<deck_hash>")]
 async fn edit_deck(user: User, deck_hash: String) -> content::RawHtml<String> {
     let client = unsafe { database::TOKIO_POSTGRES_CLIENT.as_mut().unwrap() };
-    let owned_info = client.query("Select owner, description, private from decks where human_hash = $1", &[&deck_hash]).await.expect("Error preparing edit deck statement");
+    let owned_info = client.query("Select owner, description, private, id from decks where human_hash = $1", &[&deck_hash]).await.expect("Error preparing edit deck statement");
     if owned_info.is_empty() {
         return content::RawHtml(format!("Unauthorized."))
     }
     let owner: i32 = owned_info[0].get(0);
     if owner != user.id() {
         return content::RawHtml(format!("Unauthorized."))
+    }
+
+    let deck_id: i64 = owned_info[0].get(3);
+    let media_url_info = client.query("Select url from mediaFolders where deck = $1", &[&deck_id]).await.expect("Error preparing edit deck statement (2)");
+    
+    let mut media_url = String::new();
+    if !media_url_info.is_empty() {
+        media_url = media_url_info[0].get(0);
     }
 
     let desc: String = owned_info[0].get(1);
@@ -141,6 +149,7 @@ async fn edit_deck(user: User, deck_hash: String) -> content::RawHtml<String> {
     context.insert("user", &user);
     context.insert("hash", &deck_hash);
     context.insert("description", &desc);
+    context.insert("media_url", &media_url);
     context.insert("private", &is_private);
 
     let rendered_template = TEMPLATES.render("edit_deck.html", &context).expect("Failed to render template");
@@ -153,6 +162,13 @@ async fn post_edit_deck(user: User, edit_deck_data: Json<structs::EditDecksData>
     let client = unsafe { database::TOKIO_POSTGRES_CLIENT.as_mut().unwrap() };
     let data = edit_deck_data.into_inner();
     
+    let owned_info = client.query("Select id from decks where human_hash = $1 and owner = $2", &[&data.hash, &user.id()]).await.expect("Error preparing edit deck statement");
+    if owned_info.is_empty() {
+        return Ok(Redirect::to("/"))
+    }
+
+    let deck_id: i64 = owned_info[0].get(0);
+
     for (field_id, checked) in data.items.iter() {
         client.query("
         UPDATE notetype_field 
@@ -174,6 +190,8 @@ async fn post_edit_deck(user: User, edit_deck_data: Json<structs::EditDecksData>
         SET description = $1, private = $2 
         WHERE human_hash = $3
         AND owner = $4", &[&data.description, &data.is_private, &data.hash, &user.id()]).await?;
+
+    client.query("INSERT INTO mediaFolders (url, deck) VALUES($1, $2) ON CONFLICT(deck) DO UPDATE SET url = $1", &[&data.media_url, &deck_id]).await?;
 
     return Ok(Redirect::to(format!("/EditDeck/{}", data.hash)));
 }

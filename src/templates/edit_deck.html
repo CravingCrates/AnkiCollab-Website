@@ -8,6 +8,15 @@
     padding: 0;
   }
 
+  
+input:valid {
+  background-color: palegreen;
+}
+
+input:invalid {
+  background-color: lightpink;
+}
+
 </style>
 <div class="container">
   <div class="row">
@@ -18,6 +27,10 @@
         </div>
         <div class="container-fluid neww">
           <form>
+            <div style="margin-top: 20px">
+              <h5 class="card-title m-b-0">Update the Media Link (See FAQ for more information)</h5>
+              <input type="text" size=60 id="media_url" name="media_url" value="{{media_url}}" pattern="https://mega\.nz/((folder)/([^#]+)#(.+)|#(F?)!([^!]+)!(.+))">
+            </div>
             <div style="margin-top: 20px">
               <h5 class="card-title m-b-0">Update the deck description</h5>
               <textarea rows="5" cols="60" name="description">{{description}}</textarea>
@@ -83,6 +96,7 @@
     const formData = {};    
     const checkboxes = document.querySelectorAll('input[type="checkbox"]');
     const description = document.querySelector('textarea[name="description"]').value;
+    const media_url = document.querySelector('input[name="media_url"]').value;
     const isPrivate = document.querySelector('input[name="private"]').checked;
 
     checkboxes.forEach(checkbox => {
@@ -95,6 +109,7 @@
     const data = {
       items: formData,      
       description: description,
+      media_url: media_url,
       hash: '{{hash}}',
       is_private: isPrivate
     };
