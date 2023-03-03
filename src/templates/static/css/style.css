@@ -235,12 +235,12 @@ th {
 }
 
 ins {
-   background: lightgreen;
+   background-color: #abf2bc;
    text-decoration: none;
  }
  
  del {
-   background: pink;
+   background-color: rgba(255,129,130,0.4);
  }
  
  .btn {

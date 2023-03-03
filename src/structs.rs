@@ -45,6 +45,7 @@ pub struct CommitData {
     pub guid: String,
     pub deck: String,
     pub owner: i32,
+    pub note_model: i64,
     pub last_update: String,
     pub reviewed: bool,
     pub fields: Vec<FieldsReviewInfo>,
@@ -79,6 +80,7 @@ pub struct NoteData {
     pub unconfirmed_fields: Vec<FieldsInfo>,
     pub new_tags: Vec<TagsInfo>,
     pub removed_tags: Vec<TagsInfo>,
+    pub note_model_fields: Vec<String>,
 }
 
 /* Decks */

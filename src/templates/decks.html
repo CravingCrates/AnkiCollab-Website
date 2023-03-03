@@ -25,7 +25,7 @@
                           <tr>
                               <td><a href="/notes/{{deck.hash}}">{{ deck.last_update }}</a></td>
                               <td><a href="/notes/{{deck.hash}}">{{ deck.name }}</a></td>
-                              <td><a href="/notes/{{deck.hash}}">{{ deck.desc | striptags | truncate(length=125) }}</a></td>
+                              <td><a href="/notes/{{deck.hash}}">{{ deck.desc | replace(from="&nbsp;", to=" ") | striptags | truncate(length=125) }}</a></td>
                               <td><a href="/notes/{{deck.hash}}">{{ deck.notes }}</a></td>
                               <td><a href="/notes/{{deck.hash}}">{{ deck.subscriptions }}</a></td>
                           </tr> 
@@ -40,7 +40,8 @@
 <script>
   $(document).ready(function() {
     $('#deckOverview').DataTable({
-      order: [[0, 'desc']],
+      order: [[4, 'desc']],
+      "pageLength": 25
   });
 } );
 </script>

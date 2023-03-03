@@ -4,6 +4,9 @@ use rocket_auth::User;
 use crate::database;
 use crate::structs::*;
 
+use std::collections::HashMap;
+
+
 async fn update_note_timestamp(note_id: i64)  -> Result<(), Box<dyn std::error::Error>> { 
     let client = unsafe { database::TOKIO_POSTGRES_CLIENT.as_mut().unwrap() };
     let query1 = "
@@ -402,6 +405,40 @@ pub async fn commits_review(uid: i32) -> Result<Vec<CommitsOverview>, Box<dyn st
     Ok(rows)
 }
 
+pub async fn notemodels_by_commit(commit_id: i32) -> Result<HashMap<i64, Vec<String>>, Box<dyn std::error::Error>> {
+    // Returns a map of notetypes with a vector of the field names of that notetype
+    let client = unsafe { database::TOKIO_POSTGRES_CLIENT.as_mut().unwrap() };
+    let get_notetypes = "
+        SELECT DISTINCT notetype FROM notes
+        WHERE notes.id IN (SELECT fields.note FROM fields WHERE fields.commit = $1 UNION SELECT tags.note FROM tags WHERE tags.commit = $1)
+    ";
+    let affected_notetypes = client.query(get_notetypes, &[&commit_id])
+    .await?
+    .into_iter()
+    .map(|row| row.get::<_, i64>("notetype"))
+    .collect::<Vec<i64>>();
+
+    if affected_notetypes.is_empty() {
+        return Err("No notetypes affected by this commit.".into());
+    }
+
+    let mut notetype_map = HashMap::new();
+
+    for notetype in affected_notetypes {
+        let get_fields = "
+            SELECT name FROM notetype_field
+            WHERE notetype = $1 order by position
+        ";
+        let fields = client.query(get_fields, &[&notetype])
+        .await?
+        .into_iter()
+        .map(|row| row.get::<_, String>("name"))
+        .collect::<Vec<String>>();
+        notetype_map.insert(notetype, fields);
+    }
+
+    Ok(notetype_map)
+}
 
 pub async fn notes_by_commit(commit_id: i32) -> Result<Vec<CommitData>, Box<dyn std::error::Error>> {
     let client = unsafe { database::TOKIO_POSTGRES_CLIENT.as_mut().unwrap() };
@@ -423,7 +460,7 @@ pub async fn notes_by_commit(commit_id: i32) -> Result<Vec<CommitData>, Box<dyn 
 
     let note_info_query = "
         SELECT id, guid, TO_CHAR(last_update, 'MM/DD/YYYY HH12:MI AM') AS last_update, reviewed, 
-        (Select owner from decks where id = notes.deck), (select full_path from decks where id = notes.deck) as full_path
+        (Select owner from decks where id = notes.deck), (select full_path from decks where id = notes.deck) as full_path, notetype
         FROM notes
         WHERE id = $1
     ";
@@ -453,6 +490,7 @@ pub async fn notes_by_commit(commit_id: i32) -> Result<Vec<CommitData>, Box<dyn 
             guid: String::new(),
             deck: String::new(),
             owner: 0,
+            note_model: 0,
             last_update: String::new(),
             reviewed: false,
             fields: Vec::new(),
@@ -467,12 +505,14 @@ pub async fn notes_by_commit(commit_id: i32) -> Result<Vec<CommitData>, Box<dyn 
         let note_reviewed: bool = note_res.get(3);
         let note_owner: i32 = note_res.get(4);
         let note_deck: String = note_res.get(5);
+        let note_model: i64 = note_res.get(6);
 
         current_note.id = note_id;
         current_note.guid = note_guid;
         current_note.last_update = note_last_update;
         current_note.reviewed = note_reviewed;
         current_note.owner = note_owner;
+        current_note.note_model = note_model;
         current_note.deck = note_deck;
 
         // Now get to the actual good bits (unreviewed material!)
@@ -645,7 +685,7 @@ pub async fn get_note_data(note_id: i64) -> Result<NoteData, Box<dyn std::error:
 
     let note_query = "
         SELECT id, guid, TO_CHAR(last_update, 'MM/DD/YYYY HH12:MI AM') AS last_update, reviewed, 
-        (Select owner from decks where id = notes.deck), (select full_path from decks where id = notes.deck) as full_path
+        (Select owner from decks where id = notes.deck), (select full_path from decks where id = notes.deck) as full_path, notetype
         FROM notes
         WHERE id = $1
     ";
@@ -661,6 +701,11 @@ pub async fn get_note_data(note_id: i64) -> Result<NoteData, Box<dyn std::error:
         WHERE note = $1
     ";
 
+    let notetype_query = "
+    SELECT name FROM notetype_field
+    WHERE notetype = $1 order by position
+    ";    
+
     let mut current_note = NoteData {
         id: 0,
         guid: String::new(),
@@ -673,6 +718,7 @@ pub async fn get_note_data(note_id: i64) -> Result<NoteData, Box<dyn std::error:
         unconfirmed_fields: Vec::new(),
         new_tags: Vec::new(),
         removed_tags: Vec::new(),
+        note_model_fields: Vec::new(),
     };
 
     let note_res = client.query_one(note_query, &[&note_id]).await?;
@@ -681,6 +727,7 @@ pub async fn get_note_data(note_id: i64) -> Result<NoteData, Box<dyn std::error:
     let note_reviewed: bool = note_res.get(3);
     let note_owner: i32 = note_res.get(4);
     let note_deck: String = note_res.get(5);
+    let notetype: i64 = note_res.get(6);
 
     current_note.id = note_id;
     current_note.guid = note_guid;
@@ -688,6 +735,14 @@ pub async fn get_note_data(note_id: i64) -> Result<NoteData, Box<dyn std::error:
     current_note.reviewed = note_reviewed;
     current_note.owner = note_owner;
     current_note.deck = note_deck;
+
+    let notetype_fields = client.query(notetype_query, &[&notetype])
+    .await?
+    .into_iter()
+    .map(|row| row.get::<_, String>("name"))
+    .collect::<Vec<String>>();
+
+    current_note.note_model_fields = notetype_fields;
 
     let fields_rows = client.query(fields_query, &[&current_note.id]).await?;
     let tags_rows = client.query(tags_query, &[&current_note.id]).await?;

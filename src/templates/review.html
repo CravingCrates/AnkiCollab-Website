@@ -34,7 +34,7 @@
             <div><!-- Left Side -->
               <div><h4>Fields:</h1>
                   {% for field in note.reviewed_fields %}
-                    <span class="counter">Field {{field.position}}</span>
+                    <span class="counter">{{note.note_model_fields[field.position]}}</span>
                     <div class="note_fields_highlighted" data-original='{{ field.content }}' data-new-content='{{field.content}}'></div>
                   {% endfor %}
               </div>
@@ -47,7 +47,7 @@
             <div> <!-- Right Side -->
               <div><h4>Suggested Changes:</h1>
                 {% for field in note.unconfirmed_fields %}
-                  <span class="counter">Field {{field.position}}</span>
+                  <span class="counter">{{note.note_model_fields[field.position]}}</span>
                   {% if user and note.owner == user.id %}
                     <a href="/AcceptField/{{field.id}}" class="btn accept"><span class="fa fa-check"></span></a><a href="/DenyField/{{field.id}}" class="btn deny"><span class="fa fa-close"></span></a>
                   {% endif %}

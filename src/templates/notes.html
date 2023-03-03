@@ -1,14 +1,19 @@
 {% include "layout_top.html" %}
+<style>
+  .highlighted-links a {
+    text-decoration: underline;
+  }
+</style>
 <div class="container">
   <div class="row">
   <div class="col-12">
       <div class="card">
           <div class="card-body text-center">
               <h5 class="card-title m-b-0">Notes in Deck {{ deck.name }}</h5>
-              <p>To Subscribe to this deck, use Key: <span style="font-weight:bold; color: #006699;">{{ deck.hash }}</span></p>
+              <p>To Subscribe to this deck, use Key: <span style="font-weight:bold; color: #006699;">{{ deck.hash }}</span> &nbsp;&nbsp;&nbsp;<a href="https://github.com/CravingCrates/AnkiCollab-Plugin/blob/main/getting_started_subscriber.md#adding-the-key-to-anki" target="_blank">(?)</a></p>
           </div>
           <link rel="stylesheet" href="https://cdn.datatables.net/1.10.2/css/jquery.dataTables.min.css">
-          <p>{{ deck.desc | safe }}</p>
+          <div class="highlighted-links">{{ deck.desc | safe }}</div>
           <script type="text/javascript" src="https://cdn.datatables.net/1.10.2/js/jquery.dataTables.min.js"></script>
 	{% if deck.children |length > 0 %}
  	  <br /><h5>Subdecks:</h5>

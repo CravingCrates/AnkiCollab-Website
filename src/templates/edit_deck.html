@@ -24,6 +24,7 @@ input:invalid {
       <div class="card">
         <div class="card-body text-center">
           <h4 class="card-title m-b-0">Edit your deck</h5>
+          <p>Subscription Key: <span style="font-weight:bold; color: #006699;">{{ hash }}</span></p>
         </div>
         <div class="container-fluid neww">
           <form>
@@ -65,7 +66,7 @@ input:invalid {
               </div>
               {% endfor %}          
             </div><!-- panel-group -->
-            <button class="btn btn-primary accept" type="submit">Save!</button>
+            <button class="btn btn-primary accept" type="submit" style="margin-top: 50px;">Save all changes!</button>
           </form>
           <div style="border: 1px solid red; margin-top: 50px; padding: 10px"> 
             <h5 style="color:red">Danger Zone</h5><br />

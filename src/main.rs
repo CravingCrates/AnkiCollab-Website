@@ -1,4 +1,3 @@
-#[macro_use]
 extern crate rocket;
 
 #[macro_use(lazy_static)]
@@ -251,6 +250,11 @@ async fn review_commit(commit_id: i32, user: User) -> content::RawHtml<String> {
         return content::RawHtml(format!("Invalid commit."))
     }
     
+    let notemodels = match decks::notemodels_by_commit(commit_id).await {
+        Ok(notemodels) => notemodels,
+        Err(error) => return content::RawHtml(format!("Error: {}", error)),
+    };
+
     let commit_owner: i32 = owned_info[0].get(0);
     let owned: bool = commit_owner == user.id();
 
@@ -258,6 +262,7 @@ async fn review_commit(commit_id: i32, user: User) -> content::RawHtml<String> {
     context.insert("commit", &commit);
     context.insert("user", &user);
     context.insert("owned", &owned);
+    context.insert("notemodels", &notemodels);
     
     let rendered_template = TEMPLATES.render("commit.html", &context).expect("Failed to render template");
 
@@ -411,10 +416,10 @@ async fn all_reviews(user: User) -> content::RawHtml<String> {
 #[get("/decks")]
 async fn deck_overview(user: Option<User>) -> content::RawHtml<String> {
     let mut decks:Vec<DeckOverview> = vec![];
-    // let mut user_id: i32 = 1; // TODO Retrieve from user session
-    // if user.is_some() {
-    //     user_id = user.as_ref().unwrap().id();
-    // }
+    let mut user_id: i32 = 1;
+    if user.is_some() {
+        user_id = user.as_ref().unwrap().id();
+    }
     let client = unsafe { database::TOKIO_POSTGRES_CLIENT.as_mut().unwrap() };
     let stmt = client
     .prepare("
@@ -427,13 +432,13 @@ async fn deck_overview(user: Option<User>) -> content::RawHtml<String> {
             TO_CHAR(last_update, 'MM/DD/YYYY') AS last_update,
             (SELECT COUNT(*) FROM subscriptions WHERE deck_id = decks.id) AS subs
         FROM decks 
-        WHERE parent IS NULL and private = false
+        WHERE parent IS NULL and (private = false or owner = $1)
     ")
     .await
     .expect("Error preparing decks overview statement");
 
     let rows = client
-                .query(&stmt, &[])
+                .query(&stmt, &[&user_id])
                 .await.expect("Error executing decks overview statement");
 
     for row in rows {
