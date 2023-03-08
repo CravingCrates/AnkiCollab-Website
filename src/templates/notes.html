@@ -2,22 +2,42 @@
 <style>
   .highlighted-links a {
     text-decoration: underline;
+    margin-top: 2rem;
+  }
+
+  #copylink {
+    padding: 0 1rem; 
+    background: linear-gradient(rgba(0,0,0,0) 0%,rgba(0,0,0,0.1) 100%),gray; 
+    display: inline-block; 
+    background-color: #006699;     
+    color: #FFF;
+    text-decoration: none;
+  }
+  
+  .sketchy {
+    margin-bottom:5rem;
+    border: solid gray 1px;
+    padding: 25px;
+    border-radius: 9px;
+    border-style: outset;
   }
 </style>
+
 <div class="container">
   <div class="row">
   <div class="col-12">
       <div class="card">
           <div class="card-body text-center">
-              <h5 class="card-title m-b-0">Notes in Deck {{ deck.name }}</h5>
-              <p>To Subscribe to this deck, use Key: <span style="font-weight:bold; color: #006699;">{{ deck.hash }}</span> &nbsp;&nbsp;&nbsp;<a href="https://github.com/CravingCrates/AnkiCollab-Plugin/blob/main/getting_started_subscriber.md#adding-the-key-to-anki" target="_blank">(?)</a></p>
+              <h5 class="card-title m-b-0">Notes in <i>{{ deck.name }}</i></h5>
+              <p>To Subscribe to this deck, use Key: <span id="subkey" style="font-weight:bold; color: #006699;">{{ deck.hash }}</span> &nbsp;&nbsp;&nbsp;<a href="https://github.com/CravingCrates/AnkiCollab-Plugin/blob/main/getting_started_subscriber.md#adding-the-key-to-anki" target="_blank">(?)</a></p>
+              <p><a id="copylink" href="#" onclick="CopyToClipboard('subkey');return false;">Copy Key to Clipboard</a></p>
           </div>
           <link rel="stylesheet" href="https://cdn.datatables.net/1.10.2/css/jquery.dataTables.min.css">
-          <div class="highlighted-links">{{ deck.desc | safe }}</div>
+          <div class="highlighted-links sketchy">{{ deck.desc | safe }}</div>
           <script type="text/javascript" src="https://cdn.datatables.net/1.10.2/js/jquery.dataTables.min.js"></script>
 	{% if deck.children |length > 0 %}
  	  <br /><h5>Subdecks:</h5>
-		<div class="table-responsive container">
+		<div class="table-responsive container" style="margin-top:20px">
                 <table id="burr" class="table table-striped">
                   <thead>
                     <tr>
@@ -28,7 +48,7 @@
                     </tr>
                   </thead>
                   <tbody>
-                    {% for child in deck.children %}
+                    {% for child in deck.children | sort(attribute="name") %}
                     <tr>
                       <td><a href="/notes/{{ child.human_hash }}">{{ child.name }}</a></td>
                     </tr> 
@@ -70,4 +90,17 @@
     $('#notes').DataTable();
 } );
 </script>
+
+<script>
+  function CopyToClipboard(id)
+  {
+  var r = document.createRange();
+  r.selectNode(document.getElementById(id));
+  window.getSelection().removeAllRanges();
+  window.getSelection().addRange(r);
+  document.execCommand('copy');
+  window.getSelection().removeAllRanges();
+  }
+  </script>
+
 {% include "layout_bottom.html" %}

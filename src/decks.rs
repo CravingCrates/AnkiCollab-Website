@@ -790,23 +790,20 @@ pub async fn get_note_data(note_id: i64) -> Result<NoteData, Box<dyn std::error:
 // Only show at most 1k cards. everything else is too much for the website to load. TODO Later: add incremental loading instead 
 pub async fn retrieve_notes(deck: &String) -> std::result::Result<Vec<Note>, Box<dyn std::error::Error>> {
     let query = r#"
-                SELECT n.id, n.guid,
-                    CASE
-                        WHEN n.reviewed = false THEN 0
-                        WHEN n.reviewed = true AND EXISTS (SELECT 1 FROM fields WHERE fields.note = n.id AND fields.reviewed = false) THEN 1
-                        WHEN n.reviewed = true AND EXISTS (SELECT 1 FROM tags WHERE tags.note = n.id AND tags.reviewed = false) THEN 1
-                        ELSE 2
-                    END AS status,
-                    TO_CHAR(n.last_update, 'MM/DD/YYYY') AS last_update,
-                    coalesce(string_agg(f.content, ','), '') AS content
-                FROM notes AS n
-                LEFT JOIN notetype AS nt ON n.notetype = nt.id
-                LEFT JOIN fields AS f ON n.id = f.note
-                INNER JOIN decks AS d ON n.deck = d.id
-                WHERE d.human_hash = $1
-                GROUP BY n.id, n.guid, n.reviewed
-                ORDER BY n.id ASC LIMIT 1000
-        "#;
+        SELECT n.id, n.guid,
+            CASE
+                WHEN n.reviewed = false THEN 0
+                WHEN EXISTS (SELECT 1 FROM fields WHERE fields.note = n.id AND fields.reviewed = false) OR EXISTS (SELECT 1 FROM tags WHERE tags.note = n.id AND tags.reviewed = false) THEN 1
+                ELSE 2
+            END AS status,
+            TO_CHAR(n.last_update, 'MM/DD/YYYY') AS last_update,
+            (SELECT coalesce(string_agg(f.content, ','), '') FROM fields AS f WHERE f.note = n.id LIMIT 2) AS content
+        FROM notes AS n
+        INNER JOIN decks AS d ON n.deck = d.id
+        WHERE d.human_hash = $1
+        ORDER BY n.id ASC
+        LIMIT 1000;
+    "#;
     let client = unsafe { database::TOKIO_POSTGRES_CLIENT.as_mut().unwrap() };
     
     let rows = client.query(query, &[&deck])
