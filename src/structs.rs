@@ -130,4 +130,12 @@ pub struct EditDecksData {
   pub media_url: String,
   pub hash: String,
   pub is_private: bool,
+  pub changelog: String,
+}
+
+#[derive(Deserialize, Serialize)]
+pub struct ChangelogInfo {
+    pub id: i64,
+    pub message: String,
+    pub timestamp: String,
 }

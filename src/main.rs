@@ -143,6 +143,11 @@ async fn edit_deck(user: User, deck_hash: String) -> content::RawHtml<String> {
         Err(error) => return content::RawHtml(format!("Error: {}", error)),
     };
 
+    let changelogs = match decks::get_changelogs(&deck_hash).await {
+        Ok(cl) => cl,
+        Err(error) => return content::RawHtml(format!("Error: {}", error)),
+    };
+
     let mut context = tera::Context::new();
     context.insert("notetypes", &notemodels);    
     context.insert("user", &user);
@@ -150,6 +155,7 @@ async fn edit_deck(user: User, deck_hash: String) -> content::RawHtml<String> {
     context.insert("description", &desc);
     context.insert("media_url", &media_url);
     context.insert("private", &is_private);
+    context.insert("changelogs", &changelogs);
 
     let rendered_template = TEMPLATES.render("edit_deck.html", &context).expect("Failed to render template");
     content::RawHtml(rendered_template)
@@ -192,7 +198,19 @@ async fn post_edit_deck(user: User, edit_deck_data: Json<structs::EditDecksData>
 
     client.query("INSERT INTO mediaFolders (url, deck) VALUES($1, $2) ON CONFLICT(deck) DO UPDATE SET url = $1", &[&data.media_url, &deck_id]).await?;
 
+    if data.changelog != "" {
+        decks::insert_new_changelog(&data.hash, &data.changelog).await.expect("Failed to insert new changelog");
+    }
+    
     return Ok(Redirect::to(format!("/EditDeck/{}", data.hash)));
+}
+
+#[get("/DeleteChangelog/<changelog_id>")]
+async fn delete_changelog(user: User, changelog_id: i64) -> Result<Redirect, Error> {
+    match decks::delete_changelog(changelog_id, user.id()).await {
+        Ok(hash) => return Ok(Redirect::to(format!("/EditDeck/{}", hash))),
+        Err(_err) => return Ok(Redirect::to("/")),
+    }
 }
 
 #[get("/DeleteDeck/<deck_hash>")]
@@ -552,7 +570,7 @@ async fn main() {
                 review_note, accept_note, deny_note, all_reviews, 
                 review_commit, approve_commit, deny_commit,
                 accept_field, deny_field, accept_tag, deny_tag,
-                edit_deck, post_edit_deck, delete_deck,
+                edit_deck, post_edit_deck, delete_deck, delete_changelog,
                 index, terms, privacy,
                 get_login, post_login, logout,
                 post_signup, get_signup

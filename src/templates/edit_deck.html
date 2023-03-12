@@ -66,6 +66,30 @@ input:invalid {
               </div>
               {% endfor %}          
             </div><!-- panel-group -->
+            <div style="margin-top: 20px">
+              <h5 class="card-title m-b-0">Add new changelog message</h5>
+              <textarea rows="5" cols="60" name="changelog"></textarea>
+              <div class="panel-group" id="accordion2" style="margin-top:20px" role="tablist" aria-multiselectable="true">
+                {% for changelog in changelogs %}
+                <div class="panel panel-default">
+                    <div class="panel-heading" role="tab" id="headingC{{changelog.id}}">
+                        <h4 class="panel-title">
+                            <a role="button" data-toggle="collapse" data-parent="#accordion2" href="#collapseC{{changelog.id}}" aria-expanded="true" aria-controls="collapseC{{changelog.id}}">
+                                <i class="more-less fa-solid fa-plus"></i>
+                                {{changelog.timestamp}}
+                            </a>
+                        </h4>
+                    </div>
+                    <div id="collapseC{{changelog.id}}" class="panel-collapse collapse" role="tabpanel" aria-labelledby="headingC{{changelog.id}}">
+                        <div class="panel-body">
+                          <a style="float:right; margin: 5px" href="/DeleteChangelog/{{changelog.id}}"><i class="fa-solid fa-trash-can"></i></a>
+                          {{changelog.message}}
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}          
+              </div><!-- panel-group -->
+            </div>
             <button class="btn btn-primary accept" type="submit" style="margin-top: 50px;">Save all changes!</button>
           </form>
           <div style="border: 1px solid red; margin-top: 50px; padding: 10px"> 
@@ -99,6 +123,7 @@ input:invalid {
     const description = document.querySelector('textarea[name="description"]').value;
     const media_url = document.querySelector('input[name="media_url"]').value;
     const isPrivate = document.querySelector('input[name="private"]').checked;
+    const changelog = document.querySelector('textarea[name="changelog"]').value;
 
     checkboxes.forEach(checkbox => {
       if (checkbox.name !== "private") {
@@ -112,7 +137,8 @@ input:invalid {
       description: description,
       media_url: media_url,
       hash: '{{hash}}',
-      is_private: isPrivate
+      is_private: isPrivate,
+      changelog: changelog
     };
 
     fetch('/EditDeck', {
