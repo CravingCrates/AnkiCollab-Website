@@ -1,0 +1,83 @@
+{% include "layout_top.html" %}
+<div class="container">
+  <div class="row">
+    <div class="col-12">
+      <div class="card">
+        <div class="card-body text-center">
+          <h4 class="card-title m-b-0">Manage your Maintainers</h5>
+        </div>
+        <div class="container-fluid neww">
+          <div style="margin-top: 20px; margin-bottom: 5rem">
+            <h5 class="card-title m-b-0">Add a new maintainer:</h5>
+            <input style="width:300px" type="email" id="email" name="email" placeholder="Email" required>
+            <button type="button" class="btn btn-primary accept" onclick="addMaintainer()" style="width: 75px;margin-top: 0px;">Add</button>
+            <br />
+            <span id="status"></span>
+          </div>
+          <link rel="stylesheet" href="https://cdn.datatables.net/1.10.2/css/jquery.dataTables.min.css">
+          <script type="text/javascript" src="https://cdn.datatables.net/1.10.2/js/jquery.dataTables.min.js"></script>
+              <div class="table-responsive">
+                  <table name="maintainer" id="maintainer" class="table table-striped">
+                      <thead class="thead-light">
+                          <tr>
+                              <th scope="col">Email</th>
+                              <th scope="col">Delete</th>
+                          </tr>
+                      </thead>
+                      <tbody class="customtable">
+                        {% for email in maintainers %}
+                          <tr>
+                              <td>{{ email }}</td>
+                              <td><a href="javascript:void(0);" onclick="removeMaintainer('{{email}}')"><i class="fa-solid fa-trash-can"></i></a></td>
+                          </tr> 
+                        {% endfor %}                         
+                      </tbody>
+                  </table>
+              </div>
+          
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  $(document).ready(function() {
+    $('#maintainer').DataTable({});
+  });
+
+  function sendData(action, email) {
+    const data = {
+      deck: '{{hash}}',      
+      email: email,
+      action: action
+    };
+  
+    fetch('/Maintainers', {
+      method: 'POST',
+      body: JSON.stringify(data),
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    })
+    .then(response => response.text())
+    .then(text => {
+      const statusElement = document.getElementById("status");
+      statusElement.innerText = text;
+      if (text === "added" || text === "removed") {
+        window.location.reload(); // reload to update the table
+      }
+    })
+    .catch(error => console.error(error));  
+  }
+
+  function addMaintainer() {
+    const email = document.querySelector('input[name="email"]').value;
+    sendData(1, email);    
+  }
+
+  function removeMaintainer(email) {
+    sendData(0, email);
+  }
+</script>
+{% include "layout_bottom.html" %}

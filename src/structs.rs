@@ -139,3 +139,10 @@ pub struct ChangelogInfo {
     pub message: String,
     pub timestamp: String,
 }
+
+#[derive(Deserialize, Serialize)]
+pub struct UpdateMaintainer {
+    pub deck: String,
+    pub email: String,
+    pub action: i32, // 1 = add, 0 = remove
+}

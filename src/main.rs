@@ -115,12 +115,73 @@ fn logout(auth: Auth<'_>) -> Result<content::RawHtml<String>, Error> {
     Ok(content::RawHtml(rendered_template))
 }
 
+async fn render_maintainers(deck_hash: &String, deck_id: i64, user: User) -> content::RawHtml<String> {
+    
+    // Get Maintainers by deck id
+    let maintainers = match decks::get_maintainers(deck_id).await {
+        Ok(maintainers) => maintainers,
+        Err(e) => {
+            println!("Error getting maintainers: {}", e);
+            return content::RawHtml(format!("Error getting maintainers."))
+        }
+    };
+
+    let mut context = tera::Context::new();
+    context.insert("maintainers", &maintainers);   
+    context.insert("hash", &deck_hash);   
+    context.insert("user", &user);
+
+    let rendered_template = TEMPLATES.render("maintainers.html", &context).expect("Failed to render template");
+    content::RawHtml(rendered_template)
+}
+
+#[post("/Maintainers", format = "application/json", data = "<edit_maintainer>")]
+async fn post_maintainers(user: User, edit_maintainer: Json<structs::UpdateMaintainer>) -> String {
+    let client = unsafe { database::TOKIO_POSTGRES_CLIENT.as_mut().unwrap() };
+    let data = edit_maintainer.into_inner();
+    
+    let owned_info = client.query("Select id from decks where human_hash = $1 and owner = $2", &[&data.deck, &user.id()]).await.expect("Error preparing edit deck statement");
+    if owned_info.is_empty() {
+        return "Unauthorized.".into();
+    }
+    let deck_id: i64 = owned_info[0].get(0);
+    
+    // Add new maintainer    
+    let mut status = String::new();
+    if data.action == 1 {
+        status = match decks::add_maintainer(deck_id, data.email).await {
+            Ok(_res) => "added".to_owned(),
+            Err(e) => e.to_string(),
+        };
+    } else {
+        // Delete existing maintainer
+        status = match decks::remove_maintainer(deck_id, data.email).await {
+            Ok(_res) => "removed".to_owned(),
+            Err(e) => e.to_string(),
+        };
+    }
+        
+    return status;
+}
+
+#[get("/Maintainers/<deck_hash>")]
+async fn show_maintainers(user: User, deck_hash: String) -> content::RawHtml<String> {
+    let client = unsafe { database::TOKIO_POSTGRES_CLIENT.as_mut().unwrap() };
+        
+    let owned_info = client.query("Select id from decks where human_hash = $1 and owner = $2", &[&deck_hash, &user.id()]).await.expect("Error preparing edit deck statement");
+    if owned_info.is_empty() {
+        return content::RawHtml(format!("Unauthorized."))
+    }
+    let deck_id: i64 = owned_info[0].get(0);
+    render_maintainers(&deck_hash, deck_id, user).await
+}
+
 #[get("/EditDeck/<deck_hash>")]
 async fn edit_deck(user: User, deck_hash: String) -> content::RawHtml<String> {
     let client = unsafe { database::TOKIO_POSTGRES_CLIENT.as_mut().unwrap() };
     let owned_info = client.query("Select owner, description, private, id from decks where human_hash = $1", &[&deck_hash]).await.expect("Error preparing edit deck statement");
     if owned_info.is_empty() {
-        return content::RawHtml(format!("Unauthorized."))
+        return content::RawHtml(format!("Deck not found."))
     }
     let owner: i32 = owned_info[0].get(0);
     if owner != user.id() {
@@ -248,14 +309,10 @@ async fn review_commit(commit_id: i32, user: User) -> content::RawHtml<String> {
     
     let mut context = tera::Context::new();
     
-    let mut notes = match decks::notes_by_commit(commit_id).await {
+    let notes = match decks::notes_by_commit(commit_id).await {
         Ok(notes) => notes,
         Err(error) => return content::RawHtml(format!("Error: {}", error)),
     };
-
-    if notes.len() > 1000 { // Only show at most 1k cards. everything else is taking too long to load. TODO Later: add incremental loading instead 
-        notes.truncate(1000);
-    }
 
     let commit = match decks::get_commit_info(commit_id).await {
         Ok(commit) => commit,
@@ -263,23 +320,29 @@ async fn review_commit(commit_id: i32, user: User) -> content::RawHtml<String> {
     };
 
     let client = unsafe { database::TOKIO_POSTGRES_CLIENT.as_mut().unwrap() };
-    let owned_info = client.query("Select owner from decks where id = (select deck from commits where commit_id = $1)", &[&commit_id]).await.expect("Error preparing review commit statement");
-    if owned_info.is_empty() {
-        return content::RawHtml(format!("Invalid commit."))
+    let q_guid = match client.query("Select deck from commits where commit_id = $1", &[&commit_id]).await {
+        Ok(q_guid) => q_guid,
+        Err(error) => return content::RawHtml(format!("Error: {}", error)),
+    };
+    if q_guid.is_empty() {
+        return content::RawHtml("Error: Commit not found".into());
     }
-    
+    let deck_id: i64 = q_guid[0].get(0);
+
+    let access = match decks::is_authorized(&user, deck_id).await {
+        Ok(access) => access,
+        Err(error) => return content::RawHtml(format!("Error: {}", error)),
+    };
+   
     let notemodels = match decks::notemodels_by_commit(commit_id).await {
         Ok(notemodels) => notemodels,
         Err(error) => return content::RawHtml(format!("Error: {}", error)),
     };
 
-    let commit_owner: i32 = owned_info[0].get(0);
-    let owned: bool = commit_owner == user.id();
-
     context.insert("notes", &notes);
     context.insert("commit", &commit);
     context.insert("user", &user);
-    context.insert("owned", &owned);
+    context.insert("owned", &access);
     context.insert("notemodels", &notemodels);
     
     let rendered_template = TEMPLATES.render("commit.html", &context).expect("Failed to render template");
@@ -300,7 +363,29 @@ async fn review_note(note_id: i64, user: Option<User>) -> content::RawHtml<Strin
     if note.id == 0 { // Invalid data // No note found!
         return content::RawHtml(format!("Error: Note not found."))
     }
+
+    let mut access = false;
+    
+    if let Some(ref user) = user {
+
+        let client = unsafe { database::TOKIO_POSTGRES_CLIENT.as_mut().unwrap() };
+        let q_guid = match client.query("Select deck from notes where id = $1", &[&note_id]).await {
+            Ok(q_guid) => q_guid,
+            Err(error) => return content::RawHtml(format!("Error: {}", error)),
+        };
+        if q_guid.is_empty() {
+            return content::RawHtml("Error: Note not found".into());
+        }
+        let deck_id: i64 = q_guid[0].get(0);
+
+        access = match decks::is_authorized(&user, deck_id).await {
+            Ok(access) => access,
+            Err(error) => return content::RawHtml(format!("Error: {}", error)),
+        };     
+    }
+
     context.insert("note", &note);
+    context.insert("access", &access);   
     context.insert("user", &user);
     let rendered_template = TEMPLATES.render("review.html", &context).expect("Failed to render template");
 
@@ -308,9 +393,60 @@ async fn review_note(note_id: i64, user: Option<User>) -> content::RawHtml<Strin
     content::RawHtml(rendered_template)
 }
 
+async fn access_check(deck_id: i64, user: &User) -> Result<bool, Error> {
+    let access = match decks::is_authorized(&user, deck_id).await {
+        Ok(access) => access,
+        Err(_error) => return Ok(false),
+    };     
+
+    if !access {
+        return Ok(false);
+    }
+
+    Ok(true)
+}
+
+async fn get_deck_by_tag_id(tag_id: i64) -> Result<i64, Error> {
+    let client = unsafe { database::TOKIO_POSTGRES_CLIENT.as_mut().unwrap() };
+    let q_guid = match client.query("Select deck from notes where id = (select note from tags where id = $1)", &[&tag_id]).await {
+        Ok(q_guid) => q_guid,
+        Err(_error) => return Ok(0),
+    };
+    if q_guid.is_empty() {
+        return Ok(0);
+    }
+    let deck_id: i64 = q_guid[0].get(0);
+
+    Ok(deck_id)
+}
+
+async fn get_deck_by_field_id(field_id: i64) -> Result<i64, Error> {
+    let client = unsafe { database::TOKIO_POSTGRES_CLIENT.as_mut().unwrap() };
+    let q_guid = match client.query("Select deck from notes where id = (select note from fields where id = $1)", &[&field_id]).await {
+        Ok(q_guid) => q_guid,
+        Err(_error) => return Ok(0),
+    };
+    if q_guid.is_empty() {
+        return Ok(0);
+    }
+    let deck_id: i64 = q_guid[0].get(0);
+
+    Ok(deck_id)
+}
+
 #[get("/DenyTag/<tag_id>")]
 async fn deny_tag(tag_id: i64, user: User) -> Result<Redirect, Error> {    
-    match decks::deny_tag_change(tag_id, user).await {
+    
+    let deck_id = match get_deck_by_tag_id(tag_id).await {
+        Ok(deck_id) => deck_id,
+        Err(error) => {println!("Error: {}", error); return Ok(Redirect::to("/")) },
+    };
+
+    if !access_check(deck_id, &user).await? {
+        return Ok(Redirect::to("/"));
+    }
+
+    match decks::deny_tag_change(tag_id).await {
         Ok(res) => return Ok(Redirect::to(format!("/review/{}", res))),
         Err(error) => {println!("Error: {}", error); return Ok(Redirect::to("/")) },
     };
@@ -318,15 +454,35 @@ async fn deny_tag(tag_id: i64, user: User) -> Result<Redirect, Error> {
 
 #[get("/AcceptTag/<tag_id>")]
 async fn accept_tag(tag_id: i64, user: User) -> Result<Redirect, Error> {    
-    match decks::approve_tag_change(tag_id, user, true).await {
+
+    let deck_id = match get_deck_by_tag_id(tag_id).await {
+        Ok(deck_id) => deck_id,
+        Err(error) => {println!("Error: {}", error); return Ok(Redirect::to("/")) },
+    };
+
+    if !access_check(deck_id, &user).await? {
+        return Ok(Redirect::to("/"));
+    }
+
+    match decks::approve_tag_change(tag_id, true).await {
         Ok(res) => return Ok(Redirect::to(format!("/review/{}", res))),
         Err(error) => {println!("Error: {}", error); return Ok(Redirect::to("/")) },
     };    
 }
 
 #[get("/DenyField/<field_id>")]
-async fn deny_field(field_id: i64, user: User) -> Result<Redirect, Error> {    
-    match decks::deny_field_change(field_id, user).await {
+async fn deny_field(field_id: i64, user: User) -> Result<Redirect, Error> {   
+
+    let deck_id = match get_deck_by_field_id(field_id).await {
+        Ok(deck_id) => deck_id,
+        Err(error) => {println!("Error: {}", error); return Ok(Redirect::to("/")) },
+    };
+
+    if !access_check(deck_id, &user).await? {
+        return Ok(Redirect::to("/"));
+    }
+
+    match decks::deny_field_change(field_id).await {
         Ok(res) => return Ok(Redirect::to(format!("/review/{}", res))),
         Err(error) => {println!("Error: {}", error); return Ok(Redirect::to("/")) },
     };
@@ -334,7 +490,17 @@ async fn deny_field(field_id: i64, user: User) -> Result<Redirect, Error> {
 
 #[get("/AcceptField/<field_id>")]
 async fn accept_field(field_id: i64, user: User) -> Result<Redirect, Error> {    
-    match decks::approve_field_change(field_id, user, true).await {
+
+    let deck_id = match get_deck_by_field_id(field_id).await {
+        Ok(deck_id) => deck_id,
+        Err(error) => {println!("Error: {}", error); return Ok(Redirect::to("/")) },
+    };
+
+    if !access_check(deck_id, &user).await? {
+        return Ok(Redirect::to("/"));
+    }
+
+    match decks::approve_field_change(field_id, true).await {
         Ok(res) => return Ok(Redirect::to(format!("/review/{}", res))),
         Err(error) => {println!("Error: {}", error); return Ok(Redirect::to("/")) },
     };    
@@ -573,7 +739,8 @@ async fn main() {
                 edit_deck, post_edit_deck, delete_deck, delete_changelog,
                 index, terms, privacy,
                 get_login, post_login, logout,
-                post_signup, get_signup
+                post_signup, get_signup,
+                post_maintainers, show_maintainers,
         ])
 	    .register("/", catchers![internal_error, not_found, default])    
         .manage(client)

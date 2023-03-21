@@ -27,6 +27,10 @@ input:invalid {
           <p>Subscription Key: <span style="font-weight:bold; color: #006699;">{{ hash }}</span></p>
         </div>
         <div class="container-fluid neww">
+          <div style="margin-top: 20px">
+            <h5 class="card-title m-b-0">Maintainers</h5>
+            <a href="/Maintainers/{{hash}}"><button class="btn" style="background-color: #006699" type="button">Show all</button></a>
+          </div>
           <form>
             <div style="margin-top: 20px">
               <h5 class="card-title m-b-0">Update the Media Link (See FAQ for more information)</h5>
@@ -67,9 +71,12 @@ input:invalid {
               {% endfor %}          
             </div><!-- panel-group -->
             <div style="margin-top: 20px">
-              <h5 class="card-title m-b-0">Add new changelog message</h5>
+              <h5 class="card-title m-b-0">Add a new changelog message:</h5>
               <textarea rows="5" cols="60" name="changelog"></textarea>
               <div class="panel-group" id="accordion2" style="margin-top:20px" role="tablist" aria-multiselectable="true">
+                {% if changelogs|length > 0 %}
+                  <h6 class="card-title m-b-0">Previous Changelogs:</h6>
+                {% endif %}
                 {% for changelog in changelogs %}
                 <div class="panel panel-default">
                     <div class="panel-heading" role="tab" id="headingC{{changelog.id}}">
@@ -80,7 +87,7 @@ input:invalid {
                             </a>
                         </h4>
                     </div>
-                    <div id="collapseC{{changelog.id}}" class="panel-collapse collapse" role="tabpanel" aria-labelledby="headingC{{changelog.id}}">
+                    <div style="margin:10px" id="collapseC{{changelog.id}}" class="panel-collapse collapse" role="tabpanel" aria-labelledby="headingC{{changelog.id}}">
                         <div class="panel-body">
                           <a style="float:right; margin: 5px" href="/DeleteChangelog/{{changelog.id}}"><i class="fa-solid fa-trash-can"></i></a>
                           {{changelog.message}}
@@ -91,6 +98,7 @@ input:invalid {
               </div><!-- panel-group -->
             </div>
             <button class="btn btn-primary accept" type="submit" style="margin-top: 50px;">Save all changes!</button>
+            <p id="confirmation" style="color:green; display:none">Changes saved!</p>
           </form>
           <div style="border: 1px solid red; margin-top: 50px; padding: 10px"> 
             <h5 style="color:red">Danger Zone</h5><br />
@@ -148,6 +156,8 @@ input:invalid {
         'Content-Type': 'application/json'
       }
     });  
+    document.querySelector('textarea[name="changelog"]').value = ''; // Reset to empty string to prevent accidental double submits
+    document.getElementById('confirmation').style.display = 'block';
   });
 
   const deleteButton = document.getElementById('delete-btn');
