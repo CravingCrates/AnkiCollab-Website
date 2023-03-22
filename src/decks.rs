@@ -23,10 +23,8 @@ async fn update_note_timestamp(note_id: i64)  -> Result<(), Box<dyn std::error::
 
     let query2 = "UPDATE notes SET last_update = NOW() WHERE id = $1";
 
-    let trans = client.transaction().await?;
-    trans.execute(query1, &[&note_id]).await?;
-    trans.execute(query2, &[&note_id]).await?;
-    trans.commit().await?;
+    client.query(query1, &[&note_id]).await?;
+    client.query(query2, &[&note_id]).await?;
 
     Ok(())
 }
@@ -195,11 +193,9 @@ pub async fn approve_card(note_id: i64, user: User) -> Result<String, Box<dyn st
         return Err("Fields are ambiguous. Please handle manually.".into());
     }
 
-    let trans = client.transaction().await?;
-    trans.execute("UPDATE fields SET reviewed = true WHERE note = $1", &[&note_id]).await?;
-    trans.execute("UPDATE notes SET reviewed = true WHERE id = $1", &[&note_id]).await?;
-    trans.execute("UPDATE tags SET reviewed = true WHERE note = $1", &[&note_id]).await?;
-    trans.commit().await?;
+    client.query("UPDATE fields SET reviewed = true WHERE note = $1", &[&note_id]).await?;
+    client.query("UPDATE tags SET reviewed = true WHERE note = $1", &[&note_id]).await?;
+    client.query("UPDATE notes SET reviewed = true WHERE id = $1", &[&note_id]).await?;
 
     update_note_timestamp(note_id).await?;
     
@@ -209,7 +205,7 @@ pub async fn approve_card(note_id: i64, user: User) -> Result<String, Box<dyn st
 pub async fn deny_tag_change(tag_id: i64) -> Result<String, Box<dyn std::error::Error>>  {
     let client = unsafe { database::TOKIO_POSTGRES_CLIENT.as_mut().unwrap() };
     
-    let rows = client.query("SELECT id from notes where id = (Select note from tags where id = $1)", &[&tag_id]).await?;
+    let rows = client.query("SELECT note FROM tags WHERE id = $1", &[&tag_id]).await?;
 
     if rows.is_empty() {
         return Err("Note not found (Tag denied).".into());
@@ -224,7 +220,7 @@ pub async fn deny_tag_change(tag_id: i64) -> Result<String, Box<dyn std::error::
 pub async fn deny_field_change(field_id: i64) -> Result<String, Box<dyn std::error::Error>>  {
     let client = unsafe { database::TOKIO_POSTGRES_CLIENT.as_mut().unwrap() };
     
-    let rows = client.query("SELECT id from notes where id = (Select note from fields where id = $1)", &[&field_id]).await?;
+    let rows = client.query("SELECT note FROM fields WHERE id = $1", &[&field_id]).await?;
 
     if rows.is_empty() {
         return Err("Note not found (Field Denied).".into());
@@ -239,7 +235,7 @@ pub async fn deny_field_change(field_id: i64) -> Result<String, Box<dyn std::err
 pub async fn approve_tag_change(tag_id: i64, update_timestamp: bool) -> Result<String, Box<dyn std::error::Error>> {
     let client = unsafe { database::TOKIO_POSTGRES_CLIENT.as_mut().unwrap() };
     
-    let rows = client.query("SELECT id from notes where id = (Select note from tags where id = $1)", &[&tag_id]).await?;
+    let rows = client.query("SELECT note FROM tags WHERE id = $1", &[&tag_id]).await?;
     if rows.is_empty() {
         return Err("Note not found (Tag Approve).".into());
     }
@@ -248,10 +244,8 @@ pub async fn approve_tag_change(tag_id: i64, update_timestamp: bool) -> Result<S
     let update_query = "UPDATE tags SET reviewed = true WHERE id = $1 AND action = true";    
     let delete_query = "DELETE FROM tags WHERE id = $1 AND action = false";
 
-    let trans = client.transaction().await?;
-    trans.execute(update_query, &[&tag_id]).await?;
-    trans.execute(delete_query, &[&tag_id]).await?;
-    trans.commit().await?;
+    client.query(update_query, &[&tag_id]).await?;
+    client.query(delete_query, &[&tag_id]).await?;
 
     if update_timestamp {
         update_note_timestamp(note_id).await?;
@@ -263,7 +257,7 @@ pub async fn approve_tag_change(tag_id: i64, update_timestamp: bool) -> Result<S
 pub async fn approve_field_change(field_id: i64, update_timestamp: bool) -> Result<String, Box<dyn std::error::Error>>  {
     let client = unsafe { database::TOKIO_POSTGRES_CLIENT.as_mut().unwrap() };
 
-    let rows = client.query("SELECT id from notes where id = (Select note from fields where id = $1)", &[&field_id]).await?;
+    let rows = client.query("SELECT note FROM fields WHERE id = $1", &[&field_id]).await?;
 
     if rows.is_empty() {
         return Err("Note not found (Field Approve).".into());
@@ -276,6 +270,7 @@ pub async fn approve_field_change(field_id: i64, update_timestamp: bool) -> Resu
         WHERE reviewed = true
         AND position = (SELECT position FROM fields WHERE id = $1)
         AND id <> $1
+        AND note = $2
     ";
     let query2 = "
         UPDATE fields
@@ -283,10 +278,8 @@ pub async fn approve_field_change(field_id: i64, update_timestamp: bool) -> Resu
         WHERE id = $1
     ";
 
-    let trans = client.transaction().await?;
-    trans.execute(query2, &[&field_id]).await?;
-    trans.execute(query1, &[&field_id]).await?;
-    trans.commit().await?;
+    client.query(query1, &[&field_id, &note_id]).await?;
+    client.query(query2, &[&field_id]).await?;
 
     if update_timestamp {
         update_note_timestamp(note_id).await?;
