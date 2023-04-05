@@ -8,7 +8,7 @@ use std::collections::HashMap;
 
 
 async fn update_note_timestamp(note_id: i64)  -> Result<(), Box<dyn std::error::Error>> { 
-    let client = unsafe { database::TOKIO_POSTGRES_CLIENT.as_mut().unwrap() };
+    let client = database::TOKIO_POSTGRES_POOL.get().unwrap().get().await.unwrap();
     let query1 = "
     WITH RECURSIVE tree AS (
         SELECT id, last_update, parent FROM decks
@@ -29,71 +29,25 @@ async fn update_note_timestamp(note_id: i64)  -> Result<(), Box<dyn std::error::
     Ok(())
 }
 
-pub async fn get_note_model_info(deck_hash: &String) -> Result<Vec<NoteModel>, Box<dyn std::error::Error>> {
-    let client = unsafe { database::TOKIO_POSTGRES_CLIENT.as_mut().unwrap() };
-    let rows = client.query(
-        "
-         WITH RECURSIVE cte AS (
-            SELECT id, human_hash
-            FROM decks
-            WHERE human_hash = $1
-            UNION ALL
-            SELECT d.id, d.human_hash
-            FROM cte
-            JOIN decks d ON d.parent = cte.id
-          )
-          SELECT DISTINCT nt.id, nt.name, ntf.id, ntf.name, ntf.protected, ntf.position
-          FROM cte
-          JOIN decks d ON d.id = cte.id
-          JOIN notes n ON n.deck = d.id
-          JOIN notetype nt ON nt.id = n.notetype
-          JOIN notetype_field ntf ON ntf.notetype = nt.id
-          ORDER BY nt.id, ntf.position
-         ",
-        &[&deck_hash],
-    ).await?;
+pub async fn get_protected_fields(notetype_id: i64) -> Result<Vec<NoteModelFieldInfo>, Box<dyn std::error::Error>> {
+    let client = database::TOKIO_POSTGRES_POOL.get().unwrap().get().await.unwrap();
+    let query = "SELECT id, name, protected, position FROM notetype_field WHERE notetype = $1 ORDER BY position";
 
-    let mut note_models = Vec::new();
-    let mut current_note_model = NoteModel {
-        id: 0,
-        fields: Vec::new(),
-        name: String::new(),
-    };
-    for row in rows {
-        let notetype_id: i64 = row.get(0);
-        let notetype_name: &str = row.get(1);
-        let field_id: i64 = row.get(2);
-        let field_name: &str = row.get(3);
-        let field_protected: bool = row.get(4);
+    let rows = client.query(query, &[&notetype_id])
+    .await?
+    .into_iter()
+    .map(|row| NoteModelFieldInfo {
+        id: row.get(0),
+        name: row.get(1),
+        protected: row.get(2),
+    })
+    .collect::<Vec<_>>();
 
-        let current_note_model_id = current_note_model.id;
-        if current_note_model_id == 0 || current_note_model_id != notetype_id {
-            if !current_note_model.fields.is_empty() {
-                note_models.push(current_note_model);
-            }
-            current_note_model = NoteModel {
-                id: notetype_id,
-                fields: Vec::new(),
-                name: notetype_name.to_owned(),
-            };
-        }
-
-        current_note_model.fields.push(NoteModelFieldInfo {
-            id: field_id,
-            name: field_name.to_owned(),
-            protected: field_protected,
-        });
-    }
-
-    if !current_note_model.fields.is_empty() {
-        note_models.push(current_note_model);
-    }
-
-    Ok(note_models)
+    Ok(rows)
 }
 
 pub async fn is_authorized(user: &User, deck: i64) -> Result<bool, Box<dyn std::error::Error>> {
-    let client = unsafe { database::TOKIO_POSTGRES_CLIENT.as_mut().unwrap() };
+    let client = database::TOKIO_POSTGRES_POOL.get().unwrap().get().await.unwrap();
     let rows = client.query("SELECT 1 FROM decks WHERE (owner = $1 AND id = $3) OR $2 LIMIT 1", &[&user.id(), &user.is_admin, &deck]).await?;
     let access = !rows.is_empty();
 
@@ -127,7 +81,7 @@ pub async fn is_authorized(user: &User, deck: i64) -> Result<bool, Box<dyn std::
 }
 
 pub async fn delete_card(note_id: i64, user: User) -> Result<String, Box<dyn std::error::Error>> {
-    let client = unsafe { database::TOKIO_POSTGRES_CLIENT.as_mut().unwrap() };
+    let client = database::TOKIO_POSTGRES_POOL.get().unwrap().get().await.unwrap();
     
     let q_guid = client.query("Select human_hash, id from decks where id = (select deck from notes where id = $1)", &[&note_id]).await?;
     if q_guid.is_empty() {
@@ -147,7 +101,7 @@ pub async fn delete_card(note_id: i64, user: User) -> Result<String, Box<dyn std
 }
 
 pub async fn approve_card(note_id: i64, user: User) -> Result<String, Box<dyn std::error::Error>> {
-    let client = unsafe { database::TOKIO_POSTGRES_CLIENT.as_mut().unwrap() };
+    let client = database::TOKIO_POSTGRES_POOL.get().unwrap().get().await.unwrap();
     
     let q_guid = client.query("select deck from notes where id = $1", &[&note_id]).await?;
     if q_guid.is_empty() {
@@ -203,7 +157,7 @@ pub async fn approve_card(note_id: i64, user: User) -> Result<String, Box<dyn st
 }
 
 pub async fn deny_tag_change(tag_id: i64) -> Result<String, Box<dyn std::error::Error>>  {
-    let client = unsafe { database::TOKIO_POSTGRES_CLIENT.as_mut().unwrap() };
+    let client = database::TOKIO_POSTGRES_POOL.get().unwrap().get().await.unwrap();
     
     let rows = client.query("SELECT note FROM tags WHERE id = $1", &[&tag_id]).await?;
 
@@ -218,7 +172,7 @@ pub async fn deny_tag_change(tag_id: i64) -> Result<String, Box<dyn std::error::
 }
 
 pub async fn deny_field_change(field_id: i64) -> Result<String, Box<dyn std::error::Error>>  {
-    let client = unsafe { database::TOKIO_POSTGRES_CLIENT.as_mut().unwrap() };
+    let client = database::TOKIO_POSTGRES_POOL.get().unwrap().get().await.unwrap();
     
     let rows = client.query("SELECT note FROM fields WHERE id = $1", &[&field_id]).await?;
 
@@ -233,7 +187,7 @@ pub async fn deny_field_change(field_id: i64) -> Result<String, Box<dyn std::err
 }
 
 pub async fn approve_tag_change(tag_id: i64, update_timestamp: bool) -> Result<String, Box<dyn std::error::Error>> {
-    let client = unsafe { database::TOKIO_POSTGRES_CLIENT.as_mut().unwrap() };
+    let client = database::TOKIO_POSTGRES_POOL.get().unwrap().get().await.unwrap();
     
     let rows = client.query("SELECT note FROM tags WHERE id = $1", &[&tag_id]).await?;
     if rows.is_empty() {
@@ -242,7 +196,12 @@ pub async fn approve_tag_change(tag_id: i64, update_timestamp: bool) -> Result<S
     let note_id: i64 = rows[0].get(0);
 
     let update_query = "UPDATE tags SET reviewed = true WHERE id = $1 AND action = true";    
-    let delete_query = "DELETE FROM tags WHERE id = $1 AND action = false";
+    let delete_query = "
+    WITH hit AS (
+        SELECT content, note 
+        FROM tags WHERE id = $1 AND action = false
+    )
+    DELETE FROM tags WHERE note in (select note from hit) and content in (select content from hit)";
 
     client.query(update_query, &[&tag_id]).await?;
     client.query(delete_query, &[&tag_id]).await?;
@@ -255,7 +214,7 @@ pub async fn approve_tag_change(tag_id: i64, update_timestamp: bool) -> Result<S
 }
 
 pub async fn approve_field_change(field_id: i64, update_timestamp: bool) -> Result<String, Box<dyn std::error::Error>>  {
-    let client = unsafe { database::TOKIO_POSTGRES_CLIENT.as_mut().unwrap() };
+    let client = database::TOKIO_POSTGRES_POOL.get().unwrap().get().await.unwrap();
 
     let rows = client.query("SELECT note FROM fields WHERE id = $1", &[&field_id]).await?;
 
@@ -314,7 +273,7 @@ pub async fn get_commit_info(commit_id: i32) -> Result<CommitsOverview, Box<dyn 
         JOIN decks d on d.id = c.deck
         WHERE c.commit_id = $1
     "#; 
-    let client = unsafe { database::TOKIO_POSTGRES_CLIENT.as_mut().unwrap() };
+    let client = database::TOKIO_POSTGRES_POOL.get().unwrap().get().await.unwrap();
     let row = client.query_one(query, &[&commit_id]).await?;
     let commit = CommitsOverview {
         id: row.get(0),
@@ -352,7 +311,7 @@ pub async fn commits_review(uid: i32) -> Result<Vec<CommitsOverview>, Box<dyn st
         SELECT commit_id, rationale, TO_CHAR(timestamp, 'MM/DD/YYYY') AS last_update
         FROM unreviewed_changes WHERE deck IN (SELECT id FROM accessable) OR (select is_admin from users where id = $1)
     "#;
-    let client = unsafe { database::TOKIO_POSTGRES_CLIENT.as_mut().unwrap() };
+    let client = database::TOKIO_POSTGRES_POOL.get().unwrap().get().await.unwrap();
 
     let rows = client.query(query, &[&uid])
     .await?
@@ -370,7 +329,7 @@ pub async fn commits_review(uid: i32) -> Result<Vec<CommitsOverview>, Box<dyn st
 
 pub async fn notemodels_by_commit(commit_id: i32) -> Result<HashMap<i64, Vec<String>>, Box<dyn std::error::Error>> {
     // Returns a map of notetypes with a vector of the field names of that notetype
-    let client = unsafe { database::TOKIO_POSTGRES_CLIENT.as_mut().unwrap() };
+    let client = database::TOKIO_POSTGRES_POOL.get().unwrap().get().await.unwrap();
     let get_notetypes = "
         SELECT DISTINCT notetype FROM notes
         WHERE notes.id IN (SELECT fields.note FROM fields WHERE fields.commit = $1 UNION SELECT tags.note FROM tags WHERE tags.commit = $1)
@@ -404,17 +363,21 @@ pub async fn notemodels_by_commit(commit_id: i32) -> Result<HashMap<i64, Vec<Str
 }
 
 pub async fn notes_by_commit(commit_id: i32) -> Result<Vec<CommitData>, Box<dyn std::error::Error>> {
-    let client = unsafe { database::TOKIO_POSTGRES_CLIENT.as_mut().unwrap() };
+    let client = database::TOKIO_POSTGRES_POOL.get().unwrap().get().await.unwrap();
 
     let get_notes = "
-        SELECT DISTINCT id FROM notes
-        WHERE notes.id IN (SELECT fields.note FROM fields WHERE fields.commit = $1 UNION SELECT tags.note FROM tags WHERE tags.commit = $1) 
-        LIMIT 1000
+        SELECT note FROM (
+            SELECT note FROM fields WHERE commit = $1 and reviewed = false
+            UNION ALL
+            SELECT note FROM tags WHERE commit = $1 and reviewed = false
+        ) AS n
+        GROUP BY note
+        LIMIT 100
     ";
     let affected_notes = client.query(get_notes, &[&commit_id])
     .await?
     .into_iter()
-    .map(|row| row.get::<_, i64>("id"))
+    .map(|row| row.get::<_, i64>("note"))
     .collect::<Vec<i64>>();
 
     if affected_notes.is_empty() {
@@ -536,7 +499,7 @@ pub async fn under_review(uid: i32) -> Result<Vec<ReviewOverview>, Box<dyn std::
             (n.reviewed = true AND EXISTS (SELECT 1 FROM tags WHERE tags.note = n.id AND tags.reviewed = false)))
         GROUP BY n.id, n.guid, n.reviewed, d.full_path
     "#;
-    let client = unsafe { database::TOKIO_POSTGRES_CLIENT.as_mut().unwrap() };
+    let client = database::TOKIO_POSTGRES_POOL.get().unwrap().get().await.unwrap();
 
     let rows = client.query(query, &[&uid])
     .await?
@@ -555,7 +518,7 @@ pub async fn under_review(uid: i32) -> Result<Vec<ReviewOverview>, Box<dyn std::
 }
 
 pub async fn get_notes_count_in_deck(deck: i64) -> Result<i64, Box<dyn std::error::Error>> {
-    let client = unsafe { database::TOKIO_POSTGRES_CLIENT.as_mut().unwrap() };
+    let client = database::TOKIO_POSTGRES_POOL.get().unwrap().get().await.unwrap();
     let query = "
         WITH RECURSIVE cte AS (
             SELECT $1::bigint as id
@@ -572,7 +535,7 @@ pub async fn get_notes_count_in_deck(deck: i64) -> Result<i64, Box<dyn std::erro
 }
 
 pub async fn merge_by_commit(commit_id: i32, approve: bool, user: User) -> Result<String, Box<dyn std::error::Error>> {
-    let client = unsafe { database::TOKIO_POSTGRES_CLIENT.as_mut().unwrap() };
+    let client = database::TOKIO_POSTGRES_POOL.get().unwrap().get().await.unwrap();
 
     let q_guid = client.query("Select deck from commits where commit_id = $1", &[&commit_id]).await?;
     if q_guid.is_empty() {
@@ -586,30 +549,44 @@ pub async fn merge_by_commit(commit_id: i32, approve: bool, user: User) -> Resul
     }
 
     let affected_tags = client.query("
-        SELECT id FROM tags WHERE commit = $1
-    ", &[&commit_id])
-    .await?.into_iter().map(|row| row.get::<_, i64>("id")).collect::<Vec<i64>>();
-
-    let new_notes = client.query("
-        SELECT DISTINCT id FROM notes WHERE notes.id IN (SELECT fields.note FROM fields 
-        WHERE fields.commit = $1 UNION SELECT tags.note FROM tags WHERE tags.commit = $1) AND reviewed = false
-    ", &[&commit_id])
-    .await?.into_iter().map(|row| row.get::<_, i64>("id")).collect::<Vec<i64>>();
-
-    let changed_notes = client.query("
-        SELECT DISTINCT id FROM notes WHERE notes.id IN (SELECT fields.note FROM fields 
-        WHERE fields.commit = $1 UNION SELECT tags.note FROM tags WHERE tags.commit = $1)
+        SELECT id FROM tags WHERE commit = $1 and reviewed = false
     ", &[&commit_id])
     .await?.into_iter().map(|row| row.get::<_, i64>("id")).collect::<Vec<i64>>();
 
     let affected_fields = client.query("
-        SELECT id FROM fields WHERE commit = $1
+        SELECT id FROM fields WHERE commit = $1 and reviewed = false
     ", &[&commit_id])
     .await?.into_iter().map(|row| row.get::<_, i64>("id")).collect::<Vec<i64>>();
+
+    let new_notes = client.query("
+        SELECT notes.id FROM notes
+        JOIN (
+            SELECT note FROM fields WHERE commit = $1 and reviewed = false
+            UNION
+            SELECT note FROM tags WHERE commit = $1 and reviewed = false
+        ) AS n ON notes.id = n.note
+        WHERE reviewed = false
+    ", &[&commit_id])
+    .await?.into_iter().map(|row| row.get::<_, i64>("id")).collect::<Vec<i64>>();
+
+    let changed_notes = client.query("
+        SELECT note FROM (
+            SELECT note FROM fields WHERE commit = $1 and reviewed = false
+            UNION ALL
+            SELECT note FROM tags WHERE commit = $1 and reviewed = false
+        ) AS n
+        GROUP BY note
+    ", &[&commit_id])
+    .await?.into_iter().map(|row| row.get::<_, i64>("note")).collect::<Vec<i64>>();
 
     // Slightly less performant to do it in single queries than doing a bigger query here, but for readability and easier code maintenance, we keep it that way. 
     // The performance difference is not relevant in this case
     if approve {
+        let note_counter = changed_notes.len();
+        if note_counter > 100 {
+            println!("Trying to approve large commit {}.", commit_id);
+        }
+
         for tag in affected_tags {
             approve_tag_change(tag, false).await?;
         }
@@ -624,6 +601,10 @@ pub async fn merge_by_commit(commit_id: i32, approve: bool, user: User) -> Resul
 
         for note in changed_notes {            
             update_note_timestamp(note).await?;      
+        }
+
+        if note_counter > 100 {
+            println!("Merge commit approved.");
         }
 
     } else {
@@ -645,7 +626,7 @@ pub async fn merge_by_commit(commit_id: i32, approve: bool, user: User) -> Resul
 
 pub async fn get_name_by_hash(deck: &String) -> Result<Option<String>, Box<dyn std::error::Error>> {
     
-    let client = unsafe { database::TOKIO_POSTGRES_CLIENT.as_mut().unwrap() };
+    let client = database::TOKIO_POSTGRES_POOL.get().unwrap().get().await.unwrap();
 
     let query = "SELECT name FROM decks WHERE human_hash = $1";
     let rows = client.query(query, &[&deck]).await?;
@@ -659,7 +640,7 @@ pub async fn get_name_by_hash(deck: &String) -> Result<Option<String>, Box<dyn s
 }
 
 pub async fn get_note_data(note_id: i64) -> Result<NoteData, Box<dyn std::error::Error>> {
-    let client = unsafe { database::TOKIO_POSTGRES_CLIENT.as_mut().unwrap() };
+    let client = database::TOKIO_POSTGRES_POOL.get().unwrap().get().await.unwrap();
 
     let note_query = "
         SELECT id, guid, TO_CHAR(last_update, 'MM/DD/YYYY HH12:MI AM') AS last_update, reviewed, 
@@ -771,18 +752,17 @@ pub async fn retrieve_notes(deck: &String) -> std::result::Result<Vec<Note>, Box
         SELECT n.id, n.guid,
             CASE
                 WHEN n.reviewed = false THEN 0
-                WHEN EXISTS (SELECT 1 FROM fields WHERE fields.note = n.id AND fields.reviewed = false) OR EXISTS (SELECT 1 FROM tags WHERE tags.note = n.id AND tags.reviewed = false) THEN 1
                 ELSE 2
             END AS status,
             TO_CHAR(n.last_update, 'MM/DD/YYYY') AS last_update,
-            (SELECT coalesce(string_agg(f.content, ','), '') FROM fields AS f WHERE f.note = n.id LIMIT 2) AS content
+            (SELECT coalesce(f.content, '') FROM fields AS f WHERE f.note = n.id LIMIT 1) AS content
         FROM notes AS n
         INNER JOIN decks AS d ON n.deck = d.id
         WHERE d.human_hash = $1
         ORDER BY n.id ASC
-        LIMIT 1000;
+        LIMIT 200;
     "#;
-    let client = unsafe { database::TOKIO_POSTGRES_CLIENT.as_mut().unwrap() };
+    let client = database::TOKIO_POSTGRES_POOL.get().unwrap().get().await.unwrap();
     
     let rows = client.query(query, &[&deck])
     .await?
@@ -805,13 +785,13 @@ pub async fn insert_new_changelog(deck_hash: &String, message: &String) -> Resul
         INSERT INTO changelogs (deck, message, timestamp)
         VALUES ((SELECT id FROM decks WHERE human_hash = $1), $2, NOW())
     "#;
-    let client = unsafe { database::TOKIO_POSTGRES_CLIENT.as_mut().unwrap() };
+    let client = database::TOKIO_POSTGRES_POOL.get().unwrap().get().await.unwrap();
     client.execute(query, &[&deck_hash, &message]).await?;
     Ok(())
 }
 
 pub async fn get_changelogs(deck_hash: &String) -> Result<Vec<ChangelogInfo>, Box<dyn std::error::Error>> {
-    let client = unsafe { database::TOKIO_POSTGRES_CLIENT.as_mut().unwrap() };
+    let client = database::TOKIO_POSTGRES_POOL.get().unwrap().get().await.unwrap();
     
     let query = "SELECT id, message, TO_CHAR(timestamp, 'MM/DD/YYYY HH24:MI:SS') AS timestamp FROM changelogs WHERE deck = (SELECT id FROM decks WHERE human_hash = $1) ORDER BY timestamp DESC LIMIT 5";
 
@@ -834,7 +814,7 @@ pub async fn delete_changelog(id: i64, user_id: i32) -> Result<String, Box<dyn s
         WHERE id = $1 AND deck IN (SELECT id FROM decks WHERE owner = $2)
         RETURNING deck
     "#;
-    let client = unsafe { database::TOKIO_POSTGRES_CLIENT.as_mut().unwrap() };
+    let client = database::TOKIO_POSTGRES_POOL.get().unwrap().get().await.unwrap();
     let row = match client.query_opt(query, &[&id, &user_id]).await? {
         Some(row) => row,
         None => return Err("Deck not found".into()),
@@ -848,7 +828,7 @@ pub async fn delete_changelog(id: i64, user_id: i32) -> Result<String, Box<dyn s
 
 pub async fn get_maintainers(deck: i64) -> Result<Vec<String>, Box<dyn std::error::Error>> {
     let query = "SELECT email from users WHERE id IN (SELECT user_id FROM maintainers WHERE deck = $1)";
-    let client = unsafe { database::TOKIO_POSTGRES_CLIENT.as_mut().unwrap() };
+    let client = database::TOKIO_POSTGRES_POOL.get().unwrap().get().await.unwrap();
     let users = client.query(query, &[&deck])
         .await?
         .into_iter()
@@ -859,7 +839,7 @@ pub async fn get_maintainers(deck: i64) -> Result<Vec<String>, Box<dyn std::erro
 }
 
 pub async fn add_maintainer(deck: i64, email: String) -> Result<String, Box<dyn std::error::Error>> {
-    let client = unsafe { database::TOKIO_POSTGRES_CLIENT.as_mut().unwrap() };
+    let client = database::TOKIO_POSTGRES_POOL.get().unwrap().get().await.unwrap();
     let user = match client.query_one("SELECT id FROM users WHERE email = $1", &[&email]).await {
         Ok(user) => user,
         Err(_e) => return Err("User not found".into()),
@@ -876,7 +856,7 @@ pub async fn add_maintainer(deck: i64, email: String) -> Result<String, Box<dyn 
 }
 
 pub async fn remove_maintainer(deck: i64, email: String) -> Result<String, Box<dyn std::error::Error>> {
-    let client = unsafe { database::TOKIO_POSTGRES_CLIENT.as_mut().unwrap() };
+    let client = database::TOKIO_POSTGRES_POOL.get().unwrap().get().await.unwrap();
     let user = match client.query_one("SELECT id FROM users WHERE email = $1", &[&email]).await {
         Ok(user) => user,
         Err(_e) => return Err("User not found".into()),
@@ -885,4 +865,53 @@ pub async fn remove_maintainer(deck: i64, email: String) -> Result<String, Box<d
 
     client.execute("DELETE FROM maintainers WHERE deck = $1 AND user_id = $2", &[&deck, &user_id]).await?;
     Ok(email)
+}
+
+pub async fn update_notetype(user: &User, notetype: &UpdateNotetype) -> Result<(), Box<dyn std::error::Error>> {
+    let mut client = database::TOKIO_POSTGRES_POOL.get().unwrap().get().await.unwrap();
+    let rows = client.query("SELECT 1 FROM notetype WHERE (owner = $1 AND id = $3) OR $2 LIMIT 1", &[&user.id(), &user.is_admin, &notetype.notetype_id]).await?;
+    if rows.is_empty() {
+        return Err("Unauthorized".into());
+    }
+
+    let tx = client.transaction().await?;
+    
+    for (field_id, checked) in notetype.items.iter() {
+        tx.execute("
+            UPDATE notetype_field 
+            SET protected = $1 
+            WHERE id = $2 AND notetype = $3
+        ", &[&checked, &field_id, &notetype.notetype_id]).await?;
+    }
+
+    tx.execute("UPDATE notetype SET css = $1 WHERE id = $2", &[&notetype.styling, &notetype.notetype_id]).await?;
+    tx.execute("UPDATE notetype_template SET qfmt = $1, afmt = $2 WHERE id = $3 AND notetype = $4", 
+        &[&notetype.front, &notetype.back, &notetype.template_id, &notetype.notetype_id]).await?;
+
+    tx.commit().await?;
+    Ok(())
+}
+
+pub async fn get_notetype_overview(user: &User) -> Result<Vec<NotetypeOverview>, Box<dyn std::error::Error>> {
+    let client = database::TOKIO_POSTGRES_POOL.get().unwrap().get().await.unwrap();
+
+    let query = client.prepare("
+        SELECT nt.id, nt.name, count(notes.*) AS note_count
+        FROM notetype nt
+        LEFT JOIN notes ON notes.notetype = nt.id
+        WHERE nt.owner = $1
+        GROUP BY nt.id
+    ").await?;
+
+    let rows = client.query(&query, &[&user.id()])
+    .await?
+    .into_iter()
+    .map(|row| NotetypeOverview {
+        id: row.get(0),
+        name: row.get(1),
+        notecount: row.get(2),
+    })
+    .collect::<Vec<_>>();
+
+    Ok(rows)
 }

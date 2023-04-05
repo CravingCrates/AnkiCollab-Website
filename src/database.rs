@@ -1,21 +1,15 @@
-use rocket::tokio;
-use tokio_postgres::{Client, NoTls, Error};
+use bb8_postgres::{tokio_postgres::NoTls, PostgresConnectionManager};
+use bb8_postgres::bb8::Pool;
+use once_cell::sync::OnceCell;
 
-pub static mut TOKIO_POSTGRES_CLIENT: Option<Client> = None;
+pub(crate) static TOKIO_POSTGRES_POOL: OnceCell<Pool<PostgresConnectionManager<NoTls>>> = OnceCell::new();
 
-pub async fn establish_connection()-> Result<(), Error> {
-    unsafe {        
-        let (client, connection) =
-        tokio_postgres::connect("postgresql://postgres:password@localhost/anki", NoTls).await?;
+pub async fn establish_connection() -> Result<Pool<PostgresConnectionManager<NoTls>>, Box<dyn std::error::Error + Send + Sync + 'static>> {
+    let conn_manager = PostgresConnectionManager::new_from_stringlike(
+        "postgresql://postgres:password@localhost/anki",
+        NoTls,
+    ).unwrap();
 
-        // The connection object performs the actual communication with the database,
-        // so spawn it off to run on its own.
-        tokio::spawn(async move {
-            if let Err(e) = connection.await {
-                eprintln!("connection error: {}", e);
-            }
-        });
-        TOKIO_POSTGRES_CLIENT = Some(client);
-        Ok(())
-    }
+    let pool = Pool::builder().max_size(15).build(conn_manager).await?;
+    Ok(pool)
 }

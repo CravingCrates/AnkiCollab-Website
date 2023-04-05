@@ -125,7 +125,6 @@ pub struct NoteModel {
 
 #[derive(Deserialize, Serialize)]
 pub struct EditDecksData {
-  pub items: HashMap<i64, bool>,
   pub description: String,
   pub media_url: String,
   pub hash: String,
@@ -145,4 +144,21 @@ pub struct UpdateMaintainer {
     pub deck: String,
     pub email: String,
     pub action: i32, // 1 = add, 0 = remove
+}
+
+#[derive(Deserialize, Serialize)]
+pub struct UpdateNotetype {
+    pub items: HashMap<i64, bool>,
+    pub front: String,
+    pub back: String,
+    pub styling: String,
+    pub notetype_id: i64,
+    pub template_id: i64,
+}
+
+#[derive(Deserialize, Serialize)]
+pub struct NotetypeOverview {
+    pub id: i64,
+    pub name: String,
+    pub notecount: i64,
 }

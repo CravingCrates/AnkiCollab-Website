@@ -137,7 +137,7 @@ async fn render_maintainers(deck_hash: &String, deck_id: i64, user: User) -> con
 
 #[post("/Maintainers", format = "application/json", data = "<edit_maintainer>")]
 async fn post_maintainers(user: User, edit_maintainer: Json<structs::UpdateMaintainer>) -> String {
-    let client = unsafe { database::TOKIO_POSTGRES_CLIENT.as_mut().unwrap() };
+    let client = database::TOKIO_POSTGRES_POOL.get().unwrap().get().await.unwrap();
     let data = edit_maintainer.into_inner();
     
     let owned_info = client.query("Select id from decks where human_hash = $1 and owner = $2", &[&data.deck, &user.id()]).await.expect("Error preparing edit deck statement");
@@ -166,7 +166,7 @@ async fn post_maintainers(user: User, edit_maintainer: Json<structs::UpdateMaint
 
 #[get("/Maintainers/<deck_hash>")]
 async fn show_maintainers(user: User, deck_hash: String) -> content::RawHtml<String> {
-    let client = unsafe { database::TOKIO_POSTGRES_CLIENT.as_mut().unwrap() };
+    let client = database::TOKIO_POSTGRES_POOL.get().unwrap().get().await.unwrap();
         
     let owned_info = client.query("Select id from decks where human_hash = $1 and owner = $2", &[&deck_hash, &user.id()]).await.expect("Error preparing edit deck statement");
     if owned_info.is_empty() {
@@ -176,9 +176,56 @@ async fn show_maintainers(user: User, deck_hash: String) -> content::RawHtml<Str
     render_maintainers(&deck_hash, deck_id, user).await
 }
 
+#[get("/EditNotetype/<notetype_id>")]
+async fn edit_notetype(user: User, notetype_id: i64) -> content::RawHtml<String> {
+    let client = database::TOKIO_POSTGRES_POOL.get().unwrap().get().await.unwrap();
+
+    let owned_info = client.query("SELECT 1 FROM notetype WHERE (owner = $1 AND id = $3) OR $2 LIMIT 1", &[&user.id(), &user.is_admin, &notetype_id]).await.expect("Error preparing edit notetype statement");
+    if owned_info.is_empty() {
+        return content::RawHtml(format!("Unauthorized."));
+    }
+
+    let notetype_info = client.query("Select name, css from notetype where id = $1", &[&notetype_id]).await.expect("Error preparing edit notetype statement");
+    let notetype_template_info = client.query("Select id, qfmt, afmt from notetype_template where notetype = $1 and position = 0 LIMIT 1", &[&notetype_id]).await.expect("Error preparing edit notetype statement");
+   
+    let protected_fields = match decks::get_protected_fields(notetype_id).await {
+        Ok(note) => note,
+        Err(error) => return content::RawHtml(format!("Error: {}", error)),
+    };
+
+    let name: String = notetype_info[0].get(0);
+    let styling: String = notetype_info[0].get(1);
+    let template_id: i64 = notetype_template_info[0].get(0);
+    let front: String = notetype_template_info[0].get(1);
+    let back: String = notetype_template_info[0].get(2);
+
+    let mut context = tera::Context::new();
+    context.insert("name", &name);   
+    context.insert("front", &front);
+    context.insert("back", &back);
+    context.insert("styling", &styling);
+    context.insert("template_id", &template_id);
+    context.insert("notetype_id", &notetype_id);
+    context.insert("user", &user);
+    context.insert("protected_fields", &protected_fields);
+
+    let rendered_template = TEMPLATES.render("edit_notetype.html", &context).expect("Failed to render template");
+    content::RawHtml(rendered_template)
+}
+
+#[post("/EditNotetype", format = "application/json", data = "<edit_notetype>")]
+async fn post_edit_notetype(user: User, edit_notetype: Json<structs::UpdateNotetype>) -> String {
+    let data = edit_notetype.into_inner();
+
+    match decks::update_notetype(&user, &data).await {
+        Ok(_res) => "updated".to_owned(),
+        Err(e) => e.to_string(),
+    }
+}
+
 #[get("/EditDeck/<deck_hash>")]
 async fn edit_deck(user: User, deck_hash: String) -> content::RawHtml<String> {
-    let client = unsafe { database::TOKIO_POSTGRES_CLIENT.as_mut().unwrap() };
+    let client = database::TOKIO_POSTGRES_POOL.get().unwrap().get().await.unwrap();
     let owned_info = client.query("Select owner, description, private, id from decks where human_hash = $1", &[&deck_hash]).await.expect("Error preparing edit deck statement");
     if owned_info.is_empty() {
         return content::RawHtml(format!("Deck not found."))
@@ -199,18 +246,12 @@ async fn edit_deck(user: User, deck_hash: String) -> content::RawHtml<String> {
     let desc: String = owned_info[0].get(1);
     let is_private: bool = owned_info[0].get(2);
 
-    let notemodels = match decks::get_note_model_info(&deck_hash).await {
-        Ok(note) => note,
-        Err(error) => return content::RawHtml(format!("Error: {}", error)),
-    };
-
     let changelogs = match decks::get_changelogs(&deck_hash).await {
         Ok(cl) => cl,
         Err(error) => return content::RawHtml(format!("Error: {}", error)),
     };
 
     let mut context = tera::Context::new();
-    context.insert("notetypes", &notemodels);    
     context.insert("user", &user);
     context.insert("hash", &deck_hash);
     context.insert("description", &desc);
@@ -225,7 +266,7 @@ async fn edit_deck(user: User, deck_hash: String) -> content::RawHtml<String> {
 #[post("/EditDeck", format = "application/json", data = "<edit_deck_data>")]
 async fn post_edit_deck(user: User, edit_deck_data: Json<structs::EditDecksData>) -> Result<Redirect, Error> {
 
-    let client = unsafe { database::TOKIO_POSTGRES_CLIENT.as_mut().unwrap() };
+    let client = database::TOKIO_POSTGRES_POOL.get().unwrap().get().await.unwrap();
     let data = edit_deck_data.into_inner();
     
     let owned_info = client.query("Select id from decks where human_hash = $1 and owner = $2", &[&data.hash, &user.id()]).await.expect("Error preparing edit deck statement");
@@ -234,22 +275,6 @@ async fn post_edit_deck(user: User, edit_deck_data: Json<structs::EditDecksData>
     }
 
     let deck_id: i64 = owned_info[0].get(0);
-
-    for (field_id, checked) in data.items.iter() {
-        client.query("
-        UPDATE notetype_field 
-        SET protected = $1 
-        WHERE id = $2 
-        AND notetype IN (
-            SELECT notetype 
-            FROM notes 
-            WHERE deck IN (
-                SELECT id 
-                FROM decks 
-                WHERE owner = $3 and human_hash = $4
-            )
-        )", &[&checked, &field_id, &user.id(), &data.hash]).await?;
-    }
 
     client.query("
         UPDATE decks 
@@ -276,7 +301,7 @@ async fn delete_changelog(user: User, changelog_id: i64) -> Result<Redirect, Err
 
 #[get("/DeleteDeck/<deck_hash>")]
 async fn delete_deck(user: User, deck_hash: String) -> Result<Redirect, Error> {
-    let client = unsafe { database::TOKIO_POSTGRES_CLIENT.as_mut().unwrap() };
+    let client = database::TOKIO_POSTGRES_POOL.get().unwrap().get().await.unwrap();
     let owned_info = client.query("Select owner from decks where human_hash = $1 and owner = $2", &[&deck_hash, &user.id()]).await.expect("Error preparing deck deletion statement");
     if owned_info.is_empty() {
         return Ok(Redirect::to("/"))
@@ -284,6 +309,17 @@ async fn delete_deck(user: User, deck_hash: String) -> Result<Redirect, Error> {
 
     client.query("Select delete_deck($1)", &[&deck_hash]).await.expect("Error deleting deck");
     
+    Ok(Redirect::to("/"))
+}
+
+#[get("/AsyncApproveCommit/<commit_id>")]
+async fn async_approve_commit(commit_id: i32, user: User) -> Result<Redirect, Error> {   
+    tokio::spawn(async move {
+        match decks::merge_by_commit(commit_id, true, user).await {
+            Ok(_res) => println!("Async approved commit {}", commit_id),
+            Err(error) => println!("Async approve commit Error: {}", error),
+        };
+    }); 
     Ok(Redirect::to("/"))
 }
 
@@ -319,7 +355,7 @@ async fn review_commit(commit_id: i32, user: User) -> content::RawHtml<String> {
         Err(error) => return content::RawHtml(format!("Error: {}", error)),
     };
 
-    let client = unsafe { database::TOKIO_POSTGRES_CLIENT.as_mut().unwrap() };
+    let client = database::TOKIO_POSTGRES_POOL.get().unwrap().get().await.unwrap();
     let q_guid = match client.query("Select deck from commits where commit_id = $1", &[&commit_id]).await {
         Ok(q_guid) => q_guid,
         Err(error) => return content::RawHtml(format!("Error: {}", error)),
@@ -368,7 +404,7 @@ async fn review_note(note_id: i64, user: Option<User>) -> content::RawHtml<Strin
     
     if let Some(ref user) = user {
 
-        let client = unsafe { database::TOKIO_POSTGRES_CLIENT.as_mut().unwrap() };
+        let client = database::TOKIO_POSTGRES_POOL.get().unwrap().get().await.unwrap();
         let q_guid = match client.query("Select deck from notes where id = $1", &[&note_id]).await {
             Ok(q_guid) => q_guid,
             Err(error) => return content::RawHtml(format!("Error: {}", error)),
@@ -407,7 +443,7 @@ async fn access_check(deck_id: i64, user: &User) -> Result<bool, Error> {
 }
 
 async fn get_deck_by_tag_id(tag_id: i64) -> Result<i64, Error> {
-    let client = unsafe { database::TOKIO_POSTGRES_CLIENT.as_mut().unwrap() };
+    let client = database::TOKIO_POSTGRES_POOL.get().unwrap().get().await.unwrap();
     let q_guid = match client.query("Select deck from notes where id = (select note from tags where id = $1)", &[&tag_id]).await {
         Ok(q_guid) => q_guid,
         Err(_error) => return Ok(0),
@@ -421,7 +457,7 @@ async fn get_deck_by_tag_id(tag_id: i64) -> Result<i64, Error> {
 }
 
 async fn get_deck_by_field_id(field_id: i64) -> Result<i64, Error> {
-    let client = unsafe { database::TOKIO_POSTGRES_CLIENT.as_mut().unwrap() };
+    let client = database::TOKIO_POSTGRES_POOL.get().unwrap().get().await.unwrap();
     let q_guid = match client.query("Select deck from notes where id = (select note from fields where id = $1)", &[&field_id]).await {
         Ok(q_guid) => q_guid,
         Err(_error) => return Ok(0),
@@ -537,7 +573,7 @@ async fn get_notes_from_deck(deck_hash: String, user: Option<User>) -> content::
         Err(error) => return content::RawHtml(format!("Error: {}", error)),
     };
 
-    let client = unsafe { database::TOKIO_POSTGRES_CLIENT.as_mut().unwrap() };
+    let client = database::TOKIO_POSTGRES_POOL.get().unwrap().get().await.unwrap();
     let deck_info = client.query("Select id, name, description, human_hash, owner, TO_CHAR(last_update, 'MM/DD/YYYY') AS last_update from decks where human_hash = $1 Limit 1", &[&deck_hash]).await.expect("Error preparing deck notes statement");
     if deck_info.is_empty() {
         return content::RawHtml(format!("Deck not found."))
@@ -604,7 +640,7 @@ async fn deck_overview(user: Option<User>) -> content::RawHtml<String> {
     if user.is_some() {
         user_id = user.as_ref().unwrap().id();
     }
-    let client = unsafe { database::TOKIO_POSTGRES_CLIENT.as_mut().unwrap() };
+    let client = database::TOKIO_POSTGRES_POOL.get().unwrap().get().await.unwrap();
     let stmt = client
     .prepare("
         SELECT 
@@ -663,7 +699,7 @@ async fn deck_overview(user: Option<User>) -> content::RawHtml<String> {
 async fn manage_decks(user: User) -> content::RawHtml<String> {
     let mut decks:Vec<DeckOverview> = vec![];
 
-    let client = unsafe { database::TOKIO_POSTGRES_CLIENT.as_mut().unwrap() };
+    let client = database::TOKIO_POSTGRES_POOL.get().unwrap().get().await.unwrap();
     let stmt = client
     .prepare("
         SELECT 
@@ -698,9 +734,16 @@ async fn manage_decks(user: User) -> content::RawHtml<String> {
         });
     }
 
+    let notetypes = match decks::get_notetype_overview(&user).await {
+        Ok(cl) => cl,
+        Err(error) => return content::RawHtml(format!("Error: {}", error)),
+    };
+
     let mut context = tera::Context::new();
     context.insert("decks", &decks);
     context.insert("user", &user);
+    context.insert("notetypes", &notetypes);
+
     let rendered_template = TEMPLATES.render("manage_decks.html", &context).expect("Failed to render template");
 
     content::RawHtml(rendered_template)
@@ -711,7 +754,8 @@ use rocket::data::{Limits, ToByteUnit};
 
 #[rocket::main]
 async fn main() {
-    database::establish_connection().await.unwrap();
+    let pool = database::establish_connection().await.expect("Failed to establish database connection");
+    database::TOKIO_POSTGRES_POOL.set(pool).expect("Failed to store database connection pool in static variable");
 
     use tokio_postgres::NoTls;
     let (client, conn) = connect("postgresql://postgres:password@localhost/anki", NoTls).await.unwrap();
@@ -740,7 +784,8 @@ async fn main() {
                 index, terms, privacy,
                 get_login, post_login, logout,
                 post_signup, get_signup,
-                post_maintainers, show_maintainers,
+                post_maintainers, show_maintainers, async_approve_commit,
+                edit_notetype, post_edit_notetype
         ])
 	    .register("/", catchers![internal_error, not_found, default])    
         .manage(client)

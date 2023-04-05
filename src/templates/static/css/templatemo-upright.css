@@ -135,7 +135,7 @@ hr { border-top: 4px solid #CCC; }
 	transition: all 0.3s ease;
 }
 
-.nav-item:hover .nav-link,
+.nav-hover:hover .nav-link,
 .nav-link.current {
 	background-color: #F2F2F2;
 	color: #006699;

@@ -44,32 +44,7 @@ input:invalid {
               <h5 class="card-title m-b-0">Make Deck private (unlisted)</h5>
               <input type="checkbox" id="private" name="private" value="private" {% if private %} checked{% endif %}>
               <label for="private">Private Deck</label>
-            </div>
-            <h5 class="card-title m-b-0" style="margin-top:20px">Select the protected fields</h5>
-            <div class="panel-group" id="accordion" role="tablist" aria-multiselectable="true">
-              {% for notetype in notetypes %}
-              <div class="panel panel-default">
-                  <div class="panel-heading" role="tab" id="heading{{notetype.id}}">
-                      <h4 class="panel-title">
-                          <a role="button" data-toggle="collapse" data-parent="#accordion" href="#collapse{{notetype.id}}" aria-expanded="true" aria-controls="collapse{{notetype.id}}">
-                              <i class="more-less fa-solid fa-plus"></i>
-                              {{notetype.name}}
-                          </a>
-                      </h4>
-                  </div>
-                  <div id="collapse{{notetype.id}}" class="panel-collapse collapse" role="tabpanel" aria-labelledby="heading{{notetype.id}}">
-                      <div class="panel-body">
-                        {% for fieldInfo in notetype.fields %}
-                        <div class="form-group">
-                          <input type="checkbox" id="{{fieldInfo.id}}" name="{{fieldInfo.id}}" value="field_{{fieldInfo.id}}" {% if fieldInfo.protected %} checked{% endif %}>
-                          <label for="{{fieldInfo.id}}" class="">{{fieldInfo.name}}</label>
-                        </div>
-                        {% endfor %}
-                      </div>
-                  </div>
-              </div>
-              {% endfor %}          
-            </div><!-- panel-group -->
+            </div>            
             <div style="margin-top: 20px">
               <h5 class="card-title m-b-0">Add a new changelog message:</h5>
               <textarea rows="5" cols="60" name="changelog"></textarea>
@@ -112,36 +87,18 @@ input:invalid {
 </div>
 
 <script>
-  function toggleIcon(e) {
-    $(e.target)
-        .prev('.panel-heading')
-        .find(".more-less")
-        .toggleClass('fa-plus fa-minus');
-  }
-  $('.panel-group').on('hidden.bs.collapse', toggleIcon);
-  $('.panel-group').on('shown.bs.collapse', toggleIcon);
-
+  
   const form = document.querySelector('form');
 
   form.addEventListener('submit', event => {
     event.preventDefault();
 
-    const formData = {};    
-    const checkboxes = document.querySelectorAll('input[type="checkbox"]');
     const description = document.querySelector('textarea[name="description"]').value;
     const media_url = document.querySelector('input[name="media_url"]').value;
     const isPrivate = document.querySelector('input[name="private"]').checked;
     const changelog = document.querySelector('textarea[name="changelog"]').value;
 
-    checkboxes.forEach(checkbox => {
-      if (checkbox.name !== "private") {
-        const key = parseInt(checkbox.name, 10);
-        formData[key] = checkbox.checked;
-      }
-    });
-
     const data = {
-      items: formData,      
       description: description,
       media_url: media_url,
       hash: '{{hash}}',

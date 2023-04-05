@@ -4,8 +4,8 @@
   <div class="row">
   <div class="col-12">
       <div class="card">
-          <div class="card-body text-center">
-              <h5 class="card-title m-b-0">Edit your Decks</h5>
+          <div class="card-body text-left">
+              <h3 class="card-title m-b-0">Manage your Decks</h3>
           </div>
           <link rel="stylesheet" href="https://cdn.datatables.net/1.10.2/css/jquery.dataTables.min.css">
           <script type="text/javascript" src="https://cdn.datatables.net/1.10.2/js/jquery.dataTables.min.js"></script>
@@ -33,6 +33,28 @@
                       </tbody>
                   </table>
               </div>
+
+              <div class="card-body text-left" style="margin-top:50px">
+                <h3 class="card-title m-b-0">Manage your Notetypes</h3>
+              </div>
+              <div class="table-responsive" >
+                <table name="notetypeOverview" id="notetypeOverview" class="table table-striped">
+                    <thead class="thead-light">
+                        <tr>
+                            <th scope="col">Name</th>
+                            <th scope="col">Notes</th>
+                        </tr>
+                    </thead>
+                    <tbody class="customtable">
+                      {% for notetype in notetypes %}
+                        <tr>
+                            <td><a href="/EditNotetype/{{notetype.id}}">{{ notetype.name }}</a></td>
+                            <td><a href="/EditNotetype/{{notetype.id}}">{{ notetype.notecount }}</a></td>
+                        </tr> 
+                      {% endfor %}                         
+                    </tbody>
+                </table>
+            </div>
       </div>
   </div>
 </div>
@@ -41,7 +63,10 @@
   $(document).ready(function() {
     $('#deckOverview').DataTable({
       order: [[0, 'desc']],
+    });
+    $('#notetypeOverview').DataTable({
+      order: [[1, 'desc']],
+    });
   });
-} );
 </script>
 {% include "layout_bottom.html" %}

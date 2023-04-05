@@ -3,11 +3,11 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>AnkiCollab - Free Platform for collaborative Anki Decks</title>
+    <title>AnkiCollab - The Free Platform for collaborative Anki Decks</title>
     <meta name="description" content="AnkiCollab is a free platform for creating and working on shared Anki Decks with friends. Discover the power of collaborative learning with AnkiCollab.">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="robots" content="index, follow">
-    <meta name="keywords" content="Anki, Decks, Collaboration, Shared Decks, Community Decks, Flashcard, Collab, share">
+    <meta name="keywords" content="AnkiCollab, Anki, Decks, Collaboration, Shared Decks, Community Decks, Flashcard, Study, Learning, Open-Source, collaboration platform, free collaboration platform">
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
     <meta name="language" content="English">
     <link href="https://fonts.googleapis.com/css2?family=Kumbh+Sans&display=swap" rel="stylesheet"> <!-- https://fonts.google.com/specimen/Kumbh+Sans -->
@@ -35,27 +35,27 @@
                             <h1 class="tm-brand">AnkiCollab</h1>
                         </div></a>         
                         <ul id="tm-main-nav">
-                            <li class="nav-item">                                
+                            <li class="nav-item nav-hover">                                
                                 <a href="/decks" class="nav-link">
                                     <div class="triangle-right"></div>
                                     Browse Decks
                                 </a>
                             </li>
                                 {% if not user %}                            
-				<li class="nav-item">
+				<li class="nav-item nav-hover">
                                     <a href="/login" class="nav-link">
                                         <div class="triangle-right"></div>
                                         Login
                                     </a>                            
 				</li>            
                                 {% else %}	                 
-				<li class="nav-item">			    
+				<li class="nav-item nav-hover">			    
 				    <a href="/reviews" class="nav-link">
                                         <div class="triangle-right"></div>
                                         Show Reviews
                                     </a>                        
 				</li>                     
-				<li class="nav-item">
+				<li class="nav-item nav-hover">
                                     <a href="/ManageDecks" class="nav-link">
                                         <div class="triangle-right"></div>
                                         Manage Decks
@@ -63,25 +63,25 @@
 				</li>        
                                 {% endif %}
                
-                            <li class="nav-item">
+                            <li class="nav-item nav-hover">
                                 <a href="https://discord.gg/9x4DRxzqwM" class="nav-link">
                                     <div class="triangle-right"></div>
                                     Discord
                                 </a>
                             </li>
-                            <li class="nav-item">
+                            <li class="nav-item nav-hover">
                                 <a href="https://ankiweb.net/shared/info/1957538407" class="nav-link external" target="_parent" rel="sponsored">
                                     <div class="triangle-right"></div>
                                     Anki Plugin
                                 </a>
                             </li>
-                            <li class="nav-item">
+                            <li class="nav-item nav-hover">
                                 <a href="https://github.com/CravingCrates/AnkiCollab-Plugin/blob/main/README.md#ankicollab-plugin" class="nav-link external" target="_parent" rel="sponsored">
                                     <div class="triangle-right"></div>
                                     Tutorial / Guide
                                 </a>
                             </li>                            
-                            <li class="nav-item">
+                            <li class="nav-item nav-hover">
                                 <a href="https://ko-fi.com/ankicollab" class="nav-link external" target="_parent" rel="sponsored">
                                     <div class="triangle-right"></div>
                                     Donate
