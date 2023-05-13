@@ -1,0 +1,175 @@
+{% include "layout_top.html" %}
+<style>
+  input[type="file"] {
+    display: none;
+  }
+  label {
+    display: block;
+    position: relative;
+    background-color: #025bee;
+    color: #ffffff;
+    font-size: 1.1em;
+    text-align: center;
+    width: 16em;
+    padding: 1em 0;
+    border-radius: 0.3em;
+    margin: 0 auto 1em auto;
+    cursor: pointer;
+  }
+
+  #status, #status2 {
+    color: #025bee;
+    font-size: 1.1em;
+    text-align: center;
+    padding: 1em 0;
+    border-radius: 0.3em;
+    margin: 0 auto 1em auto;
+  }
+
+  .active {
+    border: 0.2em dashed #025bee;
+  }  
+</style>
+<div class="container">
+  <div class="row">
+    <div class="col-12">
+      <div class="card">
+        <div class="card-body text-center">
+          <h4 class="card-title m-b-0">Media Manager</h4>
+          <P>Here you can setup your google drive folder to automate and fully support media in your deck.</p>
+        </div>
+        <div class="container-fluid">
+          <div id="upload-field" style="padding: 15px; margin:15px">
+            <input type="file" id="upload-button" accept=".json" />
+            <label for="upload-button"><i class="fa-solid fa-upload"></i>&nbsp; Choose Or Drop Your Service Account File
+            </label>
+          </div>                    
+          <input style="width:50%; margin-left:25%" type="text" id="folder_id" name="folder_id" placeholder="Folder ID" required><br />
+          <button type="button" class="btn btn-primary accept" onclick="UpdateMedia()" style="width: 100px; margin-top: 25px;">Save</button>
+          <br />
+          <div id="status"></div>
+          <div id="status2"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  let uploadButton = document.getElementById("upload-button");
+  let container = document.getElementById("upload-field");
+  let status = document.getElementById("status");
+  let status2 = document.getElementById("status2");
+
+  let service_account = null;
+
+  const fileHandler = (file, name, type) => {
+    if (type !== "application/json") {
+      //File Type Error
+      status.innerText = "Please upload a JSON file";
+      return false;
+    }
+    status.innerText = "";
+    let reader = new FileReader();
+    reader.readAsText(file);
+    reader.onloadend = () => {
+      //JSON and file name
+      service_account = JSON.parse(reader.result);
+      status.innerText = "Service Account loaded successfully";
+    };
+  };
+  
+  //Upload Button
+  uploadButton.addEventListener("change", () => {
+    status.innerHTML = "";
+    Array.from(uploadButton.files).forEach((file) => {
+      fileHandler(file, file.name, file.type);
+    });
+  });
+
+  container.addEventListener(
+    "dragenter",
+    (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      container.classList.add("active");
+    },
+    false
+  );
+
+  container.addEventListener(
+    "dragleave",
+    (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      container.classList.remove("active");
+    },
+    false
+  );
+
+  container.addEventListener(
+    "dragover",
+    (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      container.classList.add("active");
+    },
+    false
+  );
+
+  container.addEventListener(
+    "drop",
+    (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      container.classList.remove("active");
+      let draggedData = e.dataTransfer;
+      let files = draggedData.files;
+      status.innerHTML = "";
+      Array.from(files).forEach((file) => {
+        fileHandler(file, file.name, file.type);
+      });
+    },
+    false
+  );
+
+  window.onload = () => {
+    status.innerText = "";
+  };
+
+  function sendData(service_account, folder_id) {
+    if (service_account == null) {
+      status2.innerText = "Please upload a service account file";
+      return false;
+    }
+    if (folder_id == null || folder_id == "") {
+      status2.innerText = "Please enter a folder id";
+      return false;
+    }
+    const data = {
+      deck: '{{hash}}',      
+      service_account: service_account,
+      folder_id: folder_id
+    };
+  
+    fetch('/MediaManager', {
+      method: 'POST',
+      body: JSON.stringify(data),
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    })
+    .then(response => response.text())
+    .then(text => {
+      status2.innerText = text;
+    })
+    .catch(error => console.error(error));  
+  }
+
+  function UpdateMedia() {
+    const folder_id = document.querySelector('input[name="folder_id"]').value;
+    sendData(service_account, folder_id);    
+  }
+
+</script>
+{% include "layout_bottom.html" %}

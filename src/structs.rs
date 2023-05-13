@@ -126,7 +126,6 @@ pub struct NoteModel {
 #[derive(Deserialize, Serialize)]
 pub struct EditDecksData {
   pub description: String,
-  pub media_url: String,
   pub hash: String,
   pub is_private: bool,
   pub changelog: String,
@@ -147,6 +146,13 @@ pub struct UpdateMaintainer {
 }
 
 #[derive(Deserialize, Serialize)]
+pub struct UpdateOptionalTag {
+    pub deck: String,
+    pub taggroup: String,
+    pub action: i32, // 1 = add, 0 = remove
+}
+
+#[derive(Deserialize, Serialize)]
 pub struct UpdateNotetype {
     pub items: HashMap<i64, bool>,
     pub front: String,
@@ -161,4 +167,25 @@ pub struct NotetypeOverview {
     pub id: i64,
     pub name: String,
     pub notecount: i64,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct GoogleServiceAccount {
+    pub r#type: String,
+    pub project_id: String,
+    pub private_key_id: String,
+    pub private_key: String,
+    pub client_email: String,
+    pub client_id: String,
+    pub auth_uri: String,
+    pub token_uri: String,
+    pub auth_provider_x509_cert_url: String,
+    pub client_x509_cert_url: String,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct GDriveInfo {
+    pub deck: String,
+    pub service_account: GoogleServiceAccount,
+    pub folder_id: String,
 }

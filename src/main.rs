@@ -8,7 +8,14 @@ extern crate ammonia;
 
 pub mod database;
 pub mod structs;
-pub mod decks;
+pub mod changelog_manager;
+pub mod commit_manager;
+pub mod maintainer_manager;
+pub mod note_manager;
+pub mod notetype_manager;
+pub mod suggestion_manager;
+pub mod optional_tags_manager;
+pub mod gdrive_manager;
 
 use rocket::*;
 use rocket::fs::FileServer;
@@ -115,10 +122,73 @@ fn logout(auth: Auth<'_>) -> Result<content::RawHtml<String>, Error> {
     Ok(content::RawHtml(rendered_template))
 }
 
+
+async fn render_optional_tags(deck_hash: &String, deck_id: i64, user: User) -> content::RawHtml<String> {
+    
+    // Get Tags by deck id
+    let tags = match optional_tags_manager::get_tags(deck_id).await {
+        Ok(tags) => tags,
+        Err(e) => {
+            println!("Error retrieving opt tags: {}", e);
+            return content::RawHtml(format!("Error retrieving optional tags. Please notify us."))
+        }
+    };
+
+    let mut context = tera::Context::new();
+    context.insert("optional_tags", &tags);   
+    context.insert("hash", &deck_hash);   
+    context.insert("user", &user);
+
+    let rendered_template = TEMPLATES.render("OptionalTags.html", &context).expect("Failed to render template");
+    content::RawHtml(rendered_template)
+}
+
+
+#[post("/OptionalTags", format = "application/json", data = "<edit_optional_tag>")]
+async fn post_optional_tags(user: User, edit_optional_tag: Json<structs::UpdateOptionalTag>) -> String {
+    let client = database::TOKIO_POSTGRES_POOL.get().unwrap().get().await.unwrap();
+    let data = edit_optional_tag.into_inner();
+    
+    let owned_info = client.query("Select id from decks where human_hash = $1 and owner = $2", &[&data.deck, &user.id()]).await.expect("Error preparing edit deck statement");
+    if owned_info.is_empty() {
+        return "Unauthorized.".into();
+    }
+    let deck_id: i64 = owned_info[0].get(0);
+    
+    // Add new tag    
+    let mut status = String::new();
+    if data.action == 1 {
+        status = match optional_tags_manager::add_tag(deck_id, data.taggroup).await {
+            Ok(_res) => "added".to_owned(),
+            Err(e) => e.to_string(),
+        };
+    } else {
+        // Delete existing optional_tag
+        status = match optional_tags_manager::remove_tag(deck_id, data.taggroup).await {
+            Ok(_res) => "removed".to_owned(),
+            Err(e) => e.to_string(),
+        };
+    }
+        
+    return status;
+}
+
+#[get("/OptionalTags/<deck_hash>")]
+async fn show_optional_tags(user: User, deck_hash: String) -> content::RawHtml<String> {
+    let client = database::TOKIO_POSTGRES_POOL.get().unwrap().get().await.unwrap();
+        
+    let owned_info = client.query("Select id from decks where human_hash = $1 and owner = $2", &[&deck_hash, &user.id()]).await.expect("Error preparing edit deck statement");
+    if owned_info.is_empty() {
+        return content::RawHtml(format!("Unauthorized."))
+    }
+    let deck_id: i64 = owned_info[0].get(0);
+    render_optional_tags(&deck_hash, deck_id, user).await
+}
+
 async fn render_maintainers(deck_hash: &String, deck_id: i64, user: User) -> content::RawHtml<String> {
     
     // Get Maintainers by deck id
-    let maintainers = match decks::get_maintainers(deck_id).await {
+    let maintainers = match maintainer_manager::get_maintainers(deck_id).await {
         Ok(maintainers) => maintainers,
         Err(e) => {
             println!("Error getting maintainers: {}", e);
@@ -135,6 +205,7 @@ async fn render_maintainers(deck_hash: &String, deck_id: i64, user: User) -> con
     content::RawHtml(rendered_template)
 }
 
+
 #[post("/Maintainers", format = "application/json", data = "<edit_maintainer>")]
 async fn post_maintainers(user: User, edit_maintainer: Json<structs::UpdateMaintainer>) -> String {
     let client = database::TOKIO_POSTGRES_POOL.get().unwrap().get().await.unwrap();
@@ -149,19 +220,55 @@ async fn post_maintainers(user: User, edit_maintainer: Json<structs::UpdateMaint
     // Add new maintainer    
     let mut status = String::new();
     if data.action == 1 {
-        status = match decks::add_maintainer(deck_id, data.email).await {
+        status = match maintainer_manager::add_maintainer(deck_id, data.email).await {
             Ok(_res) => "added".to_owned(),
             Err(e) => e.to_string(),
         };
     } else {
         // Delete existing maintainer
-        status = match decks::remove_maintainer(deck_id, data.email).await {
+        status = match maintainer_manager::remove_maintainer(deck_id, data.email).await {
             Ok(_res) => "removed".to_owned(),
             Err(e) => e.to_string(),
         };
     }
         
     return status;
+}
+
+#[post("/MediaManager", format = "application/json", data = "<update_media>")]
+async fn post_media_manager(user: User, update_media: Json<structs::GDriveInfo>) -> String {
+    let client = database::TOKIO_POSTGRES_POOL.get().unwrap().get().await.unwrap();
+    let data = update_media.into_inner();
+    
+    let owned_info = client.query("Select id from decks where human_hash = $1 and owner = $2", &[&data.deck, &user.id()]).await.expect("Error preparing edit deck statement");
+    if owned_info.is_empty() {
+        return "Unauthorized.".into();
+    }
+    let deck_id: i64 = owned_info[0].get(0);
+    
+    let status = match gdrive_manager::update_media(deck_id, data).await {
+        Ok(res) => res,
+        Err(e) => format!("Error: {}", e),
+
+    };
+    return status;
+}
+
+#[get("/MediaManager/<deck_hash>")]
+async fn media_manager(user: User, deck_hash: String) -> content::RawHtml<String> {
+    let client = database::TOKIO_POSTGRES_POOL.get().unwrap().get().await.unwrap();
+        
+    let owned_info = client.query("Select id from decks where human_hash = $1 and owner = $2", &[&deck_hash, &user.id()]).await.expect("Error preparing edit deck statement");
+    if owned_info.is_empty() {
+        return content::RawHtml(format!("Unauthorized."))
+    }
+
+    let mut context = tera::Context::new();
+    context.insert("hash", &deck_hash);
+    context.insert("user", &user);
+
+    let rendered_template = TEMPLATES.render("media_manager.html", &context).expect("Failed to render template");
+    content::RawHtml(rendered_template)
 }
 
 #[get("/Maintainers/<deck_hash>")]
@@ -188,7 +295,7 @@ async fn edit_notetype(user: User, notetype_id: i64) -> content::RawHtml<String>
     let notetype_info = client.query("Select name, css from notetype where id = $1", &[&notetype_id]).await.expect("Error preparing edit notetype statement");
     let notetype_template_info = client.query("Select id, qfmt, afmt from notetype_template where notetype = $1 and position = 0 LIMIT 1", &[&notetype_id]).await.expect("Error preparing edit notetype statement");
    
-    let protected_fields = match decks::get_protected_fields(notetype_id).await {
+    let protected_fields = match notetype_manager::get_protected_fields(notetype_id).await {
         Ok(note) => note,
         Err(error) => return content::RawHtml(format!("Error: {}", error)),
     };
@@ -217,7 +324,7 @@ async fn edit_notetype(user: User, notetype_id: i64) -> content::RawHtml<String>
 async fn post_edit_notetype(user: User, edit_notetype: Json<structs::UpdateNotetype>) -> String {
     let data = edit_notetype.into_inner();
 
-    match decks::update_notetype(&user, &data).await {
+    match notetype_manager::update_notetype(&user, &data).await {
         Ok(_res) => "updated".to_owned(),
         Err(e) => e.to_string(),
     }
@@ -235,18 +342,10 @@ async fn edit_deck(user: User, deck_hash: String) -> content::RawHtml<String> {
         return content::RawHtml(format!("Unauthorized."))
     }
 
-    let deck_id: i64 = owned_info[0].get(3);
-    let media_url_info = client.query("Select url from mediaFolders where deck = $1", &[&deck_id]).await.expect("Error preparing edit deck statement (2)");
-    
-    let mut media_url = String::new();
-    if !media_url_info.is_empty() {
-        media_url = media_url_info[0].get(0);
-    }
-
     let desc: String = owned_info[0].get(1);
     let is_private: bool = owned_info[0].get(2);
 
-    let changelogs = match decks::get_changelogs(&deck_hash).await {
+    let changelogs = match changelog_manager::get_changelogs(&deck_hash).await {
         Ok(cl) => cl,
         Err(error) => return content::RawHtml(format!("Error: {}", error)),
     };
@@ -255,7 +354,6 @@ async fn edit_deck(user: User, deck_hash: String) -> content::RawHtml<String> {
     context.insert("user", &user);
     context.insert("hash", &deck_hash);
     context.insert("description", &desc);
-    context.insert("media_url", &media_url);
     context.insert("private", &is_private);
     context.insert("changelogs", &changelogs);
 
@@ -282,10 +380,8 @@ async fn post_edit_deck(user: User, edit_deck_data: Json<structs::EditDecksData>
         WHERE human_hash = $3
         AND owner = $4", &[&data.description, &data.is_private, &data.hash, &user.id()]).await?;
 
-    client.query("INSERT INTO mediaFolders (url, deck) VALUES($1, $2) ON CONFLICT(deck) DO UPDATE SET url = $1", &[&data.media_url, &deck_id]).await?;
-
     if data.changelog != "" {
-        decks::insert_new_changelog(&data.hash, &data.changelog).await.expect("Failed to insert new changelog");
+        changelog_manager::insert_new_changelog(&data.hash, &data.changelog).await.expect("Failed to insert new changelog");
     }
     
     return Ok(Redirect::to(format!("/EditDeck/{}", data.hash)));
@@ -293,7 +389,7 @@ async fn post_edit_deck(user: User, edit_deck_data: Json<structs::EditDecksData>
 
 #[get("/DeleteChangelog/<changelog_id>")]
 async fn delete_changelog(user: User, changelog_id: i64) -> Result<Redirect, Error> {
-    match decks::delete_changelog(changelog_id, user.id()).await {
+    match changelog_manager::delete_changelog(changelog_id, user.id()).await {
         Ok(hash) => return Ok(Redirect::to(format!("/EditDeck/{}", hash))),
         Err(_err) => return Ok(Redirect::to("/")),
     }
@@ -315,7 +411,7 @@ async fn delete_deck(user: User, deck_hash: String) -> Result<Redirect, Error> {
 #[get("/AsyncApproveCommit/<commit_id>")]
 async fn async_approve_commit(commit_id: i32, user: User) -> Result<Redirect, Error> {   
     tokio::spawn(async move {
-        match decks::merge_by_commit(commit_id, true, user).await {
+        match suggestion_manager::merge_by_commit(commit_id, true, user).await {
             Ok(_res) => println!("Async approved commit {}", commit_id),
             Err(error) => println!("Async approve commit Error: {}", error),
         };
@@ -325,7 +421,7 @@ async fn async_approve_commit(commit_id: i32, user: User) -> Result<Redirect, Er
 
 #[get("/ApproveCommit/<commit_id>")]
 async fn approve_commit(commit_id: i32, user: User) -> Result<Redirect, Error> {    
-    match decks::merge_by_commit(commit_id, true, user).await {
+    match suggestion_manager::merge_by_commit(commit_id, true, user).await {
         Ok(_res) => return Ok(Redirect::to(format!("/reviews"))),
         Err(error) => {println!("Error: {}", error); return Ok(Redirect::to("/")) },
     };    
@@ -333,7 +429,7 @@ async fn approve_commit(commit_id: i32, user: User) -> Result<Redirect, Error> {
 
 #[get("/DenyCommit/<commit_id>")]
 async fn deny_commit(commit_id: i32, user: User) -> Result<Redirect, Error> {    
-    match decks::merge_by_commit(commit_id, false, user).await {
+    match suggestion_manager::merge_by_commit(commit_id, false, user).await {
         Ok(_res) => return Ok(Redirect::to(format!("/reviews"))),
         Err(error) => {println!("Error: {}", error); return Ok(Redirect::to("/")) },
     };    
@@ -345,12 +441,12 @@ async fn review_commit(commit_id: i32, user: User) -> content::RawHtml<String> {
     
     let mut context = tera::Context::new();
     
-    let notes = match decks::notes_by_commit(commit_id).await {
+    let notes = match commit_manager::notes_by_commit(commit_id).await {
         Ok(notes) => notes,
         Err(error) => return content::RawHtml(format!("Error: {}", error)),
     };
 
-    let commit = match decks::get_commit_info(commit_id).await {
+    let commit = match commit_manager::get_commit_info(commit_id).await {
         Ok(commit) => commit,
         Err(error) => return content::RawHtml(format!("Error: {}", error)),
     };
@@ -365,12 +461,12 @@ async fn review_commit(commit_id: i32, user: User) -> content::RawHtml<String> {
     }
     let deck_id: i64 = q_guid[0].get(0);
 
-    let access = match decks::is_authorized(&user, deck_id).await {
+    let access = match suggestion_manager::is_authorized(&user, deck_id).await {
         Ok(access) => access,
         Err(error) => return content::RawHtml(format!("Error: {}", error)),
     };
    
-    let notemodels = match decks::notemodels_by_commit(commit_id).await {
+    let notemodels = match notetype_manager::notetypes_by_commit(commit_id).await {
         Ok(notemodels) => notemodels,
         Err(error) => return content::RawHtml(format!("Error: {}", error)),
     };
@@ -392,7 +488,7 @@ async fn review_note(note_id: i64, user: Option<User>) -> content::RawHtml<Strin
     
     let mut context = tera::Context::new();
 
-    let note = match decks::get_note_data(note_id).await {
+    let note = match note_manager::get_note_data(note_id).await {
         Ok(note) => note,
         Err(error) => return content::RawHtml(format!("Error: {}", error)),
     };
@@ -414,7 +510,7 @@ async fn review_note(note_id: i64, user: Option<User>) -> content::RawHtml<Strin
         }
         let deck_id: i64 = q_guid[0].get(0);
 
-        access = match decks::is_authorized(&user, deck_id).await {
+        access = match suggestion_manager::is_authorized(&user, deck_id).await {
             Ok(access) => access,
             Err(error) => return content::RawHtml(format!("Error: {}", error)),
         };     
@@ -430,7 +526,7 @@ async fn review_note(note_id: i64, user: Option<User>) -> content::RawHtml<Strin
 }
 
 async fn access_check(deck_id: i64, user: &User) -> Result<bool, Error> {
-    let access = match decks::is_authorized(&user, deck_id).await {
+    let access = match suggestion_manager::is_authorized(&user, deck_id).await {
         Ok(access) => access,
         Err(_error) => return Ok(false),
     };     
@@ -482,7 +578,7 @@ async fn deny_tag(tag_id: i64, user: User) -> Result<Redirect, Error> {
         return Ok(Redirect::to("/"));
     }
 
-    match decks::deny_tag_change(tag_id).await {
+    match suggestion_manager::deny_tag_change(tag_id).await {
         Ok(res) => return Ok(Redirect::to(format!("/review/{}", res))),
         Err(error) => {println!("Error: {}", error); return Ok(Redirect::to("/")) },
     };
@@ -500,7 +596,7 @@ async fn accept_tag(tag_id: i64, user: User) -> Result<Redirect, Error> {
         return Ok(Redirect::to("/"));
     }
 
-    match decks::approve_tag_change(tag_id, true).await {
+    match suggestion_manager::approve_tag_change(tag_id, true).await {
         Ok(res) => return Ok(Redirect::to(format!("/review/{}", res))),
         Err(error) => {println!("Error: {}", error); return Ok(Redirect::to("/")) },
     };    
@@ -518,7 +614,7 @@ async fn deny_field(field_id: i64, user: User) -> Result<Redirect, Error> {
         return Ok(Redirect::to("/"));
     }
 
-    match decks::deny_field_change(field_id).await {
+    match suggestion_manager::deny_field_change(field_id).await {
         Ok(res) => return Ok(Redirect::to(format!("/review/{}", res))),
         Err(error) => {println!("Error: {}", error); return Ok(Redirect::to("/")) },
     };
@@ -536,7 +632,7 @@ async fn accept_field(field_id: i64, user: User) -> Result<Redirect, Error> {
         return Ok(Redirect::to("/"));
     }
 
-    match decks::approve_field_change(field_id, true).await {
+    match suggestion_manager::approve_field_change(field_id, true).await {
         Ok(res) => return Ok(Redirect::to(format!("/review/{}", res))),
         Err(error) => {println!("Error: {}", error); return Ok(Redirect::to("/")) },
     };    
@@ -544,7 +640,7 @@ async fn accept_field(field_id: i64, user: User) -> Result<Redirect, Error> {
 
 #[get("/AcceptNote/<note_id>")]
 async fn accept_note(note_id: i64, user: User) -> Result<Redirect, Error> {
-    match decks::approve_card(note_id, user).await {
+    match suggestion_manager::approve_card(note_id, user).await {
         Ok(res) => return Ok(Redirect::to(format!("/review/{}", res))),
         Err(error) => {println!("Error: {}", error); return Ok(Redirect::to("/")) },
     };    
@@ -552,7 +648,7 @@ async fn accept_note(note_id: i64, user: User) -> Result<Redirect, Error> {
 
 #[get("/DeleteNote/<note_id>")]
 async fn deny_note(note_id: i64, user: User) -> Result<Redirect, Error> {    
-    match decks::delete_card(note_id, user).await {
+    match suggestion_manager::delete_card(note_id, user).await {
         Ok(res) => return Ok(Redirect::to(format!("/notes/{}", res))),
         Err(error) => {println!("Error: {}", error); return Ok(Redirect::to("/")) },
     };    
@@ -568,7 +664,7 @@ async fn get_notes_from_deck(deck_hash: String, user: Option<User>) -> content::
     //     return content::RawHtml(format!("Deck not found."))
     // }
 
-    let notes = match decks::retrieve_notes(&deck_hash).await {
+    let notes = match note_manager::retrieve_notes(&deck_hash).await {
         Ok(notes) => notes,
         Err(error) => return content::RawHtml(format!("Error: {}", error)),
     };
@@ -620,7 +716,7 @@ async fn all_reviews(user: User) -> content::RawHtml<String> {
     //     Ok(notes) => notes,
     //     Err(error) => return content::RawHtml(format!("Error: {}", error)),
     // };
-    let commits = match decks::commits_review(user.id()).await {
+    let commits = match commit_manager::commits_review(user.id()).await {
         Ok(commits) => commits,
         Err(error) => return content::RawHtml(format!("Error: {}", error)),
     };
@@ -669,7 +765,7 @@ async fn deck_overview(user: Option<User>) -> content::RawHtml<String> {
             desc: ammonia::clean(row.get(2)),
             hash: row.get(3),
             last_update: row.get(5),
-            notes: decks::get_notes_count_in_deck(row.get(0)).await.unwrap(),
+            notes: note_manager::get_notes_count_in_deck(row.get(0)).await.unwrap(),
             children: vec![],
             subscriptions: row.get(6),
         });
@@ -728,13 +824,13 @@ async fn manage_decks(user: User) -> content::RawHtml<String> {
             desc: ammonia::clean(row.get(2)),
             hash: row.get(3),
             last_update: row.get(5),
-            notes: decks::get_notes_count_in_deck(row.get(0)).await.unwrap(),
+            notes: note_manager::get_notes_count_in_deck(row.get(0)).await.unwrap(),
             children: vec![],
             subscriptions: row.get(6),
         });
     }
 
-    let notetypes = match decks::get_notetype_overview(&user).await {
+    let notetypes = match notetype_manager::get_notetype_overview(&user).await {
         Ok(cl) => cl,
         Err(error) => return content::RawHtml(format!("Error: {}", error)),
     };
@@ -785,7 +881,9 @@ async fn main() {
                 get_login, post_login, logout,
                 post_signup, get_signup,
                 post_maintainers, show_maintainers, async_approve_commit,
-                edit_notetype, post_edit_notetype
+                post_optional_tags, show_optional_tags,
+                edit_notetype, post_edit_notetype,
+                media_manager, post_media_manager
         ])
 	    .register("/", catchers![internal_error, not_found, default])    
         .manage(client)

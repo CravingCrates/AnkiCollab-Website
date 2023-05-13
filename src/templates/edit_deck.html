@@ -25,17 +25,24 @@ input:invalid {
         <div class="card-body text-center">
           <h4 class="card-title m-b-0">Edit your deck</h5>
           <p>Subscription Key: <span style="font-weight:bold; color: #006699;">{{ hash }}</span></p>
+          <P>Here you can manage your deck, set up media support (via Google Drive) and more. If you don't understand a specific section, please check the Guides or ask for assistance on discord.</p>
         </div>
         <div class="container-fluid neww">
-          <div style="margin-top: 20px">
-            <h5 class="card-title m-b-0">Maintainers</h5>
-            <a href="/Maintainers/{{hash}}"><button class="btn" style="background-color: #006699" type="button">Show all</button></a>
-          </div>
-          <form>
-            <div style="margin-top: 20px">
-              <h5 class="card-title m-b-0">Update the Media Link (See FAQ for more information)</h5>
-              <input type="text" size=60 id="media_url" name="media_url" value="{{media_url}}" pattern="https://mega\.nz/((folder)/([^#]+)#(.+)|#(F?)!([^!]+)!(.+))">
+          <div class="row">
+            <div class="col-md" style="margin-top: 20px">
+              <h5 class="card-title m-b-0">Maintainers</h5>
+              <a href="/Maintainers/{{hash}}"><button class="btn" style="background-color: #006699" type="button">Show all</button></a>
             </div>
+            <div class="col-md" style="margin-top: 20px">
+              <h5 class="card-title m-b-0">Optional Tags</h5>
+              <a href="/OptionalTags/{{hash}}"><button class="btn" style="background-color: #006699" type="button">Show all</button></a>
+            </div>
+            <div class="col-md" style="margin-top: 20px">
+              <h5 class="card-title m-b-0">Google Drive Media</h5>
+              <a href="/MediaManager/{{hash}}"><button class="btn" style="background-color: #006699" type="button">Set up</button></a>
+            </div>
+          </div>
+          <form style="margin-top: 5em;">            
             <div style="margin-top: 20px">
               <h5 class="card-title m-b-0">Update the deck description</h5>
               <textarea rows="5" cols="60" name="description">{{description}}</textarea>
@@ -94,13 +101,11 @@ input:invalid {
     event.preventDefault();
 
     const description = document.querySelector('textarea[name="description"]').value;
-    const media_url = document.querySelector('input[name="media_url"]').value;
     const isPrivate = document.querySelector('input[name="private"]').checked;
     const changelog = document.querySelector('textarea[name="changelog"]').value;
 
     const data = {
       description: description,
-      media_url: media_url,
       hash: '{{hash}}',
       is_private: isPrivate,
       changelog: changelog
