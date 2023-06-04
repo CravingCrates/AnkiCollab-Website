@@ -31,15 +31,15 @@ input:invalid {
           <div class="row">
             <div class="col-md" style="margin-top: 20px">
               <h5 class="card-title m-b-0">Maintainers</h5>
-              <a href="/Maintainers/{{hash}}"><button class="btn" style="background-color: #006699" type="button">Show all</button></a>
+              <a href="/Maintainers/{{hash}}"><button class="btn btn-blue" type="button">Show all</button></a>
             </div>
             <div class="col-md" style="margin-top: 20px">
               <h5 class="card-title m-b-0">Optional Tags</h5>
-              <a href="/OptionalTags/{{hash}}"><button class="btn" style="background-color: #006699" type="button">Show all</button></a>
+              <a href="/OptionalTags/{{hash}}"><button class="btn btn-blue" type="button">Show all</button></a>
             </div>
             <div class="col-md" style="margin-top: 20px">
               <h5 class="card-title m-b-0">Google Drive Media</h5>
-              <a href="/MediaManager/{{hash}}"><button class="btn" style="background-color: #006699" type="button">Set up</button></a>
+              <a href="/MediaManager/{{hash}}"><button class="btn btn-blue" type="button">Set up</button></a>
             </div>
           </div>
           <form style="margin-top: 5em;">            
@@ -79,12 +79,12 @@ input:invalid {
                 {% endfor %}          
               </div><!-- panel-group -->
             </div>
-            <button class="btn btn-primary accept" type="submit" style="margin-top: 50px;">Save all changes!</button>
+            <button class="btn btn-approve" type="submit" style="margin-top: 50px;">Save all changes!</button>
             <p id="confirmation" style="color:green; display:none">Changes saved!</p>
           </form>
           <div style="border: 1px solid red; margin-top: 50px; padding: 10px"> 
             <h5 style="color:red">Danger Zone</h5><br />
-            <button class="btn btn-primary" id="delete-btn" type="button">Delete this Deck.</button>
+            <button class="btn btn-deny" id="delete-btn" type="button">Delete this Deck.</button>
             <p style="color:red">Deleting a deck will delete all the cards and subdecks in it. This action cannot be undone.</p>
           </div>
         </div>

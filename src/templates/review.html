@@ -12,23 +12,22 @@
   <div class="row">
   <div class="col-12">
       <div class="card">
-          <div class="card-body text-center">
-              <h5 class="card-title m-b-0">Review Note</h5>
-              <p>Last Update: {{ note.last_update }}</p>              
-	      <p>Deck: {{ note.deck }}</p>
-              <p>Status:</p>
-              <div class="note {% if note.reviewed %}published{% else %}under-review{% endif %}">
+          <div class="card-body text-right">
+              <h5 class="card-title m-b-0 text-center">Review Note</h5>
+              <p class="text-center">Last Update: {{ note.last_update }}</p>              
+	            <p class="text-center">Deck: {{ note.deck }}</p>
+              <button class="btn btn-blue toggle-html" id="toggle-html-{{note.id}}"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 30 25" width="30px" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"></path>
+              </svg><span id="toggle-html-text-{{note.id}}">Show Source</span></button>
+              <div style="margin-top: 10px;" class="text-center note {% if note.reviewed %}published{% else %}under-review{% endif %}">
                 {% if note.reviewed %}published{% else %}under review{% endif %}
               </div>    
               <div>
               {% if access and note.reviewed == false %}
-                <a href="/AcceptNote/{{note.id}}" class="btn accept">Publish Note with all suggestions <span class="fa fa-check"></span></a>
-                <a href="/DeleteNote/{{note.id}}" class="btn deny">Delete <span class="fa fa-close"></span></a>
+                <a href="/AcceptNote/{{note.id}}" class="btn btn-approve"><span class="fa fa-check"></span> Publish</a>
+                <a href="/DeleteNote/{{note.id}}" class="btn btn-deny"><span class="fa fa-close"></span> Delete</a>
               {% endif %}      
               </div>
-              <button class="btn btn-primary accept" style="background-color:#006699" id="toggle-html"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 30 25" width="30px" stroke="currentColor" stroke-width="2">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"></path>
-            </svg><span id="toggle-html-text">Show Source</span></button>
           </div>
           <div class="split_container">            
             <div><!-- Left Side -->
@@ -49,7 +48,7 @@
                 {% for field in note.unconfirmed_fields %}
                   <span class="counter">{{note.note_model_fields[field.position]}}</span>
                   {% if access and note.reviewed %}
-                    <a href="/AcceptField/{{field.id}}" class="btn accept"><span class="fa fa-check"></span></a><a href="/DenyField/{{field.id}}" class="btn deny"><span class="fa fa-close"></span></a>
+                    <a href="/AcceptField/{{field.id}}" class="btn btn-approve" style="padding: 1px 5px;margin: 5px;"><span class="fa fa-check"></span></a><a href="/DenyField/{{field.id}}" class="btn btn-deny" style="padding: 1px 7px;margin: 5px;"><span class="fa fa-close"></span></a>
                   {% endif %}
                   <div class="note_fields_highlighted" data-original='{{ note.reviewed_fields[field.position].content }}' data-new-content='{{field.content}}'></div>
                   

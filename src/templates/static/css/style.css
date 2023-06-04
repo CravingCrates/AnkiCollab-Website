@@ -143,6 +143,7 @@ th {
 .split_container {
    display: flex;
    justify-content: space-between;
+   padding-right: 20px;
  }
  
  .split_container > div {
@@ -244,27 +245,112 @@ ins {
  }
  
  .btn {
-  margin:3px 2px;
-  padding: 5px 10px;
-  border:0;
-  border-radius:var(--border-radius);
-  cursor:pointer;
-  background-color:#C41E3A;
-  color:white;
-  font-size:var(--font-size-default);
-  transition:background 250ms ease;
+  appearance: none;
+  border: 1px solid rgba(27, 31, 35, .15);
+  border-radius: 6px;
+  box-shadow: rgba(27, 31, 35, .1) 0 1px 0;
+  box-sizing: border-box;
+  color: #fff;
+  cursor: pointer;
+  display: inline-block;
+  font-family: -apple-system,system-ui,"Segoe UI",Helvetica,Arial,sans-serif,"Apple Color Emoji","Segoe UI Emoji";
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 20px;
+  padding: 6px 16px;
+  position: relative;
+  text-align: center;
+  text-decoration: none;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: manipulation;
+  vertical-align: middle;
+  white-space: nowrap;
 }
 
-.btn.accept { 
-  background-color:#4CBB17;
-  color:white;
+.btn:focus:not(:focus-visible):not(.focus-visible) {
+  box-shadow: none;
+  outline: none;
 }
 
 .btn:hover {
-  background-color:#D70040;
+  background-color: #2c974b;
 }
-.btn.accept:hover {
-  background-color:#32CD32;
+
+.btn:focus {
+  box-shadow: rgba(46, 164, 79, .4) 0 0 0 3px;
+}
+
+.btn:disabled {
+  background-color: #94d3a2;
+  border-color: rgba(27, 31, 35, .1);
+  color: rgba(255, 255, 255, .8);
+  cursor: default;
+}
+
+.btn:active {
+  background-color: #298e46;
+  box-shadow: rgba(20, 70, 32, .2) 0 1px 0 inset;
+}
+
+.btn-approve {
+  background-color: #2ea44f;
+}
+
+.btn-approve:hover {
+  background-color: #2c974b;
+}
+
+.btn-approve:focus {
+  box-shadow: rgba(46, 164, 79, .4) 0 0 0 3px;
+}
+
+.btn-deny {
+  background-color: #d9534f;
+}
+
+.btn-deny:hover {
+  background-color: #c9302c;
+}
+
+.btn-deny:focus {
+  box-shadow: rgba(217, 83, 79, .4) 0 0 0 3px;
+}
+
+.btn-grey {
+  background-color: #808080; /* Grey color */
+}
+
+.btn-grey:hover {
+  background-color: #6d6d6d; /* Darker grey color */
+}
+
+.btn-grey:focus {
+  box-shadow: rgba(128, 128, 128, .4) 0 0 0 3px; /* Grey box shadow */
+}
+
+.btn-blue {
+  background-color: #006699; /* Blue color */
+}
+
+.btn-blue:hover {
+  background-color: #005588; /* Darker blue color */
+}
+
+.btn-blue:focus {
+  box-shadow: rgba(0, 102, 153, .4) 0 0 0 3px; /* Blue box shadow */
+}
+
+.btn-light-blue {
+  background-color: #69c2ff; /* Light blue color */
+}
+
+.btn-light-blue:hover {
+  background-color: #57b0ff; /* Darker light blue color */
+}
+
+.btn-light-blue:focus {
+  box-shadow: rgba(105, 194, 255, .4) 0 0 0 3px; /* Light blue box shadow */
 }
  
 .neww {

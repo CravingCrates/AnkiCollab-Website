@@ -5,7 +5,6 @@
 	list-style: none;
 	margin-top: 10px;
 	margin-bottom: 10px;
-	padding-left: 30px;
 }
 
 .nav-item:hover .nav2-link,
@@ -35,6 +34,11 @@ textarea {
           <h4 class="card-title m-b-0">Edit your Notetype {{ name }}</h5>
         </div>
         <div class="container-fluid neww">
+          
+          <div class="card-body text-left" style="margin-top:50px">
+            <p class="card-title m-b-0">Protect specific fields from being changed</p>
+          </div>
+
           <div class="panel-group" id="accordion" role="tablist" aria-multiselectable="true">
             <div class="panel panel-default">
                 <div class="panel-heading" role="tab" id="heading">
@@ -59,10 +63,10 @@ textarea {
           </div><!-- panel-group -->
 
           <div class="card-body text-left" style="margin-top:50px">
-            <h3 class="card-title m-b-0">Edit the Card Template</h3>
+            <p class="card-title m-b-0">Edit the Card Template</p>
           </div>
           <ul class="nav nav-pills" style="flex-direction:row">
-            <li class="nav-item spaced active"><a class="nav-link" data-toggle="pill" href="#front" aria-expanded="true">Front</a></li>
+            <li class="nav-item spaced active"><a class="nav-link active" data-toggle="pill" href="#front" aria-expanded="true">Front</a></li>
             <li class="nav-item spaced"><a class="nav-link" data-toggle="pill" href="#back" aria-expanded="false">Back</a></li>
             <li class="nav-item spaced"><a class="nav-link" data-toggle="pill" href="#styling" aria-expanded="false">Styling</a></li>
           </ul>
@@ -80,7 +84,7 @@ textarea {
               </div>
             </div>
             <br />
-            <button class="btn btn-primary accept" type="submit">Save!</button>
+            <button class="btn btn-approve" type="submit">Save!</button>
             <p id="confirmation" style="color:green; display:none">Changes saved!</p>
           </form>
         </div>
