@@ -49,6 +49,19 @@ lazy_static! {
     };
 }
 
+fn is_user_logged_in(user: Option<User>) -> Result<Option<User>, Status> {
+    match user {
+        Some(user) => Ok(Some(user)),
+        None => Err(Status::SeeOther),
+    }
+}
+fn handle_login_check(user: Option<User>) -> Result<Option<User>, Redirect> {
+    match is_user_logged_in(user) {
+        Ok(user) => Ok(user),
+        Err(_redirect_status) => Err(Redirect::to("/login")),
+    }
+}
+
 #[catch(500)]
 fn internal_error() -> &'static str {
     "Whoops! Looks like we messed up."
@@ -186,7 +199,6 @@ async fn show_optional_tags(user: User, deck_hash: String) -> content::RawHtml<S
 }
 
 async fn render_maintainers(deck_hash: &String, deck_id: i64, user: User) -> content::RawHtml<String> {
-    
     // Get Maintainers by deck id
     let maintainers = match maintainer_manager::get_maintainers(deck_id).await {
         Ok(maintainers) => maintainers,
@@ -235,6 +247,15 @@ async fn post_maintainers(user: User, edit_maintainer: Json<structs::UpdateMaint
     return status;
 }
 
+fn translate_error(e: Box<dyn std::error::Error>) -> String {
+    if e.to_string() == "db error: ERROR: value too long for type character varying(33)" {
+        return String::from("Your folder ID is too long. Please double check it and try again.");
+    }
+    else {
+        return e.to_string();
+    }
+}
+
 #[post("/MediaManager", format = "application/json", data = "<update_media>")]
 async fn post_media_manager(user: User, update_media: Json<structs::GDriveInfo>) -> String {
     let client = database::TOKIO_POSTGRES_POOL.get().unwrap().get().await.unwrap();
@@ -248,7 +269,10 @@ async fn post_media_manager(user: User, update_media: Json<structs::GDriveInfo>)
     
     let status = match gdrive_manager::update_media(deck_id, data).await {
         Ok(res) => res,
-        Err(e) => format!("Error: {}", e),
+        Err(e) => {
+            println!("Error: {}", e);
+            translate_error(e)
+            },
 
     };
     return status;
@@ -331,34 +355,38 @@ async fn post_edit_notetype(user: User, edit_notetype: Json<structs::UpdateNotet
 }
 
 #[get("/EditDeck/<deck_hash>")]
-async fn edit_deck(user: User, deck_hash: String) -> content::RawHtml<String> {
+async fn edit_deck(user: Option<User>, deck_hash: String) -> Result<content::RawHtml<String>, Redirect> {
+    let user = handle_login_check(user)?;
     let client = database::TOKIO_POSTGRES_POOL.get().unwrap().get().await.unwrap();
     let owned_info = client.query("Select owner, description, private, id from decks where human_hash = $1", &[&deck_hash]).await.expect("Error preparing edit deck statement");
     if owned_info.is_empty() {
-        return content::RawHtml(format!("Deck not found."))
+        return Ok(content::RawHtml(format!("Deck not found.")))
     }
     let owner: i32 = owned_info[0].get(0);
-    if owner != user.id() {
-        return content::RawHtml(format!("Unauthorized."))
+    
+    let mut context = tera::Context::new();
+    if let Some(user) = &user {
+        if owner != user.id() {
+            return Ok(content::RawHtml(format!("Unauthorized.")))
+        }
+
+        let desc: String = owned_info[0].get(1);
+        let is_private: bool = owned_info[0].get(2);
+
+        let changelogs = match changelog_manager::get_changelogs(&deck_hash).await {
+            Ok(cl) => cl,
+            Err(error) => return Ok(content::RawHtml(format!("Error: {}", error))),
+        };
+
+        context.insert("user", &user);
+        context.insert("hash", &deck_hash);
+        context.insert("description", &desc);
+        context.insert("private", &is_private);
+        context.insert("changelogs", &changelogs);
     }
 
-    let desc: String = owned_info[0].get(1);
-    let is_private: bool = owned_info[0].get(2);
-
-    let changelogs = match changelog_manager::get_changelogs(&deck_hash).await {
-        Ok(cl) => cl,
-        Err(error) => return content::RawHtml(format!("Error: {}", error)),
-    };
-
-    let mut context = tera::Context::new();
-    context.insert("user", &user);
-    context.insert("hash", &deck_hash);
-    context.insert("description", &desc);
-    context.insert("private", &is_private);
-    context.insert("changelogs", &changelogs);
-
     let rendered_template = TEMPLATES.render("edit_deck.html", &context).expect("Failed to render template");
-    content::RawHtml(rendered_template)
+    Ok(content::RawHtml(rendered_template))
 }
 
 #[post("/EditDeck", format = "application/json", data = "<edit_deck_data>")]
@@ -371,8 +399,6 @@ async fn post_edit_deck(user: User, edit_deck_data: Json<structs::EditDecksData>
     if owned_info.is_empty() {
         return Ok(Redirect::to("/"))
     }
-
-    let deck_id: i64 = owned_info[0].get(0);
 
     client.query("
         UPDATE decks 
@@ -709,24 +735,22 @@ async fn get_notes_from_deck(deck_hash: String, user: Option<User>) -> content::
 }
 
 #[get("/reviews")]
-async fn all_reviews(user: User) -> content::RawHtml<String> {
+async fn all_reviews(user: Option<User>) -> Result<content::RawHtml<String>, Redirect> {
+    let user = handle_login_check(user)?;
     let mut context = tera::Context::new();
+    if let Some(user) = &user {
+        let commits = match commit_manager::commits_review(user.id()).await {
+            Ok(commits) => commits,
+            Err(error) => return Ok(content::RawHtml(format!("Error: {}", error))),
+        };
 
-    // let notes = match decks::under_review(user.id()).await {
-    //     Ok(notes) => notes,
-    //     Err(error) => return content::RawHtml(format!("Error: {}", error)),
-    // };
-    let commits = match commit_manager::commits_review(user.id()).await {
-        Ok(commits) => commits,
-        Err(error) => return content::RawHtml(format!("Error: {}", error)),
-    };
-
-    context.insert("commits", &commits);
-    //context.insert("notes", &notes);
-    context.insert("user", &user);
+        context.insert("commits", &commits);
+        //context.insert("notes", &notes);
+        context.insert("user", &user);
+    }
     
     let rendered_template = TEMPLATES.render("reviews.html", &context).expect("Failed to render template");
-    content::RawHtml(rendered_template)
+    Ok(content::RawHtml(rendered_template))
 }
 
 #[get("/decks")]
@@ -792,7 +816,8 @@ async fn deck_overview(user: Option<User>) -> content::RawHtml<String> {
 
 
 #[get("/ManageDecks")]
-async fn manage_decks(user: User) -> content::RawHtml<String> {
+async fn manage_decks(user: Option<User>) -> Result<content::RawHtml<String>, Redirect> {
+    let user = handle_login_check(user)?;
     let mut decks:Vec<DeckOverview> = vec![];
 
     let client = database::TOKIO_POSTGRES_POOL.get().unwrap().get().await.unwrap();
@@ -812,37 +837,38 @@ async fn manage_decks(user: User) -> content::RawHtml<String> {
     .await
     .expect("Error preparing decks overview statement");
 
-    let rows = client
-                .query(&stmt, &[&user.id()])
-                .await.expect("Error executing decks overview statement");
-
-    for row in rows {
-        decks.push(DeckOverview {
-            owner: row.get(4),
-            id: row.get(0),
-            name: row.get(1),
-            desc: ammonia::clean(row.get(2)),
-            hash: row.get(3),
-            last_update: row.get(5),
-            notes: note_manager::get_notes_count_in_deck(row.get(0)).await.unwrap(),
-            children: vec![],
-            subscriptions: row.get(6),
-        });
-    }
-
-    let notetypes = match notetype_manager::get_notetype_overview(&user).await {
-        Ok(cl) => cl,
-        Err(error) => return content::RawHtml(format!("Error: {}", error)),
-    };
-
     let mut context = tera::Context::new();
-    context.insert("decks", &decks);
-    context.insert("user", &user);
-    context.insert("notetypes", &notetypes);
+    if let Some(user) = &user {
+        let rows = client
+                    .query(&stmt, &[&user.id()])
+                    .await.expect("Error executing decks overview statement");
 
+        for row in rows {
+            decks.push(DeckOverview {
+                owner: row.get(4),
+                id: row.get(0),
+                name: row.get(1),
+                desc: ammonia::clean(row.get(2)),
+                hash: row.get(3),
+                last_update: row.get(5),
+                notes: note_manager::get_notes_count_in_deck(row.get(0)).await.unwrap(),
+                children: vec![],
+                subscriptions: row.get(6),
+            });
+        }
+
+        let notetypes = match notetype_manager::get_notetype_overview(&user).await {
+            Ok(cl) => cl,
+            Err(error) => return Ok(content::RawHtml(format!("Error: {}", error))),
+        };
+
+        context.insert("decks", &decks);
+        context.insert("user", &user);
+        context.insert("notetypes", &notetypes);
+    }
     let rendered_template = TEMPLATES.render("manage_decks.html", &context).expect("Failed to render template");
 
-    content::RawHtml(rendered_template)
+    Ok(content::RawHtml(rendered_template))
 }
 
 
