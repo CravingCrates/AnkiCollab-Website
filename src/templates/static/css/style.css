@@ -161,10 +161,14 @@ th {
    margin-bottom:10px;
  }
  .note.published {
+   background-color: orange;
+   color: white;
+ }
+ .note.new-card {
    background-color: green;
    color: white;
  }
- .note.under-review {
+ .note.delete-req {
    background-color: red;
    color: white;
  }

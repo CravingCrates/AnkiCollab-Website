@@ -19,14 +19,25 @@
               <button class="btn btn-blue toggle-html" id="toggle-html-{{note.id}}"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 30 25" width="30px" stroke="currentColor" stroke-width="2">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"></path>
               </svg><span id="toggle-html-text-{{note.id}}">Show Source</span></button>
-              <div style="margin-top: 10px;" class="text-center note {% if note.reviewed %}published{% else %}under-review{% endif %}">
-                {% if note.reviewed %}published{% else %}under review{% endif %}
+              <div style="margin-top: 10px;" class="text-center note 
+                {% if note.reviewed and not note.delete_req %}published
+                {% elif note.delete_req %}delete-req
+                {% else %}new-card
+                {% endif %}
+              ">
+                {% if note.reviewed and not note.delete_req %}Published
+                {% elif note.delete_req %}Removal Requested
+                {% else %}New Card
+                {% endif %}
               </div>    
               <div>
               {% if access and note.reviewed == false %}
                 <a href="/AcceptNote/{{note.id}}" class="btn btn-approve"><span class="fa fa-check"></span> Publish</a>
                 <a href="/DeleteNote/{{note.id}}" class="btn btn-deny"><span class="fa fa-close"></span> Delete</a>
-              {% endif %}      
+              {% elif access and note.delete_req %}
+                <a href="/AcceptNoteRemoval/{{note.id}}" class="btn btn-deny"><span class="fa fa-close"></span> Delete Note</a>      
+                <a href="/DenyNoteRemoval/{{note.id}}" class="btn btn-approve"><span class="fa fa-check"></span> Don't Remove</a>
+              {% endif %}
               </div>
           </div>
           <div class="split_container">            

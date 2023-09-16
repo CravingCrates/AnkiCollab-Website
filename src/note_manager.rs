@@ -1,5 +1,6 @@
 use crate::database;
 use crate::structs::*;
+use crate::suggestion_manager;
 
 pub async fn under_review(uid: i32) -> Result<Vec<ReviewOverview>, Box<dyn std::error::Error>> {
     let query = r#"
@@ -53,7 +54,7 @@ pub async fn get_notes_count_in_deck(deck: i64) -> Result<i64, Box<dyn std::erro
             SELECT d.id
             FROM cte JOIN decks d ON d.parent = cte.id
         )
-        SELECT COUNT(*) as num FROM notes WHERE deck IN (SELECT id FROM cte)
+        SELECT COUNT(*) as num FROM notes WHERE deck IN (SELECT id FROM cte) AND deleted = false
     ";
     let rows = client.query(query, &[&deck]).await?;
 
@@ -83,7 +84,7 @@ pub async fn get_note_data(note_id: i64) -> Result<NoteData, Box<dyn std::error:
         SELECT id, guid, TO_CHAR(last_update, 'MM/DD/YYYY HH12:MI AM') AS last_update, reviewed, 
         (Select owner from decks where id = notes.deck), (select full_path from decks where id = notes.deck) as full_path, notetype
         FROM notes
-        WHERE id = $1
+        WHERE id = $1 AND deleted = false
     ";
     let fields_query = "
         SELECT id, position, content, reviewed
@@ -98,9 +99,15 @@ pub async fn get_note_data(note_id: i64) -> Result<NoteData, Box<dyn std::error:
     ";
 
     let notetype_query = "
-    SELECT name FROM notetype_field
-    WHERE notetype = $1 order by position
+        SELECT name FROM notetype_field
+        WHERE notetype = $1 order by position
     ";    
+
+    let delete_req_query = "
+        SELECT 1
+        FROM card_deletion_suggestions
+        WHERE note = $1
+    ";
 
     let mut current_note = NoteData {
         id: 0,
@@ -109,6 +116,7 @@ pub async fn get_note_data(note_id: i64) -> Result<NoteData, Box<dyn std::error:
         deck: String::new(),
         last_update: String::new(),
         reviewed: false,
+        delete_req: false,
         reviewed_fields: Vec::new(),
         reviewed_tags: Vec::new(),
         unconfirmed_fields: Vec::new(),
@@ -139,6 +147,9 @@ pub async fn get_note_data(note_id: i64) -> Result<NoteData, Box<dyn std::error:
     .collect::<Vec<String>>();
 
     current_note.note_model_fields = notetype_fields;
+
+    let delete_req = client.query(delete_req_query, &[&note_id]).await?;
+    current_note.delete_req = !delete_req.is_empty();
 
     let fields_rows = client.query(fields_query, &[&current_note.id]).await?;
     let tags_rows = client.query(tags_query, &[&current_note.id]).await?;
@@ -189,30 +200,99 @@ pub async fn retrieve_notes(deck: &String) -> std::result::Result<Vec<Note>, Box
         SELECT n.id, n.guid,
             CASE
                 WHEN n.reviewed = false THEN 0
+                WHEN EXISTS (SELECT 1 FROM card_deletion_suggestions WHERE card_deletion_suggestions.note = n.id) THEN 1
                 ELSE 2
             END AS status,
             TO_CHAR(n.last_update, 'MM/DD/YYYY') AS last_update,
             (SELECT coalesce(f.content, '') FROM fields AS f WHERE f.note = n.id AND f.position = 0 LIMIT 1) AS content
         FROM notes AS n
         INNER JOIN decks AS d ON n.deck = d.id
-        WHERE d.human_hash = $1
+        WHERE d.human_hash = $1 AND n.deleted = false
         ORDER BY n.id ASC
         LIMIT 200;
     "#;
     let client = database::TOKIO_POSTGRES_POOL.get().unwrap().get().await.unwrap();
     
     let rows = client.query(query, &[&deck])
-    .await?
-    .into_iter()
-    .map(|row| Note {
-        id: row.get(0),
-        guid: row.get(1),
-        status: row.get(2),
-        last_update: row.get(3),
-        fields: row.get(4)
-    })
-    .collect::<Vec<_>>();
+        .await?
+        .into_iter()
+        .filter_map(|row| {
+            if let Some(fields) = row.get(4) {
+                Some(Note {
+                    id: row.get(0),
+                    guid: row.get(1),
+                    status: row.get(2),
+                    last_update: row.get(3),
+                    fields,
+                })
+            } else {
+                None
+            }
+        })
+        .collect::<Vec<Note>>(); // Collect into Vec<Note>
 
     Ok(rows)
+}
 
+pub async fn deny_note_removal_request(note_id: i64, user: rocket_auth::User) -> Result<String, Box<dyn std::error::Error>> {
+    let client = database::TOKIO_POSTGRES_POOL.get().unwrap().get().await.unwrap();
+
+    let q_guid = client.query("Select deck from notes where id = $1", &[&note_id]).await?;
+    if q_guid.is_empty() {
+        return Err("Note not found (Deny Note Removal Request).".into());
+    }
+    let deck_id: i64 = q_guid[0].get(0);
+
+    let access = suggestion_manager::is_authorized(&user, deck_id).await?;
+    if !access {
+        return Err("Unauthorized.".into());
+    }
+
+    client.execute("DELETE FROM card_deletion_suggestions WHERE note = $1", &[&note_id]).await?;
+
+    Ok(note_id.to_string())
+}
+
+// We skip a few steps if the caller is a bulk approve since they handle some stuff
+pub async fn mark_note_deleted(note_id: i64, user: rocket_auth::User, bulk: bool ) -> Result<String, Box<dyn std::error::Error>> {
+    let mut client = database::TOKIO_POSTGRES_POOL.get().unwrap().get().await.unwrap();
+
+    let q_guid = client.query("Select human_hash, id from decks where id = (select deck from notes where id = $1)", &[&note_id]).await?;
+    if q_guid.is_empty() {
+        return Err("Note not found (Mark Note Deleted).".into());
+    }
+    let guid: String = q_guid[0].get(0);
+    let deck_id: i64 = q_guid[0].get(1);
+
+    if !bulk {
+        let access = suggestion_manager::is_authorized(&user, deck_id).await?;
+        if !access {
+            return Err("Unauthorized.".into());
+        }
+    }
+
+    let tx = client.transaction().await?;
+    
+    // Update note flag
+    let query = "UPDATE notes SET deleted = true WHERE id = $1";
+
+    // Remove outstanding suggestions
+    let query2 = "DELETE FROM fields WHERE note = $1 AND reviewed = false";
+    let query3 = "DELETE FROM tags WHERE note = $1 AND reviewed = false";
+
+    // Remove note from deletion_suggestions table
+    let query4 = "DELETE FROM card_deletion_suggestions WHERE note = $1";
+
+    tx.execute(query, &[&note_id]).await?;
+    tx.execute(query2, &[&note_id]).await?;
+    tx.execute(query3, &[&note_id]).await?;
+    tx.execute(query4, &[&note_id]).await?;
+
+    if !bulk {
+        // Update timestamp
+        suggestion_manager::update_note_timestamp(&tx, note_id).await?;
+    }
+    
+    tx.commit().await?;
+    Ok(guid)
 }

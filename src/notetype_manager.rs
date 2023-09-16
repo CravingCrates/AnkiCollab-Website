@@ -28,7 +28,14 @@ pub async fn notetypes_by_commit(commit_id: i32) -> Result<HashMap<i64, Vec<Stri
     let client = database::TOKIO_POSTGRES_POOL.get().unwrap().get().await.unwrap();
     let get_notetypes = "
         SELECT DISTINCT notetype FROM notes
-        WHERE notes.id IN (SELECT fields.note FROM fields WHERE fields.commit = $1 UNION SELECT tags.note FROM tags WHERE tags.commit = $1)
+        WHERE notes.id IN 
+        (
+            SELECT fields.note FROM fields WHERE fields.commit = $1 
+            UNION 
+            SELECT tags.note FROM tags WHERE tags.commit = $1
+            UNION
+            SELECT card_deletion_suggestions.note FROM card_deletion_suggestions WHERE card_deletion_suggestions.commit = $1
+        )
     ";
     let affected_notetypes = client.query(get_notetypes, &[&commit_id])
     .await?

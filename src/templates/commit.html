@@ -32,18 +32,29 @@
               <button class="btn btn-blue toggle-html" style="padding-bottom:0px;" id="toggle-html-{{note.id}}"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 30 25" width="30px" stroke="currentColor" stroke-width="2">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"></path>
               </svg><span id="toggle-html-text-{{note.id}}">Show Source</span></button>
-              <div style="margin-top: 10px;" class="text-center note {% if note.reviewed %}published{% else %}under-review{% endif %}">
-                {% if note.reviewed %}published{% else %}new card{% endif %}
+              <div style="margin-top: 10px;" class="text-center note 
+                {% if note.reviewed and not note.delete_req %}published
+                {% elif note.delete_req %}delete-req
+                {% else %}new-card
+                {% endif %}
+              ">
+                {% if note.reviewed and not note.delete_req %}New Suggestion
+                {% elif note.delete_req %}Removal Requested
+                {% else %}New Card
+                {% endif %}
               </div>    
-              <div>
+              <div> 
               {% if user and note.owner == user.id and note.reviewed == false %}
-                <a href="/AcceptNote/{{note.id}}" class="btn btn-approve"><span class="fa fa-check"></span> Publish Note</a>
-                <a href="/DeleteNote/{{note.id}}" class="btn btn-deny"><span class="fa fa-close"></span> Delete Note</a>
-              {% endif %}      
+              <a href="/AcceptNote/{{note.id}}" class="btn btn-approve"><span class="fa fa-check"></span> Publish</a>
+              <a href="/DeleteNote/{{note.id}}" class="btn btn-deny"><span class="fa fa-close"></span> Delete</a>
+              {% elif user and note.owner == user.id and note.delete_req %}
+                <a href="/AcceptNoteRemoval/{{note.id}}" class="btn btn-deny"><span class="fa fa-close"></span> Delete Note</a>      
+                <a href="/DenyNoteRemoval/{{note.id}}" class="btn btn-approve"><span class="fa fa-check"></span> Don't Remove</a>
+              {% endif %}
               </div>
               
           </div>
-          <div class="split_container">            
+          <div {% if not note.delete_req %} class="split_container" {% endif %}>            
             <div><!-- Left Side -->
               <div>
                 {% for field in note.fields %}
@@ -51,6 +62,8 @@
                   <div class="note_fields_highlighted leftside" style="background-color: #ffebe9" data-original='{{ field.reviewed_content }}' data-new-content='{{field.content}}'></div>
                 {% endfor %}
               </div>
+              
+              {% if not note.delete_req %}
               <hr />
               {% for tag in note.removed_tags %}
               <div class="note_tag_container">
@@ -67,8 +80,9 @@
                 {% endif %}
               </div>
             {% endfor %}
+            {% endif %}
             </div>
-
+            {% if not note.delete_req %}
             <div> <!-- Right Side -->
               <div>
                 {% for field in note.fields %}
@@ -96,6 +110,7 @@
                 </div>            
               {% endfor %}         
             </div>
+            {% endif %}
           </div>
               
       </div>

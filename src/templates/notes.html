@@ -72,7 +72,12 @@
                   <tbody>
                     {% for note in notes %}
                     <tr>
-                      <td><a href="/review/{{ note.id }}">{% if note.status == 0 %}New Card{% elif note.status == 1%}New Suggestions{% else %}Published{% endif %}</a></td>
+                      <td>
+                        <a href="/review/{{ note.id }}">
+                          {% if note.status == 0 %}New Card
+                          {% elif note.status == 1%}Removal Requested
+                          {% else %}Published{% endif %}
+                        </a></td>
                         <td><a href="/review/{{ note.id }}">{{ note.last_update }}</a></td>
                         <td><a href="/review/{{ note.id }}">{{ note.fields | striptags | truncate(length=150) }}</a></td>
 

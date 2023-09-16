@@ -77,6 +77,11 @@ fn default(status: Status, req: &Request) -> String {
     format!("{} ({})", status, req.uri())
 }
 
+#[get("/donate")]
+fn forward_donation() -> Redirect {
+    Redirect::to("https://ankiweb.net/shared/review/1957538407")
+}
+
 #[get("/login")]
 fn get_login() -> content::RawHtml<String> {
     let context = tera::Context::new();
@@ -448,7 +453,13 @@ async fn async_approve_commit(commit_id: i32, user: User) -> Result<Redirect, Er
 #[get("/ApproveCommit/<commit_id>")]
 async fn approve_commit(commit_id: i32, user: User) -> Result<Redirect, Error> {    
     match suggestion_manager::merge_by_commit(commit_id, true, user).await {
-        Ok(_res) => return Ok(Redirect::to(format!("/reviews"))),
+        Ok(res) => {
+            if res.is_none() {
+                return Ok(Redirect::to(format!("/reviews")))
+            } else {
+                return Ok(Redirect::to(format!("/commit/{}", res.unwrap())))
+            }
+        },
         Err(error) => {println!("Error: {}", error); return Ok(Redirect::to("/")) },
     };    
 }
@@ -456,7 +467,13 @@ async fn approve_commit(commit_id: i32, user: User) -> Result<Redirect, Error> {
 #[get("/DenyCommit/<commit_id>")]
 async fn deny_commit(commit_id: i32, user: User) -> Result<Redirect, Error> {    
     match suggestion_manager::merge_by_commit(commit_id, false, user).await {
-        Ok(_res) => return Ok(Redirect::to(format!("/reviews"))),
+        Ok(res) => {
+            if res.is_none() {
+                return Ok(Redirect::to(format!("/reviews")))
+            } else {
+                return Ok(Redirect::to(format!("/commit/{}", res.unwrap())))
+            }
+        },
         Err(error) => {println!("Error: {}", error); return Ok(Redirect::to("/")) },
     };    
 }
@@ -666,16 +683,34 @@ async fn accept_field(field_id: i64, user: User) -> Result<Redirect, Error> {
 
 #[get("/AcceptNote/<note_id>")]
 async fn accept_note(note_id: i64, user: User) -> Result<Redirect, Error> {
-    match suggestion_manager::approve_card(note_id, user).await {
+    match suggestion_manager::approve_card(note_id, user, false).await {
         Ok(res) => return Ok(Redirect::to(format!("/review/{}", res))),
         Err(error) => {println!("Error: {}", error); return Ok(Redirect::to("/")) },
     };    
 }
 
+// This actually removes the note from the database (Only used for notes that are not approved yet)
 #[get("/DeleteNote/<note_id>")]
 async fn deny_note(note_id: i64, user: User) -> Result<Redirect, Error> {    
     match suggestion_manager::delete_card(note_id, user).await {
         Ok(res) => return Ok(Redirect::to(format!("/notes/{}", res))),
+        Err(error) => {println!("Error: {}", error); return Ok(Redirect::to("/")) },
+    };    
+}
+
+// This marks the note as deleted, but does not remove them (Used for existing notes that are approved)
+#[get("/AcceptNoteRemoval/<note_id>")]
+async fn remove_note_from_deck(note_id: i64, user: User) -> Result<Redirect, Error> {    
+    match note_manager::mark_note_deleted(note_id, user, false).await {
+        Ok(res) => return Ok(Redirect::to(format!("/notes/{}", res))),
+        Err(error) => {println!("Error: {}", error); return Ok(Redirect::to("/")) },
+    };    
+}
+
+#[get("/DenyNoteRemoval/<note_id>")]
+async fn deny_note_removal(note_id: i64, user: User) -> Result<Redirect, Error> {    
+    match note_manager::deny_note_removal_request(note_id, user).await {
+        Ok(res) => return Ok(Redirect::to(format!("/review/{}", res))),
         Err(error) => {println!("Error: {}", error); return Ok(Redirect::to("/")) },
     };    
 }
@@ -909,7 +944,9 @@ async fn main() {
                 post_maintainers, show_maintainers, async_approve_commit,
                 post_optional_tags, show_optional_tags,
                 edit_notetype, post_edit_notetype,
-                media_manager, post_media_manager
+                media_manager, post_media_manager,
+                remove_note_from_deck, deny_note_removal,
+                forward_donation
         ])
 	    .register("/", catchers![internal_error, not_found, default])    
         .manage(client)
