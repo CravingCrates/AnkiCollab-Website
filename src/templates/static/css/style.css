@@ -192,7 +192,15 @@ th {
   white-space: nowrap;
   user-select: none;
   -webkit-user-select: none;
-  margin: 15px 5px;
+  margin: 5px 5px;
+  height: auto;
+  max-height: 50px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: normal;
+  word-wrap: break-word;
+  width: 100%;
+  margin-bottom: 5px;
 }
 .note_tag_new {
   background-color: rgba(51, 255, 51, 0.25);

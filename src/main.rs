@@ -63,13 +63,19 @@ fn handle_login_check(user: Option<User>) -> Result<Option<User>, Redirect> {
 }
 
 #[catch(500)]
-fn internal_error() -> &'static str {
-    "Whoops! Looks like we messed up."
+fn internal_error() -> content::RawHtml<String> {
+    let mut context = tera::Context::new();
+    context.insert("message", &format!("Whoops! Looks like we messed up. Can you inform us on Discord please?"));
+    let rendered_template = TEMPLATES.render("error.html", &context).expect("Failed to render template");
+    content::RawHtml(rendered_template)
 }
 
 #[catch(404)]
-fn not_found(req: &Request) -> String {
-    format!("I couldn't find '{}'. Try something else?", req.uri())
+fn not_found(req: &Request) -> content::RawHtml<String> {
+    let mut context = tera::Context::new();
+    context.insert("message", &format!("I couldn't find '{}'. Try something else?", req.uri()));
+    let rendered_template = TEMPLATES.render("error.html", &context).expect("Failed to render template");
+    content::RawHtml(rendered_template)
 }
 
 #[catch(default)]
@@ -90,19 +96,47 @@ fn get_login() -> content::RawHtml<String> {
 }
 
 #[post("/login", data = "<form>")]
-async fn post_login(auth: Auth<'_>, form: Form<Login>) -> Result<Redirect, Error> {
+async fn post_login(auth: Auth<'_>, form: Form<Login>) -> Result<Redirect, Redirect> {
     let result = auth.login(&form).await;
-    result?;
-    Ok(Redirect::to("/"))
+    match result {
+        Ok(_) => Ok(Redirect::to("/")),
+        Err(e) => Err(Redirect::to(uri!(error_page(e.to_string())))),
+    }
 }
 
 #[post("/signup", data = "<form>")]
-async fn post_signup(auth: Auth<'_>, form: Form<Signup>) -> Result<Redirect, Error> {
-    auth.signup(&form).await?;
-    auth.login(&form.into()).await?;
-
-    Ok(Redirect::to("/"))
+async fn post_signup(auth: Auth<'_>, form: Form<Signup>) -> Result<Redirect, Redirect> {
+    let result = auth.signup(&form).await;
+    match result {
+        Ok(_) => {
+            let login_form: Login = form.into();
+            match auth.login(&login_form).await {
+                Ok(_) => Ok(Redirect::to("/")),
+                Err(e) => Err(Redirect::to(uri!(error_page(e.to_string())))),
+            }
+        },
+        Err(Error::FormValidationErrors(source)) => {
+            let mut error_message = String::new();
+            for (field, errors) in source.field_errors() {
+                error_message.push_str(&format!("{}:\n", field));
+                for error in errors {
+                    error_message.push_str(&format!("\t{}\n", error.code));
+                }
+            }
+            Err(Redirect::to(uri!(error_page(error_message))))
+        },
+        Err(e) => Err(Redirect::to(uri!(error_page(format!("{}", e))))),
+    }
 }
+
+#[get("/error?<message>")]
+async fn error_page(message: String) -> content::RawHtml<String> {
+    let mut context = tera::Context::new();
+    context.insert("message", &message);
+    let rendered_template = TEMPLATES.render("error.html", &context).expect("Failed to render template");
+    content::RawHtml(rendered_template)
+}
+
 
 #[get("/signup")]
 async fn get_signup() -> content::RawHtml<String> {
@@ -946,7 +980,7 @@ async fn main() {
                 edit_notetype, post_edit_notetype,
                 media_manager, post_media_manager,
                 remove_note_from_deck, deny_note_removal,
-                forward_donation
+                forward_donation, error_page
         ])
 	    .register("/", catchers![internal_error, not_found, default])    
         .manage(client)

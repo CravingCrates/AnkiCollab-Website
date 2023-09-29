@@ -8,6 +8,7 @@
       window.location.href = `/DenyTag/${tagId}`;
   }
 </script>
+
 <div class="container">
   <div class="row">
   <div class="col-12">
@@ -40,63 +41,83 @@
               {% endif %}
               </div>
           </div>
-          <div class="split_container">            
-            <div><!-- Left Side -->
-              <div><h4>Fields:</h1>
-                  {% for field in note.reviewed_fields %}
-                    <span class="counter">{{note.note_model_fields[field.position]}}</span>
-                    <div class="note_fields_highlighted" data-original='{{ field.content }}' data-new-content='{{field.content}}'></div>
-                  {% endfor %}
-              </div>
-              <hr />
-              {% for tag in note.reviewed_tags %}
-                <button class="note_tag" role="button">{{tag.content}}</button>
-              {% endfor %}
-            </div>
-
-            <div> <!-- Right Side -->
-              <div><h4>Suggested Changes:</h1>
-                {% for field in note.unconfirmed_fields %}
-                  <span class="counter">{{note.note_model_fields[field.position]}}</span>
-                  {% if access and note.reviewed %}
-                    <a href="/AcceptField/{{field.id}}" class="btn btn-approve" style="padding: 1px 5px;margin: 5px;"><span class="fa fa-check"></span></a><a href="/DenyField/{{field.id}}" class="btn btn-deny" style="padding: 1px 7px;margin: 5px;"><span class="fa fa-close"></span></a>
+          <div class="container-fluid">
+            <div class="row">
+              <div class="col-md-6">
+                <div>
+                  {% if note.reviewed_fields %}
+                    <div>
+                      <h4>Fields:</h4>
+                      {% for field in note.reviewed_fields %}
+                        <span class="counter">{{note.note_model_fields[field.position]}}</span>
+                        <div class="note_fields_highlighted" data-original='{{ field.content }}' data-new-content='{{field.content}}'></div>
+                      {% endfor %}
+                    </div>
+                    <hr />
                   {% endif %}
-                  <div class="note_fields_highlighted" data-original='{{ note.reviewed_fields[field.position].content }}' data-new-content='{{field.content}}'></div>
-                  
-                {% endfor %}
-            </div>
-            <hr />
-            {% for tag in note.new_tags %}
-              <div class="note_tag_container">
-                <button class="note_tag note_tag_new" role="button">{{tag.content}}</button>
-                {% if access %}
-                <div class="tag_actions">
-                    <button class="tag_accept_button" role="button" onclick="acceptTag({{tag.id}})">
-                        <i class="fas fa-check"></i>
-                    </button>
-                    <button class="tag_deny_button" role="button" onclick="denyTag({{tag.id}})">
-                        <i class="fas fa-times"></i>
-                    </button>
+                  {% if note.reviewed_tags %}
+                    <div>
+                      <h4>Tags:</h4>
+                      <div class="note_tags_container">
+                        {% for tag in note.reviewed_tags|slice(end=3) %}
+                          <button class="note_tag" role="button">{{tag.content}}</button>
+                        {% endfor %}
+                        {% if note.reviewed_tags|length > 3 %}
+                        <button class="note_tag btn btn-blue" role="button" onclick="toggleTags(this)">+{{note.reviewed_tags|length - 3}} more</button>
+                          <div id="collapsedTags" style="display:none">
+                            {% for tag in note.reviewed_tags|slice(start=3) %}
+                              <button class="note_tag" role="button">{{tag.content}}</button>
+                            {% endfor %}
+                          </div>
+                        {% endif %}
+                      </div>
+                    </div>
+                  {% endif %}
                 </div>
-                {% endif %}
-              </div>            
-            {% endfor %}
-            {% for tag in note.removed_tags %}
-              <div class="note_tag_container">
-                <button class="note_tag note_tag_removed" role="button">{{tag.content}}</button>
-                {% if access %}
-                <div class="tag_actions">
-                    <button class="tag_accept_button" role="button" onclick="acceptTag({{tag.id}})">
-                        <i class="fas fa-check"></i>
-                    </button>
-                    <button class="tag_deny_button" role="button" onclick="denyTag({{tag.id}})">
-                        <i class="fas fa-times"></i>
-                    </button>
-                </div>
-                {% endif %}
               </div>
-            {% endfor %}
-
+              <div class="col-md-6">
+                <div>
+                  <h4>Suggested Changes:</h4>
+                  {% for field in note.unconfirmed_fields %}
+                    <span class="counter">{{note.note_model_fields[field.position]}}</span>
+                    {% if access and note.reviewed %}
+                      <a href="/AcceptField/{{field.id}}" class="btn btn-approve" style="padding: 1px 5px;margin: 5px;"><span class="fa fa-check"></span></a><a href="/DenyField/{{field.id}}" class="btn btn-deny" style="padding: 1px 7px;margin: 5px;"><span class="fa fa-close"></span></a>
+                    {% endif %}
+                    <div class="note_fields_highlighted" data-original='{{ note.reviewed_fields[field.position].content }}' data-new-content='{{field.content}}'></div>
+                  {% endfor %}
+                  <hr />
+                  {% for tag in note.new_tags %}
+                    <div class="note_tag_container">
+                      <button class="note_tag note_tag_new" role="button">{{tag.content}}</button>
+                      {% if access %}
+                        <div class="tag_actions">
+                          <button class="tag_accept_button" role="button" onclick="acceptTag({{tag.id}})">
+                            <i class="fas fa-check"></i>
+                          </button>
+                          <button class="tag_deny_button" role="button" onclick="denyTag({{tag.id}})">
+                            <i class="fas fa-times"></i>
+                          </button>
+                        </div>
+                      {% endif %}
+                    </div>            
+                  {% endfor %}
+                  {% for tag in note.removed_tags %}
+                    <div class="note_tag_container">
+                      <button class="note_tag note_tag_removed" role="button">{{tag.content}}</button>
+                      {% if access %}
+                        <div class="tag_actions">
+                          <button class="tag_accept_button" role="button" onclick="acceptTag({{tag.id}})">
+                            <i class="fas fa-check"></i>
+                          </button>
+                          <button class="tag_deny_button" role="button" onclick="denyTag({{tag.id}})">
+                            <i class="fas fa-times"></i>
+                          </button>
+                        </div>
+                      {% endif %}
+                    </div>            
+                  {% endfor %}
+                </div>
+              </div>
             </div>
           </div>
               
@@ -105,8 +126,18 @@
 </div>
 </div> 
 <script>
-  $(document).ready(function() {
+  function toggleTags(button) {
+    var collapsedTags = document.getElementById("collapsedTags");
+    if (collapsedTags.style.display === "none") {
+      collapsedTags.style.display = "block";
+      button.innerHTML = "Show less";
+    } else {
+      collapsedTags.style.display = "none";
+      button.innerHTML = "+{{note.reviewed_tags|length - 3}} more";
+    }
+  }
 
+  $(document).ready(function() {
     function toggleHTML() {
       $(".note_fields_highlighted").each(function() {
         let originalContent = $(this).data("original");
