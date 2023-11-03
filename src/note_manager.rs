@@ -1,6 +1,10 @@
 use crate::database;
+use crate::error::Error::*;
+use crate::error::NoteNotFoundReason;
 use crate::structs::*;
 use crate::suggestion_manager;
+use crate::NoteId;
+use crate::Return;
 
 pub async fn under_review(uid: i32) -> Result<Vec<ReviewOverview>, Box<dyn std::error::Error>> {
     let query = r#"
@@ -27,7 +31,7 @@ pub async fn under_review(uid: i32) -> Result<Vec<ReviewOverview>, Box<dyn std::
             (n.reviewed = true AND EXISTS (SELECT 1 FROM tags WHERE tags.note = n.id AND tags.reviewed = false)))
         GROUP BY n.id, n.guid, n.reviewed, d.full_path
     "#;
-    let client = database::client().await;
+    let client = database::client().await?;
 
     let rows = client
         .query(query, &[&uid])
@@ -47,7 +51,7 @@ pub async fn under_review(uid: i32) -> Result<Vec<ReviewOverview>, Box<dyn std::
 }
 
 pub async fn get_notes_count_in_deck(deck: i64) -> Result<i64, Box<dyn std::error::Error>> {
-    let client = database::client().await;
+    let client = database::client().await?;
     let query = "
         WITH RECURSIVE cte AS (
             SELECT $1::bigint as id
@@ -64,7 +68,7 @@ pub async fn get_notes_count_in_deck(deck: i64) -> Result<i64, Box<dyn std::erro
 }
 
 pub async fn get_name_by_hash(deck: &String) -> Result<Option<String>, Box<dyn std::error::Error>> {
-    let client = database::client().await;
+    let client = database::client().await?;
 
     let query = "SELECT name FROM decks WHERE human_hash = $1";
     let rows = client.query(query, &[&deck]).await?;
@@ -77,8 +81,8 @@ pub async fn get_name_by_hash(deck: &String) -> Result<Option<String>, Box<dyn s
     Ok(Some(name))
 }
 
-pub async fn get_note_data(note_id: i64) -> Result<NoteData, Box<dyn std::error::Error>> {
-    let client = database::client().await;
+pub async fn get_note_data(note_id: NoteId) -> Return<NoteData> {
+    let client = database::client().await?;
 
     let note_query = "
         SELECT id, guid, TO_CHAR(last_update, 'MM/DD/YYYY HH12:MI AM') AS last_update, reviewed, 
@@ -208,13 +212,11 @@ pub async fn get_note_data(note_id: i64) -> Result<NoteData, Box<dyn std::error:
             }
         }
     }
-    Ok::<NoteData, Box<dyn std::error::Error>>(current_note)
+    Ok(current_note)
 }
 
 // Only show at most 1k cards. everything else is too much for the website to load. TODO Later: add incremental loading instead
-pub async fn retrieve_notes(
-    deck: &String,
-) -> std::result::Result<Vec<Note>, Box<dyn std::error::Error>> {
+pub async fn retrieve_notes(deck: &String) -> Return<Vec<Note>> {
     let query = r#"
         SELECT n.id, n.guid,
             CASE
@@ -230,7 +232,7 @@ pub async fn retrieve_notes(
         ORDER BY n.id ASC
         LIMIT 200;
     "#;
-    let client = database::client().await;
+    let client = database::client().await?;
 
     let rows = client
         .query(query, &[&deck])
@@ -253,7 +255,7 @@ pub async fn deny_note_removal_request(
     note_id: i64,
     user: rocket_auth::User,
 ) -> Result<String, Box<dyn std::error::Error>> {
-    let client = database::client().await;
+    let client = database::client().await?;
 
     let q_guid = client
         .query("Select deck from notes where id = $1", &[&note_id])
@@ -283,8 +285,8 @@ pub async fn mark_note_deleted(
     note_id: i64,
     user: rocket_auth::User,
     bulk: bool,
-) -> Result<String, Box<dyn std::error::Error>> {
-    let mut client = database::client().await;
+) -> Return<String> {
+    let mut client = database::client().await?;
 
     let q_guid = client
         .query(
@@ -293,7 +295,7 @@ pub async fn mark_note_deleted(
         )
         .await?;
     if q_guid.is_empty() {
-        return Err("Note not found (Mark Note Deleted).".into());
+        return Err(NoteNotFound(NoteNotFoundReason::MarkNoteDeleted));
     }
     let guid: String = q_guid[0].get(0);
     let deck_id: i64 = q_guid[0].get(1);
@@ -301,7 +303,7 @@ pub async fn mark_note_deleted(
     if !bulk {
         let access = suggestion_manager::is_authorized(&user, deck_id).await?;
         if !access {
-            return Err("Unauthorized.".into());
+            return Err(Unauthorized);
         }
     }
 

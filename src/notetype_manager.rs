@@ -1,14 +1,14 @@
 use rocket_auth::User;
 
 use crate::database;
+use crate::error::Error::*;
 use crate::structs::*;
+use crate::Return;
 
 use std::collections::HashMap;
 
-pub async fn get_protected_fields(
-    notetype_id: i64,
-) -> Result<Vec<NoteModelFieldInfo>, Box<dyn std::error::Error>> {
-    let client = database::client().await;
+pub async fn get_protected_fields(notetype_id: i64) -> Return<Vec<NoteModelFieldInfo>> {
+    let client = database::client().await?;
     let query = "SELECT id, name, protected, position FROM notetype_field WHERE notetype = $1 ORDER BY position";
 
     let rows = client
@@ -25,11 +25,9 @@ pub async fn get_protected_fields(
     Ok(rows)
 }
 
-pub async fn notetypes_by_commit(
-    commit_id: i32,
-) -> Result<HashMap<i64, Vec<String>>, Box<dyn std::error::Error>> {
+pub async fn notetypes_by_commit(commit_id: i32) -> Return<HashMap<i64, Vec<String>>> {
     // Returns a map of notetypes with a vector of the field names of that notetype
-    let client = database::client().await;
+    let client = database::client().await?;
     let get_notetypes = "
         SELECT DISTINCT notetype FROM notes
         WHERE notes.id IN 
@@ -49,7 +47,7 @@ pub async fn notetypes_by_commit(
         .collect::<Vec<i64>>();
 
     if affected_notetypes.is_empty() {
-        return Err("No notetypes affected by this commit.".into());
+        return Err(NoNoteTypesAffected);
     }
 
     let mut notetype_map = HashMap::new();
@@ -75,7 +73,7 @@ pub async fn update_notetype(
     user: &User,
     notetype: &UpdateNotetype,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    let mut client = database::client().await;
+    let mut client = database::client().await?;
     let rows = client
         .query(
             "SELECT 1 FROM notetype WHERE (owner = $1 AND id = $3) OR $2 LIMIT 1",
@@ -123,7 +121,7 @@ pub async fn update_notetype(
 pub async fn get_notetype_overview(
     user: &User,
 ) -> Result<Vec<NotetypeOverview>, Box<dyn std::error::Error>> {
-    let client = database::client().await;
+    let client = database::client().await?;
 
     let query = client
         .prepare(

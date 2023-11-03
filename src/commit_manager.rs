@@ -1,5 +1,7 @@
 use crate::database;
+use crate::error::Error::*;
 use crate::structs::*;
+use crate::Return;
 
 fn get_string_from_rationale(input: i32) -> &'static str {
     match input {
@@ -19,9 +21,7 @@ fn get_string_from_rationale(input: i32) -> &'static str {
     }
 }
 
-pub async fn get_commit_info(
-    commit_id: i32,
-) -> Result<CommitsOverview, Box<dyn std::error::Error>> {
+pub async fn get_commit_info(commit_id: i32) -> Return<CommitsOverview> {
     let query = r#"    
         SELECT c.commit_id, c.rationale,
         TO_CHAR(c.timestamp, 'MM/DD/YYYY') AS last_update,
@@ -30,7 +30,7 @@ pub async fn get_commit_info(
         JOIN decks d on d.id = c.deck
         WHERE c.commit_id = $1
     "#;
-    let client = database::client().await;
+    let client = database::client().await?;
     let row = client.query_one(query, &[&commit_id]).await?;
     let commit = CommitsOverview {
         id: row.get(0),
@@ -80,7 +80,7 @@ pub async fn commits_review(uid: i32) -> Result<Vec<CommitsOverview>, Box<dyn st
       FROM unreviewed_changes
       WHERE deck IN (SELECT id FROM accessible) OR (SELECT is_admin FROM users WHERE id = $1)      
     "#;
-    let client = database::client().await;
+    let client = database::client().await?;
 
     let rows = client
         .query(query, &[&uid])
@@ -97,10 +97,8 @@ pub async fn commits_review(uid: i32) -> Result<Vec<CommitsOverview>, Box<dyn st
     Ok(rows)
 }
 
-pub async fn notes_by_commit(
-    commit_id: i32,
-) -> Result<Vec<CommitData>, Box<dyn std::error::Error>> {
-    let client = database::client().await;
+pub async fn notes_by_commit(commit_id: i32) -> Return<Vec<CommitData>> {
+    let client = database::client().await?;
 
     let get_notes = "
         SELECT note FROM (
@@ -121,7 +119,7 @@ pub async fn notes_by_commit(
         .collect::<Vec<i64>>();
 
     if affected_notes.is_empty() {
-        return Err("No notes affected by this commit.".into());
+        return Err(NoNotesAffected);
     }
 
     let note_info_query = client
@@ -274,5 +272,5 @@ pub async fn notes_by_commit(
             commit_info.push(current_note);
         }
     }
-    Ok::<Vec<CommitData>, Box<dyn std::error::Error>>(commit_info)
+    Ok(commit_info)
 }

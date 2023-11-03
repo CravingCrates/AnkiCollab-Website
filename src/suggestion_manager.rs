@@ -1,10 +1,12 @@
-use crate::{database, note_manager};
+use crate::error::Error::*;
+use crate::error::NoteNotFoundReason;
+use crate::{database, note_manager, Return};
 use rocket_auth::User;
 
 pub async fn update_note_timestamp(
     tx: &tokio_postgres::Transaction<'_>,
     note_id: i64,
-) -> Result<(), Box<dyn std::error::Error>> {
+) -> Return<()> {
     let query1 = "
     WITH RECURSIVE tree AS (
         SELECT id, last_update, parent FROM decks
@@ -25,13 +27,8 @@ pub async fn update_note_timestamp(
     Ok(())
 }
 
-pub async fn is_authorized(user: &User, deck: i64) -> Result<bool, Box<dyn std::error::Error>> {
-    let client = database::TOKIO_POSTGRES_POOL
-        .get()
-        .unwrap()
-        .get()
-        .await
-        .unwrap();
+pub async fn is_authorized(user: &User, deck: i64) -> Return<bool> {
+    let client = database::client().await?;
     let rows = client
         .query(
             "SELECT 1 FROM decks WHERE (owner = $1 AND id = $3) OR $2 LIMIT 1",
@@ -108,31 +105,22 @@ pub async fn delete_card(note_id: i64, user: User) -> Result<String, Box<dyn std
 }
 
 // If bulk is true, we skip a few steps that have already been handled by the caller
-pub async fn approve_card(
-    note_id: i64,
-    user: User,
-    bulk: bool,
-) -> Result<String, Box<dyn std::error::Error>> {
-    let mut client = database::TOKIO_POSTGRES_POOL
-        .get()
-        .unwrap()
-        .get()
-        .await
-        .unwrap();
+pub async fn approve_card(note_id: i64, user: User, bulk: bool) -> Return<String> {
+    let mut client = database::client().await?;
     let tx = client.transaction().await?;
 
     let q_guid = tx
         .query("select deck from notes where id = $1", &[&note_id])
         .await?;
     if q_guid.is_empty() {
-        return Err("Note not found (Approve Card).".into());
+        return Err(NoteNotFound(NoteNotFoundReason::ApproveCard));
     }
     let deck_id: i64 = q_guid[0].get(0);
 
     if !bulk {
         let access = is_authorized(&user, deck_id).await?;
         if !access {
-            return Err("Unauthorized.".into());
+            return Err(Unauthorized);
         }
     }
 
@@ -164,13 +152,11 @@ pub async fn approve_card(
         )
         .await?;
     if unique_fields_row.is_empty() {
-        println!("Note invalid");
-        return Err("Note is invalid.".into());
+        return Err(InvalidNote);
     }
 
     if !unique_fields_row[0].get::<_, bool>(0) {
-        println!("Field ambiguous in note {}", note_id);
-        return Err("Fields are ambiguous. Please handle manually.".into());
+        return Err(AmbiguousFields(note_id));
     }
 
     if !bulk {
@@ -201,20 +187,15 @@ pub async fn approve_card(
     Ok(note_id.to_string())
 }
 
-pub async fn deny_tag_change(tag_id: i64) -> Result<String, Box<dyn std::error::Error>> {
-    let client = database::TOKIO_POSTGRES_POOL
-        .get()
-        .unwrap()
-        .get()
-        .await
-        .unwrap();
+pub async fn deny_tag_change(tag_id: i64) -> Return<String> {
+    let client = database::client().await?;
 
     let rows = client
         .query("SELECT note FROM tags WHERE id = $1", &[&tag_id])
         .await?;
 
     if rows.is_empty() {
-        return Err("Note not found (Tag denied).".into());
+        return Err(NoteNotFound(NoteNotFoundReason::TagDenied));
     }
 
     client
@@ -225,20 +206,15 @@ pub async fn deny_tag_change(tag_id: i64) -> Result<String, Box<dyn std::error::
     Ok(note_id.to_string())
 }
 
-pub async fn deny_field_change(field_id: i64) -> Result<String, Box<dyn std::error::Error>> {
-    let client = database::TOKIO_POSTGRES_POOL
-        .get()
-        .unwrap()
-        .get()
-        .await
-        .unwrap();
+pub async fn deny_field_change(field_id: i64) -> Return<String> {
+    let client = database::client().await?;
 
     let rows = client
         .query("SELECT note FROM fields WHERE id = $1", &[&field_id])
         .await?;
 
     if rows.is_empty() {
-        return Err("Note not found (Field Denied).".into());
+        return Err(NoteNotFound(NoteNotFoundReason::FieldDenied));
     }
 
     client
@@ -249,16 +225,8 @@ pub async fn deny_field_change(field_id: i64) -> Result<String, Box<dyn std::err
     Ok(note_id.to_string())
 }
 
-pub async fn approve_tag_change(
-    tag_id: i64,
-    update_timestamp: bool,
-) -> Result<String, Box<dyn std::error::Error>> {
-    let mut client = database::TOKIO_POSTGRES_POOL
-        .get()
-        .unwrap()
-        .get()
-        .await
-        .unwrap();
+pub async fn approve_tag_change(tag_id: i64, update_timestamp: bool) -> Return<String> {
+    let mut client = database::client().await?;
     let tx = client.transaction().await?;
 
     let rows = tx
@@ -266,7 +234,7 @@ pub async fn approve_tag_change(
         .await?;
 
     if rows.is_empty() {
-        return Err("Note not found (Tag Approve).".into());
+        return Err(NoteNotFound(NoteNotFoundReason::TagApprove));
     }
     let note_id: i64 = rows[0].get(0);
 
@@ -289,16 +257,8 @@ pub async fn approve_tag_change(
     Ok(note_id.to_string())
 }
 
-pub async fn approve_field_change(
-    field_id: i64,
-    update_timestamp: bool,
-) -> Result<String, Box<dyn std::error::Error>> {
-    let mut client = database::TOKIO_POSTGRES_POOL
-        .get()
-        .unwrap()
-        .get()
-        .await
-        .unwrap();
+pub async fn approve_field_change(field_id: i64, update_timestamp: bool) -> Return<String> {
+    let mut client = database::client().await?;
     let tx = client.transaction().await?;
 
     let rows = tx
@@ -306,7 +266,7 @@ pub async fn approve_field_change(
         .await?;
 
     if rows.is_empty() {
-        return Err("Note not found (Field Approve).".into());
+        return Err(NoteNotFound(NoteNotFoundReason::FieldApprove));
     }
 
     let note_id: i64 = rows[0].get(0);
@@ -336,17 +296,8 @@ pub async fn approve_field_change(
     Ok(note_id.to_string())
 }
 
-pub async fn merge_by_commit(
-    commit_id: i32,
-    approve: bool,
-    user: User,
-) -> Result<Option<i32>, Box<dyn std::error::Error>> {
-    let mut client = database::TOKIO_POSTGRES_POOL
-        .get()
-        .unwrap()
-        .get()
-        .await
-        .unwrap();
+pub async fn merge_by_commit(commit_id: i32, approve: bool, user: User) -> Return<Option<i32>> {
+    let mut client = database::client().await?;
 
     let q_guid = client
         .query(
@@ -355,14 +306,13 @@ pub async fn merge_by_commit(
         )
         .await?;
     if q_guid.is_empty() {
-        println!("Deck in Commit not found (Merge Commit).");
-        return Err("Deck in Commit not found (Merge Commit).".into());
+        return Err(CommitDeckNotFound);
     }
     let deck_id: i64 = q_guid[0].get(0);
 
     let access = is_authorized(&user, deck_id).await?;
     if !access {
-        return Err("Unauthorized.".into());
+        return Err(Unauthorized);
     }
 
     let affected_tags = client

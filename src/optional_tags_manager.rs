@@ -1,8 +1,9 @@
-use crate::database;
+use crate::error::Error::*;
+use crate::{database, Return};
 
 pub async fn get_tags(deck: i64) -> Result<Vec<String>, Box<dyn std::error::Error>> {
     let query = "SELECT tag_group from optional_tags WHERE deck = $1";
-    let client = database::client().await;
+    let client = database::client().await?;
     let tags = client
         .query(query, &[&deck])
         .await?
@@ -13,8 +14,8 @@ pub async fn get_tags(deck: i64) -> Result<Vec<String>, Box<dyn std::error::Erro
     Ok(tags)
 }
 
-pub async fn add_tag(deck: i64, tag_group: String) -> Result<String, Box<dyn std::error::Error>> {
-    let client = database::client().await;
+pub async fn add_tag(deck: i64, tag_group: String) -> Return<String> {
+    let client = database::client().await?;
     match client
         .query_one(
             "SELECT id FROM optional_tags WHERE deck = $1 AND tag_group = $2",
@@ -22,7 +23,7 @@ pub async fn add_tag(deck: i64, tag_group: String) -> Result<String, Box<dyn std
         )
         .await
     {
-        Ok(_no) => return Err("Tag already exists".into()),
+        Ok(_no) => return Err(TabAlreadyExists),
         Err(e) => e,
     };
 
@@ -32,14 +33,11 @@ pub async fn add_tag(deck: i64, tag_group: String) -> Result<String, Box<dyn std
             &[&deck, &tag_group],
         )
         .await?;
-    Ok(tag_group)
+    Ok("Added".to_string())
 }
 
-pub async fn remove_tag(
-    deck: i64,
-    tag_group: String,
-) -> Result<String, Box<dyn std::error::Error>> {
-    let client = database::client().await;
+pub async fn remove_tag(deck: i64, tag_group: String) -> Return<String> {
+    let client = database::client().await?;
     client
         .execute(
             "DELETE FROM optional_tags WHERE deck = $1 AND tag_group = $2",
@@ -57,5 +55,5 @@ pub async fn remove_tag(
         )
         DELETE FROM tags WHERE content LIKE $2 AND note IN (SELECT id FROM notes WHERE deck IN (SELECT id FROM cte))",
     &[&deck, &format!("AnkiCollab_Optional::{}::%", &tag_group)]).await?;
-    Ok(tag_group)
+    Ok("Removed".to_string())
 }

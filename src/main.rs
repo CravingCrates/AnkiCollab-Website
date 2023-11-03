@@ -9,6 +9,7 @@ extern crate html5ever;
 pub mod changelog_manager;
 pub mod commit_manager;
 pub mod database;
+pub mod error;
 pub mod gdrive_manager;
 pub mod maintainer_manager;
 pub mod note_manager;
@@ -17,6 +18,8 @@ pub mod optional_tags_manager;
 pub mod structs;
 pub mod suggestion_manager;
 
+use database::owned_deck_id;
+use error::NoteNotFoundReason;
 use rocket::fs::FileServer;
 use rocket::http::Status;
 use rocket::response::content;
@@ -35,6 +38,13 @@ use std::*;
 
 use tokio_postgres::connect;
 
+pub type Return<T> = Result<T, error::Error>;
+pub type DeckHash = String;
+pub type UserId = i32;
+pub type DeckId = i64;
+pub type NoteId = i64;
+pub type FieldId = i64;
+
 lazy_static! {
     pub static ref TEMPLATES: Tera = {
         let mut tera = match Tera::new("src/templates/**/*") {
@@ -49,16 +59,11 @@ lazy_static! {
     };
 }
 
-fn is_user_logged_in(user: Option<User>) -> Result<Option<User>, Status> {
+// Review: This does not make much sense, the option can only ever be Some(_), never None
+fn check_login(user: Option<User>) -> Return<Option<User>> {
     match user {
         Some(user) => Ok(Some(user)),
-        None => Err(Status::SeeOther),
-    }
-}
-fn handle_login_check(user: Option<User>) -> Result<Option<User>, Redirect> {
-    match is_user_logged_in(user) {
-        Ok(user) => Ok(user),
-        Err(_redirect_status) => Err(Redirect::to("/login")),
+        None => Err(error::Error::Redirect("/login")),
     }
 }
 
@@ -142,58 +147,50 @@ async fn post_signup(auth: Auth<'_>, form: Form<Signup>) -> Result<Redirect, Red
 }
 
 #[get("/error?<message>")]
-async fn error_page(message: String) -> content::RawHtml<String> {
+async fn error_page(message: String) -> Return<content::RawHtml<String>> {
     let mut context = tera::Context::new();
     context.insert("message", &message);
-    let rendered_template = TEMPLATES
-        .render("error.html", &context)
-        .expect("Failed to render template");
-    content::RawHtml(rendered_template)
+    let rendered_template = TEMPLATES.render("error.html", &context)?;
+    Ok(content::RawHtml(rendered_template))
 }
 
 #[get("/signup")]
-async fn get_signup() -> content::RawHtml<String> {
+async fn get_signup() -> Return<content::RawHtml<String>> {
     let context = tera::Context::new();
-    let rendered_template = TEMPLATES
-        .render("signup.html", &context)
-        .expect("Failed to render template");
-    content::RawHtml(rendered_template)
+    let rendered_template = TEMPLATES.render("signup.html", &context)?;
+
+    Ok(content::RawHtml(rendered_template))
 }
 
 #[get("/")]
-async fn index(user: Option<User>) -> content::RawHtml<String> {
+async fn index(user: Option<User>) -> Return<content::RawHtml<String>> {
     let mut context = tera::Context::new();
     context.insert("user", &user);
-    let rendered_template = TEMPLATES
-        .render("index.html", &context)
-        .expect("Failed to render template");
-    content::RawHtml(rendered_template)
+    let rendered_template = TEMPLATES.render("index.html", &context)?;
+
+    Ok(content::RawHtml(rendered_template))
 }
 #[get("/terms")]
-async fn terms() -> content::RawHtml<String> {
+async fn terms() -> Return<content::RawHtml<String>> {
     let context = tera::Context::new();
-    let rendered_template = TEMPLATES
-        .render("terms.html", &context)
-        .expect("Failed to render template");
-    content::RawHtml(rendered_template)
+    let rendered_template = TEMPLATES.render("terms.html", &context)?;
+
+    Ok(content::RawHtml(rendered_template))
 }
 #[get("/privacy")]
-async fn privacy() -> content::RawHtml<String> {
+async fn privacy() -> Return<content::RawHtml<String>> {
     let context = tera::Context::new();
-    let rendered_template = TEMPLATES
-        .render("privacy.html", &context)
-        .expect("Failed to render template");
-    content::RawHtml(rendered_template)
+    let rendered_template = TEMPLATES.render("privacy.html", &context)?;
+
+    Ok(content::RawHtml(rendered_template))
 }
 
 #[get("/logout")]
-fn logout(auth: Auth<'_>) -> Result<content::RawHtml<String>, Error> {
+fn logout(auth: Auth<'_>) -> Return<content::RawHtml<String>> {
     auth.logout()?;
 
     let context = tera::Context::new();
-    let rendered_template = TEMPLATES
-        .render("logout.html", &context)
-        .expect("Failed to render template");
+    let rendered_template = TEMPLATES.render("logout.html", &context)?;
     Ok(content::RawHtml(rendered_template))
 }
 
@@ -207,7 +204,9 @@ async fn render_optional_tags(
         Ok(tags) => tags,
         Err(e) => {
             println!("Error retrieving opt tags: {}", e);
-            return content::RawHtml("Error retrieving optional tags. Please notify us.".to_string());
+            return content::RawHtml(
+                "Error retrieving optional tags. Please notify us.".to_string(),
+            );
         }
     };
 
@@ -230,53 +229,25 @@ async fn render_optional_tags(
 async fn post_optional_tags(
     user: User,
     edit_optional_tag: Json<structs::UpdateOptionalTag>,
-) -> String {
-    let client = database::client().await;
+) -> Return<String> {
     let data = edit_optional_tag.into_inner();
 
-    let owned_info = client
-        .query(
-            "Select id from decks where human_hash = $1 and owner = $2",
-            &[&data.deck, &user.id()],
-        )
-        .await
-        .expect("Error preparing edit deck statement");
-    if owned_info.is_empty() {
-        return "Unauthorized.".into();
-    }
-    let deck_id: i64 = owned_info[0].get(0);
+    let deck_id: i64 = owned_deck_id(&data.deck, user.id()).await?;
 
     // Add new tag
     if data.action == 1 {
-        match optional_tags_manager::add_tag(deck_id, data.taggroup).await {
-            Ok(_res) => "added".to_owned(),
-            Err(e) => e.to_string(),
-        }
+        optional_tags_manager::add_tag(deck_id, data.taggroup).await
     } else {
         // Delete existing optional_tag
-        match optional_tags_manager::remove_tag(deck_id, data.taggroup).await {
-            Ok(_res) => "removed".to_owned(),
-            Err(e) => e.to_string(),
-        }
+        optional_tags_manager::remove_tag(deck_id, data.taggroup).await
     }
 }
 
 #[get("/OptionalTags/<deck_hash>")]
-async fn show_optional_tags(user: User, deck_hash: String) -> content::RawHtml<String> {
-    let client = database::client().await;
+async fn show_optional_tags(user: User, deck_hash: DeckHash) -> Return<content::RawHtml<String>> {
+    let deck_id: i64 = owned_deck_id(&deck_hash, user.id()).await?;
 
-    let owned_info = client
-        .query(
-            "Select id from decks where human_hash = $1 and owner = $2",
-            &[&deck_hash, &user.id()],
-        )
-        .await
-        .expect("Error preparing edit deck statement");
-    if owned_info.is_empty() {
-        return content::RawHtml("Unauthorized.".to_string());
-    }
-    let deck_id: i64 = owned_info[0].get(0);
-    render_optional_tags(&deck_hash, deck_id, user).await
+    Ok(render_optional_tags(&deck_hash, deck_id, user).await)
 }
 
 async fn render_maintainers(
@@ -309,87 +280,34 @@ async fn render_maintainers(
     format = "application/json",
     data = "<edit_maintainer>"
 )]
-async fn post_maintainers(user: User, edit_maintainer: Json<structs::UpdateMaintainer>) -> String {
-    let client = database::client().await;
+async fn post_maintainers(
+    user: User,
+    edit_maintainer: Json<structs::UpdateMaintainer>,
+) -> Return<String> {
     let data = edit_maintainer.into_inner();
 
-    let owned_info = client
-        .query(
-            "Select id from decks where human_hash = $1 and owner = $2",
-            &[&data.deck, &user.id()],
-        )
-        .await
-        .expect("Error preparing edit deck statement");
-    if owned_info.is_empty() {
-        return "Unauthorized.".into();
-    }
-    let deck_id: i64 = owned_info[0].get(0);
+    let deck_id: i64 = owned_deck_id(&data.deck, user.id()).await?;
 
     // Add new maintainer
     if data.action == 1 {
-        match maintainer_manager::add_maintainer(deck_id, data.email).await {
-            Ok(_res) => "added".to_owned(),
-            Err(e) => e.to_string(),
-        }
+        maintainer_manager::add_maintainer(deck_id, data.email).await
     } else {
         // Delete existing maintainer
-        match maintainer_manager::remove_maintainer(deck_id, data.email).await {
-            Ok(_res) => "removed".to_owned(),
-            Err(e) => e.to_string(),
-        }
-    }
-}
-
-fn translate_error(e: Box<dyn std::error::Error>) -> String {
-    if e.to_string() == "db error: ERROR: value too long for type character varying(33)" {
-        String::from("Your folder ID is too long. Please double check it and try again.")
-    } else {
-        e.to_string()
+        maintainer_manager::remove_maintainer(deck_id, data.email).await
     }
 }
 
 #[post("/MediaManager", format = "application/json", data = "<update_media>")]
-async fn post_media_manager(user: User, update_media: Json<structs::GDriveInfo>) -> String {
-    let client = database::client().await;
+async fn post_media_manager(user: User, update_media: Json<structs::GDriveInfo>) -> Return<String> {
     let data = update_media.into_inner();
 
-    let owned_info = client
-        .query(
-            "Select id from decks where human_hash = $1 and owner = $2",
-            &[&data.deck, &user.id()],
-        )
-        .await
-        .expect("Error preparing edit deck statement");
-    if owned_info.is_empty() {
-        return "Unauthorized.".into();
-    }
-    let deck_id: i64 = owned_info[0].get(0);
+    let deck_id: i64 = owned_deck_id(&data.deck, user.id()).await?;
 
-    
-    match gdrive_manager::update_media(deck_id, data).await {
-        Ok(res) => res,
-        Err(e) => {
-            println!("Error: {}", e);
-            translate_error(e)
-        }
-    }
+    gdrive_manager::update_media(deck_id, data).await
 }
 
 #[get("/MediaManager/<deck_hash>")]
-async fn media_manager(user: User, deck_hash: String) -> content::RawHtml<String> {
-    let client = database::client().await;
-
-    let owned_info = client
-        .query(
-            "Select id from decks where human_hash = $1 and owner = $2",
-            &[&deck_hash, &user.id()],
-        )
-        .await
-        .expect("Error preparing edit deck statement");
-    if owned_info.is_empty() {
-        return content::RawHtml("Unauthorized.".to_string());
-    }
-
+async fn media_manager(user: User, deck_hash: String) -> Return<content::RawHtml<String>> {
     let mut context = tera::Context::new();
     context.insert("hash", &deck_hash);
     context.insert("user", &user);
@@ -397,30 +315,19 @@ async fn media_manager(user: User, deck_hash: String) -> content::RawHtml<String
     let rendered_template = TEMPLATES
         .render("media_manager.html", &context)
         .expect("Failed to render template");
-    content::RawHtml(rendered_template)
+    Ok(content::RawHtml(rendered_template))
 }
 
 #[get("/Maintainers/<deck_hash>")]
-async fn show_maintainers(user: User, deck_hash: String) -> content::RawHtml<String> {
-    let client = database::client().await;
+async fn show_maintainers(user: User, deck_hash: String) -> Return<content::RawHtml<String>> {
+    let deck_id: i64 = owned_deck_id(&deck_hash, user.id()).await?;
 
-    let owned_info = client
-        .query(
-            "Select id from decks where human_hash = $1 and owner = $2",
-            &[&deck_hash, &user.id()],
-        )
-        .await
-        .expect("Error preparing edit deck statement");
-    if owned_info.is_empty() {
-        return content::RawHtml("Unauthorized.".to_string());
-    }
-    let deck_id: i64 = owned_info[0].get(0);
-    render_maintainers(&deck_hash, deck_id, user).await
+    Ok(render_maintainers(&deck_hash, deck_id, user).await)
 }
 
 #[get("/EditNotetype/<notetype_id>")]
-async fn edit_notetype(user: User, notetype_id: i64) -> content::RawHtml<String> {
-    let client = database::client().await;
+async fn edit_notetype(user: User, notetype_id: i64) -> Return<content::RawHtml<String>> {
+    let client = database::client().await?;
 
     let owned_info = client
         .query(
@@ -430,7 +337,7 @@ async fn edit_notetype(user: User, notetype_id: i64) -> content::RawHtml<String>
         .await
         .expect("Error preparing edit notetype statement");
     if owned_info.is_empty() {
-        return content::RawHtml("Unauthorized.".to_string());
+        return Err(error::Error::Unauthorized);
     }
 
     let notetype_info = client
@@ -442,10 +349,7 @@ async fn edit_notetype(user: User, notetype_id: i64) -> content::RawHtml<String>
         .expect("Error preparing edit notetype statement");
     let notetype_template_info = client.query("Select id, qfmt, afmt from notetype_template where notetype = $1 and position = 0 LIMIT 1", &[&notetype_id]).await.expect("Error preparing edit notetype statement");
 
-    let protected_fields = match notetype_manager::get_protected_fields(notetype_id).await {
-        Ok(note) => note,
-        Err(error) => return content::RawHtml(format!("Error: {}", error)),
-    };
+    let protected_fields = notetype_manager::get_protected_fields(notetype_id).await?;
 
     let name: String = notetype_info[0].get(0);
     let styling: String = notetype_info[0].get(1);
@@ -466,7 +370,7 @@ async fn edit_notetype(user: User, notetype_id: i64) -> content::RawHtml<String>
     let rendered_template = TEMPLATES
         .render("edit_notetype.html", &context)
         .expect("Failed to render template");
-    content::RawHtml(rendered_template)
+    Ok(content::RawHtml(rendered_template))
 }
 
 #[post("/EditNotetype", format = "application/json", data = "<edit_notetype>")]
@@ -480,12 +384,9 @@ async fn post_edit_notetype(user: User, edit_notetype: Json<structs::UpdateNotet
 }
 
 #[get("/EditDeck/<deck_hash>")]
-async fn edit_deck(
-    user: Option<User>,
-    deck_hash: String,
-) -> Result<content::RawHtml<String>, Redirect> {
-    let user = handle_login_check(user)?;
-    let client = database::client().await;
+async fn edit_deck(user: Option<User>, deck_hash: String) -> Return<content::RawHtml<String>> {
+    let user = check_login(user)?;
+    let client = database::client().await?;
     let owned_info = client
         .query(
             "Select owner, description, private, id from decks where human_hash = $1",
@@ -501,16 +402,13 @@ async fn edit_deck(
     let mut context = tera::Context::new();
     if let Some(user) = &user {
         if owner != user.id() {
-            return Ok(content::RawHtml("Unauthorized.".to_string()));
+            return Err(error::Error::Unauthorized);
         }
 
         let desc: String = owned_info[0].get(1);
         let is_private: bool = owned_info[0].get(2);
 
-        let changelogs = match changelog_manager::get_changelogs(&deck_hash).await {
-            Ok(cl) => cl,
-            Err(error) => return Ok(content::RawHtml(format!("Error: {}", error))),
-        };
+        let changelogs = changelog_manager::get_changelogs(&deck_hash).await?;
 
         context.insert("user", &user);
         context.insert("hash", &deck_hash);
@@ -529,20 +427,11 @@ async fn edit_deck(
 async fn post_edit_deck(
     user: User,
     edit_deck_data: Json<structs::EditDecksData>,
-) -> Result<Redirect, Error> {
-    let client = database::client().await;
+) -> Return<Redirect> {
+    let client = database::client().await?;
     let data = edit_deck_data.into_inner();
 
-    let owned_info = client
-        .query(
-            "Select id from decks where human_hash = $1 and owner = $2",
-            &[&data.hash, &user.id()],
-        )
-        .await
-        .expect("Error preparing edit deck statement");
-    if owned_info.is_empty() {
-        return Ok(Redirect::to("/"));
-    }
+    let _ = owned_deck_id(&data.hash, user.id()).await?; // only for checking if user owns the deck
 
     client
         .query(
@@ -556,16 +445,14 @@ async fn post_edit_deck(
         .await?;
 
     if !data.changelog.is_empty() {
-        changelog_manager::insert_new_changelog(&data.hash, &data.changelog)
-            .await
-            .expect("Failed to insert new changelog");
+        changelog_manager::insert_new_changelog(&data.hash, &data.changelog).await?;
     }
 
     Ok(Redirect::to(format!("/EditDeck/{}", data.hash)))
 }
 
 #[get("/DeleteChangelog/<changelog_id>")]
-async fn delete_changelog(user: User, changelog_id: i64) -> Result<Redirect, Error> {
+async fn delete_changelog(user: User, changelog_id: i64) -> Return<Redirect> {
     match changelog_manager::delete_changelog(changelog_id, user.id()).await {
         Ok(hash) => Ok(Redirect::to(format!("/EditDeck/{}", hash))),
         Err(_err) => Ok(Redirect::to("/")),
@@ -573,52 +460,38 @@ async fn delete_changelog(user: User, changelog_id: i64) -> Result<Redirect, Err
 }
 
 #[get("/DeleteDeck/<deck_hash>")]
-async fn delete_deck(user: User, deck_hash: String) -> Result<Redirect, Error> {
-    let client = database::client().await;
-    let owned_info = client
-        .query(
-            "Select owner from decks where human_hash = $1 and owner = $2",
-            &[&deck_hash, &user.id()],
-        )
-        .await
-        .expect("Error preparing deck deletion statement");
-    if owned_info.is_empty() {
-        return Ok(Redirect::to("/"));
-    }
+async fn delete_deck(user: User, deck_hash: String) -> Return<Redirect> {
+    let client = database::client().await?;
+    let _ = owned_deck_id(&deck_hash, user.id()).await?; // only for checking if user owns the deck
 
     client
         .query("Select delete_deck($1)", &[&deck_hash])
-        .await
-        .expect("Error deleting deck");
+        .await?;
 
     Ok(Redirect::to("/"))
 }
 
-#[get("/AsyncApproveCommit/<commit_id>")]
-async fn async_approve_commit(commit_id: i32, user: User) -> Result<Redirect, Error> {
-    tokio::spawn(async move {
-        match suggestion_manager::merge_by_commit(commit_id, true, user).await {
-            Ok(_res) => println!("Async approved commit {}", commit_id),
-            Err(error) => println!("Async approve commit Error: {}", error),
-        };
-    });
-    Ok(Redirect::to("/"))
-}
+// REVIEW: You don't seem to be using this function anywhere. Is it still needed?
+
+// #[get("/AsyncApproveCommit/<commit_id>")]
+// async fn async_approve_commit(commit_id: i32, user: User) -> Result<Redirect, Error> {
+//     tokio::spawn(async move {
+//         match suggestion_manager::merge_by_commit(commit_id, true, user).await {
+//             Ok(_res) => println!("Async approved commit {}", commit_id),
+//             Err(error) => println!("Async approve commit Error: {}", error),
+//         };
+//     });
+//     Ok(Redirect::to("/"))
+// }
 
 #[get("/ApproveCommit/<commit_id>")]
-async fn approve_commit(commit_id: i32, user: User) -> Result<Redirect, Error> {
-    match suggestion_manager::merge_by_commit(commit_id, true, user).await {
-        Ok(res) => {
-            if res.is_none() {
-                Ok(Redirect::to("/reviews".to_string()))
-            } else {
-                Ok(Redirect::to(format!("/commit/{}", res.unwrap())))
-            }
-        }
-        Err(error) => {
-            println!("Error: {}", error);
-            Ok(Redirect::to("/"))
-        }
+async fn approve_commit(commit_id: i32, user: User) -> Return<Redirect> {
+    let res = suggestion_manager::merge_by_commit(commit_id, true, user).await?;
+
+    if res.is_none() {
+        Ok(Redirect::to("/reviews".to_string()))
+    } else {
+        Ok(Redirect::to(format!("/commit/{}", res.unwrap())))
     }
 }
 
@@ -640,44 +513,27 @@ async fn deny_commit(commit_id: i32, user: User) -> Result<Redirect, Error> {
 }
 
 #[get("/commit/<commit_id>")]
-async fn review_commit(commit_id: i32, user: User) -> content::RawHtml<String> {
+async fn review_commit(commit_id: i32, user: User) -> Return<content::RawHtml<String>> {
     let mut context = tera::Context::new();
 
-    let notes = match commit_manager::notes_by_commit(commit_id).await {
-        Ok(notes) => notes,
-        Err(error) => return content::RawHtml(format!("Error: {}", error)),
-    };
+    let notes = commit_manager::notes_by_commit(commit_id).await?;
 
-    let commit = match commit_manager::get_commit_info(commit_id).await {
-        Ok(commit) => commit,
-        Err(error) => return content::RawHtml(format!("Error: {}", error)),
-    };
+    let commit = commit_manager::get_commit_info(commit_id).await?;
 
-    let client = database::client().await;
-    let q_guid = match client
+    let client = database::client().await?;
+    let q_guid = client
         .query(
             "Select deck from commits where commit_id = $1",
             &[&commit_id],
         )
-        .await
-    {
-        Ok(q_guid) => q_guid,
-        Err(error) => return content::RawHtml(format!("Error: {}", error)),
-    };
+        .await?;
     if q_guid.is_empty() {
-        return content::RawHtml("Error: Commit not found".into());
+        return Err(error::Error::CommitNotFound);
     }
     let deck_id: i64 = q_guid[0].get(0);
 
-    let access = match suggestion_manager::is_authorized(&user, deck_id).await {
-        Ok(access) => access,
-        Err(error) => return content::RawHtml(format!("Error: {}", error)),
-    };
-
-    let notemodels = match notetype_manager::notetypes_by_commit(commit_id).await {
-        Ok(notemodels) => notemodels,
-        Err(error) => return content::RawHtml(format!("Error: {}", error)),
-    };
+    let access = suggestion_manager::is_authorized(&user, deck_id).await?;
+    let notemodels = notetype_manager::notetypes_by_commit(commit_id).await?;
 
     context.insert("notes", &notes);
     context.insert("commit", &commit);
@@ -690,47 +546,32 @@ async fn review_commit(commit_id: i32, user: User) -> content::RawHtml<String> {
         .expect("Failed to render template");
 
     // Return the rendered HTML as the response
-    content::RawHtml(rendered_template)
+    Ok(content::RawHtml(rendered_template))
 }
 
 #[get("/review/<note_id>")]
-async fn review_note(note_id: i64, user: Option<User>) -> content::RawHtml<String> {
+async fn review_note(note_id: i64, user: Option<User>) -> Return<content::RawHtml<String>> {
     let mut context = tera::Context::new();
 
-    let note = match note_manager::get_note_data(note_id).await {
-        Ok(note) => note,
-        Err(error) => return content::RawHtml(format!("Error: {}", error)),
-    };
+    let note = note_manager::get_note_data(note_id).await?;
     if note.id == 0 {
         // Invalid data // No note found!
-        return content::RawHtml("Error: Note not found.".to_string());
+        return Err(error::Error::NoteNotFound(NoteNotFoundReason::InvalidData));
     }
 
     let mut access = false;
 
     if let Some(ref user) = user {
-        let client = database::TOKIO_POSTGRES_POOL
-            .get()
-            .unwrap()
-            .get()
-            .await
-            .unwrap();
-        let q_guid = match client
+        let client = database::client().await?;
+        let q_guid = client
             .query("Select deck from notes where id = $1", &[&note_id])
-            .await
-        {
-            Ok(q_guid) => q_guid,
-            Err(error) => return content::RawHtml(format!("Error: {}", error)),
-        };
+            .await?;
         if q_guid.is_empty() {
-            return content::RawHtml("Error: Note not found".into());
+            return Err(error::Error::NoteNotFound(NoteNotFoundReason::InvalidData));
         }
         let deck_id: i64 = q_guid[0].get(0);
 
-        access = match suggestion_manager::is_authorized(user, deck_id).await {
-            Ok(access) => access,
-            Err(error) => return content::RawHtml(format!("Error: {}", error)),
-        };
+        access = suggestion_manager::is_authorized(user, deck_id).await?;
     }
 
     context.insert("note", &note);
@@ -741,7 +582,7 @@ async fn review_note(note_id: i64, user: Option<User>) -> content::RawHtml<Strin
         .expect("Failed to render template");
 
     // Return the rendered HTML as the response
-    content::RawHtml(rendered_template)
+    Ok(content::RawHtml(rendered_template))
 }
 
 async fn access_check(deck_id: i64, user: &User) -> Result<bool, Error> {
@@ -757,8 +598,8 @@ async fn access_check(deck_id: i64, user: &User) -> Result<bool, Error> {
     Ok(true)
 }
 
-async fn get_deck_by_tag_id(tag_id: i64) -> Result<i64, Error> {
-    let client = database::client().await;
+async fn get_deck_by_tag_id(tag_id: i64) -> Return<i64> {
+    let client = database::client().await?;
     let q_guid = match client
         .query(
             "Select deck from notes where id = (select note from tags where id = $1)",
@@ -777,8 +618,8 @@ async fn get_deck_by_tag_id(tag_id: i64) -> Result<i64, Error> {
     Ok(deck_id)
 }
 
-async fn get_deck_by_field_id(field_id: i64) -> Result<i64, Error> {
-    let client = database::client().await;
+async fn get_deck_by_field_id(field_id: FieldId) -> Return<DeckId> {
+    let client = database::client().await?;
     let q_guid = match client
         .query(
             "Select deck from notes where id = (select note from fields where id = $1)",
@@ -792,13 +633,13 @@ async fn get_deck_by_field_id(field_id: i64) -> Result<i64, Error> {
     if q_guid.is_empty() {
         return Ok(0);
     }
-    let deck_id: i64 = q_guid[0].get(0);
+    let deck_id: DeckId = q_guid[0].get(0);
 
     Ok(deck_id)
 }
 
 #[get("/DenyTag/<tag_id>")]
-async fn deny_tag(tag_id: i64, user: User) -> Result<Redirect, Error> {
+async fn deny_tag(tag_id: i64, user: User) -> Return<Redirect> {
     let deck_id = match get_deck_by_tag_id(tag_id).await {
         Ok(deck_id) => deck_id,
         Err(error) => {
@@ -936,7 +777,10 @@ async fn deny_note_removal(note_id: i64, user: User) -> Result<Redirect, Error> 
 }
 
 #[get("/notes/<deck_hash>")]
-async fn get_notes_from_deck(deck_hash: String, user: Option<User>) -> content::RawHtml<String> {
+async fn get_notes_from_deck(
+    deck_hash: String,
+    user: Option<User>,
+) -> Return<content::RawHtml<String>> {
     let mut context = tera::Context::new();
 
     // let deck_name = decks::get_name_by_hash(&deck_hash).await;
@@ -944,15 +788,12 @@ async fn get_notes_from_deck(deck_hash: String, user: Option<User>) -> content::
     //     return content::RawHtml(format!("Deck not found."))
     // }
 
-    let notes = match note_manager::retrieve_notes(&deck_hash).await {
-        Ok(notes) => notes,
-        Err(error) => return content::RawHtml(format!("Error: {}", error)),
-    };
+    let notes = note_manager::retrieve_notes(&deck_hash).await?;
 
-    let client = database::client().await;
+    let client = database::client().await?;
     let deck_info = client.query("Select id, name, description, human_hash, owner, TO_CHAR(last_update, 'MM/DD/YYYY') AS last_update from decks where human_hash = $1 Limit 1", &[&deck_hash]).await.expect("Error preparing deck notes statement");
     if deck_info.is_empty() {
-        return content::RawHtml("Deck not found.".to_string());
+        return Err(error::Error::DeckNotFound);
     }
 
     let id: i64 = deck_info[0].get(0);
@@ -993,12 +834,12 @@ async fn get_notes_from_deck(deck_hash: String, user: Option<User>) -> content::
         .expect("Failed to render template");
 
     // Return the rendered HTML as the response
-    content::RawHtml(rendered_template)
+    Ok(content::RawHtml(rendered_template))
 }
 
 #[get("/reviews")]
-async fn all_reviews(user: Option<User>) -> Result<content::RawHtml<String>, Redirect> {
-    let user = handle_login_check(user)?;
+async fn all_reviews(user: Option<User>) -> Return<content::RawHtml<String>> {
+    let user = check_login(user)?;
     let mut context = tera::Context::new();
     if let Some(user) = &user {
         let commits = match commit_manager::commits_review(user.id()).await {
@@ -1018,13 +859,13 @@ async fn all_reviews(user: Option<User>) -> Result<content::RawHtml<String>, Red
 }
 
 #[get("/decks")]
-async fn deck_overview(user: Option<User>) -> content::RawHtml<String> {
+async fn deck_overview(user: Option<User>) -> Return<content::RawHtml<String>> {
     let mut decks: Vec<DeckOverview> = vec![];
     let mut user_id: i32 = 1;
     if user.is_some() {
         user_id = user.as_ref().unwrap().id();
     }
-    let client = database::client().await;
+    let client = database::client().await?;
     let stmt = client
         .prepare(
             "
@@ -1082,15 +923,15 @@ async fn deck_overview(user: Option<User>) -> content::RawHtml<String> {
         .expect("Failed to render template");
 
     // Return the rendered HTML as the response
-    content::RawHtml(rendered_template)
+    Ok(content::RawHtml(rendered_template))
 }
 
 #[get("/ManageDecks")]
-async fn manage_decks(user: Option<User>) -> Result<content::RawHtml<String>, Redirect> {
-    let user = handle_login_check(user)?;
+async fn manage_decks(user: Option<User>) -> Return<content::RawHtml<String>> {
+    let user = check_login(user)?;
     let mut decks: Vec<DeckOverview> = vec![];
 
-    let client = database::client().await;
+    let client = database::client().await?;
     let stmt = client
         .prepare(
             "
@@ -1220,7 +1061,6 @@ async fn main() {
                 get_signup,
                 post_maintainers,
                 show_maintainers,
-                async_approve_commit,
                 post_optional_tags,
                 show_optional_tags,
                 edit_notetype,
