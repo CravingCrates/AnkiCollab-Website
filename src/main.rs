@@ -60,9 +60,9 @@ lazy_static! {
 }
 
 // Review: This does not make much sense, the option can only ever be Some(_), never None
-fn check_login(user: Option<User>) -> Return<Option<User>> {
+fn check_login(user: Option<User>) -> Return<User> {
     match user {
-        Some(user) => Ok(Some(user)),
+        Some(user) => Ok(user),
         None => Err(error::Error::Redirect("/login")),
     }
 }
@@ -401,22 +401,21 @@ async fn edit_deck(user: Option<User>, deck_hash: String) -> Return<content::Raw
     let owner: i32 = owned_info[0].get(0);
 
     let mut context = tera::Context::new();
-    if let Some(user) = &user {
-        if owner != user.id() {
-            return Err(error::Error::Unauthorized);
-        }
 
-        let desc: String = owned_info[0].get(1);
-        let is_private: bool = owned_info[0].get(2);
-
-        let changelogs = changelog_manager::get_changelogs(&deck_hash).await?;
-
-        context.insert("user", &user);
-        context.insert("hash", &deck_hash);
-        context.insert("description", &desc);
-        context.insert("private", &is_private);
-        context.insert("changelogs", &changelogs);
+    if owner != user.id() {
+        return Err(error::Error::Unauthorized);
     }
+
+    let desc: String = owned_info[0].get(1);
+    let is_private: bool = owned_info[0].get(2);
+
+    let changelogs = changelog_manager::get_changelogs(&deck_hash).await?;
+
+    context.insert("user", &user);
+    context.insert("hash", &deck_hash);
+    context.insert("description", &desc);
+    context.insert("private", &is_private);
+    context.insert("changelogs", &changelogs);
 
     let rendered_template = TEMPLATES
         .render("edit_deck.html", &context)
@@ -829,16 +828,15 @@ async fn get_notes_from_deck(
 async fn all_reviews(user: Option<User>) -> Return<content::RawHtml<String>> {
     let user = check_login(user)?;
     let mut context = tera::Context::new();
-    if let Some(user) = &user {
-        let commits = match commit_manager::commits_review(user.id()).await {
-            Ok(commits) => commits,
-            Err(error) => return Ok(content::RawHtml(format!("Error: {}", error))),
-        };
 
-        context.insert("commits", &commits);
-        //context.insert("notes", &notes);
-        context.insert("user", &user);
-    }
+    let commits = match commit_manager::commits_review(user.id()).await {
+        Ok(commits) => commits,
+        Err(error) => return Ok(content::RawHtml(format!("Error: {}", error))),
+    };
+
+    context.insert("commits", &commits);
+    //context.insert("notes", &notes);
+    context.insert("user", &user);
 
     let rendered_template = TEMPLATES
         .render("reviews.html", &context)
@@ -939,37 +937,37 @@ async fn manage_decks(user: Option<User>) -> Return<content::RawHtml<String>> {
         .expect("Error preparing decks overview statement");
 
     let mut context = tera::Context::new();
-    if let Some(user) = &user {
-        let rows = client
-            .query(&stmt, &[&user.id()])
-            .await
-            .expect("Error executing decks overview statement");
 
-        for row in rows {
-            decks.push(DeckOverview {
-                owner: row.get(4),
-                id: row.get(0),
-                name: row.get(1),
-                desc: ammonia::clean(row.get(2)),
-                hash: row.get(3),
-                last_update: row.get(5),
-                notes: note_manager::get_notes_count_in_deck(row.get(0))
-                    .await
-                    .unwrap(),
-                children: vec![],
-                subscriptions: row.get(6),
-            });
-        }
+    let rows = client
+        .query(&stmt, &[&user.id()])
+        .await
+        .expect("Error executing decks overview statement");
 
-        let notetypes = match notetype_manager::get_notetype_overview(user).await {
-            Ok(cl) => cl,
-            Err(error) => return Ok(content::RawHtml(format!("Error: {}", error))),
-        };
-
-        context.insert("decks", &decks);
-        context.insert("user", &user);
-        context.insert("notetypes", &notetypes);
+    for row in rows {
+        decks.push(DeckOverview {
+            owner: row.get(4),
+            id: row.get(0),
+            name: row.get(1),
+            desc: ammonia::clean(row.get(2)),
+            hash: row.get(3),
+            last_update: row.get(5),
+            notes: note_manager::get_notes_count_in_deck(row.get(0))
+                .await
+                .unwrap(),
+            children: vec![],
+            subscriptions: row.get(6),
+        });
     }
+
+    let notetypes = match notetype_manager::get_notetype_overview(&user).await {
+        Ok(cl) => cl,
+        Err(error) => return Ok(content::RawHtml(format!("Error: {}", error))),
+    };
+
+    context.insert("decks", &decks);
+    context.insert("user", &user);
+    context.insert("notetypes", &notetypes);
+
     let rendered_template = TEMPLATES
         .render("manage_decks.html", &context)
         .expect("Failed to render template");
