@@ -19,7 +19,9 @@ fn get_string_from_rationale(input: i32) -> &'static str {
     }
 }
 
-pub async fn get_commit_info(commit_id: i32) -> Result<CommitsOverview, Box<dyn std::error::Error>> {
+pub async fn get_commit_info(
+    commit_id: i32,
+) -> Result<CommitsOverview, Box<dyn std::error::Error>> {
     let query = r#"    
         SELECT c.commit_id, c.rationale,
         TO_CHAR(c.timestamp, 'MM/DD/YYYY') AS last_update,
@@ -27,19 +29,19 @@ pub async fn get_commit_info(commit_id: i32) -> Result<CommitsOverview, Box<dyn 
         FROM commits c
         JOIN decks d on d.id = c.deck
         WHERE c.commit_id = $1
-    "#; 
-    let client = database::TOKIO_POSTGRES_POOL.get().unwrap().get().await.unwrap();
+    "#;
+    let client = database::client().await;
     let row = client.query_one(query, &[&commit_id]).await?;
     let commit = CommitsOverview {
         id: row.get(0),
         rationale: get_string_from_rationale(row.get(1)).into(),
         timestamp: row.get(2),
-        deck: row.get(3)
+        deck: row.get(3),
     };
     Ok(commit)
 }
 
-pub async fn commits_review(uid: i32) -> Result<Vec<CommitsOverview>, Box<dyn std::error::Error>> {    
+pub async fn commits_review(uid: i32) -> Result<Vec<CommitsOverview>, Box<dyn std::error::Error>> {
     let query = r#"
     WITH RECURSIVE accessible AS (
         SELECT id FROM decks WHERE id IN (
@@ -78,24 +80,27 @@ pub async fn commits_review(uid: i32) -> Result<Vec<CommitsOverview>, Box<dyn st
       FROM unreviewed_changes
       WHERE deck IN (SELECT id FROM accessible) OR (SELECT is_admin FROM users WHERE id = $1)      
     "#;
-    let client = database::TOKIO_POSTGRES_POOL.get().unwrap().get().await.unwrap();
+    let client = database::client().await;
 
-    let rows = client.query(query, &[&uid])
-    .await?
-    .into_iter()
-    .map(|row| CommitsOverview {
-    id: row.get(0),
-    rationale: get_string_from_rationale(row.get(1)).into(),
-    timestamp: row.get(2),
-    deck: String::new()
-    })
-    .collect::<Vec<_>>();
+    let rows = client
+        .query(query, &[&uid])
+        .await?
+        .into_iter()
+        .map(|row| CommitsOverview {
+            id: row.get(0),
+            rationale: get_string_from_rationale(row.get(1)).into(),
+            timestamp: row.get(2),
+            deck: String::new(),
+        })
+        .collect::<Vec<_>>();
 
     Ok(rows)
 }
 
-pub async fn notes_by_commit(commit_id: i32) -> Result<Vec<CommitData>, Box<dyn std::error::Error>> {
-    let client = database::TOKIO_POSTGRES_POOL.get().unwrap().get().await.unwrap();
+pub async fn notes_by_commit(
+    commit_id: i32,
+) -> Result<Vec<CommitData>, Box<dyn std::error::Error>> {
+    let client = database::client().await;
 
     let get_notes = "
         SELECT note FROM (
@@ -108,11 +113,12 @@ pub async fn notes_by_commit(commit_id: i32) -> Result<Vec<CommitData>, Box<dyn 
         GROUP BY note
         LIMIT 100
     ";
-    let affected_notes = client.query(get_notes, &[&commit_id])
-    .await?
-    .into_iter()
-    .map(|row| row.get::<_, i64>("note"))
-    .collect::<Vec<i64>>();
+    let affected_notes = client
+        .query(get_notes, &[&commit_id])
+        .await?
+        .into_iter()
+        .map(|row| row.get::<_, i64>("note"))
+        .collect::<Vec<i64>>();
 
     if affected_notes.is_empty() {
         return Err("No notes affected by this commit.".into());
@@ -127,37 +133,49 @@ pub async fn notes_by_commit(commit_id: i32) -> Result<Vec<CommitData>, Box<dyn 
         ").await?;
 
     let fields_query = client
-        .prepare("
+        .prepare(
+            "
             SELECT f1.id, f1.position, f1.content, COALESCE(f2.content, '') AS reviewed_content 
             FROM fields f1 
             LEFT JOIN fields f2 
             ON f1.note = f2.note AND f1.position = f2.position AND f2.reviewed = true 
             WHERE f1.reviewed = false AND f1.commit = $1 AND f1.note = $2
             ORDER BY position
-        ").await?;
-    
+        ",
+        )
+        .await?;
+
     let tags_query = client
-        .prepare("
+        .prepare(
+            "
             SELECT id, content, action
             FROM tags
             WHERE commit = $1 and note = $2 and reviewed = false
-        ").await?;
+        ",
+        )
+        .await?;
 
     let delete_req_query = client
-        .prepare("
+        .prepare(
+            "
             SELECT 1
             FROM card_deletion_suggestions
             WHERE note = $1
-        ").await?;
+        ",
+        )
+        .await?;
 
     let first_field_query = client
-        .prepare("
+        .prepare(
+            "
             SELECT id, position, content
             FROM fields 
             WHERE note = $1
             ORDER BY position
             LIMIT 3
-        ").await?;
+        ",
+        )
+        .await?;
 
     let mut commit_info = vec![];
     commit_info.reserve(affected_notes.len());
@@ -177,7 +195,7 @@ pub async fn notes_by_commit(commit_id: i32) -> Result<Vec<CommitData>, Box<dyn 
             new_tags: Vec::new(),
             removed_tags: Vec::new(),
         };
-    
+
         // Fill generic note info
         let note_res = client.query_one(&note_info_query, &[&note_id]).await?;
         let note_guid: String = note_res.get(1);
@@ -197,24 +215,24 @@ pub async fn notes_by_commit(commit_id: i32) -> Result<Vec<CommitData>, Box<dyn 
 
         let delete_req_rows = client.query(&delete_req_query, &[&note_id]).await?;
         current_note.delete_req = !delete_req_rows.is_empty();
-        
+
         if current_note.delete_req {
             let fields_rows = client.query(&first_field_query, &[&note_id]).await?;
-            
+
             for row in fields_rows {
                 let id = row.get(0);
                 let position = row.get(1);
                 let content = row.get(2);
 
                 if let Some(content) = content {
-                    current_note.fields.push(FieldsReviewInfo { 
-                        id, position, 
-                        content: ammonia::clean(content), 
-                        reviewed_content: ammonia::clean(content) });
+                    current_note.fields.push(FieldsReviewInfo {
+                        id,
+                        position,
+                        content: ammonia::clean(content),
+                        reviewed_content: ammonia::clean(content),
+                    });
                 }
-            
             }
-
         } else {
             // Now get to the actual good bits (unreviewed material!)
             let fields_rows = client.query(&fields_query, &[&commit_id, &note_id]).await?;
@@ -224,9 +242,13 @@ pub async fn notes_by_commit(commit_id: i32) -> Result<Vec<CommitData>, Box<dyn 
                 let content = row.get(2);
                 let reviewed = row.get(3);
                 if let Some(content) = content {
-                    current_note.fields.push(FieldsReviewInfo { id, position, content: ammonia::clean(content), reviewed_content: ammonia::clean(reviewed) });
+                    current_note.fields.push(FieldsReviewInfo {
+                        id,
+                        position,
+                        content: ammonia::clean(content),
+                        reviewed_content: ammonia::clean(reviewed),
+                    });
                 }
-            
             }
             let tags_rows = client.query(&tags_query, &[&commit_id, &note_id]).await?;
             for row in tags_rows {
@@ -234,16 +256,21 @@ pub async fn notes_by_commit(commit_id: i32) -> Result<Vec<CommitData>, Box<dyn 
                 let content = row.get(1);
                 let action = row.get(2);
                 if let Some(content) = content {
-                    if action { // New suggested tag
-                        current_note.new_tags.push(TagsInfo {id, content});
-                    } else { // Tag got removed                    
-                        current_note.removed_tags.push(TagsInfo {id, content});
+                    if action {
+                        // New suggested tag
+                        current_note.new_tags.push(TagsInfo { id, content });
+                    } else {
+                        // Tag got removed
+                        current_note.removed_tags.push(TagsInfo { id, content });
                     }
                 }
             }
         }
 
-        if current_note.fields.len() > 0 || current_note.new_tags.len() > 0 || current_note.removed_tags.len() > 0 {
+        if current_note.fields.len() > 0
+            || current_note.new_tags.len() > 0
+            || current_note.removed_tags.len() > 0
+        {
             commit_info.push(current_note);
         }
     }

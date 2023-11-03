@@ -27,26 +27,27 @@ pub async fn under_review(uid: i32) -> Result<Vec<ReviewOverview>, Box<dyn std::
             (n.reviewed = true AND EXISTS (SELECT 1 FROM tags WHERE tags.note = n.id AND tags.reviewed = false)))
         GROUP BY n.id, n.guid, n.reviewed, d.full_path
     "#;
-    let client = database::TOKIO_POSTGRES_POOL.get().unwrap().get().await.unwrap();
+    let client = database::client().await;
 
-    let rows = client.query(query, &[&uid])
-    .await?
-    .into_iter()
-    .map(|row| ReviewOverview {
-    id: row.get(0),
-    guid: row.get(1),
-    full_path: row.get(2),
-    status: row.get(3),
-    last_update: row.get(4),
-    fields: row.get(5)
-    })
-    .collect::<Vec<_>>();
+    let rows = client
+        .query(query, &[&uid])
+        .await?
+        .into_iter()
+        .map(|row| ReviewOverview {
+            id: row.get(0),
+            guid: row.get(1),
+            full_path: row.get(2),
+            status: row.get(3),
+            last_update: row.get(4),
+            fields: row.get(5),
+        })
+        .collect::<Vec<_>>();
 
     Ok(rows)
 }
 
 pub async fn get_notes_count_in_deck(deck: i64) -> Result<i64, Box<dyn std::error::Error>> {
-    let client = database::TOKIO_POSTGRES_POOL.get().unwrap().get().await.unwrap();
+    let client = database::client().await;
     let query = "
         WITH RECURSIVE cte AS (
             SELECT $1::bigint as id
@@ -63,8 +64,7 @@ pub async fn get_notes_count_in_deck(deck: i64) -> Result<i64, Box<dyn std::erro
 }
 
 pub async fn get_name_by_hash(deck: &String) -> Result<Option<String>, Box<dyn std::error::Error>> {
-    
-    let client = database::TOKIO_POSTGRES_POOL.get().unwrap().get().await.unwrap();
+    let client = database::client().await;
 
     let query = "SELECT name FROM decks WHERE human_hash = $1";
     let rows = client.query(query, &[&deck]).await?;
@@ -78,7 +78,7 @@ pub async fn get_name_by_hash(deck: &String) -> Result<Option<String>, Box<dyn s
 }
 
 pub async fn get_note_data(note_id: i64) -> Result<NoteData, Box<dyn std::error::Error>> {
-    let client = database::TOKIO_POSTGRES_POOL.get().unwrap().get().await.unwrap();
+    let client = database::client().await;
 
     let note_query = "
         SELECT id, guid, TO_CHAR(last_update, 'MM/DD/YYYY HH12:MI AM') AS last_update, reviewed, 
@@ -101,7 +101,7 @@ pub async fn get_note_data(note_id: i64) -> Result<NoteData, Box<dyn std::error:
     let notetype_query = "
         SELECT name FROM notetype_field
         WHERE notetype = $1 order by position
-    ";    
+    ";
 
     let delete_req_query = "
         SELECT 1
@@ -140,11 +140,12 @@ pub async fn get_note_data(note_id: i64) -> Result<NoteData, Box<dyn std::error:
     current_note.owner = note_owner;
     current_note.deck = note_deck;
 
-    let notetype_fields = client.query(notetype_query, &[&notetype])
-    .await?
-    .into_iter()
-    .map(|row| row.get::<_, String>("name"))
-    .collect::<Vec<String>>();
+    let notetype_fields = client
+        .query(notetype_query, &[&notetype])
+        .await?
+        .into_iter()
+        .map(|row| row.get::<_, String>("name"))
+        .collect::<Vec<String>>();
 
     current_note.note_model_fields = notetype_fields;
 
@@ -161,18 +162,34 @@ pub async fn get_note_data(note_id: i64) -> Result<NoteData, Box<dyn std::error:
         if let Some(content) = content {
             if reviewed {
                 // make sure no dummy element already exists for this position (happens when the unconfirmed field gets evaluated BEFORE the reviewed one)
-                current_note.reviewed_fields.retain(|info| info.position != position);
-                current_note.reviewed_fields.push(FieldsInfo { id, position, content: ammonia::clean(content) });
+                current_note
+                    .reviewed_fields
+                    .retain(|info| info.position != position);
+                current_note.reviewed_fields.push(FieldsInfo {
+                    id,
+                    position,
+                    content: ammonia::clean(content),
+                });
             } else {
                 // For the html diff we need to make sure that every reviewed field index exists for a suggestion. Right now those can be NULL from the database (for unreviewed cards), so we need to fill it with dummies
-                if !current_note.reviewed_fields.iter().any(|info| info.position == position)
+                if !current_note
+                    .reviewed_fields
+                    .iter()
+                    .any(|info| info.position == position)
                 {
-                    current_note.reviewed_fields.push(FieldsInfo { id:0, position, content:"".to_string() });
+                    current_note.reviewed_fields.push(FieldsInfo {
+                        id: 0,
+                        position,
+                        content: "".to_string(),
+                    });
                 }
-                current_note.unconfirmed_fields.push(FieldsInfo { id, position, content: content.to_owned() });
+                current_note.unconfirmed_fields.push(FieldsInfo {
+                    id,
+                    position,
+                    content: content.to_owned(),
+                });
             }
         }
-    
     }
     for row in tags_rows {
         let id = row.get(0);
@@ -181,12 +198,14 @@ pub async fn get_note_data(note_id: i64) -> Result<NoteData, Box<dyn std::error:
         let action = row.get(3);
         if let Some(content) = content {
             if reviewed {
-                current_note.reviewed_tags.push(TagsInfo {id, content});
+                current_note.reviewed_tags.push(TagsInfo { id, content });
             } else {
-                if action { // New suggested tag
-                    current_note.new_tags.push(TagsInfo {id, content});
-                } else { // Tag got removed                    
-                    current_note.removed_tags.push(TagsInfo {id, content});
+                if action {
+                    // New suggested tag
+                    current_note.new_tags.push(TagsInfo { id, content });
+                } else {
+                    // Tag got removed
+                    current_note.removed_tags.push(TagsInfo { id, content });
                 }
             }
         }
@@ -194,8 +213,10 @@ pub async fn get_note_data(note_id: i64) -> Result<NoteData, Box<dyn std::error:
     Ok::<NoteData, Box<dyn std::error::Error>>(current_note)
 }
 
-// Only show at most 1k cards. everything else is too much for the website to load. TODO Later: add incremental loading instead 
-pub async fn retrieve_notes(deck: &String) -> std::result::Result<Vec<Note>, Box<dyn std::error::Error>> {
+// Only show at most 1k cards. everything else is too much for the website to load. TODO Later: add incremental loading instead
+pub async fn retrieve_notes(
+    deck: &String,
+) -> std::result::Result<Vec<Note>, Box<dyn std::error::Error>> {
     let query = r#"
         SELECT n.id, n.guid,
             CASE
@@ -211,9 +232,10 @@ pub async fn retrieve_notes(deck: &String) -> std::result::Result<Vec<Note>, Box
         ORDER BY n.id ASC
         LIMIT 200;
     "#;
-    let client = database::TOKIO_POSTGRES_POOL.get().unwrap().get().await.unwrap();
-    
-    let rows = client.query(query, &[&deck])
+    let client = database::client().await;
+
+    let rows = client
+        .query(query, &[&deck])
         .await?
         .into_iter()
         .filter_map(|row| {
@@ -234,10 +256,15 @@ pub async fn retrieve_notes(deck: &String) -> std::result::Result<Vec<Note>, Box
     Ok(rows)
 }
 
-pub async fn deny_note_removal_request(note_id: i64, user: rocket_auth::User) -> Result<String, Box<dyn std::error::Error>> {
-    let client = database::TOKIO_POSTGRES_POOL.get().unwrap().get().await.unwrap();
+pub async fn deny_note_removal_request(
+    note_id: i64,
+    user: rocket_auth::User,
+) -> Result<String, Box<dyn std::error::Error>> {
+    let client = database::client().await;
 
-    let q_guid = client.query("Select deck from notes where id = $1", &[&note_id]).await?;
+    let q_guid = client
+        .query("Select deck from notes where id = $1", &[&note_id])
+        .await?;
     if q_guid.is_empty() {
         return Err("Note not found (Deny Note Removal Request).".into());
     }
@@ -248,16 +275,30 @@ pub async fn deny_note_removal_request(note_id: i64, user: rocket_auth::User) ->
         return Err("Unauthorized.".into());
     }
 
-    client.execute("DELETE FROM card_deletion_suggestions WHERE note = $1", &[&note_id]).await?;
+    client
+        .execute(
+            "DELETE FROM card_deletion_suggestions WHERE note = $1",
+            &[&note_id],
+        )
+        .await?;
 
     Ok(note_id.to_string())
 }
 
 // We skip a few steps if the caller is a bulk approve since they handle some stuff
-pub async fn mark_note_deleted(note_id: i64, user: rocket_auth::User, bulk: bool ) -> Result<String, Box<dyn std::error::Error>> {
-    let mut client = database::TOKIO_POSTGRES_POOL.get().unwrap().get().await.unwrap();
+pub async fn mark_note_deleted(
+    note_id: i64,
+    user: rocket_auth::User,
+    bulk: bool,
+) -> Result<String, Box<dyn std::error::Error>> {
+    let mut client = database::client().await;
 
-    let q_guid = client.query("Select human_hash, id from decks where id = (select deck from notes where id = $1)", &[&note_id]).await?;
+    let q_guid = client
+        .query(
+            "Select human_hash, id from decks where id = (select deck from notes where id = $1)",
+            &[&note_id],
+        )
+        .await?;
     if q_guid.is_empty() {
         return Err("Note not found (Mark Note Deleted).".into());
     }
@@ -272,7 +313,7 @@ pub async fn mark_note_deleted(note_id: i64, user: rocket_auth::User, bulk: bool
     }
 
     let tx = client.transaction().await?;
-    
+
     // Update note flag
     let query = "UPDATE notes SET deleted = true WHERE id = $1";
 
@@ -292,7 +333,7 @@ pub async fn mark_note_deleted(note_id: i64, user: rocket_auth::User, bulk: bool
         // Update timestamp
         suggestion_manager::update_note_timestamp(&tx, note_id).await?;
     }
-    
+
     tx.commit().await?;
     Ok(guid)
 }
