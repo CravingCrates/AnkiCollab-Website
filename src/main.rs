@@ -38,13 +38,6 @@ use std::*;
 
 use tokio_postgres::connect;
 
-pub type Return<T> = Result<T, error::Error>;
-pub type DeckHash = String;
-pub type UserId = i32;
-pub type DeckId = i64;
-pub type NoteId = i64;
-pub type FieldId = i64;
-
 lazy_static! {
     pub static ref TEMPLATES: Tera = {
         let mut tera = match Tera::new("src/templates/**/*") {
