@@ -472,19 +472,6 @@ async fn delete_deck(user: User, deck_hash: String) -> Return<Redirect> {
     Ok(Redirect::to("/"))
 }
 
-// REVIEW: You don't seem to be using this function anywhere. Is it still needed?
-
-// #[get("/AsyncApproveCommit/<commit_id>")]
-// async fn async_approve_commit(commit_id: i32, user: User) -> Result<Redirect, Error> {
-//     tokio::spawn(async move {
-//         match suggestion_manager::merge_by_commit(commit_id, true, user).await {
-//             Ok(_res) => println!("Async approved commit {}", commit_id),
-//             Err(error) => println!("Async approve commit Error: {}", error),
-//         };
-//     });
-//     Ok(Redirect::to("/"))
-// }
-
 #[get("/ApproveCommit/<commit_id>")]
 async fn approve_commit(commit_id: i32, user: User) -> Return<Redirect> {
     let res = suggestion_manager::merge_by_commit(commit_id, true, user).await?;
