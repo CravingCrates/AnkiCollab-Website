@@ -238,18 +238,13 @@ pub async fn retrieve_notes(
         .query(query, &[&deck])
         .await?
         .into_iter()
-        .filter_map(|row| {
-            if let Some(fields) = row.get(4) {
-                Some(Note {
-                    id: row.get(0),
-                    guid: row.get(1),
-                    status: row.get(2),
-                    last_update: row.get(3),
-                    fields,
-                })
-            } else {
-                None
-            }
+        .filter(|row| row.get::<usize, Option<String>>(4).is_some())
+        .map(|row| Note {
+            id: row.get(0),
+            guid: row.get(1),
+            status: row.get(2),
+            last_update: row.get(3),
+            fields: row.get::<usize, Option<String>>(4).unwrap(),
         })
         .collect::<Vec<Note>>(); // Collect into Vec<Note>
 
