@@ -1,5 +1,5 @@
 use crate::error::Error::*;
-use crate::error::NoteNotFoundReason;
+use crate::error::NoteNotFoundContext;
 use crate::{database, note_manager, Return};
 use rocket_auth::User;
 
@@ -72,13 +72,8 @@ pub async fn is_authorized(user: &User, deck: i64) -> Return<bool> {
 }
 
 // Only used for unreviewed cards to prevent them from being added to the deck. Existing cards should use mark_note_deleted instead
-pub async fn delete_card(note_id: i64, user: User) -> Result<String, Box<dyn std::error::Error>> {
-    let client = database::TOKIO_POSTGRES_POOL
-        .get()
-        .unwrap()
-        .get()
-        .await
-        .unwrap();
+pub async fn delete_card(note_id: i64, user: User) -> Return<String> {
+    let client = database::client().await?;
 
     let q_guid = client
         .query(
@@ -87,14 +82,14 @@ pub async fn delete_card(note_id: i64, user: User) -> Result<String, Box<dyn std
         )
         .await?;
     if q_guid.is_empty() {
-        return Err("Note not found (Delete Card).".into());
+        return Err(NoteNotFound(NoteNotFoundContext::DeleteCard));
     }
     let guid: String = q_guid[0].get(0);
     let deck_id: i64 = q_guid[0].get(1);
 
     let access = is_authorized(&user, deck_id).await?;
     if !access {
-        return Err("Unauthorized.".into());
+        return Err(Unauthorized);
     }
 
     client
@@ -113,7 +108,7 @@ pub async fn approve_card(note_id: i64, user: User, bulk: bool) -> Return<String
         .query("select deck from notes where id = $1", &[&note_id])
         .await?;
     if q_guid.is_empty() {
-        return Err(NoteNotFound(NoteNotFoundReason::ApproveCard));
+        return Err(NoteNotFound(NoteNotFoundContext::ApproveCard));
     }
     let deck_id: i64 = q_guid[0].get(0);
 
@@ -195,7 +190,7 @@ pub async fn deny_tag_change(tag_id: i64) -> Return<String> {
         .await?;
 
     if rows.is_empty() {
-        return Err(NoteNotFound(NoteNotFoundReason::TagDenied));
+        return Err(NoteNotFound(NoteNotFoundContext::TagDenied));
     }
 
     client
@@ -214,7 +209,7 @@ pub async fn deny_field_change(field_id: i64) -> Return<String> {
         .await?;
 
     if rows.is_empty() {
-        return Err(NoteNotFound(NoteNotFoundReason::FieldDenied));
+        return Err(NoteNotFound(NoteNotFoundContext::FieldDenied));
     }
 
     client
@@ -234,7 +229,7 @@ pub async fn approve_tag_change(tag_id: i64, update_timestamp: bool) -> Return<S
         .await?;
 
     if rows.is_empty() {
-        return Err(NoteNotFound(NoteNotFoundReason::TagApprove));
+        return Err(NoteNotFound(NoteNotFoundContext::TagApprove));
     }
     let note_id: i64 = rows[0].get(0);
 
@@ -266,7 +261,7 @@ pub async fn approve_field_change(field_id: i64, update_timestamp: bool) -> Retu
         .await?;
 
     if rows.is_empty() {
-        return Err(NoteNotFound(NoteNotFoundReason::FieldApprove));
+        return Err(NoteNotFound(NoteNotFoundContext::FieldApprove));
     }
 
     let note_id: i64 = rows[0].get(0);

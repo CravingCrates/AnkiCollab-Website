@@ -43,7 +43,7 @@ pub async fn add_maintainer(deck: i64, email: String) -> Return<String> {
             &[&deck, &user_id],
         )
         .await?;
-    Ok("Added".to_string())
+    Ok("added".to_string())
 }
 
 pub async fn remove_maintainer(deck: i64, email: String) -> Return<String> {
@@ -63,5 +63,5 @@ pub async fn remove_maintainer(deck: i64, email: String) -> Return<String> {
             &[&deck, &user_id],
         )
         .await?;
-    Ok("Removed".to_string())
+    Ok("removed".to_string())
 }

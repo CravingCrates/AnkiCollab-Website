@@ -22,7 +22,7 @@ impl ErrorResponse {
 }
 
 #[derive(Debug, Error)]
-pub enum NoteNotFoundReason {
+pub enum NoteNotFoundContext {
     #[error("Tag Approve")]
     TagApprove,
     #[error("Tag Denied")]
@@ -37,6 +37,8 @@ pub enum NoteNotFoundReason {
     ApproveCard,
     #[error("Invalid Data")]
     InvalidData,
+    #[error("Delete Card")]
+    DeleteCard,
 }
 
 #[derive(Debug, Error)]
@@ -67,8 +69,8 @@ pub enum Error {
     CommitNotFound,
     #[error("Deck in Commit not found (Merge Commit).")]
     CommitDeckNotFound,
-    #[error("Note not found. Reason:{0}")]
-    NoteNotFound(NoteNotFoundReason),
+    #[error("Note not found. Context: {0}")]
+    NoteNotFound(NoteNotFoundContext),
     #[error("Note is invalid")]
     InvalidNote,
     #[error("Fields are ambiguous. Please handle manually. Note: {0}")]

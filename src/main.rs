@@ -19,7 +19,7 @@ pub mod structs;
 pub mod suggestion_manager;
 
 use database::owned_deck_id;
-use error::NoteNotFoundReason;
+use error::NoteNotFoundContext;
 use rocket::fs::FileServer;
 use rocket::http::Status;
 use rocket::response::content;
@@ -536,7 +536,7 @@ async fn review_note(note_id: i64, user: Option<User>) -> Return<content::RawHtm
     let note = note_manager::get_note_data(note_id).await?;
     if note.id == 0 {
         // Invalid data // No note found!
-        return Err(error::Error::NoteNotFound(NoteNotFoundReason::InvalidData));
+        return Err(error::Error::NoteNotFound(NoteNotFoundContext::InvalidData));
     }
 
     let mut access = false;
@@ -547,7 +547,7 @@ async fn review_note(note_id: i64, user: Option<User>) -> Return<content::RawHtm
             .query("Select deck from notes where id = $1", &[&note_id])
             .await?;
         if q_guid.is_empty() {
-            return Err(error::Error::NoteNotFound(NoteNotFoundReason::InvalidData));
+            return Err(error::Error::NoteNotFound(NoteNotFoundContext::InvalidData));
         }
         let deck_id: i64 = q_guid[0].get(0);
 
@@ -723,7 +723,7 @@ async fn accept_note(note_id: i64, user: User) -> Result<Redirect, Error> {
 
 // This actually removes the note from the database (Only used for notes that are not approved yet)
 #[get("/DeleteNote/<note_id>")]
-async fn deny_note(note_id: i64, user: User) -> Result<Redirect, Error> {
+async fn deny_note(note_id: i64, user: User) -> Return<Redirect> {
     match suggestion_manager::delete_card(note_id, user).await {
         Ok(res) => Ok(Redirect::to(format!("/notes/{}", res))),
         Err(error) => {

@@ -1,6 +1,6 @@
 use crate::database;
 use crate::error::Error::*;
-use crate::error::NoteNotFoundReason;
+use crate::error::NoteNotFoundContext;
 use crate::structs::*;
 use crate::suggestion_manager;
 use crate::NoteId;
@@ -295,7 +295,7 @@ pub async fn mark_note_deleted(
         )
         .await?;
     if q_guid.is_empty() {
-        return Err(NoteNotFound(NoteNotFoundReason::MarkNoteDeleted));
+        return Err(NoteNotFound(NoteNotFoundContext::MarkNoteDeleted));
     }
     let guid: String = q_guid[0].get(0);
     let deck_id: i64 = q_guid[0].get(1);
