@@ -308,6 +308,7 @@ async fn post_media_manager(user: User, update_media: Json<structs::GDriveInfo>)
 
 #[get("/MediaManager/<deck_hash>")]
 async fn media_manager(user: User, deck_hash: String) -> Return<content::RawHtml<String>> {
+    let _ = owned_deck_id(&deck_hash, user.id()).await?;
     let mut context = tera::Context::new();
     context.insert("hash", &deck_hash);
     context.insert("user", &user);
