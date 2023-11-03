@@ -267,9 +267,9 @@ pub async fn notes_by_commit(
             }
         }
 
-        if current_note.fields.len() > 0
-            || current_note.new_tags.len() > 0
-            || current_note.removed_tags.len() > 0
+        if !current_note.fields.is_empty()
+            || !current_note.new_tags.is_empty()
+            || !current_note.removed_tags.is_empty()
         {
             commit_info.push(current_note);
         }

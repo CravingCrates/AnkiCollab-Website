@@ -207,7 +207,7 @@ async fn render_optional_tags(
         Ok(tags) => tags,
         Err(e) => {
             println!("Error retrieving opt tags: {}", e);
-            return content::RawHtml(format!("Error retrieving optional tags. Please notify us."));
+            return content::RawHtml("Error retrieving optional tags. Please notify us.".to_string());
         }
     };
 
@@ -273,7 +273,7 @@ async fn show_optional_tags(user: User, deck_hash: String) -> content::RawHtml<S
         .await
         .expect("Error preparing edit deck statement");
     if owned_info.is_empty() {
-        return content::RawHtml(format!("Unauthorized."));
+        return content::RawHtml("Unauthorized.".to_string());
     }
     let deck_id: i64 = owned_info[0].get(0);
     render_optional_tags(&deck_hash, deck_id, user).await
@@ -289,7 +289,7 @@ async fn render_maintainers(
         Ok(maintainers) => maintainers,
         Err(e) => {
             println!("Error getting maintainers: {}", e);
-            return content::RawHtml(format!("Error getting maintainers."));
+            return content::RawHtml("Error getting maintainers.".to_string());
         }
     };
 
@@ -342,9 +342,9 @@ async fn post_maintainers(user: User, edit_maintainer: Json<structs::UpdateMaint
 
 fn translate_error(e: Box<dyn std::error::Error>) -> String {
     if e.to_string() == "db error: ERROR: value too long for type character varying(33)" {
-        return String::from("Your folder ID is too long. Please double check it and try again.");
+        String::from("Your folder ID is too long. Please double check it and try again.")
     } else {
-        return e.to_string();
+        e.to_string()
     }
 }
 
@@ -365,14 +365,14 @@ async fn post_media_manager(user: User, update_media: Json<structs::GDriveInfo>)
     }
     let deck_id: i64 = owned_info[0].get(0);
 
-    let status = match gdrive_manager::update_media(deck_id, data).await {
+    
+    match gdrive_manager::update_media(deck_id, data).await {
         Ok(res) => res,
         Err(e) => {
             println!("Error: {}", e);
             translate_error(e)
         }
-    };
-    return status;
+    }
 }
 
 #[get("/MediaManager/<deck_hash>")]
@@ -387,7 +387,7 @@ async fn media_manager(user: User, deck_hash: String) -> content::RawHtml<String
         .await
         .expect("Error preparing edit deck statement");
     if owned_info.is_empty() {
-        return content::RawHtml(format!("Unauthorized."));
+        return content::RawHtml("Unauthorized.".to_string());
     }
 
     let mut context = tera::Context::new();
@@ -412,7 +412,7 @@ async fn show_maintainers(user: User, deck_hash: String) -> content::RawHtml<Str
         .await
         .expect("Error preparing edit deck statement");
     if owned_info.is_empty() {
-        return content::RawHtml(format!("Unauthorized."));
+        return content::RawHtml("Unauthorized.".to_string());
     }
     let deck_id: i64 = owned_info[0].get(0);
     render_maintainers(&deck_hash, deck_id, user).await
@@ -430,7 +430,7 @@ async fn edit_notetype(user: User, notetype_id: i64) -> content::RawHtml<String>
         .await
         .expect("Error preparing edit notetype statement");
     if owned_info.is_empty() {
-        return content::RawHtml(format!("Unauthorized."));
+        return content::RawHtml("Unauthorized.".to_string());
     }
 
     let notetype_info = client
@@ -494,14 +494,14 @@ async fn edit_deck(
         .await
         .expect("Error preparing edit deck statement");
     if owned_info.is_empty() {
-        return Ok(content::RawHtml(format!("Deck not found.")));
+        return Ok(content::RawHtml("Deck not found.".to_string()));
     }
     let owner: i32 = owned_info[0].get(0);
 
     let mut context = tera::Context::new();
     if let Some(user) = &user {
         if owner != user.id() {
-            return Ok(content::RawHtml(format!("Unauthorized.")));
+            return Ok(content::RawHtml("Unauthorized.".to_string()));
         }
 
         let desc: String = owned_info[0].get(1);
@@ -555,20 +555,20 @@ async fn post_edit_deck(
         )
         .await?;
 
-    if data.changelog != "" {
+    if !data.changelog.is_empty() {
         changelog_manager::insert_new_changelog(&data.hash, &data.changelog)
             .await
             .expect("Failed to insert new changelog");
     }
 
-    return Ok(Redirect::to(format!("/EditDeck/{}", data.hash)));
+    Ok(Redirect::to(format!("/EditDeck/{}", data.hash)))
 }
 
 #[get("/DeleteChangelog/<changelog_id>")]
 async fn delete_changelog(user: User, changelog_id: i64) -> Result<Redirect, Error> {
     match changelog_manager::delete_changelog(changelog_id, user.id()).await {
-        Ok(hash) => return Ok(Redirect::to(format!("/EditDeck/{}", hash))),
-        Err(_err) => return Ok(Redirect::to("/")),
+        Ok(hash) => Ok(Redirect::to(format!("/EditDeck/{}", hash))),
+        Err(_err) => Ok(Redirect::to("/")),
     }
 }
 
@@ -610,16 +610,16 @@ async fn approve_commit(commit_id: i32, user: User) -> Result<Redirect, Error> {
     match suggestion_manager::merge_by_commit(commit_id, true, user).await {
         Ok(res) => {
             if res.is_none() {
-                return Ok(Redirect::to(format!("/reviews")));
+                Ok(Redirect::to("/reviews".to_string()))
             } else {
-                return Ok(Redirect::to(format!("/commit/{}", res.unwrap())));
+                Ok(Redirect::to(format!("/commit/{}", res.unwrap())))
             }
         }
         Err(error) => {
             println!("Error: {}", error);
-            return Ok(Redirect::to("/"));
+            Ok(Redirect::to("/"))
         }
-    };
+    }
 }
 
 #[get("/DenyCommit/<commit_id>")]
@@ -627,16 +627,16 @@ async fn deny_commit(commit_id: i32, user: User) -> Result<Redirect, Error> {
     match suggestion_manager::merge_by_commit(commit_id, false, user).await {
         Ok(res) => {
             if res.is_none() {
-                return Ok(Redirect::to(format!("/reviews")));
+                Ok(Redirect::to("/reviews".to_string()))
             } else {
-                return Ok(Redirect::to(format!("/commit/{}", res.unwrap())));
+                Ok(Redirect::to(format!("/commit/{}", res.unwrap())))
             }
         }
         Err(error) => {
             println!("Error: {}", error);
-            return Ok(Redirect::to("/"));
+            Ok(Redirect::to("/"))
         }
-    };
+    }
 }
 
 #[get("/commit/<commit_id>")]
@@ -703,7 +703,7 @@ async fn review_note(note_id: i64, user: Option<User>) -> content::RawHtml<Strin
     };
     if note.id == 0 {
         // Invalid data // No note found!
-        return content::RawHtml(format!("Error: Note not found."));
+        return content::RawHtml("Error: Note not found.".to_string());
     }
 
     let mut access = false;
@@ -727,7 +727,7 @@ async fn review_note(note_id: i64, user: Option<User>) -> content::RawHtml<Strin
         }
         let deck_id: i64 = q_guid[0].get(0);
 
-        access = match suggestion_manager::is_authorized(&user, deck_id).await {
+        access = match suggestion_manager::is_authorized(user, deck_id).await {
             Ok(access) => access,
             Err(error) => return content::RawHtml(format!("Error: {}", error)),
         };
@@ -745,7 +745,7 @@ async fn review_note(note_id: i64, user: Option<User>) -> content::RawHtml<Strin
 }
 
 async fn access_check(deck_id: i64, user: &User) -> Result<bool, Error> {
-    let access = match suggestion_manager::is_authorized(&user, deck_id).await {
+    let access = match suggestion_manager::is_authorized(user, deck_id).await {
         Ok(access) => access,
         Err(_error) => return Ok(false),
     };
@@ -812,12 +812,12 @@ async fn deny_tag(tag_id: i64, user: User) -> Result<Redirect, Error> {
     }
 
     match suggestion_manager::deny_tag_change(tag_id).await {
-        Ok(res) => return Ok(Redirect::to(format!("/review/{}", res))),
+        Ok(res) => Ok(Redirect::to(format!("/review/{}", res))),
         Err(error) => {
             println!("Error: {}", error);
-            return Ok(Redirect::to("/"));
+            Ok(Redirect::to("/"))
         }
-    };
+    }
 }
 
 #[get("/AcceptTag/<tag_id>")]
@@ -835,12 +835,12 @@ async fn accept_tag(tag_id: i64, user: User) -> Result<Redirect, Error> {
     }
 
     match suggestion_manager::approve_tag_change(tag_id, true).await {
-        Ok(res) => return Ok(Redirect::to(format!("/review/{}", res))),
+        Ok(res) => Ok(Redirect::to(format!("/review/{}", res))),
         Err(error) => {
             println!("Error: {}", error);
-            return Ok(Redirect::to("/"));
+            Ok(Redirect::to("/"))
         }
-    };
+    }
 }
 
 #[get("/DenyField/<field_id>")]
@@ -858,12 +858,12 @@ async fn deny_field(field_id: i64, user: User) -> Result<Redirect, Error> {
     }
 
     match suggestion_manager::deny_field_change(field_id).await {
-        Ok(res) => return Ok(Redirect::to(format!("/review/{}", res))),
+        Ok(res) => Ok(Redirect::to(format!("/review/{}", res))),
         Err(error) => {
             println!("Error: {}", error);
-            return Ok(Redirect::to("/"));
+            Ok(Redirect::to("/"))
         }
-    };
+    }
 }
 
 #[get("/AcceptField/<field_id>")]
@@ -881,58 +881,58 @@ async fn accept_field(field_id: i64, user: User) -> Result<Redirect, Error> {
     }
 
     match suggestion_manager::approve_field_change(field_id, true).await {
-        Ok(res) => return Ok(Redirect::to(format!("/review/{}", res))),
+        Ok(res) => Ok(Redirect::to(format!("/review/{}", res))),
         Err(error) => {
             println!("Error: {}", error);
-            return Ok(Redirect::to("/"));
+            Ok(Redirect::to("/"))
         }
-    };
+    }
 }
 
 #[get("/AcceptNote/<note_id>")]
 async fn accept_note(note_id: i64, user: User) -> Result<Redirect, Error> {
     match suggestion_manager::approve_card(note_id, user, false).await {
-        Ok(res) => return Ok(Redirect::to(format!("/review/{}", res))),
+        Ok(res) => Ok(Redirect::to(format!("/review/{}", res))),
         Err(error) => {
             println!("Error: {}", error);
-            return Ok(Redirect::to("/"));
+            Ok(Redirect::to("/"))
         }
-    };
+    }
 }
 
 // This actually removes the note from the database (Only used for notes that are not approved yet)
 #[get("/DeleteNote/<note_id>")]
 async fn deny_note(note_id: i64, user: User) -> Result<Redirect, Error> {
     match suggestion_manager::delete_card(note_id, user).await {
-        Ok(res) => return Ok(Redirect::to(format!("/notes/{}", res))),
+        Ok(res) => Ok(Redirect::to(format!("/notes/{}", res))),
         Err(error) => {
             println!("Error: {}", error);
-            return Ok(Redirect::to("/"));
+            Ok(Redirect::to("/"))
         }
-    };
+    }
 }
 
 // This marks the note as deleted, but does not remove them (Used for existing notes that are approved)
 #[get("/AcceptNoteRemoval/<note_id>")]
 async fn remove_note_from_deck(note_id: i64, user: User) -> Result<Redirect, Error> {
     match note_manager::mark_note_deleted(note_id, user, false).await {
-        Ok(res) => return Ok(Redirect::to(format!("/notes/{}", res))),
+        Ok(res) => Ok(Redirect::to(format!("/notes/{}", res))),
         Err(error) => {
             println!("Error: {}", error);
-            return Ok(Redirect::to("/"));
+            Ok(Redirect::to("/"))
         }
-    };
+    }
 }
 
 #[get("/DenyNoteRemoval/<note_id>")]
 async fn deny_note_removal(note_id: i64, user: User) -> Result<Redirect, Error> {
     match note_manager::deny_note_removal_request(note_id, user).await {
-        Ok(res) => return Ok(Redirect::to(format!("/review/{}", res))),
+        Ok(res) => Ok(Redirect::to(format!("/review/{}", res))),
         Err(error) => {
             println!("Error: {}", error);
-            return Ok(Redirect::to("/"));
+            Ok(Redirect::to("/"))
         }
-    };
+    }
 }
 
 #[get("/notes/<deck_hash>")]
@@ -952,7 +952,7 @@ async fn get_notes_from_deck(deck_hash: String, user: Option<User>) -> content::
     let client = database::client().await;
     let deck_info = client.query("Select id, name, description, human_hash, owner, TO_CHAR(last_update, 'MM/DD/YYYY') AS last_update from decks where human_hash = $1 Limit 1", &[&deck_hash]).await.expect("Error preparing deck notes statement");
     if deck_info.is_empty() {
-        return content::RawHtml(format!("Deck not found."));
+        return content::RawHtml("Deck not found.".to_string());
     }
 
     let id: i64 = deck_info[0].get(0);
@@ -974,7 +974,7 @@ async fn get_notes_from_deck(deck_hash: String, user: Option<User>) -> content::
 
     let deck = DeckOverview {
         owner: deck_info[0].get(4),
-        id: id,
+        id,
         name: deck_info[0].get(1),
         desc: ammonia::clean(deck_info[0].get(2)),
         hash: deck_info[0].get(3),
@@ -1132,7 +1132,7 @@ async fn manage_decks(user: Option<User>) -> Result<content::RawHtml<String>, Re
             });
         }
 
-        let notetypes = match notetype_manager::get_notetype_overview(&user).await {
+        let notetypes = match notetype_manager::get_notetype_overview(user).await {
             Ok(cl) => cl,
             Err(error) => return Ok(content::RawHtml(format!("Error: {}", error))),
         };

@@ -169,7 +169,7 @@ pub async fn approve_card(
     }
 
     if !unique_fields_row[0].get::<_, bool>(0) {
-        println!("{}", format!("Field ambiguous in note {}", note_id));
+        println!("Field ambiguous in note {}", note_id);
         return Err("Fields are ambiguous. Please handle manually.".into());
     }
 

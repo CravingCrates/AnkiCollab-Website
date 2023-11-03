@@ -199,14 +199,12 @@ pub async fn get_note_data(note_id: i64) -> Result<NoteData, Box<dyn std::error:
         if let Some(content) = content {
             if reviewed {
                 current_note.reviewed_tags.push(TagsInfo { id, content });
+            } else if action {
+                // New suggested tag
+                current_note.new_tags.push(TagsInfo { id, content });
             } else {
-                if action {
-                    // New suggested tag
-                    current_note.new_tags.push(TagsInfo { id, content });
-                } else {
-                    // Tag got removed
-                    current_note.removed_tags.push(TagsInfo { id, content });
-                }
+                // Tag got removed
+                current_note.removed_tags.push(TagsInfo { id, content });
             }
         }
     }
