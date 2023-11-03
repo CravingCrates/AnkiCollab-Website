@@ -33,7 +33,7 @@ pub async fn add_tag(deck: i64, tag_group: String) -> Return<String> {
             &[&deck, &tag_group],
         )
         .await?;
-    Ok("Added".to_string())
+    Ok("added".to_string())
 }
 
 pub async fn remove_tag(deck: i64, tag_group: String) -> Return<String> {
@@ -55,5 +55,5 @@ pub async fn remove_tag(deck: i64, tag_group: String) -> Return<String> {
         )
         DELETE FROM tags WHERE content LIKE $2 AND note IN (SELECT id FROM notes WHERE deck IN (SELECT id FROM cte))",
     &[&deck, &format!("AnkiCollab_Optional::{}::%", &tag_group)]).await?;
-    Ok("Removed".to_string())
+    Ok("removed".to_string())
 }
