@@ -23,7 +23,7 @@ pub async fn add_tag(deck: i64, tag_group: String) -> Return<String> {
         )
         .await
     {
-        Ok(_no) => return Err(TabAlreadyExists),
+        Ok(_no) => return Err(TagAlreadyExists),
         Err(e) => e,
     };
 

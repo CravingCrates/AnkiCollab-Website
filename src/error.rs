@@ -53,8 +53,8 @@ pub enum Error {
     Template(#[from] tera::Error),
     #[error("BB8 error: {0}")]
     BB8(#[from] bb8_postgres::bb8::RunError<tokio_postgres::Error>),
-    #[error("Tab already exists")]
-    TabAlreadyExists,
+    #[error("Tag already exists")]
+    TagAlreadyExists,
     #[error("User not found")]
     UserNotFound,
     #[error("User is already a maintainer")]
@@ -91,24 +91,20 @@ impl<'r> Responder<'r, 'static> for Error {
             Self::Unauthorized => Unauthorized(e).respond_to(req),
             Self::AuthenticationError(_) => Unauthorized(e).respond_to(req),
             Self::Redirect(url) => Redirect::to(url).respond_to(req),
-            Self::TabAlreadyExists => BadRequest(e).respond_to(req),
-            Self::UserNotFound => NotFound(e).respond_to(req),
+            Self::TagAlreadyExists => BadRequest(e).respond_to(req),
             Self::UserIsAlreadyMaintainer => BadRequest(e).respond_to(req),
-            // Self::EmailNotFound => Unauthorized(e).respond_to(req),
-            // Self::NotSubscribed => Forbidden(e).respond_to(req),
-            // Self::NoContent => BadRequest(e).respond_to(req),
-            // Self::DocumentNotFound => NotFound(e).respond_to(req),
-            // Self::UnsupportedFileFormat => BadRequest(e).respond_to(req),
-            // Self::EmailDuplicate => BadRequest(e).respond_to(req),
-            // Self::NotEnoughCredits(_, _) => Forbidden(e).respond_to(req),
-            // Inspect DB Error for duplicate email error code
-            // Self::DB(e)
-            //     if e.as_database_error().is_some()
-            //         && e.as_database_error().unwrap().code() == Some(Cow::Borrowed("23505")) =>
-            // {
-            //     let e = Some(Json(ErrorResponse::new(&Error::EmailDuplicate)));
-            //     BadRequest(e).respond_to(req)
-            // }
+            Self::NoNotesAffected => BadRequest(e).respond_to(req),
+
+            Self::FolderIdTooLong => BadRequest(e).respond_to(req),
+            Self::UserNotFound => NotFound(e).respond_to(req),
+            Self::CommitNotFound => NotFound(e).respond_to(req),
+            Self::CommitDeckNotFound => NotFound(e).respond_to(req),
+            Self::NoteNotFound(_) => NotFound(e).respond_to(req),
+            Self::DeckNotFound => NotFound(e).respond_to(req),
+
+            Self::AmbiguousFields(_) => BadRequest(e).respond_to(req),
+            Self::InvalidNote => BadRequest(e).respond_to(req),
+
             _ => {
                 dbg!(&self);
                 Status::InternalServerError.respond_to(req)
