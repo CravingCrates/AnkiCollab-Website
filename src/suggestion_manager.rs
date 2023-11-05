@@ -1,9 +1,12 @@
-
-use chrono::format;
+use crate::error::Error::*;
+use crate::error::NoteNotFoundContext;
+use crate::{database, note_manager, Return};
 use rocket_auth::User;
-use crate::{database, note_manager};
 
-pub async fn update_note_timestamp(tx: &tokio_postgres::Transaction<'_>,note_id: i64)  -> Result<(), Box<dyn std::error::Error>> { 
+pub async fn update_note_timestamp(
+    tx: &tokio_postgres::Transaction<'_>,
+    note_id: i64,
+) -> Return<()> {
     let query1 = "
     WITH RECURSIVE tree AS (
         SELECT id, last_update, parent FROM decks
@@ -24,9 +27,14 @@ pub async fn update_note_timestamp(tx: &tokio_postgres::Transaction<'_>,note_id:
     Ok(())
 }
 
-pub async fn is_authorized(user: &User, deck: i64) -> Result<bool, Box<dyn std::error::Error>> {
-    let client = database::TOKIO_POSTGRES_POOL.get().unwrap().get().await.unwrap();
-    let rows = client.query("SELECT 1 FROM decks WHERE (owner = $1 AND id = $3) OR $2 LIMIT 1", &[&user.id(), &user.is_admin, &deck]).await?;
+pub async fn is_authorized(user: &User, deck: i64) -> Return<bool> {
+    let client = database::client().await?;
+    let rows = client
+        .query(
+            "SELECT 1 FROM decks WHERE (owner = $1 AND id = $3) OR $2 LIMIT 1",
+            &[&user.id(), &user.is_admin, &deck],
+        )
+        .await?;
     let access = !rows.is_empty();
 
     // Check if its a maintainer
@@ -51,7 +59,12 @@ pub async fn is_authorized(user: &User, deck: i64) -> Result<bool, Box<dyn std::
             return Ok(false);
         }
         let parent_deck: i64 = parent_deck[0].get(0);
-        let rows = client.query("SELECT 1 FROM maintainers WHERE user_id = $1 AND deck = $2 LIMIT 1", &[&user.id(), &parent_deck]).await?;
+        let rows = client
+            .query(
+                "SELECT 1 FROM maintainers WHERE user_id = $1 AND deck = $2 LIMIT 1",
+                &[&user.id(), &parent_deck],
+            )
+            .await?;
         return Ok(!rows.is_empty());
     }
 
@@ -59,47 +72,57 @@ pub async fn is_authorized(user: &User, deck: i64) -> Result<bool, Box<dyn std::
 }
 
 // Only used for unreviewed cards to prevent them from being added to the deck. Existing cards should use mark_note_deleted instead
-pub async fn delete_card(note_id: i64, user: User) -> Result<String, Box<dyn std::error::Error>> {
-    let client = database::TOKIO_POSTGRES_POOL.get().unwrap().get().await.unwrap();
-    
-    let q_guid = client.query("Select human_hash, id from decks where id = (select deck from notes where id = $1)", &[&note_id]).await?;
+pub async fn delete_card(note_id: i64, user: User) -> Return<String> {
+    let client = database::client().await?;
+
+    let q_guid = client
+        .query(
+            "Select human_hash, id from decks where id = (select deck from notes where id = $1)",
+            &[&note_id],
+        )
+        .await?;
     if q_guid.is_empty() {
-        return Err("Note not found (Delete Card).".into());
+        return Err(NoteNotFound(NoteNotFoundContext::DeleteCard));
     }
     let guid: String = q_guid[0].get(0);
     let deck_id: i64 = q_guid[0].get(1);
 
     let access = is_authorized(&user, deck_id).await?;
     if !access {
-        return Err("Unauthorized.".into());
+        return Err(Unauthorized);
     }
 
-    client.query("DELETE FROM notes CASCADE WHERE id = $1", &[&note_id]).await?;
+    client
+        .query("DELETE FROM notes CASCADE WHERE id = $1", &[&note_id])
+        .await?;
 
     Ok(guid)
 }
 
 // If bulk is true, we skip a few steps that have already been handled by the caller
-pub async fn approve_card(note_id: i64, user: User, bulk: bool) -> Result<String, Box<dyn std::error::Error>> {
-    let mut client = database::TOKIO_POSTGRES_POOL.get().unwrap().get().await.unwrap();
+pub async fn approve_card(note_id: i64, user: User, bulk: bool) -> Return<String> {
+    let mut client = database::client().await?;
     let tx = client.transaction().await?;
 
-    let q_guid = tx.query("select deck from notes where id = $1", &[&note_id]).await?;
+    let q_guid = tx
+        .query("select deck from notes where id = $1", &[&note_id])
+        .await?;
     if q_guid.is_empty() {
-        return Err("Note not found (Approve Card).".into());
+        return Err(NoteNotFound(NoteNotFoundContext::ApproveCard));
     }
     let deck_id: i64 = q_guid[0].get(0);
 
     if !bulk {
         let access = is_authorized(&user, deck_id).await?;
         if !access {
-            return Err("Unauthorized.".into());
+            return Err(Unauthorized);
         }
     }
 
     // Check if the fields are valid
-    let unique_fields_row = tx.query(
-        "
+    let unique_fields_row = tx
+        .query(
+            "
         SELECT (
             (
               SELECT COUNT(*)
@@ -119,75 +142,98 @@ pub async fn approve_card(note_id: i64, user: User, bulk: bool) -> Result<String
               )
             )
           ) AS result;
-        ", &[&note_id]).await?;
+        ",
+            &[&note_id],
+        )
+        .await?;
     if unique_fields_row.is_empty() {
-        println!("Note invalid");
-        return Err("Note is invalid.".into());
+        return Err(InvalidNote);
     }
 
     if !unique_fields_row[0].get::<_, bool>(0) {
-        println!("{}", format!("Field ambiguous in note {}", note_id));
-        return Err("Fields are ambiguous. Please handle manually.".into());
+        return Err(AmbiguousFields(note_id));
     }
 
     if !bulk {
-        tx.query("UPDATE fields SET reviewed = true WHERE note = $1", &[&note_id]).await?;
-        tx.query("UPDATE tags SET reviewed = true WHERE note = $1", &[&note_id]).await?;
+        tx.query(
+            "UPDATE fields SET reviewed = true WHERE note = $1",
+            &[&note_id],
+        )
+        .await?;
+        tx.query(
+            "UPDATE tags SET reviewed = true WHERE note = $1",
+            &[&note_id],
+        )
+        .await?;
     }
-    
-    tx.query("UPDATE notes SET reviewed = true WHERE id = $1", &[&note_id]).await?;
+
+    tx.query(
+        "UPDATE notes SET reviewed = true WHERE id = $1",
+        &[&note_id],
+    )
+    .await?;
 
     if !bulk {
         update_note_timestamp(&tx, note_id).await?;
     }
 
     tx.commit().await?;
-    
+
     Ok(note_id.to_string())
 }
 
-pub async fn deny_tag_change(tag_id: i64) -> Result<String, Box<dyn std::error::Error>>  {
-    let client = database::TOKIO_POSTGRES_POOL.get().unwrap().get().await.unwrap();
-    
-    let rows = client.query("SELECT note FROM tags WHERE id = $1", &[&tag_id]).await?;
+pub async fn deny_tag_change(tag_id: i64) -> Return<String> {
+    let client = database::client().await?;
+
+    let rows = client
+        .query("SELECT note FROM tags WHERE id = $1", &[&tag_id])
+        .await?;
 
     if rows.is_empty() {
-        return Err("Note not found (Tag denied).".into());
+        return Err(NoteNotFound(NoteNotFoundContext::TagDenied));
     }
 
-    client.query("DELETE FROM tags WHERE id = $1", &[&tag_id]).await?;
-    
+    client
+        .query("DELETE FROM tags WHERE id = $1", &[&tag_id])
+        .await?;
+
     let note_id: i64 = rows[0].get(0);
     Ok(note_id.to_string())
 }
 
-pub async fn deny_field_change(field_id: i64) -> Result<String, Box<dyn std::error::Error>>  {
-    let client = database::TOKIO_POSTGRES_POOL.get().unwrap().get().await.unwrap();
-    
-    let rows = client.query("SELECT note FROM fields WHERE id = $1", &[&field_id]).await?;
+pub async fn deny_field_change(field_id: i64) -> Return<String> {
+    let client = database::client().await?;
+
+    let rows = client
+        .query("SELECT note FROM fields WHERE id = $1", &[&field_id])
+        .await?;
 
     if rows.is_empty() {
-        return Err("Note not found (Field Denied).".into());
+        return Err(NoteNotFound(NoteNotFoundContext::FieldDenied));
     }
 
-    client.query("DELETE FROM fields WHERE id = $1", &[&field_id]).await?;
-    
+    client
+        .query("DELETE FROM fields WHERE id = $1", &[&field_id])
+        .await?;
+
     let note_id: i64 = rows[0].get(0);
     Ok(note_id.to_string())
 }
 
-pub async fn approve_tag_change(tag_id: i64, update_timestamp: bool) -> Result<String, Box<dyn std::error::Error>> {
-    let mut client = database::TOKIO_POSTGRES_POOL.get().unwrap().get().await.unwrap();
+pub async fn approve_tag_change(tag_id: i64, update_timestamp: bool) -> Return<String> {
+    let mut client = database::client().await?;
     let tx = client.transaction().await?;
 
-    let rows = tx.query("SELECT note FROM tags WHERE id = $1", &[&tag_id]).await?;
+    let rows = tx
+        .query("SELECT note FROM tags WHERE id = $1", &[&tag_id])
+        .await?;
 
     if rows.is_empty() {
-        return Err("Note not found (Tag Approve).".into());
+        return Err(NoteNotFound(NoteNotFoundContext::TagApprove));
     }
     let note_id: i64 = rows[0].get(0);
 
-    let update_query = "UPDATE tags SET reviewed = true WHERE id = $1 AND action = true";    
+    let update_query = "UPDATE tags SET reviewed = true WHERE id = $1 AND action = true";
     let delete_query = "
     WITH hit AS (
         SELECT content, note 
@@ -201,19 +247,21 @@ pub async fn approve_tag_change(tag_id: i64, update_timestamp: bool) -> Result<S
     if update_timestamp {
         update_note_timestamp(&tx, note_id).await?;
     }
-    
+
     tx.commit().await?;
     Ok(note_id.to_string())
 }
 
-pub async fn approve_field_change(field_id: i64, update_timestamp: bool) -> Result<String, Box<dyn std::error::Error>>  {
-    let mut client = database::TOKIO_POSTGRES_POOL.get().unwrap().get().await.unwrap();
+pub async fn approve_field_change(field_id: i64, update_timestamp: bool) -> Return<String> {
+    let mut client = database::client().await?;
     let tx = client.transaction().await?;
 
-    let rows = tx.query("SELECT note FROM fields WHERE id = $1", &[&field_id]).await?;
+    let rows = tx
+        .query("SELECT note FROM fields WHERE id = $1", &[&field_id])
+        .await?;
 
     if rows.is_empty() {
-        return Err("Note not found (Field Approve).".into());
+        return Err(NoteNotFound(NoteNotFoundContext::FieldApprove));
     }
 
     let note_id: i64 = rows[0].get(0);
@@ -237,38 +285,58 @@ pub async fn approve_field_change(field_id: i64, update_timestamp: bool) -> Resu
     if update_timestamp {
         update_note_timestamp(&tx, note_id).await?;
     }
-    
+
     tx.commit().await?;
 
     Ok(note_id.to_string())
 }
 
-pub async fn merge_by_commit(commit_id: i32, approve: bool, user: User) -> Result<Option<i32>, Box<dyn std::error::Error>> {
-    let mut client = database::TOKIO_POSTGRES_POOL.get().unwrap().get().await.unwrap();
+pub async fn merge_by_commit(commit_id: i32, approve: bool, user: User) -> Return<Option<i32>> {
+    let mut client = database::client().await?;
 
-    let q_guid = client.query("Select deck from commits where commit_id = $1", &[&commit_id]).await?;
+    let q_guid = client
+        .query(
+            "Select deck from commits where commit_id = $1",
+            &[&commit_id],
+        )
+        .await?;
     if q_guid.is_empty() {
-        println!("Deck in Commit not found (Merge Commit).");
-        return Err("Deck in Commit not found (Merge Commit).".into());
+        return Err(CommitDeckNotFound);
     }
     let deck_id: i64 = q_guid[0].get(0);
 
     let access = is_authorized(&user, deck_id).await?;
     if !access {
-        return Err("Unauthorized.".into());
+        return Err(Unauthorized);
     }
 
-    let affected_tags = client.query("
+    let affected_tags = client
+        .query(
+            "
         SELECT id FROM tags WHERE commit = $1 and reviewed = false
-    ", &[&commit_id])
-    .await?.into_iter().map(|row| row.get::<_, i64>("id")).collect::<Vec<i64>>();
+    ",
+            &[&commit_id],
+        )
+        .await?
+        .into_iter()
+        .map(|row| row.get::<_, i64>("id"))
+        .collect::<Vec<i64>>();
 
-    let affected_fields = client.query("
+    let affected_fields = client
+        .query(
+            "
         SELECT id FROM fields WHERE commit = $1 and reviewed = false
-    ", &[&commit_id])
-    .await?.into_iter().map(|row| row.get::<_, i64>("id")).collect::<Vec<i64>>();
+    ",
+            &[&commit_id],
+        )
+        .await?
+        .into_iter()
+        .map(|row| row.get::<_, i64>("id"))
+        .collect::<Vec<i64>>();
 
-    let affected_notes = client.query("
+    let affected_notes = client
+        .query(
+            "
         SELECT notes.id, notes.reviewed FROM notes
         JOIN (
             SELECT note FROM fields WHERE commit = $1 and reviewed = false
@@ -278,13 +346,22 @@ pub async fn merge_by_commit(commit_id: i32, approve: bool, user: User) -> Resul
             SELECT note from card_deletion_suggestions WHERE commit = $1
         ) AS n ON notes.id = n.note
         GROUP BY notes.id
-    ", &[&commit_id])
-    .await?;
+    ",
+            &[&commit_id],
+        )
+        .await?;
 
-    let deleted_notes = client.query("
+    let deleted_notes = client
+        .query(
+            "
         SELECT note FROM card_deletion_suggestions WHERE commit = $1
-    ", &[&commit_id])
-    .await?.into_iter().map(|row| row.get::<_, i64>("note")).collect::<Vec<i64>>();
+    ",
+            &[&commit_id],
+        )
+        .await?
+        .into_iter()
+        .map(|row| row.get::<_, i64>("note"))
+        .collect::<Vec<i64>>();
 
     // The query is very similar to the one /reviews uses
     let next_review_query = r#"
@@ -361,9 +438,11 @@ pub async fn merge_by_commit(commit_id: i32, approve: bool, user: User) -> Resul
     ORDER BY commit_id
     LIMIT 1
     "#;
-    let next_review = client.query(next_review_query, &[&user.id(), &commit_id]).await?;
+    let next_review = client
+        .query(next_review_query, &[&user.id(), &commit_id])
+        .await?;
 
-    // Slightly less performant to do it in single queries than doing a bigger query here, but for readability and easier code maintenance, we keep it that way. 
+    // Slightly less performant to do it in single queries than doing a bigger query here, but for readability and easier code maintenance, we keep it that way.
     // The performance difference is not relevant in this case
     if approve {
         for tag in affected_tags {
@@ -379,18 +458,17 @@ pub async fn merge_by_commit(commit_id: i32, approve: bool, user: User) -> Resul
         }
 
         let tx = client.transaction().await?;
-        
+
         for row in affected_notes {
             let note_id: i64 = row.get(0);
             let reviewed: bool = row.get(1);
             if !reviewed {
-                approve_card(note_id, user.clone(), true).await?; 
+                approve_card(note_id, user.clone(), true).await?;
             }
-            update_note_timestamp(&tx, note_id).await?;   
+            update_note_timestamp(&tx, note_id).await?;
         }
 
         tx.commit().await?;
-
     } else {
         for tag in affected_tags {
             deny_tag_change(tag).await?;
@@ -401,17 +479,22 @@ pub async fn merge_by_commit(commit_id: i32, approve: bool, user: User) -> Resul
         }
 
         let tx = client.transaction().await?;
-        
+
         for row in affected_notes {
             let note_id: i64 = row.get(0);
             let reviewed: bool = row.get(1);
             if !reviewed {
-                tx.execute("DELETE FROM notes cascade WHERE id = $1", &[&note_id]).await?;        
+                tx.execute("DELETE FROM notes cascade WHERE id = $1", &[&note_id])
+                    .await?;
             }
         }
 
         for note_id in deleted_notes {
-            tx.execute("DELETE FROM card_deletion_suggestions WHERE note = $1", &[&note_id]).await?;       
+            tx.execute(
+                "DELETE FROM card_deletion_suggestions WHERE note = $1",
+                &[&note_id],
+            )
+            .await?;
         }
 
         tx.commit().await?;

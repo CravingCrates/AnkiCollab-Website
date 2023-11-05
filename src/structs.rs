@@ -1,6 +1,13 @@
 use rocket::serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
+pub type Return<T> = Result<T, crate::error::Error>;
+pub type DeckHash = String;
+pub type UserId = i32;
+pub type DeckId = i64;
+pub type NoteId = i64;
+pub type FieldId = i64;
+
 /* Notes */
 #[derive(Serialize)]
 pub struct Note {
@@ -26,7 +33,7 @@ pub struct CommitsOverview {
     pub id: i32,
     pub rationale: String,
     pub timestamp: String,
-    pub deck: String
+    pub deck: String,
 }
 
 #[derive(Serialize)]
@@ -53,7 +60,6 @@ pub struct CommitData {
     pub new_tags: Vec<TagsInfo>,
     pub removed_tags: Vec<TagsInfo>,
 }
-
 
 #[derive(Serialize)]
 pub struct FieldsInfo {
@@ -121,16 +127,16 @@ pub struct ErrorPayload {
 #[derive(Serialize)]
 pub struct NoteModel {
     pub id: i64,
-    pub fields:Vec<NoteModelFieldInfo>,
+    pub fields: Vec<NoteModelFieldInfo>,
     pub name: String,
 }
 
 #[derive(Deserialize, Serialize)]
 pub struct EditDecksData {
-  pub description: String,
-  pub hash: String,
-  pub is_private: bool,
-  pub changelog: String,
+    pub description: String,
+    pub hash: String,
+    pub is_private: bool,
+    pub changelog: String,
 }
 
 #[derive(Deserialize, Serialize)]
