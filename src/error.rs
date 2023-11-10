@@ -3,10 +3,30 @@ use rocket::{
     response::{self, status::*, Responder},
     serde::Serialize,
 };
-// use sentry::ClientInitGuard;
+use sentry::ClientInitGuard;
 use thiserror::Error;
 
 use crate::*;
+
+pub struct Reporter {
+    _sentry: ClientInitGuard,
+}
+
+impl Reporter {
+    pub fn new() -> Self {
+        let endpoint = std::env::var("SENTRY_URL").unwrap();
+        Self {
+            _sentry: sentry::init((
+                endpoint.as_str(),
+                sentry::ClientOptions {
+                    release: sentry::release_name!(),
+                    traces_sample_rate: 1.0, // Performance monitoring, 0.0 to disable
+                    ..Default::default()
+                },
+            )),
+        }
+    }
+}
 
 #[derive(Serialize, Debug)]
 pub struct ErrorResponse {
@@ -87,8 +107,8 @@ impl<'r> Responder<'r, 'static> for Error {
     fn respond_to(self, req: &'r Request<'_>) -> response::Result<'static> {
         let e = Some(Json(ErrorResponse::new(&self)));
         println!("{:?}", &self);
-        // let uuid = sentry::capture_error(&self);
-        // dbg!(uuid);
+        let uuid = sentry::capture_error(&self);
+        dbg!(uuid);
         match self {
             Self::Unauthorized => Unauthorized(e).respond_to(req),
             Self::AuthenticationError(_) => Unauthorized(e).respond_to(req),
@@ -114,7 +134,3 @@ impl<'r> Responder<'r, 'static> for Error {
         }
     }
 }
-
-// pub struct Reporter {
-//     _sentry: ClientInitGuard,
-// }

@@ -970,11 +970,15 @@ async fn manage_decks(user: Option<User>) -> Return<content::RawHtml<String>> {
 
 use rocket::data::{Limits, ToByteUnit};
 
+use crate::error::Reporter;
+
 #[rocket::main]
 async fn main() {
     dotenvy::dotenv().expect(
         "Expected .env file in the root directory containing the database connection string",
     );
+    let _reporter = Reporter::new();
+
     let pool = database::establish_connection()
         .await
         .expect("Failed to establish database connection");
