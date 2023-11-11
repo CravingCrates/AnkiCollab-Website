@@ -331,7 +331,7 @@ async fn edit_notetype(user: User, notetype_id: i64) -> Return<content::RawHtml<
         .await
         .expect("Error preparing edit notetype statement");
     if owned_info.is_empty() {
-        return Err(error::Error::Unauthorized);
+        return error_page(error::Error::Unauthorized.to_string()).await;
     }
 
     let notetype_info = client
@@ -396,7 +396,7 @@ async fn edit_deck(user: Option<User>, deck_hash: String) -> Return<content::Raw
     let mut context = tera::Context::new();
 
     if owner != user.id() {
-        return Err(error::Error::Unauthorized);
+        return error_page(error::Error::Unauthorized.to_string()).await;
     }
 
     let desc: String = owned_info[0].get(1);
@@ -508,7 +508,7 @@ async fn review_commit(commit_id: i32, user: User) -> Return<content::RawHtml<St
         )
         .await?;
     if q_guid.is_empty() {
-        return Err(error::Error::CommitNotFound);
+        return error_page(error::Error::CommitNotFound.to_string()).await;
     }
     let deck_id: i64 = q_guid[0].get(0);
 
@@ -533,10 +533,16 @@ async fn review_commit(commit_id: i32, user: User) -> Return<content::RawHtml<St
 async fn review_note(note_id: i64, user: Option<User>) -> Return<content::RawHtml<String>> {
     let mut context = tera::Context::new();
 
-    let note = note_manager::get_note_data(note_id).await?;
+    let note = match note_manager::get_note_data(note_id).await {
+        Ok(note) => note,
+        Err(_error) => {
+            return error_page(error::Error::NoteNotFound(NoteNotFoundContext::InvalidData).to_string()).await;
+        }
+    };
+
     if note.id == 0 {
         // Invalid data // No note found!
-        return Err(error::Error::NoteNotFound(NoteNotFoundContext::InvalidData));
+        return error_page(error::Error::NoteNotFound(NoteNotFoundContext::InvalidData).to_string()).await;
     }
 
     let mut access = false;
@@ -547,7 +553,7 @@ async fn review_note(note_id: i64, user: Option<User>) -> Return<content::RawHtm
             .query("Select deck from notes where id = $1", &[&note_id])
             .await?;
         if q_guid.is_empty() {
-            return Err(error::Error::NoteNotFound(NoteNotFoundContext::InvalidData));
+            return error_page(error::Error::NoteNotFound(NoteNotFoundContext::InvalidData).to_string()).await;
         }
         let deck_id: i64 = q_guid[0].get(0);
 
@@ -773,7 +779,7 @@ async fn get_notes_from_deck(
     let client = database::client().await?;
     let deck_info = client.query("Select id, name, description, human_hash, owner, TO_CHAR(last_update, 'MM/DD/YYYY') AS last_update from decks where human_hash = $1 Limit 1", &[&deck_hash]).await.expect("Error preparing deck notes statement");
     if deck_info.is_empty() {
-        return Err(error::Error::DeckNotFound);
+        return error_page(error::Error::DeckNotFound.to_string()).await;
     }
 
     let id: i64 = deck_info[0].get(0);

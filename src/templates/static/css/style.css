@@ -211,8 +211,6 @@ th {
 }
 
 .note_tag_container {
-  display: inline-block;
-  align-items: center;
   position: relative;
 }
 
