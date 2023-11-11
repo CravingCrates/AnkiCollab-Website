@@ -59,6 +59,8 @@ pub enum NoteNotFoundContext {
     InvalidData,
     #[error("Delete Card")]
     DeleteCard,
+    #[error("Review Note")]
+    ReviewNote,
 }
 
 #[derive(Debug, Error)]
@@ -101,6 +103,8 @@ pub enum Error {
     NoNoteTypesAffected,
     #[error("Deck not found")]
     DeckNotFound,
+    #[error("Storage error: {0}")]
+    Storage(#[from] s3::error::S3Error),
 }
 
 impl<'r> Responder<'r, 'static> for Error {
