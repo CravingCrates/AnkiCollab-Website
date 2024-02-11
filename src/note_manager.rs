@@ -158,43 +158,37 @@ pub async fn get_note_data(note_id: NoteId) -> Return<NoteData> {
 
     let fields_rows = client.query(fields_query, &[&current_note.id]).await?;
     let tags_rows = client.query(tags_query, &[&current_note.id]).await?;
+
+    // Fill reviewed_fields and unconfirmed_fields with dummy elements, set the position to the index of the field in the notetype
+    for (index, _field) in current_note.note_model_fields.iter().enumerate() {
+        current_note.reviewed_fields.push(FieldsInfo {
+            id: 0,
+            position: index as u32,
+            content: String::new(),
+        });
+    }
+   
     for row in fields_rows {
         let id = row.get(0);
         let position = row.get(1);
         let content = row.get(2);
         let reviewed = row.get(3);
-        if let Some(content) = content {
-            if reviewed {
-                // make sure no dummy element already exists for this position (happens when the unconfirmed field gets evaluated BEFORE the reviewed one)
-                current_note
-                    .reviewed_fields
-                    .retain(|info| info.position != position);
-                current_note.reviewed_fields.push(FieldsInfo {
-                    id,
-                    position,
-                    content: ammonia::clean(content),
-                });
-            } else {
-                // For the html diff we need to make sure that every reviewed field index exists for a suggestion. Right now those can be NULL from the database (for unreviewed cards), so we need to fill it with dummies
-                if !current_note
-                    .reviewed_fields
-                    .iter()
-                    .any(|info| info.position == position)
-                {
-                    current_note.reviewed_fields.push(FieldsInfo {
-                        id: 0,
-                        position,
-                        content: "".to_string(),
-                    });
-                }
-                current_note.unconfirmed_fields.push(FieldsInfo {
-                    id,
-                    position,
-                    content: content.to_owned(),
-                });
-            }
+        if reviewed {
+            // Overwrite the dummy element with the actual data
+            current_note.reviewed_fields[position as usize] = FieldsInfo {
+                id,
+                position,
+                content: ammonia::clean(content),
+            };
+        } else {
+            current_note.unconfirmed_fields.push(FieldsInfo {
+                id,
+                position,
+                content: content.to_owned(),
+            });
         }
     }
+
     for row in tags_rows {
         let id = row.get(0);
         let content = row.get(1);

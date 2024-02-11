@@ -1,171 +1,258 @@
-{% include "layout_top.html" %}
-<script src="/js/bindiff.js"></script>
-<script>
-  function acceptTag(tagId){
-    window.location.href = `/AcceptTag/${tagId}`;
-  }
-  function denyTag(tagId){
-      window.location.href = `/DenyTag/${tagId}`;
-  }
-</script>
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    {% include "header_template.html" %}
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script> 
 
-<div class="container">
-  <div class="row">
-  <div class="col-12">
-      <div class="card">
-          <div class="card-body text-right">
-              <h5 class="card-title m-b-0 text-center">Review Note</h5>
-              <p class="text-center">Last Update: {{ note.last_update }}</p>              
-	            <p class="text-center">Deck: {{ note.deck }}</p>
-              <button class="btn btn-blue toggle-html" id="toggle-html-{{note.id}}"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 30 25" width="30px" stroke="currentColor" stroke-width="2">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"></path>
-              </svg><span id="toggle-html-text-{{note.id}}">Show Source</span></button>
-              <div style="margin-top: 10px;" class="text-center note 
-                {% if note.reviewed and not note.delete_req %}published
-                {% elif note.delete_req %}delete-req
-                {% else %}new-card
-                {% endif %}
-              ">
-                {% if note.reviewed and not note.delete_req %}Published
-                {% elif note.delete_req %}Removal Requested
-                {% else %}New Card
-                {% endif %}
-              </div>    
-              <div>
-              {% if access and note.reviewed == false %}
-                <a href="/AcceptNote/{{note.id}}" class="btn btn-approve"><span class="fa fa-check"></span> Publish</a>
-                <a href="/DeleteNote/{{note.id}}" class="btn btn-deny"><span class="fa fa-close"></span> Delete</a>
-              {% elif access and note.delete_req %}
-                <a href="/AcceptNoteRemoval/{{note.id}}" class="btn btn-deny"><span class="fa fa-close"></span> Delete Note</a>      
-                <a href="/DenyNoteRemoval/{{note.id}}" class="btn btn-approve"><span class="fa fa-check"></span> Don't Remove</a>
-              {% endif %}
+    <script src="/js/bindiff.js"></script>
+  </head>
+  {% include "layout_header.html" %}
+        <!-- End Top layout-->
+
+        <!-- row -->
+        <div class="container-fluid">
+          <div class="card">
+            <div class="card-body">
+              <div class="text-center">
+                <h1 class="card-title">Review Note</h1>
+                <p>Last Update: {{ note.last_update }}</p>
+                <p>Deck: {{ note.deck }}</p>
               </div>
-          </div>
-          <div class="container-fluid">
-            <div class="row">
-              <div class="col-md-6">
-                <div>
-                  {% if note.reviewed_fields %}
-                    <div>
-                      <h4>Fields:</h4>
-                      {% for field in note.reviewed_fields %}
-                        <span class="counter">{{note.note_model_fields[field.position]}}</span>
-                        <div class="note_fields_highlighted" data-original='{{ field.content }}' data-new-content='{{field.content}}'></div>
-                      {% endfor %}
-                    </div>
-                    <hr />
-                  {% endif %}
-                  {% if note.reviewed_tags %}
-                    <div>
-                      <h4>Tags:</h4>
-                      <div class="note_tags_container">
-                        {% for tag in note.reviewed_tags|slice(end=3) %}
-                          <button class="note_tag" role="button">{{tag.content}}</button>
-                        {% endfor %}
-                        {% if note.reviewed_tags|length > 3 %}
-                        <button class="note_tag btn btn-blue" role="button" onclick="toggleTags(this)">+{{note.reviewed_tags|length - 3}} more</button>
-                          <div id="collapsedTags" style="display:none">
-                            {% for tag in note.reviewed_tags|slice(start=3) %}
-                              <button class="note_tag" role="button">{{tag.content}}</button>
-                            {% endfor %}
-                          </div>
-                        {% endif %}
-                      </div>
-                    </div>
-                  {% endif %}
-                </div>
+              <div class="text-right">
+                <button
+                  class="btn mb-1 btn-light toggle-html"
+                  id="toggle-html-{{note.id}}"
+                >
+                  <i class="icon-screen-desktop menu-icon"></i
+                  > <span id="toggle-html-text-{{note.id}}"> Show Source</span>
+                </button>
               </div>
-              <div class="col-md-6">
-                <div>
-                  <h4>Suggested Changes:</h4>
-                  {% for field in note.unconfirmed_fields %}
-                    <span class="counter">{{note.note_model_fields[field.position]}}</span>
-                    {% if access and note.reviewed %}
-                      <a href="/AcceptField/{{field.id}}" class="btn btn-approve" style="padding: 1px 5px;margin: 5px;"><span class="fa fa-check"></span></a><a href="/DenyField/{{field.id}}" class="btn btn-deny" style="padding: 1px 7px;margin: 5px;"><span class="fa fa-close"></span></a>
-                    {% endif %}
-                    <div class="note_fields_highlighted" data-original='{{ note.reviewed_fields[field.position].content }}' data-new-content='{{field.content}}'></div>
-                  {% endfor %}
-                  <hr />
-                  {% for tag in note.new_tags %}
-                    <div class="note_tag_container">
-                      <button class="note_tag note_tag_new" role="button">{{tag.content}}</button>
-                      {% if access %}
-                        <div class="tag_actions">
-                          <button class="tag_accept_button" role="button" onclick="acceptTag({{tag.id}})">
-                            <i class="fas fa-check"></i>
-                          </button>
-                          <button class="tag_deny_button" role="button" onclick="denyTag({{tag.id}})">
-                            <i class="fas fa-times"></i>
-                          </button>
-                        </div>
-                      {% endif %}
-                    </div>            
-                  {% endfor %}
-                  {% for tag in note.removed_tags %}
-                    <div class="note_tag_container">
-                      <button class="note_tag note_tag_removed" role="button">{{tag.content}}</button>
-                      {% if access %}
-                        <div class="tag_actions">
-                          <button class="tag_accept_button" role="button" onclick="acceptTag({{tag.id}})">
-                            <i class="fas fa-check"></i>
-                          </button>
-                          <button class="tag_deny_button" role="button" onclick="denyTag({{tag.id}})">
-                            <i class="fas fa-times"></i>
-                          </button>
-                        </div>
-                      {% endif %}
-                    </div>            
-                  {% endfor %}
-                </div>
+              <div class="text-center">
+                <span
+                  class="label label-pill {% if note.reviewed and not note.delete_req %}label-info {% elif note.delete_req %}label-danger {% else %}label-success {% endif %}px-5 py-2"
+                >
+                  {% if note.reviewed and not note.delete_req %}Published 
+                  {% elif note.delete_req %}Removal Requested 
+                  {% else %}New Card 
+                  {% endif %}
+                </span>
+              </div>
+              <div class="text-right">
+                {% if access and note.reviewed == false %}
+                <a href="/AcceptNote/{{note.id}}" class="btn mb-1 btn-success"
+                  ><span class="fa fa-check"></span> Publish</a
+                >
+                <a href="/DeleteNote/{{note.id}}" class="btn mb-1 btn-danger"
+                  ><span class="fa fa-close"></span> Delete</a
+                >
+                {% elif access and note.delete_req %}
+                <a href="/AcceptNoteRemoval/{{note.id}}" class="btn mb-1 btn-danger"
+                  ><span class="fa fa-close"></span> Delete Note</a
+                >
+                <a href="/DenyNoteRemoval/{{note.id}}" class="btn mb-1 btn-warning"
+                  ><span class="fa fa-check"></span> Don't Remove</a
+                >
+                {% endif %}
               </div>
             </div>
           </div>
-              
+          <div class="card">
+            <div class="card-body">
+              <div class="row">
+                <div class="col">
+                  {% if note.reviewed_fields %}
+                  <div>
+                    <h4>Fields:</h4>
+                    {% for field in note.reviewed_fields %}
+                        <div class="media media-reply">
+                          <div class="media-body">
+                            <div class="d-sm-flex justify-content-between mb-2">                           
+                              <h5 class="mb-sm-0">{{note.note_model_fields[field.position]}}</h5>
+                            </div>
+                            <div class="note_fields_highlighted" 
+                              data-original="{{ field.content }}"
+                              data-new-content="{{field.content}}">
+                            </div>
+                          </div>
+                        </div>
+                    {% endfor %}
+                  </div>
+                  {% endif %} 
+                  {% if note.reviewed_tags %}
+                  <hr />
+                  <div>
+                    <div class="my-2">
+                      <h4>Tags:</h4>
+                      {% if note.reviewed_tags|length > 3 %}             
+                        <button
+                          class="btn mb-1 btn-flat btn-info btn-sm"
+                          onclick="toggleTags(this)"
+                        >
+                            +{{note.reviewed_tags|length - 3}} more
+                        </button>
+                      {% endif %}
+                    </div>
+                    <div class="note_tags_container">
+                      {% for tag in note.reviewed_tags|slice(end=3) %}
+                      <span class="badge badge-light">{{tag.content}}</span>
+                      {% endfor %} {% if note.reviewed_tags|length > 3 %}                     
+                      <div id="collapsedTags" style="display: none">
+                        {% for tag in note.reviewed_tags|slice(start=3) %}
+                        <span class="badge badge-light">{{tag.content}}</span>
+                        {% endfor %}
+                      </div>
+                      {% endif %}
+                    </div>
+                  </div>
+                  {% endif %}
+                </div>
+                <div class="col">
+                  <h4>Suggested Changes:</h4>
+                  {% for field in note.unconfirmed_fields %}
+                    <div class="media media-reply">
+                      <div class="media-body">
+                        <div class="d-sm-flex justify-content-between mb-2">                           
+                          <h5 class="mb-sm-0">{{note.note_model_fields[field.position]}}</h5>
+                          {% if access and note.reviewed %}
+                          <div class="media-reply__link small-badge">
+                            <span class="badge badge-pill badge-success mr-2">
+                              <a
+                                href="/AcceptField/{{field.id}}"
+                                class="btn btn-approve"
+                                style="padding: 1px 5px; margin: 5px"
+                                ><span class="fa fa-check"></span></a
+                              >
+                            </span>
+                            <span class="badge badge-pill badge-danger">
+                              <a
+                              href="/DenyField/{{field.id}}"
+                              class="btn btn-deny"
+                              style="padding: 1px 7px; margin: 5px"
+                              ><span class="fa fa-close"></span
+                              ></a>
+                            </span>
+                          </div>
+                          {% endif %}                            
+                        </div>
+                        <div class="note_fields_highlighted" 
+                          data-original="{{ note.reviewed_fields[field.position].content }}"
+                          data-new-content="{{field.content}}">
+                        </div>
+                      </div>
+                    </div>
+                  {% endfor %}
+                  {% for tag in note.new_tags %}
+                  <div class="note_tag_container">
+                    <button class="btn mb-1 btn-flat btn-new-tag w-100">{{tag.content}}</button>
+                    {% if access %}
+                    <div class="tag_actions">
+                      <button
+                        class="tag_accept_button"
+                        role="button"
+                        onclick="acceptTag({{tag.id}})"
+                      >
+                        <i class="fa fa-check"></i>
+                      </button>
+                      <button
+                        class="tag_deny_button"
+                        role="button"
+                        onclick="denyTag({{tag.id}})"
+                      >
+                        <i class="fa fa-times"></i>
+                      </button>
+                    </div>
+                    {% endif %}
+                  </div>
+                  {% endfor %} {% for tag in note.removed_tags %}
+                  <div class="note_tag_container">
+                    <button class="btn mb-1 btn-flat btn-rmd-tag w-100">{{tag.content}}</button>
+                    {% if access %}
+                    <div class="tag_actions">
+                      <button
+                        class="tag_accept_button"
+                        role="button"
+                        onclick="acceptTag({{tag.id}})"
+                      >
+                        <i class="fa fa-check"></i>
+                      </button>
+                      <button
+                        class="tag_deny_button"
+                        role="button"
+                        onclick="denyTag({{tag.id}})"
+                      >
+                        <i class="fa fa-times"></i>
+                      </button>
+                    </div>
+                    {% endif %}
+                  </div>
+                  {% endfor %}
+                </div>
+              </div>
+              <!-- end row -->
+            </div>
+            <!-- end card-body -->
+          </div>
+          <!-- end card -->
+        </div>
+        <!-- end container-fluid -->
       </div>
-  </div>
-</div>
-</div> 
-<script>
-  function toggleTags(button) {
-    var collapsedTags = document.getElementById("collapsedTags");
-    if (collapsedTags.style.display === "none") {
-      collapsedTags.style.display = "block";
-      button.innerHTML = "Show less";
-    } else {
-      collapsedTags.style.display = "none";
-      button.innerHTML = "+{{note.reviewed_tags|length - 3}} more";
-    }
-  }
-
-  $(document).ready(function() {
-    function toggleHTML() {
-      $(".note_fields_highlighted").each(function() {
-        let originalContent = $(this).data("original");
-        let content = $(this).data("new-content");
-        let res = String(htmldiff(originalContent,content));
-        if (!$(this).data("eval")) {
-          $(this).data("eval", res);
-          res = res.replace(/(<[^>]*>)/g, function(match) {
-            if(match === "<ins>" || match === "</ins>" || match === "<del>" || match === "</del>"){
-                return match;
-            }else{
-                return match.replace(/</g,"&lt;").replace(/>/g,"&gt;");
+      <!--**********************************
+            Content body end
+        ***********************************-->
+        {% include "layout_footer.html" %}
+    
+    <script>
+      function acceptTag(tagId) {
+        window.location.href = `/AcceptTag/${tagId}`;
+      }
+      function denyTag(tagId) {
+        window.location.href = `/DenyTag/${tagId}`;
+      }
+      function toggleTags(button) {
+        var collapsedTags = document.getElementById("collapsedTags");
+        if (collapsedTags.style.display === "none") {
+          collapsedTags.style.display = "block";
+          button.innerHTML = "Show less";
+        } else {
+          collapsedTags.style.display = "none";
+          button.innerHTML = "+{{note.reviewed_tags|length - 3}} more";
+        }
+      }
+      $(document).ready(function () {
+        function toggleHTML() {
+          $(".note_fields_highlighted").each(function () {
+            let originalContent = $(this).data("original");
+            let content = $(this).data("new-content");
+            let res = String(htmldiff(originalContent, content));
+            if (!$(this).data("eval")) {
+              $(this).data("eval", res);
+              res = res.replace(/(<[^>]*>)/g, function (match) {
+                if (
+                  match === "<ins>" ||
+                  match === "</ins>" ||
+                  match === "<del>" ||
+                  match === "</del>"
+                ) {
+                  return match;
+                } else {
+                  return match.replace(/</g, "&lt;").replace(/>/g, "&gt;");
+                }
+              });
+              $(this).html(res);
+              $("#toggle-html-text").html("Show HTML");
+            } else {
+              $(this).html($(this).data("eval"));
+              $(this).removeData("eval");
+              $("#toggle-html-text").html("Show Source");
             }
           });
-          $(this).html(res);
-          $("#toggle-html-text").html("Show HTML");
-        } else {
-          $(this).html($(this).data("eval"));
-          $(this).removeData("eval");
-          $("#toggle-html-text").html("Show Source");
         }
+        $("#toggle-html").on("click", function () {
+          toggleHTML();
+        });
+        toggleHTML();
+        toggleHTML();
       });
-    }
-    $("#toggle-html").on("click", function() {
-      toggleHTML();
-    });
-    toggleHTML();
-    toggleHTML();
-});
-</script>
-{% include "layout_bottom.html" %}
+    </script>
+  </body>
+</html>

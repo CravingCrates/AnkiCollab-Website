@@ -1,142 +1,134 @@
-{% include "layout_top.html" %}
-<style>
-  
-.nav-item {
-	list-style: none;
-	margin-top: 10px;
-	margin-bottom: 10px;
-}
+<!DOCTYPE html>
+<html lang="en">
 
-.nav-item:hover .nav2-link,
-.nav-link.current {
-	background-color: #F2F2F2;
-	color: #006699;
-	padding: 10px;
-}
-
-textarea {
-  width: 100%;
-  height: 500px;
-  padding: 12px 20px;
-  box-sizing: border-box;
-  border: 2px solid #ccc;
-  border-radius: 4px;
-  background-color: #f8f8f8;
-  font-size: 16px;
-}
-
-</style>
-<div class="container">
-  <div class="row">
-    <div class="col-12">
-      <div class="card">
-        <div class="card-body text-center">
-          <h4 class="card-title m-b-0">Edit your Notetype {{ name }}</h5>
-        </div>
-        <div class="container-fluid neww">
-          
-          <div class="card-body text-left" style="margin-top:50px">
-            <p class="card-title m-b-0">Protect specific fields from being changed</p>
-          </div>
-
-          <div class="panel-group" id="accordion" role="tablist" aria-multiselectable="true">
-            <div class="panel panel-default">
-                <div class="panel-heading" role="tab" id="heading">
-                    <h4 class="panel-title">
-                        <a role="button" data-toggle="collapse" data-parent="#accordion" href="#collapse" aria-expanded="true" aria-controls="collapse">
-                            <i class="more-less fa-solid fa-plus"></i>
-                            Select the protected fields
-                        </a>
-                    </h4>
-                </div>
-                <div id="collapse" class="panel-collapse collapse" role="tabpanel" aria-labelledby="heading">
-                    <div class="panel-body">
-                      {% for fieldInfo in protected_fields %}
-                      <div class="form-group">
-                        <input type="checkbox" id="{{fieldInfo.id}}" name="{{fieldInfo.id}}" value="field_{{fieldInfo.id}}" {% if fieldInfo.protected %} checked{% endif %}>
-                        <label for="{{fieldInfo.id}}" class="">{{fieldInfo.name}}</label>
-                      </div>
-                      {% endfor %}
+<head>
+    {% include "header_template.html" %}
+   
+</head>
+{% include "layout_header.html" %}
+            <!-- End Top layout-->
+           
+            <!-- row -->
+            <div class="container-fluid mt-3">
+                <div class="card">
+                    <div class="card-body">
+                        <h1 class="card-title m-b-40">Edit your Notetype {{ name }}</h1>
                     </div>
                 </div>
-            </div>
-          </div><!-- panel-group -->
-
-          <div class="card-body text-left" style="margin-top:50px">
-            <p class="card-title m-b-0">Edit the Card Template</p>
-          </div>
-          <ul class="nav nav-pills" style="flex-direction:row">
-            <li class="nav-item spaced active"><a class="nav-link active" data-toggle="pill" href="#front" aria-expanded="true">Front</a></li>
-            <li class="nav-item spaced"><a class="nav-link" data-toggle="pill" href="#back" aria-expanded="false">Back</a></li>
-            <li class="nav-item spaced"><a class="nav-link" data-toggle="pill" href="#styling" aria-expanded="false">Styling</a></li>
-          </ul>
-          
-          <form>
-            <div class="tab-content">
-              <div id="front" class="tab-pane fade active show">
-                <textarea rows="15" cols="60" name="front_textarea">{{front}}</textarea>
-              </div>
-              <div id="back" class="tab-pane fade">
-                <textarea rows="15" cols="60" name="back_textarea">{{back}}</textarea>
-              </div>
-              <div id="styling" class="tab-pane fade">
-                <textarea rows="15" cols="60" name="styling_textarea">{{styling}}</textarea>
-              </div>
-            </div>
-            <br />
-            <button class="btn btn-approve" type="submit">Save!</button>
-            <p id="confirmation" style="color:green; display:none">Changes saved!</p>
-          </form>
+                <div class="card">
+                    <div class="card-body">
+                        <h4 class="card-title">Protect specific fields from being updated</h4>
+                        <p class="text-muted"><code></code>
+                        </p>
+                        <div id="accordion-three" class="accordion">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h5 class="mb-0" data-toggle="collapse" data-target="#collapseOne1" aria-expanded="true" aria-controls="collapseOne1">Select the protected fields</h5>
+                                </div>
+                                <div id="collapseOne1" class="collapse show" data-parent="#accordion-three">
+                                    <div class="card-body">
+                                        <div class="form-group">
+                                            {% for fieldInfo in protected_fields %}
+                                            <div class="form-check mb-3">
+                                                <label class="form-check-label">
+                                                    <input type="checkbox" class="form-check-input" id="{{fieldInfo.id}}" name="{{fieldInfo.id}}" value="field_{{fieldInfo.id}}" {% if fieldInfo.protected %} checked{% endif %}>
+                                                    {{fieldInfo.name}}
+                                                </label>    
+                                            </div>
+                                            {% endfor %}
+                                        </div>                                 
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="card">
+                    <div class="card-body">
+                        <h4 class="card-title">Edit the Card Template</h4>
+                        <div class="default-tab">
+                            <ul class="nav nav-tabs mb-3" role="tablist">
+                                <li class="nav-item"><a class="nav-link active" data-toggle="tab" href="#front">Front</a>
+                                </li>
+                                <li class="nav-item"><a class="nav-link" data-toggle="tab" href="#back">Back</a>
+                                </li>
+                                <li class="nav-item"><a class="nav-link" data-toggle="tab" href="#styling">Styling</a>
+                                </li>
+                            </ul>
+                            <div class="tab-content">
+                                <div class="tab-pane fade show active" id="front" role="tabpanel">
+                                    <div class="p-t-15">
+                                        <textarea rows="15" cols="60" name="front_textarea">{{front}}</textarea>
+                                    </div>
+                                </div>
+                                <div class="tab-pane fade" id="back">
+                                    <div class="p-t-15">
+                                        <textarea rows="15" cols="60" name="back_textarea">{{back}}</textarea>
+                                    </div>
+                                </div>
+                                <div class="tab-pane fade" id="styling">
+                                    <div class="p-t-15">
+                                        <textarea rows="15" cols="60" name="styling_textarea">{{styling}}</textarea>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>                        
+                    </div>
+                </div>
+                <div class="card">
+                    <div class="card-body">
+                        <form id="submitForm">
+                            <div class="button-icon">                            
+                                <button type="submit" class="btn mb-1 btn-success">Save all changes <span class="btn-icon-right"><i class="fa fa-check"></i></span>
+                                </button>
+                                <p id="confirmation" style="color:green; display:none">Changes saved!</p>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div> <!-- end container flud -->
         </div>
-      </div>
-    </div>
-  </div>
-</div>
+        <!--**********************************
+            Content body end
+        ***********************************-->
+        {% include "layout_footer.html" %}
+        
+    <script>    
+        const form = document.querySelector('#submitForm');
+    
+        form.addEventListener('submit', event => {
+            event.preventDefault();
+        
+            const formData = {};    
+            const checkboxes = document.querySelectorAll('input[type="checkbox"]');
+            const front_content = document.querySelector('textarea[name="front_textarea"]').value;
+            const back_content = document.querySelector('textarea[name="back_textarea"]').value;
+            const styling_content = document.querySelector('textarea[name="styling_textarea"]').value;
+        
+            checkboxes.forEach(checkbox => {
+                const key = parseInt(checkbox.name, 10);
+                formData[key] = checkbox.checked;
+            });
+        
+            const data = {
+                items: formData,      
+                front: front_content,
+                back: back_content,
+                styling: styling_content,
+                notetype_id: {{notetype_id}},
+                template_id: {{template_id}}
+            };
+        
+            fetch('/EditNotetype', {
+                method: 'POST',
+                body: JSON.stringify(data),
+                headers: {
+                'Content-Type': 'application/json'
+                }
+            });
+            document.getElementById('confirmation').style.display = 'block';
+        });
+    </script>
+</body>
 
-<script>
-  function toggleIcon(e) {
-    $(e.target)
-        .prev('.panel-heading')
-        .find(".more-less")
-        .toggleClass('fa-plus fa-minus');
-  }
-  $('.panel-group').on('hidden.bs.collapse', toggleIcon);
-  $('.panel-group').on('shown.bs.collapse', toggleIcon);
-
-
-  const form = document.querySelector('form');
-
-  form.addEventListener('submit', event => {
-    event.preventDefault();
-
-    const formData = {};    
-    const checkboxes = document.querySelectorAll('input[type="checkbox"]');
-    const front_content = document.querySelector('textarea[name="front_textarea"]').value;
-    const back_content = document.querySelector('textarea[name="back_textarea"]').value;
-    const styling_content = document.querySelector('textarea[name="styling_textarea"]').value;
-
-    checkboxes.forEach(checkbox => {
-      const key = parseInt(checkbox.name, 10);
-      formData[key] = checkbox.checked;
-    });
-
-    const data = {
-      items: formData,      
-      front: front_content,
-      back: back_content,
-      styling: styling_content,
-      notetype_id: {{notetype_id}},
-      template_id: {{template_id}}
-    };
-
-    fetch('/EditNotetype', {
-      method: 'POST',
-      body: JSON.stringify(data),
-      headers: {
-        'Content-Type': 'application/json'
-      }
-    });  
-    document.getElementById('confirmation').style.display = 'block';
-  });
-  </script>
-{% include "layout_bottom.html" %}
+</html>

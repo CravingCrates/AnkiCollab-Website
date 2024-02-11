@@ -1,16 +1,23 @@
-{% include "layout_top.html" %}
+<!DOCTYPE html>
+<html lang="en">
 
-<div class="container">
-    <div class="row">
-    <div class="col-12">
-        <div class="card">
-            <div class="card-body text-center">
-                <h5 class="card-title m-b-0">
-                    Privacy Policy
-                </h5>
-            </div>
+<head>
+    {% include "header_template.html" %}
 
-<p style="text-align: left;">Please read this page in conjunction with our&nbsp;<a href="/terms">terms and conditions</a>.</p>
+</head>
+{% include "layout_header.html" %}
+            <!-- End Top layout-->
+           
+            <!-- row -->
+            <div class="container-fluid">
+                <div class="row">
+                    <div class="col-12">
+                        <div class="card">
+                            <div class="card-body">
+                                <h1 class="card-title text-center">
+                                    Privacy Policy
+                                </h1>
+                                <p style="text-align: left;">Please read this page in conjunction with our&nbsp;<a href="/terms">terms and conditions</a>.</p>
 <h2 style="text-align: left;">Email</h2>
 <ul style="text-align: left;">
 <li>A valid email address is required to sign up for an account.</li>
@@ -96,6 +103,11 @@ you don't already use one, we highly recommend a password manager like
 Bitwarden - they make life easier and keep you 
 more secure.</li>
 </ul>
+<h2 style="text-align: left;">Data Usage for Academic Research</h2>
+<ul style="text-align: left;">
+    <li>All data provided by users on AnkiCollab, including but not limited to review history, note data, and other behavior statistics, may be used for academic research.</li>
+    <li>This usage is permitted as long as the privacy of users is never breached. All data used for research will be anonymized to protect user privacy.</li>
+</ul>
 <h2 style="text-align: left;">Lawful Basis</h2>
 <p style="text-align: left;">Data processing laws require us to state the lawful basis we use for processing your data.</p>
 <ul style="text-align: left;">
@@ -122,8 +134,17 @@ described here.</p>
 <p style="text-align: left;">If you have any questions about this privacy policy, please email us at ankicollab@proton.me</p>
 <p style="text-align: left;"><em>Last updated 2023-01-07.</em></p>
 <p style="text-align: left;">&nbsp;</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
-    </div>
-    </div>
-</div> 
-{% include "layout_bottom.html" %}
+        <!--**********************************
+            Content body end
+        ***********************************-->
+        {% include "layout_footer.html" %}
+
+</body>
+
+</html>

@@ -1,3 +1,11 @@
+/*
+CREATE UNIQUE INDEX idx_fields_note_position_reviewed ON fields (note, position) WHERE reviewed=true;
+
+DELETE from fields WHERE content = '' and reviewed = true;
+
+VACUUM FULL;
+
+*/
 extern crate rocket;
 
 #[macro_use(lazy_static)]
@@ -40,7 +48,7 @@ use tokio_postgres::connect;
 
 lazy_static! {
     pub static ref TEMPLATES: Tera = {
-        let mut tera = match Tera::new("src/templates/**/*") {
+        let mut tera = match Tera::new("src/templates/**/*.html") {
             Ok(t) => t,
             Err(e) => {
                 println!("Parsing error(s): {}", e);
@@ -107,24 +115,21 @@ fn get_login() -> content::RawHtml<String> {
 
 #[post("/login", data = "<form>")]
 async fn post_login(auth: Auth<'_>, form: Form<Login>) -> Result<Redirect, Redirect> {
-    let result = auth.login(&form).await;
+    let t = std::time::Duration::from_secs(60 * 60 * 6); // Users are only logged in for 6h since we need cookie consent otherwise
+    let result = auth.login_for(&form, t).await;
     match result {
         Ok(_) => Ok(Redirect::to("/")),
+        Err(Error::TokioPostgresError(_e)) => Err(Redirect::to(uri!(error_page("Something went wrong. Just don't panic.")))),
         Err(e) => Err(Redirect::to(uri!(error_page(e.to_string())))),
     }
 }
 
 #[post("/signup", data = "<form>")]
 async fn post_signup(auth: Auth<'_>, form: Form<Signup>) -> Result<Redirect, Redirect> {
-    let result = auth.signup(&form).await;
+    let t = std::time::Duration::from_secs(60 * 60 * 6); // Users are only logged in for 6h since we need cookie consent otherwise
+    let result = auth.signup_for(&form, t).await;
     match result {
-        Ok(_) => {
-            let login_form: Login = form.into();
-            match auth.login(&login_form).await {
-                Ok(_) => Ok(Redirect::to("/")),
-                Err(e) => Err(Redirect::to(uri!(error_page(e.to_string())))),
-            }
-        }
+        Ok(_) => Ok(Redirect::to("/")),
         Err(Error::FormValidationErrors(source)) => {
             let mut error_message = String::new();
             for (field, errors) in source.field_errors() {
@@ -134,6 +139,9 @@ async fn post_signup(auth: Auth<'_>, form: Form<Signup>) -> Result<Redirect, Red
                 }
             }
             Err(Redirect::to(uri!(error_page(error_message))))
+        }
+        Err(Error::TokioPostgresError(_e)) => { // Likely to be a unique key constraint violation = email already in use
+            Err(Redirect::to(uri!(error_page("That email address already exists. Try signing in."))))
         }
         Err(e) => Err(Redirect::to(uri!(error_page(format!("{}", e))))),
     }
@@ -179,12 +187,9 @@ async fn privacy() -> Return<content::RawHtml<String>> {
 }
 
 #[get("/logout")]
-fn logout(auth: Auth<'_>) -> Return<content::RawHtml<String>> {
+fn logout(auth: Auth<'_>) -> Return<Redirect> {
     auth.logout()?;
-
-    let context = tera::Context::new();
-    let rendered_template = TEMPLATES.render("logout.html", &context)?;
-    Ok(content::RawHtml(rendered_template))
+    Ok(Redirect::to("/"))
 }
 
 async fn render_optional_tags(
@@ -209,7 +214,7 @@ async fn render_optional_tags(
     context.insert("user", &user);
 
     let rendered_template = TEMPLATES
-        .render("OptionalTags.html", &context)
+        .render("optional_tags.html", &context)
         .expect("Failed to render template");
     content::RawHtml(rendered_template)
 }
@@ -461,6 +466,10 @@ async fn delete_deck(user: User, deck_hash: String) -> Return<Redirect> {
         .query("Select delete_deck($1)", &[&deck_hash])
         .await?;
 
+    // This query is quite expensive, but it is only used when deleting a deck, so it should be fine. I use it to trigger a cleanup
+    client
+        .query("DELETE FROM notetype CASCADE WHERE id NOT IN (SELECT notetype FROM notes)", &[]).await?;
+
     Ok(Redirect::to("/"))
 }
 
@@ -536,13 +545,19 @@ async fn review_note(note_id: i64, user: Option<User>) -> Return<content::RawHtm
     let note = match note_manager::get_note_data(note_id).await {
         Ok(note) => note,
         Err(_error) => {
-            return error_page(error::Error::NoteNotFound(NoteNotFoundContext::InvalidData).to_string()).await;
+            return error_page(
+                error::Error::NoteNotFound(NoteNotFoundContext::InvalidData).to_string(),
+            )
+            .await;
         }
     };
 
     if note.id == 0 {
         // Invalid data // No note found!
-        return error_page(error::Error::NoteNotFound(NoteNotFoundContext::InvalidData).to_string()).await;
+        return error_page(
+            error::Error::NoteNotFound(NoteNotFoundContext::InvalidData).to_string(),
+        )
+        .await;
     }
 
     let mut access = false;
@@ -553,7 +568,10 @@ async fn review_note(note_id: i64, user: Option<User>) -> Return<content::RawHtm
             .query("Select deck from notes where id = $1", &[&note_id])
             .await?;
         if q_guid.is_empty() {
-            return error_page(error::Error::NoteNotFound(NoteNotFoundContext::InvalidData).to_string()).await;
+            return error_page(
+                error::Error::NoteNotFound(NoteNotFoundContext::InvalidData).to_string(),
+            )
+            .await;
         }
         let deck_id: i64 = q_guid[0].get(0);
 
@@ -1015,7 +1033,7 @@ async fn main() {
             env::var("ROCKET_SECRET_KEY")
                 .expect("Expected ROCKET_SECRET_KEY to exist in the environment"),
         ))
-        .merge(("limits", Limits::new().limit("json", 10.mebibytes())));
+        .merge(("limits", Limits::new().limit("json", 90.mebibytes())));
 
     if let Err(err) = rocket::custom(figment)
         .mount("/", FileServer::from("src/templates/static/"))

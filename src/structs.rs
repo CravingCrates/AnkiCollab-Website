@@ -8,6 +8,14 @@ pub type DeckId = i64;
 pub type NoteId = i64;
 pub type FieldId = i64;
 
+/// The `Login` form is used along with the [`Auth`] guard to authenticate users.
+#[derive(rocket::FromForm, Deserialize)]
+pub struct BetterLogin {
+    pub email: String,
+    pub password: String,
+    pub cookie: bool,
+}
+
 /* Notes */
 #[derive(Serialize)]
 pub struct Note {

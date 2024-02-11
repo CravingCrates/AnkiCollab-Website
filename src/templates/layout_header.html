@@ -1,0 +1,123 @@
+
+<body>
+
+    <!--*******************
+        Preloader start
+    ********************-->
+    <div id="preloader">
+        <div class="loader">
+            <svg class="circular" viewBox="25 25 50 50">
+                <circle class="path" cx="50" cy="50" r="20" fill="none" stroke-width="3" stroke-miterlimit="10" />
+            </svg>
+        </div>
+    </div>
+    <!--*******************
+        Preloader end
+    ********************-->
+
+    
+    <!--**********************************
+        Main wrapper start
+    ***********************************-->
+    <div id="main-wrapper">
+
+        <!--**********************************
+            Nav header start
+        ***********************************-->
+        <div class="nav-header">
+            <div class="brand-logo">
+                <a class="logo-text"href="/">
+                    <b class="logo-abbr">AC </b>
+                    <span class="logo-compact">AnkiCollab</span>
+                    <span class="brand-title">
+                        AnkiCollab
+                    </span>
+                </a>
+            </div>
+        </div>
+        <!--**********************************
+            Nav header end
+        ***********************************-->
+
+        <!--**********************************
+            Header start
+        ***********************************-->
+        <div class="header">    
+            <div class="header-content clearfix">
+                
+                <div class="nav-control">
+                    <div class="hamburger">
+                        <span class="toggle-icon"><i class="icon-menu"></i></span>
+                    </div>
+                </div>                
+                <div class="header-right">
+                    <div class="info">
+                        {% if not user %}
+                        <a href="/login"><i class="icon-login"></i> <span>Sign in</span></a>
+                        {% else %}
+                            <a href="/logout"><i class="icon-logout"></i> <span>Sign out</span></a>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+        <!--**********************************
+            Header end ti-comment-alt
+        ***********************************-->
+
+        <!--**********************************
+            Sidebar start
+        ***********************************-->
+        <div class="nk-sidebar">           
+            <div class="nk-nav-scroll">
+                <ul class="metismenu" id="menu">
+                    <li>
+                        <a href="/decks" aria-expanded="false">
+                            <i class="icon-grid menu-icon"></i><span class="nav-text">Explore Decks</span>
+                        </a>
+                    </li>
+                    {% if user %}
+                    <li class="nav-label">Member Area</li>
+                    <li>
+                        <a href="/reviews" aria-expanded="false">
+                            <i class="icon-speech menu-icon"></i><span class="nav-text">Review Changes</span>
+                        </a>                        
+                    </li>
+                    <li>
+                        <a href="/ManageDecks" aria-expanded="false">
+                            <i class="icon-screen-tablet menu-icon"></i><span class="nav-text">Manage Decks</span>
+                        </a>                        
+                    </li>
+                    {% endif %}
+                    <li class="nav-label">Helpful</li>
+                    <li>
+                        <a href="https://discord.gg/9x4DRxzqwM" aria-expanded="false">
+                            <i class="icon-magic-wand menu-icon"></i><span class="nav-text">Join Discord</span>
+                        </a>                        
+                    </li>
+                    <li>
+                        <a href="https://ankiweb.net/shared/info/1957538407" aria-expanded="false">
+                            <i class="icon-cloud-download menu-icon"></i><span class="nav-text">Download Add-on</span>
+                        </a>                        
+                    </li>
+                    <li>
+                        <a href="https://github.com/CravingCrates/AnkiCollab-Plugin/blob/main/README.md#ankicollab-plugin" aria-expanded="false">
+                            <i class="icon-book-open menu-icon"></i><span class="nav-text">Documentation</span>
+                        </a>                        
+                    </li>
+                    <li>
+                        <a href="/donate" aria-expanded="false">
+                            <i class="icon-cup menu-icon"></i><span class="nav-text">Support Us</span>
+                        </a>                        
+                    </li>
+                </ul>
+            </div>
+        </div>
+        <!--**********************************
+            Sidebar end
+        ***********************************-->
+
+        <!--**********************************
+            Content body start
+        ***********************************-->
+        <div class="content-body">

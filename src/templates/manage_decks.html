@@ -1,72 +1,106 @@
-{% include "layout_top.html" %}
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    {% include "header_template.html" %}
+    <link
+    href="/plugins/tables/css/datatable/dataTables.bootstrap4.min.css"
+    rel="stylesheet"
+  />
+  </head>
+  {% include "layout_header.html" %}
+        <!-- End Top layout-->
 
-<div class="container">
-  <div class="row">
-  <div class="col-12">
-      <div class="card">
-          <div class="card-body text-left">
-              <h3 class="card-title m-b-0">Manage your Decks</h3>
-          </div>
-          <link rel="stylesheet" href="https://cdn.datatables.net/1.10.2/css/jquery.dataTables.min.css">
-          <script type="text/javascript" src="https://cdn.datatables.net/1.10.2/js/jquery.dataTables.min.js"></script>
+        <!-- row -->
+        <div class="container-fluid mt-3">          
+          <div class="card">
+            <div class="card-body">
+              <div class="card-title">
+                <h4>Decks</h4>
+              </div>
               <div class="table-responsive">
-                  <table name="deckOverview" id="deckOverview" class="table table-striped">
-                      <thead class="thead-light">
-                          <tr>
-                              <th scope="col">Last Update</th>
-                              <th scope="col">Name</th>
-                              <th scope="col">Description</th>
-                              <th scope="col">Notes</th>
-                              <th scope="col">Subscribers</th>
-                          </tr>
-                      </thead>
-                      <tbody class="customtable">
-                        {% for deck in decks %}
-                          <tr>
-                              <td><a href="/EditDeck/{{deck.hash}}">{{ deck.last_update }}</a></td>
-                              <td><a href="/EditDeck/{{deck.hash}}">{{ deck.name }}</a></td>
-                              <td><a href="/EditDeck/{{deck.hash}}">{{ deck.desc | striptags | truncate(length=125) }}</a></td>
-                              <td><a href="/EditDeck/{{deck.hash}}">{{ deck.notes }}</a></td>
-                              <td><a href="/EditDeck/{{deck.hash}}">{{ deck.subscriptions }}</a></td>
-                          </tr> 
-                        {% endfor %}                         
-                      </tbody>
-                  </table>
-              </div>
-
-              <div class="card-body text-left" style="margin-top:50px">
-                <h3 class="card-title m-b-0">Manage your Notetypes</h3>
-              </div>
-              <div class="table-responsive" >
-                <table name="notetypeOverview" id="notetypeOverview" class="table table-striped">
-                    <thead class="thead-light">
-                        <tr>
-                            <th scope="col">Name</th>
-                            <th scope="col">Notes</th>
-                        </tr>
-                    </thead>
-                    <tbody class="customtable">
-                      {% for notetype in notetypes %}
-                        <tr>
-                            <td><a href="/EditNotetype/{{notetype.id}}">{{ notetype.name }}</a></td>
-                            <td><a href="/EditNotetype/{{notetype.id}}">{{ notetype.notecount }}</a></td>
-                        </tr> 
-                      {% endfor %}                         
-                    </tbody>
+                <table class="table">
+                  <thead>
+                    <tr>
+                      <th>Last Update</th>
+                      <th>Name</th>
+                      <th>Description</th>
+                      <th>Notes</th>
+                      <th>Subscribers</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {% for deck in decks %}
+                    <tr>
+                      <td>
+                        <a href="/EditDeck/{{deck.hash}}"
+                          >{{ deck.last_update }}</a
+                        >
+                      </td>
+                      <td>
+                        <a href="/EditDeck/{{deck.hash}}">{{ deck.name }}</a>
+                      </td>
+                      <td>
+                        <a href="/EditDeck/{{deck.hash}}"
+                          >{{ deck.desc | striptags | truncate(length=125) }}</a
+                        >
+                      </td>
+                      <td>
+                        <a href="/EditDeck/{{deck.hash}}">{{ deck.notes }}</a>
+                      </td>
+                      <td>
+                        <a href="/EditDeck/{{deck.hash}}"
+                          >{{ deck.subscriptions }}</a
+                        >
+                      </td>
+                    </tr>
+                    {% endfor %}
+                  </tbody>
                 </table>
+              </div>
             </div>
+          </div>
+          <div class="card">
+            <div class="card-body">
+              <div class="card-title">
+                <h4>Notetypes</h4>
+              </div>
+              <div class="table-responsive">
+                <table class="table zero-configuration">
+                  <thead>
+                    <tr>
+                      <th>Name</th>
+                      <th>Notes</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {% for notetype in notetypes %}
+                    <tr>
+                      <td>
+                        <a href="/EditNotetype/{{notetype.id}}"
+                          >{{ notetype.name }}</a
+                        >
+                      </td>
+                      <td>
+                        <a href="/EditNotetype/{{notetype.id}}"
+                          >{{ notetype.notecount }}</a
+                        >
+                      </td>
+                    </tr>
+                    {% endfor %}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+        <!-- end container flud -->
       </div>
-  </div>
-</div>
-</div> 
-<script>
-  $(document).ready(function() {
-    $('#deckOverview').DataTable({
-      order: [[0, 'desc']],
-    });
-    $('#notetypeOverview').DataTable({
-      order: [[1, 'desc']],
-    });
-  });
-</script>
-{% include "layout_bottom.html" %}
+      <!--**********************************
+            Content body end
+        ***********************************-->
+        {% include "layout_footer.html" %}
+        <script src="/plugins/tables/js/jquery.dataTables.min.js"></script>
+        <script src="/plugins/tables/js/datatable/dataTables.bootstrap4.min.js"></script>
+        <script src="/plugins/tables/js/datatable-init/datatable-basic.min.js"></script>
+  </body>
+</html>

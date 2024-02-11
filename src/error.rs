@@ -20,7 +20,7 @@ impl Reporter {
                 endpoint.as_str(),
                 sentry::ClientOptions {
                     release: sentry::release_name!(),
-                    traces_sample_rate: 1.0, // Performance monitoring, 0.0 to disable
+                    traces_sample_rate: 0.2, // Performance monitoring, 0.0 to disable
                     ..Default::default()
                 },
             )),

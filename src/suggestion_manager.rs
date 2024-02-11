@@ -122,28 +122,13 @@ pub async fn approve_card(note_id: i64, user: User, bulk: bool) -> Return<String
     // Check if the fields are valid
     let unique_fields_row = tx
         .query(
-            "
-        SELECT (
-            (
-              SELECT COUNT(*)
-              FROM notetype_field
-              WHERE notetype = (SELECT notetype FROM notes WHERE id = $1)
-            ) = (
-              SELECT COUNT(*)
-              FROM fields
-              WHERE note = $1
-            ) AND (
-              SELECT NOT EXISTS (
+            "SELECT NOT EXISTS (
                 SELECT 1
                 FROM fields
                 WHERE note = $1
                 GROUP BY position
                 HAVING COUNT(*) > 1
-              )
-            )
-          ) AS result;
-        ",
-            &[&note_id],
+            )",&[&note_id],
         )
         .await?;
     if unique_fields_row.is_empty() {
@@ -225,24 +210,41 @@ pub async fn approve_tag_change(tag_id: i64, update_timestamp: bool) -> Return<S
     let tx = client.transaction().await?;
 
     let rows = tx
-        .query("SELECT note FROM tags WHERE id = $1", &[&tag_id])
+        .query("SELECT note, content FROM tags WHERE id = $1", &[&tag_id])
         .await?;
-
+    
     if rows.is_empty() {
         return Err(NoteNotFound(NoteNotFoundContext::TagApprove));
     }
     let note_id: i64 = rows[0].get(0);
-
-    let update_query = "UPDATE tags SET reviewed = true WHERE id = $1 AND action = true";
+    let content: String = rows[0].get(1);
+    
+    // Only approve new tags if they don't already exist to prevent duplicates
+    let existing_tag_check = tx.query(
+        "SELECT 1 FROM tags WHERE content = $1 AND note = $2 AND reviewed = true",
+        &[&content, &note_id],
+    ).await?;
+    
+    if !existing_tag_check.is_empty() { // Tag already exists, delete the new one
+        tx.execute(
+            "DELETE FROM tags WHERE id = $1 AND action = true",
+            &[&tag_id],
+        ).await?;
+    } else { // Tag doesn't exist, approve it
+        tx.execute(
+            "UPDATE tags SET reviewed = true WHERE id = $1 AND action = true",
+            &[&tag_id],
+        ).await?;
+    }
+    
     let delete_query = "
     WITH hit AS (
         SELECT content, note 
         FROM tags WHERE id = $1 AND action = false
     )
     DELETE FROM tags WHERE note in (select note from hit) and content in (select content from hit)";
-
-    tx.query(update_query, &[&tag_id]).await?;
-    tx.query(delete_query, &[&tag_id]).await?;
+    
+    tx.execute(delete_query, &[&tag_id]).await?;
 
     if update_timestamp {
         update_note_timestamp(&tx, note_id).await?;
@@ -266,21 +268,31 @@ pub async fn approve_field_change(field_id: i64, update_timestamp: bool) -> Retu
 
     let note_id: i64 = rows[0].get(0);
 
-    let query1 = "
+    let del_cur_field_q = "
         DELETE FROM fields
         WHERE reviewed = true
         AND position = (SELECT position FROM fields WHERE id = $1)
         AND id <> $1
         AND note = $2
     ";
-    let query2 = "
+    let appr_new_field_q = "
         UPDATE fields
         SET reviewed = true
         WHERE id = $1
     ";
 
-    tx.query(query1, &[&field_id, &note_id]).await?;
-    tx.query(query2, &[&field_id]).await?;
+    let content = tx
+        .query("Select content from fields where id = $1", &[&field_id])
+        .await?
+        [0].get::<_, String>(0);
+
+    tx.execute(del_cur_field_q, &[&field_id, &note_id]).await?;
+
+    if !content.is_empty() {
+        tx.execute(appr_new_field_q, &[&field_id]).await?;
+    } else {
+        tx.execute("DELETE FROM fields WHERE id = $1",&[&field_id]).await?;
+    }
 
     if update_timestamp {
         update_note_timestamp(&tx, note_id).await?;

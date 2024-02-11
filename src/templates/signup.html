@@ -1,34 +1,78 @@
-{% include "layout_top.html" %}
-<div class="container">
-    <div class="row">
-    <div class="col-12">
-        <div class="card">
-            <div class="card-body text-center">
-                <h5 class="card-title m-b-0">Sign up today</h5>
-            </div>
-            <div class="container-fluid">
-                <form name="form1" action="/signup" method="post">
-                    <div class="mb-3 row">
-                        <label for="email" class="col-sm-2 col-form-label">Email</label>
-                        <div class="col-sm-10">
-                            <input type="email" class="form-control" name="email" required>
-                        </div>
-                    </div>
-                    <div class="mb-3 row">
-                        <label for="password" class="col-sm-2 col-form-label">Password </label>
-                        <div class="col-sm-10">
-                            <input type="password" class="form-control" name="password" required>			
-			    <p>Your password needs to be at least 8 characters and contain at least one lowercase letter, one uppercase letter and one numeric digit.</p>
-                        </div>
+<!DOCTYPE html>
+<html class="h-100" lang="en">
 
-                    </div>
-                    <button class="btn btn-light-blue" type="submit">Sign up</button>
-                    <p>By signing up you agree to our <a href="/terms">Terms of Service</a> and <a href="/privacy">Privacy Policy</a>.</p>
-                </form>
-            </div>
+<head>
+    {% include "header_template.html" %}
+    <link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.5.0/css/all.css" integrity="sha384-B4dIYHKNBt8Bc12p+WXckhzcICo0wtJAoU8YZTY5qE0Id1GSseTk6S+L3BlXeVIU" crossorigin="anonymous">
 
+</head>
+
+<body class="h-100">
+    
+    <!--*******************
+        Preloader start
+    ********************-->
+    <div id="preloader">
+        <div class="loader">
+            <svg class="circular" viewBox="25 25 50 50">
+                <circle class="path" cx="50" cy="50" r="20" fill="none" stroke-width="3" stroke-miterlimit="10" />
+            </svg>
         </div>
     </div>
+    <!--*******************
+        Preloader end
+    ********************-->
+
+    
+
+
+
+    <div class="login-form-bg h-100">
+        <div class="container h-100">
+            <div class="row justify-content-center h-100">
+                <div class="col-xl-6">
+                    <div class="form-input-content">
+                        <div class="card login-form mb-0">
+                            <div class="card-body pt-5 form-validation">
+                                <h4 class="text-center">Create account</h4>        
+                                <form class="mt-5 mb-5 login-input form-valide" action="/signup" method="post">
+                                    <div class="form-group">
+                                        <input type="email" class="form-control" placeholder="Email" name="email" id="email" required>
+                                    </div>
+                                    <div class="form-group">
+                                        <input type="password" class="form-control" placeholder="Password" name="password" id="password" required>
+                                    </div>
+                                    <div class="form-group">
+                                        <input type="checkbox" class="css-control-input" id="val-terms" name="val-terms" value="1"> <span class="css-control-indicator"></span> I agree to the <a href="/terms">Terms of Service</a> and <a href="/privacy">Privacy Policy</a>
+                                    </div>
+                                    <button class="btn login-form__btn submit w-100" type="submit">Sign up</button>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
-</div> 
-{% include "layout_bottom.html" %}
+    
+
+    
+
+    <!--**********************************
+        Scripts
+    ***********************************-->
+    <script src="/plugins/common/common.min.js"></script>
+    <script src="/js/custom.min.js"></script>
+    <script src="/js/settings.js"></script>
+    <script src="/js/gleek.js"></script>
+    <script src="/js/styleSwitcher.js"></script>
+
+    <script src="/plugins/validation/jquery.validate.min.js"></script>
+    <script src="/plugins/validation/jquery.validate-init.js"></script>
+</body>
+</html>
+
+
+
+
+

@@ -1,84 +1,183 @@
-{% include "layout_top.html" %}
-<div class="container">
-  <div class="row">
-    <div class="col-12">
-      <div class="card">
-        <div class="card-body text-center">
-          <h4 class="card-title m-b-0">Manage your Maintainers</h4>
-          <P>Here you can add or remove maintainers for your deck. Maintainers can approve or deny changes made to this deck.</p>
-        </div>
-        <div class="container-fluid neww">
-          <div style="margin-top: 20px; margin-bottom: 5rem">
-            <h5 class="card-title m-b-0">Add a new maintainer:</h5>
-            <input style="width:300px;padding-top: 0px;" type="email" id="email" name="email" placeholder="Email" required>
-            <button type="button" class="btn btn-approve" onclick="addMaintainer()" style="padding-top: 7px;">Add</button>
-            <br />
-            <span id="status"></span>
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    {% include "header_template.html" %}
+    <link href="/plugins/toastr/css/toastr.min.css" rel="stylesheet">
+  </head>
+  {% include "layout_header.html" %}
+        <!-- End Top layout-->
+
+        <!-- row -->
+        <div class="container-fluid mt-3">
+          <div class="card">
+            <div class="card-body">
+              <h1 class="card-title m-b-40">Manage your Maintainers</h1>
+              <p>
+                Here you can add or remove maintainers for your deck.
+                Maintainers can approve or deny changes made to this deck
+              </p>
+            </div>
           </div>
-          <link rel="stylesheet" href="https://cdn.datatables.net/1.10.2/css/jquery.dataTables.min.css">
-          <script type="text/javascript" src="https://cdn.datatables.net/1.10.2/js/jquery.dataTables.min.js"></script>
-              <div class="table-responsive">
-                  <table name="maintainer" id="maintainer" class="table table-striped">
-                      <thead class="thead-light">
-                          <tr>
-                              <th scope="col">Email</th>
-                              <th scope="col">Delete</th>
-                          </tr>
-                      </thead>
-                      <tbody class="customtable">
-                        {% for email in maintainers %}
-                          <tr>
-                              <td>{{ email }}</td>
-                              <td><a href="javascript:void(0);" onclick="removeMaintainer('{{email}}')"><i class="fa-solid fa-trash-can"></i></a></td>
-                          </tr> 
-                        {% endfor %}                         
-                      </tbody>
-                  </table>
+          <div class="card">
+            <div class="card-body">
+              <div class="todo-list">
+                <div class="tdl-holder">
+                  <div class="tdl-content2 tdl-content--no-label">
+                    <ul>
+                      {% for email in maintainers %}
+                      <li>
+                        <label
+                          ><span>{{ email }}</span
+                          ><a href="#" class="ti-close"></a>
+                        </label>
+                      </li>
+                      {% endfor %}
+                    </ul>
+                  </div>
+                  <input
+                    type="text"
+                    class="tdl-new2 form-control"
+                    placeholder="Enter new email and hit 'Enter'..."
+                    required
+                  />
+                </div>
               </div>
-          
+            </div>
+          </div>
         </div>
+        <!-- end container flud -->
       </div>
-    </div>
-  </div>
-</div>
+      <!--**********************************
+            Content body end
+        ***********************************-->
+        {% include "layout_footer.html" %}
+        <script src="/plugins/toastr/js/toastr.min.js"></script>
 
-<script>
-  $(document).ready(function() {
-    $('#maintainer').DataTable({});
-  });
-
-  function sendData(action, email) {
-    const data = {
-      deck: '{{hash}}',      
-      email: email,
-      action: action
-    };
-  
-    fetch('/Maintainers', {
-      method: 'POST',
-      body: JSON.stringify(data),
-      headers: {
-        'Content-Type': 'application/json'
+    <script>
+      function toast_error(msg) {
+        toastr.error(msg, "Oh no!", {
+          positionClass: "toast-top-right",
+          timeOut: 5e3,
+          closeButton: !0,
+          debug: !1,
+          newestOnTop: !0,
+          progressBar: !0,
+          preventDuplicates: !0,
+          onclick: null,
+          showDuration: "300",
+          hideDuration: "1000",
+          extendedTimeOut: "1000",
+          showEasing: "swing",
+          hideEasing: "linear",
+          showMethod: "fadeIn",
+          hideMethod: "fadeOut",
+          tapToDismiss: !1,
+        });
       }
-    })
-    .then(response => response.text())
-    .then(text => {
-      const statusElement = document.getElementById("status");
-      statusElement.innerText = text;
-      if (text === "added" || text === "removed") {
-        window.location.reload(); // reload to update the table
+    
+      function toast_success(msg) {
+        toastr.success(msg, "Success!", {
+          timeOut: 5e3,
+          closeButton: !0,
+          debug: !1,
+          newestOnTop: !0,
+          progressBar: !0,
+          positionClass: "toast-top-right",
+          preventDuplicates: !0,
+          onclick: null,
+          showDuration: "300",
+          hideDuration: "1000",
+          extendedTimeOut: "1000",
+          showEasing: "swing",
+          hideEasing: "linear",
+          showMethod: "fadeIn",
+          hideMethod: "fadeOut",
+          tapToDismiss: !1,
+        });
       }
-    })
-    .catch(error => console.error(error));  
-  }
 
-  function addMaintainer() {
-    const email = document.querySelector('input[name="email"]').value;
-    sendData(1, email);    
-  }
+      $(document).ready(function () {
+        function isValidEmail(email) {
+            var regex = /^[\w-]+(\.[\w-]+)*@([\w-]+\.)+[a-zA-Z]{2,7}$/;
+            return regex.test(email);
+        }
 
-  function removeMaintainer(email) {
-    sendData(0, email);
-  }
-</script>
-{% include "layout_bottom.html" %}
+        const ACTION_ADD = 1;
+        const ACTION_REMOVE = 0;
+
+        function sendData(action, email) {
+          const data = {
+              deck: "{{hash}}",
+              email: email,
+              action: action,
+          };
+
+          fetch("/Maintainers", {
+              method: "POST",
+              body: JSON.stringify(data),
+              headers: {
+              "Content-Type": "application/json",
+              },
+          })
+            .then((response) => response.text())
+            .then((text) => {
+              if (text === 'added') {
+                $('.tdl-content2 ul').append(
+                  `<li>
+                    <label>
+                      <span>${email}</span>
+                      <a href="#" class="ti-close"></a>
+                    </label>
+                  </li>`
+                );
+                toast_success('Maintainer added');
+              }
+              else if(text === 'removed') {
+                toast_success('Maintainer removed');
+              }
+              else {
+                toast_error('Invalid email');
+              }
+            })
+            .catch((error) => {
+              console.error(error);
+              toast_error('An error occurred. Please try again.');
+            });
+        }
+
+        function removeMaintainer(email) {
+          sendData(ACTION_REMOVE, email);
+        }
+
+        function addMaintainer(email) {
+          sendData(ACTION_ADD, email);
+        }
+
+        // addMaintainer
+        $('.tdl-new2').on('keypress', function (e) {
+            var code = (e.keyCode ? e.keyCode : e.which);
+            if (code == 13) { // Enter key
+              e.preventDefault();
+              var email = $(this).val();
+              if (isValidEmail(email)) {
+                addMaintainer(email);
+              } else {
+                toast_error('Invalid email');
+              }
+              $(this).val(''); // Clear the input field
+            }
+          });
+
+        $(document).on("click", ".ti-close", function () {
+          var email = $(this).siblings("span").text().trim();
+          removeMaintainer(email);
+          var _li = $(this).parent().parent("li");
+          _li.addClass("remove").stop().delay(100).slideUp("fast", function() {
+              _li.remove();
+          });
+          return false;
+        });
+      });
+    </script>
+  </body>
+</html>

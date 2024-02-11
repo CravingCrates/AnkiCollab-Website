@@ -1,18 +1,67 @@
-{% include "layout_top.html" %}
+<!DOCTYPE html>
+<html class="h-100" lang="en">
 
-<div class="container">
-    <div class="row">
-    <div class="col-12">
-        <div class="card">
-            <div class="card-body text-center">
-                <h5 class="card-title m-b-0">
-                    That’s an error.
-                </h5>
-            </div>
-            <p>{{message}}</p><br />
-            <ins style="color:#777; text-decoration: none">That's all we know.</ins>
+<head>
+    {% include "header_template.html" %}
+
+</head>
+
+<body class="h-100">
+    
+    <!--*******************
+        Preloader start
+    ********************-->
+    <div id="preloader">
+        <div class="loader">
+            <svg class="circular" viewBox="25 25 50 50">
+                <circle class="path" cx="50" cy="50" r="20" fill="none" stroke-width="3" stroke-miterlimit="10" />
+            </svg>
         </div>
     </div>
+    <!--*******************
+        Preloader end
+    ********************-->
+
+
+
+    <div class="login-form-bg h-100">
+        <div class="container h-100">
+            <div class="row justify-content-center h-100">
+                <div class="col-xl-6">
+                    <div class="error-content">
+                        <div class="card mb-0">
+                            <div class="card-body text-center pt-5">
+                                <h1 class="error-text text-primary">Oh no!</h1>
+                                <h4 class="mt-4"><i class="fa fa-thumbs-down text-danger"></i> That's an error.</h4>
+                                <p>{{message}}</p>
+                                <form class="mt-5 mb-5">
+                                    
+                                    <div class="text-center mb-4 mt-4"><a href="/" class="btn btn-primary">Go to Homepage</a>
+                                    </div>
+                                </form>
+                                <div class="text-center">
+                                    <p>That's all we know</p>                                    
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
-</div> 
-{% include "layout_bottom.html" %}
+
+    <!--**********************************
+        Scripts
+    ***********************************-->
+    <script src="/plugins/common/common.min.js"></script>
+    <script src="/js/custom.min.js"></script>
+    <script src="/js/settings.js"></script>
+    <script src="/js/gleek.js"></script>
+    <script src="/js/styleSwitcher.js"></script>
+</body>
+</html>
+
+
+
+
+

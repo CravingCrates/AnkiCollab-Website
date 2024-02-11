@@ -1,41 +1,47 @@
-{% include "layout_top.html" %}
+<!DOCTYPE html>
+<html lang="en">
 
-<div class="container">
-    <div class="row">
-        <div class="col-12" style="
-        height: calc(92vh - 80px);
-        overflow: auto;">
-            <div class="card" style="font-size:1.2rem">
-                <div class="card-body text-center">
-                    <h5 class="card-title m-b-0">
-                        {% if user %}
-                        Welcome back!
-                        {% endif %}
-                        {% if not user %}
-                        Hello, stranger.
-                        {% endif %}
-                    </h5>
+<head>
+    {% include "header_template.html" %}
+</head>
+{% include "layout_header.html" %}
+            <!-- End Top layout-->
+           
+            <!-- row -->
+            <div class="container-fluid">
+                <div class="row">
+                    <div class="col-12">
+                        <div class="card">
+                            <div class="card-body">
+                                <div class="text-center">
+                                    <h1 class="card-title">
+                                        {% if user %}
+                                        Welcome back!
+                                        {% endif %}
+                                        {% if not user %}
+                                        Hello, stranger.
+                                        {% endif %}
+                                    </h1>
+                                </div>            
+                                <br>
+                                <p>
+                                Welcome to AnkiCollab, the open-source platform that lets you collaborate with others to create and share Anki decks. If you're tired of making cards alone, AnkiCollab offers a platform to work together and create comprehensive study resources.
+                                </p>
+                                <br />
+                                <p style="margin-top: 2em;line-height: 1.4;"><i>
+                                    We believe that education should be accessible to everyone, regardless of their background or financial means. Our mission is to provide a collaborative and inclusive community that empowers students and lifelong learners to achieve their full potential. By working together, we can break down barriers and create a brighter future in medicine and beyond where knowledge is accessible to all.
+                                </i></p> 
+                            </div>
+                        </div>
+                    </div>
                 </div>
-
-                <br>
-                <p>
-                   Welcome to AnkiCollab, the open-source platform that lets you collaborate with others to create and share Anki decks. If you're tired of making cards alone, AnkiCollab offers a platform to work together and create comprehensive study resources.
-                </p>
-                <br />
-                <p style="margin-top: 2em;line-height: 1.4;"><i>
-                    We believe that education should be accessible to everyone, regardless of their background or financial means. Our mission is to provide a collaborative and inclusive community that empowers students and lifelong learners to achieve their full potential. By working together, we can break down barriers and create a brighter future in medicine and beyond where knowledge is accessible to all.
-                </i></p>            
             </div>
-        </div>   
-        <footer class="tm-copyright row" style="
-        height: 80px;
-        position: absolute;
-        bottom: 0;
-        width: 100%;
-        left: 60%">
-            <p><a href="/terms">Terms of Service</a> | <a href="/privacy">Privacy Policy</a></p>
-        </footer> 
-    </div>    
-</div> 
+        </div>
+        <!--**********************************
+            Content body end
+        ***********************************-->
+        {% include "layout_footer.html" %}
 
-{% include "layout_bottom.html" %}
+</body>
+
+</html>

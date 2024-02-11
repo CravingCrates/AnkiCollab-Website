@@ -1,135 +1,209 @@
-{% include "layout_top.html" %}
-<style>
-  *, *:before, *:after {
-    -webkit-box-sizing: border-box;
-    -moz-box-sizing: border-box;
-    box-sizing: border-box;
-    margin: 0;
-    padding: 0;
-  }
+<!DOCTYPE html>
+<html lang="en">
 
-  
-input:valid {
-  background-color: palegreen;
-}
-
-input:invalid {
-  background-color: lightpink;
-}
-
-</style>
-<div class="container">
-  <div class="row">
-    <div class="col-12">
-      <div class="card">
-        <div class="card-body text-center">
-          <h4 class="card-title m-b-0">Edit your deck</h5>
-          <p>Subscription Key: <span style="font-weight:bold; color: #006699;">{{ hash }}</span></p>
-          <P>Here you can manage your deck, set up media support (via Google Drive) and more. If you don't understand a specific section, please check the Guides or ask for assistance on discord.</p>
-        </div>
-        <div class="container-fluid neww">
-          <div class="row">
-            <div class="col-md" style="margin-top: 20px">
-              <h5 class="card-title m-b-0">Maintainers</h5>
-              <a href="/Maintainers/{{hash}}"><button class="btn btn-blue" type="button">Show all</button></a>
-            </div>
-            <div class="col-md" style="margin-top: 20px">
-              <h5 class="card-title m-b-0">Optional Tags</h5>
-              <a href="/OptionalTags/{{hash}}"><button class="btn btn-blue" type="button">Show all</button></a>
-            </div>
-            <div class="col-md" style="margin-top: 20px">
-              <h5 class="card-title m-b-0">Google Drive Media</h5>
-              <a href="/MediaManager/{{hash}}"><button class="btn btn-blue" type="button">Set up</button></a>
-            </div>
-          </div>
-          <form style="margin-top: 5em;">            
-            <div style="margin-top: 20px">
-              <h5 class="card-title m-b-0">Update the deck description</h5>
-              <textarea rows="5" cols="60" name="description">{{description}}</textarea>
-            </div>
-            <div style="margin-top: 20px">
-              <h5 class="card-title m-b-0">Make Deck private (unlisted)</h5>
-              <input type="checkbox" id="private" name="private" value="private" {% if private %} checked{% endif %}>
-              <label for="private">Private Deck</label>
-            </div>            
-            <div style="margin-top: 20px">
-              <h5 class="card-title m-b-0">Add a new changelog message:</h5>
-              <textarea rows="5" cols="60" name="changelog"></textarea>
-              <div class="panel-group" id="accordion2" style="margin-top:20px" role="tablist" aria-multiselectable="true">
-                {% if changelogs|length > 0 %}
-                  <h6 class="card-title m-b-0">Previous Changelogs:</h6>
-                {% endif %}
-                {% for changelog in changelogs %}
-                <div class="panel panel-default">
-                    <div class="panel-heading" role="tab" id="headingC{{changelog.id}}">
-                        <h4 class="panel-title">
-                            <a role="button" data-toggle="collapse" data-parent="#accordion2" href="#collapseC{{changelog.id}}" aria-expanded="true" aria-controls="collapseC{{changelog.id}}">
-                                <i class="more-less fa-solid fa-plus"></i>
-                                {{changelog.timestamp}}
+<head>
+    {% include "header_template.html" %}
+    <!-- Custom Stylesheet -->
+    <link href="/plugins/summernote/dist/summernote.css" rel="stylesheet">
+    <link href="/plugins/sweetalert/css/sweetalert.css" rel="stylesheet">
+   
+</head>
+{% include "layout_header.html" %}
+            <!-- End Top layout-->
+           
+            <!-- row -->
+            <div class="container-fluid mt-3">
+                <div class="row">
+                    <div class="col-lg-3 col-sm-6">
+                        <div class="card gradient-1">
+                            <a class="card-body" href="/Maintainers/{{hash}}" style="color: inherit;">
+                                <h3 class="card-title text-white">Maintainers</h3>
+                                <div class="d-inline-block">
+                                    <p class="text-white mb-0">Give others Maintainer privileges</p>
+                                </div>
+                                <span class="float-right display-5 opacity-5"><i class="fa fa-users"></i></span>
                             </a>
-                        </h4>
+                        </div>
                     </div>
-                    <div style="margin:10px" id="collapseC{{changelog.id}}" class="panel-collapse collapse" role="tabpanel" aria-labelledby="headingC{{changelog.id}}">
-                        <div class="panel-body">
-                          <a style="float:right; margin: 5px" href="/DeleteChangelog/{{changelog.id}}"><i class="fa-solid fa-trash-can"></i></a>
-                          {{changelog.message}}
+                    <div class="col-lg-3 col-sm-6">
+                        <div class="card gradient-2">
+                            <a class="card-body" href="/OptionalTags/{{hash}}" style="color: inherit;">
+                                <h3 class="card-title text-white">Optional Tags</h3>
+                                <div class="d-inline-block">
+                                    <p class="text-white mb-0">Manage your optional tags</p>
+                                </div>
+                                <span class="float-right display-5 opacity-5"><i class="fa fa-tag"></i></span>
+                            </a>
+                        </div>
+                    </div>                    
+                    <div class="col-lg-3 col-sm-6">
+                        <div class="card gradient-3">
+                            <a class="card-body" href="/MediaManager/{{hash}}" style="color: inherit;">
+                                <h3 class="card-title text-white">Google Drive Media</h3>
+                                <div class="d-inline-block">
+                                    <p class="text-white mb-0">Automate media support with Google Drive</p>
+                                </div>
+                                <span class="float-right display-5 opacity-5"><i class="fa fa-google"></i></span>
+                            </a>
+                        </div>
+                    </div>
+                    <div class="col-lg-3 col-sm-6">
+                        <div class="card gradient-4">
+                            <a class="card-body" href="/Statistics/{{hash}}" style="color: inherit;">
+                                <h3 class="card-title text-white">Statistics</h3>
+                                <div class="d-inline-block">
+                                    <p class="text-white mb-0">Explore Your Deck's Performance Metrics</p>
+                                </div>
+                                <span class="float-right display-5 opacity-5"><i class="fa fa-bar-chart"></i></span>
+                            </a>                            
                         </div>
                     </div>
                 </div>
-                {% endfor %}          
-              </div><!-- panel-group -->
-            </div>
-            <button class="btn btn-approve" type="submit" style="margin-top: 50px;">Save all changes!</button>
-            <p id="confirmation" style="color:green; display:none">Changes saved!</p>
-          </form>
-          <div style="border: 1px solid red; margin-top: 50px; padding: 10px"> 
-            <h5 style="color:red">Danger Zone</h5><br />
-            <button class="btn btn-deny" id="delete-btn" type="button">Delete this Deck.</button>
-            <p style="color:red">Deleting a deck will delete all the cards and subdecks in it. This action cannot be undone.</p>
-          </div>
+                <div class="card">
+                    <div class="card-body">
+                        <h1 class="card-title m-b-40">Edit your Deck Description:</h1>
+                        <p>You can select content and edit inline</p><hr>
+                        <div id="summernote" class="summernote"></div>
+                    </div>
+                </div>
+                <div class="card">
+                    <div class="card-body">
+                        <h4 class="card-title">Make Deck private (unlisted)</h4>
+                        <div class="basic-form">
+                            <div class="form-group">
+                                <div class="form-check mb-3">
+                                    <label class="form-check-label">
+                                        <input type="checkbox" class="form-check-input" id="private" name="private" value="private" {% if private %} checked{% endif %}>Private Deck</label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="card">
+                    <div class="card-body">
+                        <h4 class="card-title">Add a new changelog message</h4>
+                        <p>You cannot use text styling. Only plain text for now. Sorry!</p><br />
+                        <div id="changelogeditor" class="summernote"></div>
+                        {% if changelogs|length > 0 %}
+                        <h4 class="card-title mt-5">Previous Changelogs</h4>
+                        <p class="text-muted"><code></code>
+                        </p>
+                        <div id="accordion-three" class="accordion">                            
+                            {% for changelog in changelogs %}
+                            <div class="card">
+                                <div class="card-header">
+                                    <h5 class="mb-0" data-toggle="collapse" data-target="#collapseOne{{changelog.id}}" aria-expanded="true" aria-controls="collapseOne{{changelog.id}}"><i class="fa" aria-hidden="true"></i> {{changelog.timestamp}}</h5>
+                                </div>
+                                <div id="collapseOne{{changelog.id}}" class="collapse show" data-parent="#accordion-three">
+                                    <div class="card-body">
+                                        <a style="float:right; margin: 5px" href="/DeleteChangelog/{{changelog.id}}"><i class="fa fa-trash"></i></a>
+                                        {{changelog.message | linebreaksbr | safe }}
+                                    </div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="card">
+                    <div class="card-body">
+                        <div class="sweetalert m-t-30">
+                            <form>
+                                <button type="submit" class="btn mb-1 btn-success sweet-success">Save all Changes <span class="btn-icon-right"><i class="fa fa-check"></i></span>
+                                </button>
+                            </form>                            
+                        </div>
+                    </div>
+                </div>
+                <div class="card">
+                    <div class="card-body">
+                        <h4 class="card-title">Danger Zone</h4>
+                        <div class="card-content">
+                            <div class="sweetalert m-t-30">
+                                <button class="btn btn-danger btn sweet-success-cancel">Permanently delete this Deck</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div> <!-- end container flud -->
         </div>
-      </div>
-    </div>
-  </div>
-</div>
+        <!--**********************************
+            Content body end
+        ***********************************-->
+        {% include "layout_footer.html" %}
+    
+    <script src="/plugins/sweetalert/js/sweetalert.min.js"></script>
 
-<script>
-  
-  const form = document.querySelector('form');
+    <script src="/plugins/summernote/dist/summernote.min.js"></script>
+    <script src="/plugins/summernote/dist/summernote-init.js"></script>
+    <script>
+        {% if description %} 
+        $('#summernote').summernote('editor.pasteHTML', '{{description | spaceless | linebreaksbr | safe}}');
+        {% endif %}
+        $("#changelogeditor").summernote({
+            height: 150,
+            minHeight: null,
+            maxHeight: null,
+            focus: !1,
+          })
 
-  form.addEventListener('submit', event => {
-    event.preventDefault();
+        const form = document.querySelector('form');
 
-    const description = document.querySelector('textarea[name="description"]').value;
-    const isPrivate = document.querySelector('input[name="private"]').checked;
-    const changelog = document.querySelector('textarea[name="changelog"]').value;
+        form.addEventListener('submit', event => {
+            event.preventDefault();
 
-    const data = {
-      description: description,
-      hash: '{{hash}}',
-      is_private: isPrivate,
-      changelog: changelog
-    };
+            const description = $('#summernote').summernote('code').replace(/<p><br><\/p>/g, '').trim();
+            const isPrivate = document.querySelector('input[name="private"]').checked;
+            let changelog = $('#changelogeditor').summernote('code').trim();
+                changelog = changelog.replace(/<\/p>/g, '\n'); // Replace <br> with \r\n
+                changelog = changelog.replace(/<[^>]*>/g, ''); // Remove all other HTML tags
+            console.log(changelog);
+            console.log(description);
 
-    fetch('/EditDeck', {
-      method: 'POST',
-      body: JSON.stringify(data),
-      headers: {
-        'Content-Type': 'application/json'
-      }
-    });  
-    document.querySelector('textarea[name="changelog"]').value = ''; // Reset to empty string to prevent accidental double submits
-    document.getElementById('confirmation').style.display = 'block';
-  });
+            const data = {
+            description: description,
+            hash: '{{hash}}',
+            is_private: isPrivate,
+            changelog: changelog
+            };
 
-  const deleteButton = document.getElementById('delete-btn');
-  const deckName = '{{hash}}';
+            fetch('/EditDeck', {
+            method: 'POST',
+            body: JSON.stringify(data),
+            headers: {
+                'Content-Type': 'application/json'
+            }
+            });  
+            // Reset to empty string to prevent accidental double submits
+            $('#changelogeditor').summernote('reset');
+            swal("Success!", "All changes have been saved!", "success");
+        });
 
-  deleteButton.addEventListener('click', () => {
-    const confirmDelete = confirm(`Are you sure you want to delete this deck? This action cannot be undone.`);
-    if (confirmDelete) {
-      window.location.href = `/DeleteDeck/${deckName}`;
-    }
-  });
-  </script>
-{% include "layout_bottom.html" %}
+          (document.querySelector(".sweet-success-cancel").onclick = function () {
+            const deckName = '{{hash}}';
+            swal(
+              {
+                title: "Are you sure you want to delete this deck?",
+                text: "This action cannot be undone.",
+                type: "warning",
+                showCancelButton: !0,
+                confirmButtonColor: "#DD6B55",
+                confirmButtonText: "Yes, delete it",
+                cancelButtonText: "No, abort",
+                closeOnConfirm: !1,
+                closeOnCancel: !1,
+              },
+              function (e) {
+                if (e) {
+                    window.location.href = `/DeleteDeck/${deckName}`;
+                } else {
+                    swal("Cancelled", "This action has been cancelled.", "error");
+                }                
+              }
+            );
+          });
+    </script>
+</body>
+
+</html>

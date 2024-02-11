@@ -1,111 +1,189 @@
-{% include "layout_top.html" %}
-<style>
-  .highlighted-links a {
-    text-decoration: underline;
-    margin-top: 2rem;
-  }
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    {% include "header_template.html" %}
+    <!-- Custom Stylesheet -->
+    <link
+      href="/plugins/tables/css/datatable/dataTables.bootstrap4.min.css"
+      rel="stylesheet"
+    />
+    
+    <style>
+      .underline-links a {
+          text-decoration: underline;
+      }
+      
+      .custom-scrollbar {
+          max-height: 300px;
+          overflow-y: auto;
+      }
+      
+      /* This will change the scrollbar for Chrome, Safari and Opera */
+      .custom-scrollbar::-webkit-scrollbar {
+          width: 10px;
+      }
+      
+      .custom-scrollbar::-webkit-scrollbar-track {
+          background: #f1f1f1; 
+      }
+      
+      .custom-scrollbar::-webkit-scrollbar-thumb {
+          background: #888; 
+      }
+      
+      .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+          background: #555; 
+      }
+      
+      /* This will change the scrollbar for Firefox */
+      .custom-scrollbar {
+          scrollbar-width: thin;
+          scrollbar-color: #888 #f1f1f1;
+      }
+    </style>
+  </head>
+  {% include "layout_header.html" %}
+        <!-- End Top layout-->
 
-  #copylink {
-    padding: 0 1rem; 
-    background: linear-gradient(rgba(0,0,0,0) 0%,rgba(0,0,0,0.1) 100%),gray; 
-    display: inline-block; 
-    background-color: #006699;     
-    color: #FFF;
-    text-decoration: none;
-  }
-  
-  .sketchy {
-    margin-bottom:5rem;
-    border: solid gray 1px;
-    padding: 25px;
-    border-radius: 9px;
-    border-style: outset;
-  }
-</style>
-
-<div class="container">
-  <div class="row">
-  <div class="col-12">
-      <div class="card">
-          <div class="card-body text-center">
-              <h5 class="card-title m-b-0">Notes in <i>{{ deck.name }}</i></h5>
-              <p>To Subscribe to this deck, use Key: <span id="subkey" style="font-weight:bold; color: #006699;">{{ deck.hash }}</span> &nbsp;&nbsp;&nbsp;<a href="https://github.com/CravingCrates/AnkiCollab-Plugin/blob/main/getting_started_subscriber.md#adding-the-key-to-anki" target="_blank">(?)</a></p>
-              <p><a id="copylink" href="#" onclick="CopyToClipboard('subkey');return false;">Copy Key to Clipboard</a></p>
+        <!-- row -->
+        <div class="container-fluid">
+          <div class="row">
+            <div class="col-12">
+              <div class="card">
+                <div class="card-body">
+                  <div class="text-center">
+                    <h1 class="card-title m-b-40">
+                      Notes in <i>{{ deck.name }}</i>
+                    </h1>
+                    <p>To Subscribe, use this Key</p>
+                    <button
+                      onclick="CopyToClipboard(this)"
+                      type="button"
+                      class="btn btn-primary"
+                      data-toggle="tooltip"
+                      data-placement="bottom"
+                      title="Copy to clipboard"
+                    >
+                      {{ deck.hash }}
+                    </button>
+                    <a
+                      href="https://github.com/CravingCrates/AnkiCollab-Plugin/blob/main/getting_started_subscriber.md#adding-the-key-to-anki"
+                      target="_blank"
+                    >
+                      <i class="fa fa-question-circle" aria-hidden="true"></i>
+                    </a>
+                  </div>
+                  <hr />
+                  <div class="underline-links custom-scrollbar">{{ deck.desc | safe }}</div>
+                </div>
+              </div>
+            </div>
           </div>
-          <link rel="stylesheet" href="https://cdn.datatables.net/1.10.2/css/jquery.dataTables.min.css">
-          <div class="highlighted-links sketchy">{{ deck.desc | safe }}</div>
-          <script type="text/javascript" src="https://cdn.datatables.net/1.10.2/js/jquery.dataTables.min.js"></script>
-	{% if deck.children |length > 0 %}
- 	  <br /><h5>Subdecks:</h5>
-		<div class="table-responsive container" style="margin-top:20px">
-                <table id="burr" class="table table-striped">
-                  <thead>
-                    <tr>
-                      <th class="col-md-5 col-xs-5">Name</th>
-                    </tr>
-                    <tr class="warning no-result">
-                      <td colspan="4"><i class="fa fa-warning"></i>No Subdecks found</td>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {% for child in deck.children | sort(attribute="name") %}
-                    <tr>
-                      <td><a href="/notes/{{ child.human_hash }}">{{ child.name }}</a></td>
-                    </tr> 
-                    {% endfor %}      
-                  </tbody>
-                </table>
+          {% if deck.children |length > 0 %}
+          <div class="row">
+            <div class="col-12">
+              <div class="card">
+                <div class="card-body">
+                  <h1 class="card-title m-b-40">Subdecks</h1>
+                  <div class="table-responsive">
+                    <table class="table table-striped">
+                      <thead>
+                        <tr>
+                          <th>Name</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {% for child in deck.children | sort(attribute="name")
+                        %}
+                        <tr>
+                          <td>
+                            <a href="/notes/{{ child.human_hash }}"
+                              >{{ child.name }}</a
+                            >
+                          </td>
+                        </tr>
+                        {% endfor %}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
               </div>
-	{% endif %}
-              <div class="table-responsive container">
-                <table id="notes" class="table table-striped table-bordered">
-                  <thead>
-                    <tr>
-                      <th class="col-md-5 col-xs-5">Status</th>
-                      <th class="col-md-5 col-xs-5">Last Update</th>
-                      <th class="col-md-4 col-xs-4">Fields</th>
-                    </tr>
-                    <tr class="warning no-result">
-                      <td colspan="4"><i class="fa fa-warning"></i>No Notes found</td>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {% for note in notes %}
-                    <tr>
-                      <td>
-                        <a href="/review/{{ note.id }}">
-                          {% if note.status == 0 %}New Card
-                          {% elif note.status == 1%}Removal Requested
-                          {% else %}Published{% endif %}
-                        </a></td>
-                        <td><a href="/review/{{ note.id }}">{{ note.last_update }}</a></td>
-                        <td><a href="/review/{{ note.id }}">{{ note.fields | striptags | truncate(length=150) }}</a></td>
-
-                    </tr> 
-                    {% endfor %}      
-                  </tbody>
-                </table>
+            </div>
+          </div>
+          {% endif %}
+          {% if notes |length > 0 %}
+          <div class="row">
+            <div class="col-12">
+              <div class="card">
+                <div class="card-body">
+                  <div class="table-responsive">
+                    <table
+                      class="table table-striped table-bordered zero-configuration"
+                    >
+                      <thead>
+                        <tr>
+                          <th>Status</th>
+                          <th>Last Update</th>
+                          <th>Fields</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {% for note in notes %}
+                        <tr>
+                          <td>
+                            <a href="/review/{{ note.id }}">
+                              {% if note.status == 0 %}New Card {% elif
+                              note.status == 1%}Removal Requested {% else
+                              %}Published{% endif %}
+                            </a>
+                          </td>
+                          <td>
+                            <a href="/review/{{ note.id }}"
+                              >{{ note.last_update }}</a
+                            >
+                          </td>
+                          <td>
+                            <a href="/review/{{ note.id }}"
+                              >{{ note.fields | striptags | truncate(length=150)
+                              }}</a
+                            >
+                          </td>
+                        </tr>
+                        {% endfor %}
+                      </tbody>
+                      <tfoot>
+                        <tr>
+                          <th>Status</th>
+                          <th>Last Update</th>
+                          <th>Fields</th>
+                        </tr>
+                      </tfoot>
+                    </table>
+                  </div>
+                </div>
               </div>
+            </div>
+          </div>
+          {% endif %}
+        </div>
       </div>
-  </div>
-</div>
-</div> 
-<script>
-  $(document).ready(function() {
-    $('#notes').DataTable();
-} );
-</script>
+      <!--**********************************
+            Content body end
+        ***********************************-->
+        {% include "layout_footer.html" %}
 
-<script>
-  function CopyToClipboard(id)
-  {
-  var r = document.createRange();
-  r.selectNode(document.getElementById(id));
-  window.getSelection().removeAllRanges();
-  window.getSelection().addRange(r);
-  document.execCommand('copy');
-  window.getSelection().removeAllRanges();
-  }
-  </script>
-
-{% include "layout_bottom.html" %}
+    <script src="/plugins/tables/js/jquery.dataTables.min.js"></script>
+    <script src="/plugins/tables/js/datatable/dataTables.bootstrap4.min.js"></script>
+    <script src="/plugins/tables/js/datatable-init/datatable-basic.min.js"></script>
+    <script>
+        function CopyToClipboard(button) {
+            var text = button.innerText;
+            navigator.clipboard.writeText(text).then(function() {
+                console.log('Copying to clipboard was successful!');
+            }, function(err) {
+                console.error('Could not copy text: ', err);
+            });
+        }
+    </script>
+  </body>
+</html>

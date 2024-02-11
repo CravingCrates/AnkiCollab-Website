@@ -1,72 +1,156 @@
-{% include "layout_top.html" %}
-<style>
-  input[type="file"] {
-    display: none;
-  }
-  label {
-    display: block;
-    position: relative;
-    background-color: #025bee;
-    color: #ffffff;
-    font-size: 1.1em;
-    text-align: center;
-    width: 16em;
-    padding: 1em 0;
-    border-radius: 0.3em;
-    margin: 0 auto 1em auto;
-    cursor: pointer;
-  }
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    {% include "header_template.html" %}
+    <link href="/plugins/toastr/css/toastr.min.css" rel="stylesheet">
+  </head>
+  {% include "layout_header.html" %}
+        <!-- End Top layout-->
 
-  #status, #status2 {
-    color: #025bee;
-    font-size: 1.1em;
-    text-align: center;
-    padding: 1em 0;
-    border-radius: 0.3em;
-    margin: 0 auto 1em auto;
-  }
-
-  .active {
-    border: 0.2em dashed #025bee;
-  }  
-</style>
-<div class="container">
-  <div class="row">
-    <div class="col-12">
-      <div class="card">
-        <div class="card-body text-center">
-          <h4 class="card-title m-b-0">Media Manager</h4>
-          <P>Here you can setup your google drive folder to automate and fully support media in your deck.</p>
+        <!-- row -->
+        <div class="container-fluid mt-3">
+          <div class="card">
+            <div class="card-body">
+              <h1 class="card-title m-b-40">Manage your Google Drive Setup</h1>
+              <p>
+                Here you can setup your google drive folder to automate and
+                fully support media in your deck
+              </p>
+              <p>
+                If you don't understand how this page works, please check out
+                our
+                <a
+                  href="https://github.com/CravingCrates/AnkiCollab-Plugin/blob/main/google_drive_guide.md#how-to-set-up-google-drive-with-ankicollab"
+                  >Media Guide</a
+                >
+                first.
+              </p>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-body">
+              <h4 class="card-title">
+                Step 1: <i class="fa fa-upload color-success"></i> Upload your service account file
+              </h4>
+              <div class="basic-form">
+                <div class="form-group" id="upload-field">
+                  <input
+                    type="file"
+                    class="form-control-file"
+                    id="upload-button"
+                    accept=".json"
+                  />
+                </div>
+              </div>
+              <h4 class="card-title">Step 2: Enter your folder ID</h4>
+              <div class="basic-form">
+                <div class="form-group">
+                  <input
+                    type="text"
+                    class="form-control input-rounded"
+                    placeholder="Folder ID"
+                    id="folder_id"
+                    name="folder_id"
+                    required
+                  />
+                </div>
+              </div>
+              <div class="button-icon">
+                <button
+                  type="button"
+                  class="btn mb-1 btn-success"
+                  onclick="UpdateMedia()"
+                >
+                  Save
+                  <span class="btn-icon-right"
+                    ><i class="fa fa-check"></i
+                  ></span>
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
-        <div class="container-fluid">
-          <div id="upload-field" style="padding: 15px; margin:15px">
-            <input type="file" id="upload-button" accept=".json" />
-            <label for="upload-button"><i class="fa-solid fa-upload"></i>&nbsp; Choose Or Drop Your Service Account File
-            </label>
-          </div>                    
-          <input style="width:50%; margin-left:25%" type="text" id="folder_id" name="folder_id" placeholder="Folder ID" required><br />
-          <button type="button" class="btn btn-approve" onclick="UpdateMedia()" style="width: 100px; margin-top: 25px;">Save</button>
-          <br />
-          <div id="status"></div>
-          <div id="status2"></div>
-        </div>
+        <!-- end container flud -->
       </div>
-    </div>
-  </div>
-</div>
+      <!--**********************************
+            Content body end
+        ***********************************-->
+        {% include "layout_footer.html" %}
 
+        <script src="/plugins/toastr/js/toastr.min.js"></script>
+    
 <script>
   let uploadButton = document.getElementById("upload-button");
   let container = document.getElementById("upload-field");
-  let status = document.getElementById("status");
-  let status2 = document.getElementById("status2");
-
   let service_account = null;
+
+  function toast_error(msg) {
+    toastr.error(msg, "Oh no!", {
+      positionClass: "toast-top-right",
+      timeOut: 5e3,
+      closeButton: !0,
+      debug: !1,
+      newestOnTop: !0,
+      progressBar: !0,
+      preventDuplicates: !0,
+      onclick: null,
+      showDuration: "300",
+      hideDuration: "1000",
+      extendedTimeOut: "1000",
+      showEasing: "swing",
+      hideEasing: "linear",
+      showMethod: "fadeIn",
+      hideMethod: "fadeOut",
+      tapToDismiss: !1,
+    });
+  }
+
+  function toast_success(msg) {
+    toastr.success(msg, "Yayy!", {
+      timeOut: 5e3,
+      closeButton: !0,
+      debug: !1,
+      newestOnTop: !0,
+      progressBar: !0,
+      positionClass: "toast-top-right",
+      preventDuplicates: !0,
+      onclick: null,
+      showDuration: "300",
+      hideDuration: "1000",
+      extendedTimeOut: "1000",
+      showEasing: "swing",
+      hideEasing: "linear",
+      showMethod: "fadeIn",
+      hideMethod: "fadeOut",
+      tapToDismiss: !1,
+    });
+  }
+
+  function toast_info(msg) {
+    toastr.info(msg, "Info:", {
+      positionClass: "toast-top-right",
+      timeOut: 5e3,
+      closeButton: !0,
+      debug: !1,
+      newestOnTop: !0,
+      progressBar: !0,
+      preventDuplicates: !0,
+      onclick: null,
+      showDuration: "300",
+      hideDuration: "1000",
+      extendedTimeOut: "1000",
+      showEasing: "swing",
+      hideEasing: "linear",
+      showMethod: "fadeIn",
+      hideMethod: "fadeOut",
+      tapToDismiss: !1,
+    });
+  }
 
   const fileHandler = (file, name, type) => {
     if (type !== "application/json") {
       //File Type Error
-      status.innerText = "Please upload a JSON file";
+      toast_error("Please upload a JSON file");
       return false;
     }
     status.innerText = "";
@@ -75,7 +159,7 @@
     reader.onloadend = () => {
       //JSON and file name
       service_account = JSON.parse(reader.result);
-      status.innerText = "Service Account loaded successfully";
+      toast_info("Service Account loaded");
     };
   };
   
@@ -133,17 +217,13 @@
     false
   );
 
-  window.onload = () => {
-    status.innerText = "";
-  };
-
   function sendData(service_account, folder_id) {
     if (service_account == null) {
-      status2.innerText = "Please upload a service account file";
+      toast_error("Please upload a service account file");
       return false;
     }
     if (folder_id == null || folder_id == "") {
-      status2.innerText = "Please enter a folder id";
+      toast_error("Please enter a folder id");
       return false;
     }
     const data = {
@@ -161,7 +241,7 @@
     })
     .then(response => response.text())
     .then(text => {
-      status2.innerText = text;
+      toast_success(text);
     })
     .catch(error => console.error(error));  
   }
@@ -172,4 +252,5 @@
   }
 
 </script>
-{% include "layout_bottom.html" %}
+  </body>
+</html>

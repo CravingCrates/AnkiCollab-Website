@@ -1,48 +1,92 @@
-{% include "layout_top.html" %}
+<!DOCTYPE html>
+<html lang="en">
 
-<div class="container">
-  <div class="row">
-  <div class="col-12">
-      <div class="card">
-          <div class="card-body text-center">
-              <h5 class="card-title m-b-0">All Decks</h5>
-          </div>
-          <link rel="stylesheet" href="https://cdn.datatables.net/1.10.2/css/jquery.dataTables.min.css">
-          <script type="text/javascript" src="https://cdn.datatables.net/1.10.2/js/jquery.dataTables.min.js"></script>
-              <div class="table-responsive">
-                  <table name="deckOverview" id="deckOverview" class="table table-striped">
-                      <thead class="thead-light">
-                          <tr>
-                              <th scope="col">Last Update</th>
-                              <th scope="col">Name</th>
-                              <th scope="col">Description</th>
-                              <th scope="col">Notes</th>
-                              <th scope="col">Subscribers</th>
-                          </tr>
-                      </thead>
-                      <tbody class="customtable">
-                        {% for deck in decks %}
-                          <tr>
-                              <td><a href="/notes/{{deck.hash}}">{{ deck.last_update }}</a></td>
-                              <td><a href="/notes/{{deck.hash}}">{{ deck.name }}</a></td>
-                              <td><a href="/notes/{{deck.hash}}">{{ deck.desc | replace(from="&nbsp;", to=" ") | striptags | truncate(length=125) }}</a></td>
-                              <td><a href="/notes/{{deck.hash}}">{{ deck.notes }}</a></td>
-                              <td><a href="/notes/{{deck.hash}}">{{ deck.subscriptions }}</a></td>
-                          </tr> 
-                        {% endfor %}                         
-                      </tbody>
-                  </table>
-              </div>
-      </div>
-  </div>
-</div>
-</div> 
-<script>
-  $(document).ready(function() {
-    $('#deckOverview').DataTable({
-      order: [[4, 'desc']],
-      "pageLength": 25
-  });
-} );
-</script>
-{% include "layout_bottom.html" %}
+<head>
+    {% include "header_template.html" %}
+    <!-- Custom Stylesheet -->
+    <link href="/plugins/tables/css/datatable/dataTables.bootstrap4.min.css" rel="stylesheet">
+   
+</head>
+{% include "layout_header.html" %}
+            <!-- End Top layout-->
+           
+            <!-- row -->
+            <div class="container-fluid">
+                <div class="row">
+                    <div class="col-12">
+                        <div class="card">
+                            <div class="card-body">
+                                <h4 class="card-title">Explore All Decks</h4>
+                                <div class="table-responsive">
+                                    <table id="deckOverview" class="table table-striped zero-configuration">
+                                        <thead>
+                                            <tr>
+                                                <th>Last Update</th>
+                                                <th>Name</th>
+                                                <th>Description</th>
+                                                <th>Notes</th>
+                                                <th>Subscribers</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {% for deck in decks %}
+                                                <tr>
+                                                    <td><a href="/notes/{{deck.hash}}">{{ deck.last_update }}</a></td>
+                                                    <td><a href="/notes/{{deck.hash}}">{{ deck.name }}</a></td>
+                                                    <td><a href="/notes/{{deck.hash}}">{{ deck.desc | replace(from="&nbsp;", to=" ") | striptags | truncate(length=125) }}</a></td>
+                                                    <td><a href="/notes/{{deck.hash}}">{{ deck.notes }}</a></td>
+                                                    <td><a href="/notes/{{deck.hash}}">{{ deck.subscriptions }}</a></td>
+                                                </tr> 
+                                            {% endfor %}
+                                        </tbody>
+                                        <tfoot>
+                                            <tr>
+                                                <th>Last Update</th>
+                                                <th>Name</th>
+                                                <th>Description</th>
+                                                <th>Notes</th>
+                                                <th>Subscribers</th>
+                                            </tr>
+                                        </tfoot>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <!--**********************************
+            Content body end
+        ***********************************-->
+        {% include "layout_footer.html" %}
+        <script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
+        <script src="https://cdn.datatables.net/1.10.25/js/jquery.dataTables.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.18.1/moment.min.js"></script>
+        <script src="https://cdn.datatables.net/plug-ins/1.10.15/sorting/datetime-moment.js"></script>
+        <script>
+            $(document).ready(function() {
+            $('#deckOverview').DataTable({
+                order: [[4, 'desc']],
+                "pageLength": 25,
+                "columnDefs": [
+                    {
+                        "targets": 0,
+                        "render": function ( data, type, row ) {
+                            if (type === 'sort' || type === 'type') {
+                                return moment(data, 'MM/DD/YYYY').format('YYYYMMDD');
+                            }
+                            return data;
+                        }
+                    }
+                ]
+            });
+            });
+        </script>
+        <script src="/plugins/tables/js/datatable/dataTables.bootstrap4.min.js"></script>
+        <script src="/plugins/tables/js/datatable-init/datatable-basic.min.js"></script>
+
+
+</body>
+
+</html>
