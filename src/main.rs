@@ -25,6 +25,7 @@ pub mod notetype_manager;
 pub mod optional_tags_manager;
 pub mod structs;
 pub mod suggestion_manager;
+pub mod stats_manager;
 
 use database::owned_deck_id;
 use error::NoteNotFoundContext;
@@ -38,6 +39,7 @@ use rocket::{form::*, get, post, response::Redirect};
 
 use rocket_auth::{Auth, Error, Login, Signup, User, Users};
 
+use stats_manager::update_stats;
 use structs::*;
 use tera::Tera;
 
@@ -780,6 +782,95 @@ async fn deny_note_removal(note_id: i64, user: User) -> Result<Redirect, Error> 
     }
 }
 
+#[get("/UpdateStatsPages/<secret>")]
+async fn refresh_stats_cache(secret: String) -> Result<Redirect, Error> {
+    if secret != "RETRACTED" {
+        return Ok(Redirect::to("/"));
+    }
+    stats_manager::update_stats().await.unwrap();
+    Ok(Redirect::to("/"))
+}
+
+#[get("/ToggleStats/<deck_hash>")]
+async fn toggle_stats(deck_hash: String, user: User) -> Return<Redirect> {
+    let client = database::client().await?;
+    let owned_info = client
+        .query(
+            "Select owner from decks where human_hash = $1",
+            &[&deck_hash],
+        )
+        .await
+        .expect("Error preparing edit deck statement");
+    if owned_info.is_empty() {
+        return Ok(Redirect::to("/"));
+    }
+    let owner: i32 = owned_info[0].get(0);
+
+    if owner != user.id() {
+        return Ok(Redirect::to("/"));
+    }
+
+    let deck_id = owned_deck_id(&deck_hash, user.id()).await?;
+
+    stats_manager::toggle_stats(deck_id).await.unwrap();
+
+    Ok(Redirect::to("/ManageDecks"))
+} 
+
+#[get("/Statistics/<deck_hash>")]
+async fn show_statistics(user: Option<User>, deck_hash: String) -> Return<content::RawHtml<String>> {
+    let user = check_login(user)?;
+    let client = database::client().await?;
+    let owned_info = client
+        .query(
+            "Select owner from decks where human_hash = $1",
+            &[&deck_hash],
+        )
+        .await
+        .expect("Error preparing edit deck statement");
+    if owned_info.is_empty() {
+        return Ok(content::RawHtml("Deck not found.".to_string()));
+    }
+    let owner: i32 = owned_info[0].get(0);
+
+    let mut context = tera::Context::new();
+
+    if owner != user.id() {
+        return error_page(error::Error::Unauthorized.to_string()).await;
+    }
+
+    let deck_base_info = match stats_manager::get_base_deck_info(&deck_hash).await {
+        Ok(deck_base_info) => deck_base_info,
+        Err(error) => return Ok(content::RawHtml(format!("Error: {}", error))),
+    };
+
+    if deck_base_info.note_count == 0 {
+        let rendered_template = TEMPLATES
+        .render("empty_stats.html", &context)
+        .expect("Failed to render template");
+        return Ok(content::RawHtml(rendered_template));
+    }
+    
+    let deck_info = match stats_manager::get_deck_stat_info(&deck_hash).await {
+        Ok(deck_info) => deck_info,
+        Err(error) => return Ok(content::RawHtml(format!("Error: {}", error))),
+    };
+    
+    let notes_info = match stats_manager::get_worst_notes_info(&deck_hash).await {
+        Ok(notes_info) => notes_info,
+        Err(error) => return Ok(content::RawHtml(format!("Error: {}", error))),
+    };
+
+    context.insert("decks", &deck_info);
+    context.insert("notes", &notes_info);
+    context.insert("base", &deck_base_info);
+
+    let rendered_template = TEMPLATES
+        .render("statistics.html", &context)
+        .expect("Failed to render template");
+    Ok(content::RawHtml(rendered_template))
+}
+
 #[get("/notes/<deck_hash>")]
 async fn get_notes_from_deck(
     deck_hash: String,
@@ -827,6 +918,7 @@ async fn get_notes_from_deck(
         notes: 0,
         children: childr,
         subscriptions: 0,
+        stats_enabled: false, // We don't care about this here
     };
 
     context.insert("notes", &notes);
@@ -905,6 +997,7 @@ async fn deck_overview(user: Option<User>) -> Return<content::RawHtml<String>> {
                 .unwrap(),
             children: vec![],
             subscriptions: row.get(6),
+            stats_enabled: false, // We don't care about this here
         });
     }
 
@@ -945,7 +1038,8 @@ async fn manage_decks(user: Option<User>) -> Return<content::RawHtml<String>> {
             human_hash, 
             owner, 
             TO_CHAR(last_update, 'MM/DD/YYYY') AS last_update,
-            (SELECT COUNT(*) FROM subscriptions WHERE deck_id = decks.id) AS subs
+            (SELECT COUNT(*) FROM subscriptions WHERE deck_id = decks.id) AS subs,
+            stats_enabled
         FROM decks 
         WHERE parent IS NULL and owner = $1
     ",
@@ -973,6 +1067,7 @@ async fn manage_decks(user: Option<User>) -> Return<content::RawHtml<String>> {
                 .unwrap(),
             children: vec![],
             subscriptions: row.get(6),
+            stats_enabled: row.get(7),
         });
     }
 
@@ -1034,7 +1129,6 @@ async fn main() {
                 .expect("Expected ROCKET_SECRET_KEY to exist in the environment"),
         ))
         .merge(("limits", Limits::new().limit("json", 90.mebibytes())));
-
     if let Err(err) = rocket::custom(figment)
         .mount("/", FileServer::from("src/templates/static/"))
         .mount(
@@ -1077,7 +1171,10 @@ async fn main() {
                 remove_note_from_deck,
                 deny_note_removal,
                 forward_donation,
-                error_page
+                error_page,
+                refresh_stats_cache,
+                show_statistics,
+                toggle_stats
             ],
         )
         .register("/", catchers![internal_error, not_found, default])

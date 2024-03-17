@@ -117,6 +117,7 @@ pub struct DeckOverview {
     pub notes: i64,
     pub children: Vec<BasicDeckInfo>,
     pub subscriptions: i64,
+    pub stats_enabled: bool,
 }
 
 #[derive(Serialize)]
@@ -204,4 +205,29 @@ pub struct GDriveInfo {
     pub deck: String,
     pub service_account: GoogleServiceAccount,
     pub folder_id: String,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct DeckStatsInfo {
+    pub hash: String,
+    pub path: String,
+    pub retention: f32,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct NoteStatsInfo {
+    pub id: i64,
+    pub fields: String,
+    pub lapses: f32,
+    pub reps: f32,
+    pub retention: f32,
+    pub sample_size: i32,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct DeckBaseStatsInfo {
+    pub note_count: i32,
+    pub lapses_avg: f64,
+    pub reps_avg: f64,
+    pub retention_avg: f32,
 }
