@@ -84,8 +84,9 @@
                 <div class="card">
                     <div class="card-body text-center">
                         <h1 class="card-title">Review Commit from {{ commit.timestamp }}</h1>
-                        <p>Rationale: {{ commit.rationale }}</p>    
-                        <p>Deck: {{ commit.deck }}</p>        
+                        <p>Rationale: <span style="color: var(--primary);">{{ commit.rationale }}</span></p>    
+                        <p>Deck: {{ commit.deck }}</p>
+                        <blockquote style="color: var(--secondary);">{{ commit.commit_info | striptags }}</blockquote>
                         {% if user and owned == true %}
                         <a href="/ApproveCommit/{{commit.id}}" class="btn mb-1 btn-success"><span class="fa fa-check"></span> Accept all</a>
                         <a href="/DenyCommit/{{commit.id}}" class="btn mb-1 btn-danger"><span class="fa fa-close"></span> Deny all</a>

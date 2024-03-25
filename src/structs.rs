@@ -40,6 +40,7 @@ pub struct ReviewOverview {
 pub struct CommitsOverview {
     pub id: i32,
     pub rationale: String,
+    pub commit_info: String,
     pub timestamp: String,
     pub deck: String,
 }

@@ -23,7 +23,7 @@ fn get_string_from_rationale(input: i32) -> &'static str {
 
 pub async fn get_commit_info(commit_id: i32) -> Return<CommitsOverview> {
     let query = r#"    
-        SELECT c.commit_id, c.rationale,
+        SELECT c.commit_id, c.rationale, c.info,
         TO_CHAR(c.timestamp, 'MM/DD/YYYY') AS last_update,
         d.name
         FROM commits c
@@ -35,8 +35,9 @@ pub async fn get_commit_info(commit_id: i32) -> Return<CommitsOverview> {
     let commit = CommitsOverview {
         id: row.get(0),
         rationale: get_string_from_rationale(row.get(1)).into(),
-        timestamp: row.get(2),
-        deck: row.get(3),
+        commit_info: row.get(2),
+        timestamp: row.get(3),
+        deck: row.get(4),
     };
     Ok(commit)
 }
@@ -55,28 +56,28 @@ pub async fn commits_review(uid: i32) -> Result<Vec<CommitsOverview>, Box<dyn st
         INNER JOIN accessible ON decks.parent = accessible.id
       ),
       unreviewed_changes AS (
-        SELECT commit_id, rationale, timestamp, deck
+        SELECT commit_id, rationale, info, timestamp, deck
         FROM commits
         WHERE EXISTS (
           SELECT 1 FROM fields
           WHERE fields.reviewed = false AND fields.commit = commits.commit_id
         )
         UNION
-        SELECT commit_id, rationale, timestamp, deck
+        SELECT commit_id, rationale, info, timestamp, deck
         FROM commits
         WHERE EXISTS (
           SELECT 1 FROM tags
           WHERE tags.reviewed = false AND tags.commit = commits.commit_id
         )
         UNION
-        SELECT commit_id, rationale, timestamp, deck
+        SELECT commit_id, rationale, info, timestamp, deck
         FROM commits
         WHERE EXISTS (
           SELECT 1 FROM card_deletion_suggestions
           WHERE card_deletion_suggestions.commit = commits.commit_id
         )
       )
-      SELECT commit_id, rationale, TO_CHAR(timestamp, 'MM/DD/YYYY') AS last_update
+      SELECT commit_id, rationale, info, TO_CHAR(timestamp, 'MM/DD/YYYY') AS last_update
       FROM unreviewed_changes
       WHERE deck IN (SELECT id FROM accessible) OR (SELECT is_admin FROM users WHERE id = $1)      
     "#;
@@ -89,7 +90,8 @@ pub async fn commits_review(uid: i32) -> Result<Vec<CommitsOverview>, Box<dyn st
         .map(|row| CommitsOverview {
             id: row.get(0),
             rationale: get_string_from_rationale(row.get(1)).into(),
-            timestamp: row.get(2),
+            commit_info: row.get(2),
+            timestamp: row.get(3),
             deck: String::new(),
         })
         .collect::<Vec<_>>();

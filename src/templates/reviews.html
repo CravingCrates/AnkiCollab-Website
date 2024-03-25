@@ -28,6 +28,7 @@
                       <thead>
                         <tr>
                           <th>Rationale</th>
+                          <th>User provided Information</th>
                           <th>Timestamp</th>
                         </tr>
                       </thead>
@@ -37,6 +38,11 @@
                           <td>
                             <a href="/commit/{{ commit.id }}"
                               >{{ commit.rationale }}</a
+                            >
+                          </td>
+                          <td>
+                            <a href="/commit/{{ commit.id }}"
+                              >{{ commit.commit_info | striptags | truncate(length=125) }}</a
                             >
                           </td>
                           <td>
