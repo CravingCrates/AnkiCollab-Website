@@ -23,6 +23,7 @@ pub mod maintainer_manager;
 pub mod note_manager;
 pub mod notetype_manager;
 pub mod optional_tags_manager;
+pub mod storage_manager;
 pub mod structs;
 pub mod suggestion_manager;
 pub mod stats_manager;

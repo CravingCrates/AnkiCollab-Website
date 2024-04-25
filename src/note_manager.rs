@@ -129,7 +129,14 @@ pub async fn get_note_data(note_id: NoteId) -> Return<NoteData> {
         note_model_fields: Vec::new(),
     };
 
-    let note_res = client.query_one(note_query, &[&note_id]).await?;
+    let note_res = client.query_opt(note_query, &[&note_id]).await?;
+
+    if note_res.is_none() {
+        return Err(NoteNotFound(NoteNotFoundContext::ReviewNote));
+    }
+
+    let note_res = note_res.unwrap();
+
     let note_guid: String = note_res.get(1);
     let note_last_update: String = note_res.get(2);
     let note_reviewed: bool = note_res.get(3);
