@@ -4,8 +4,8 @@
 <head>
     {% include "header_template.html" %}
     <!-- Custom Stylesheet -->
-    <link href="/plugins/summernote/dist/summernote.css" rel="stylesheet">
-    <link href="/plugins/sweetalert/css/sweetalert.css" rel="stylesheet">
+    <link href="/static/plugins/summernote/dist/summernote.css" rel="stylesheet">
+    <link href="/static/plugins/sweetalert/css/sweetalert.css" rel="stylesheet">
    
 </head>
 {% include "layout_header.html" %}
@@ -133,10 +133,10 @@
         ***********************************-->
         {% include "layout_footer.html" %}
     
-    <script src="/plugins/sweetalert/js/sweetalert.min.js"></script>
+    <script src="/static/plugins/sweetalert/js/sweetalert.min.js"></script>
 
-    <script src="/plugins/summernote/dist/summernote.min.js"></script>
-    <script src="/plugins/summernote/dist/summernote-init.js"></script>
+    <script src="/static/plugins/summernote/dist/summernote.min.js"></script>
+    <script src="/static/plugins/summernote/dist/summernote-init.js"></script>
     <script>
         {% if description %} 
         $('#summernote').summernote('editor.pasteHTML', '{{description | spaceless | linebreaksbr | safe}}');
@@ -156,8 +156,11 @@
             const description = $('#summernote').summernote('code').replace(/<p><br><\/p>/g, '').trim();
             const isPrivate = document.querySelector('input[name="private"]').checked;
             let changelog = $('#changelogeditor').summernote('code').trim();
-                changelog = changelog.replace(/<\/p>/g, '\n'); // Replace <br> with \r\n
-                changelog = changelog.replace(/<[^>]*>/g, ''); // Remove all other HTML tags
+            changelog = changelog.replace(/<\/p>/g, '\n'); // Replace <br> with \r\n
+            changelog = changelog.replace(/<[^>]*>/g, ''); // Remove all other HTML tags
+            if (changelog === '\n') { // If the changelog is empty, set it to an empty string to avod accidental submits
+                changelog = '';
+            }
             console.log(changelog);
             console.log(description);
 

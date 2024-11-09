@@ -1,15 +1,25 @@
-use rocket::{
-    http::Status,
-    response::{self, status::*, Responder},
-    serde::Serialize,
+use axum::{
+    extract::Request, http::StatusCode, response::{IntoResponse, Response}
 };
 use sentry::ClientInitGuard;
+use serde::Serialize;
 use thiserror::Error;
+use tera::Context;
+
+use tokio_postgres::Error as PgError;
 
 use crate::*;
 
+use std::sync::Arc;
+
 pub struct Reporter {
     _sentry: ClientInitGuard,
+}
+
+impl Default for Reporter {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl Reporter {
@@ -28,7 +38,7 @@ impl Reporter {
     }
 }
 
-#[derive(Serialize, Debug)]
+#[derive(Serialize, Debug, Clone)]
 pub struct ErrorResponse {
     pub error: String,
 }
@@ -41,7 +51,8 @@ impl ErrorResponse {
     }
 }
 
-#[derive(Debug, Error)]
+// Why is this a custom enum and not just built into error
+#[derive(Debug, Error, Clone)]
 pub enum NoteNotFoundContext {
     #[error("Tag Approve")]
     TagApprove,
@@ -59,6 +70,29 @@ pub enum NoteNotFoundContext {
     InvalidData,
     #[error("Delete Card")]
     DeleteCard,
+    #[error("Note Moval Request")]
+    NoteMovalRequest,
+}
+
+impl IntoResponse for NoteNotFoundContext {
+    fn into_response(self) -> Response {
+        let status_code = match self {
+            NoteNotFoundContext::TagApprove => StatusCode::NOT_FOUND,
+            NoteNotFoundContext::TagDenied => StatusCode::FORBIDDEN,
+            NoteNotFoundContext::FieldApprove => StatusCode::NOT_FOUND,
+            NoteNotFoundContext::FieldDenied => StatusCode::FORBIDDEN,
+            NoteNotFoundContext::MarkNoteDeleted => StatusCode::NOT_FOUND,
+            NoteNotFoundContext::ApproveCard => StatusCode::FORBIDDEN,
+            NoteNotFoundContext::InvalidData => StatusCode::BAD_REQUEST,
+            NoteNotFoundContext::DeleteCard => StatusCode::FORBIDDEN,
+            NoteNotFoundContext::NoteMovalRequest => StatusCode::NOT_FOUND,
+        };
+
+        let mut response = Response::new(axum::body::Body::empty());
+        *response.status_mut() = status_code;
+        response.extensions_mut().insert(self);
+        response
+    }
 }
 
 #[derive(Debug, Error)]
@@ -67,10 +101,6 @@ pub enum Error {
     DB(#[from] tokio_postgres::Error),
     #[error("Unauthorized")]
     Unauthorized,
-    #[error("Error while authenticating: {0}")]
-    AuthenticationError(#[from] rocket_auth::Error),
-    #[error("Redirecting to {0}")]
-    Redirect(&'static str),
     #[error("Template rendering error")]
     Template(#[from] tera::Error),
     #[error("BB8 error: {0}")]
@@ -101,36 +131,258 @@ pub enum Error {
     NoNoteTypesAffected,
     #[error("Deck not found")]
     DeckNotFound,
+    #[error("Error while authenticating: {0}")]
+    Auth(AuthError),
+    #[error("Database error: {0}")]
+    Database(tokio_postgres::Error),
+    #[error("Redirect: {0}")]
+    Redirect(String),
+    #[error("Unknown error")]
+    Unknown,
+    #[error("Database connection error")]
+    DatabaseConnection,
 }
 
-impl<'r> Responder<'r, 'static> for Error {
-    fn respond_to(self, req: &'r Request<'_>) -> response::Result<'static> {
-        let e = Some(Json(ErrorResponse::new(&self)));
-        println!("{:?}", &self);
-        let uuid = sentry::capture_error(&self);
-        dbg!(uuid);
-        match self {
-            Self::Unauthorized => Unauthorized(e).respond_to(req),
-            Self::AuthenticationError(_) => Unauthorized(e).respond_to(req),
-            Self::Redirect(url) => Redirect::to(url).respond_to(req),
-            Self::TagAlreadyExists => BadRequest(e).respond_to(req),
-            Self::UserIsAlreadyMaintainer => BadRequest(e).respond_to(req),
-            Self::NoNotesAffected => BadRequest(e).respond_to(req),
+impl IntoResponse for Error {
+    fn into_response(self) -> Response {
+        let status_code = match &self {
+            Self::Unauthorized => StatusCode::UNAUTHORIZED,
+            Self::Redirect(_) => StatusCode::FOUND,
+            Self::TagAlreadyExists => StatusCode::BAD_REQUEST,
+            Self::UserIsAlreadyMaintainer => StatusCode::BAD_REQUEST,
+            Self::NoNotesAffected => StatusCode::BAD_REQUEST,
+            Self::FolderIdTooLong => StatusCode::BAD_REQUEST,
+            Self::UserNotFound => StatusCode::NOT_FOUND,
+            Self::CommitNotFound => StatusCode::NOT_FOUND,
+            Self::CommitDeckNotFound => StatusCode::NOT_FOUND,
+            Self::NoteNotFound(_) => StatusCode::NOT_FOUND,
+            Self::DeckNotFound => StatusCode::NOT_FOUND,
+            Self::AmbiguousFields(_) => StatusCode::BAD_REQUEST,
+            Self::InvalidNote => StatusCode::BAD_REQUEST,
+            _ => StatusCode::INTERNAL_SERVER_ERROR,
+        };
 
-            Self::FolderIdTooLong => BadRequest(e).respond_to(req),
-            Self::UserNotFound => NotFound(e).respond_to(req),
-            Self::CommitNotFound => NotFound(e).respond_to(req),
-            Self::CommitDeckNotFound => NotFound(e).respond_to(req),
-            Self::NoteNotFound(_) => NotFound(e).respond_to(req),
-            Self::DeckNotFound => NotFound(e).respond_to(req),
+        if let Error::Redirect(path) = &self {
+            return axum::response::Redirect::to(path).into_response();
+        }
 
-            Self::AmbiguousFields(_) => BadRequest(e).respond_to(req),
-            Self::InvalidNote => BadRequest(e).respond_to(req),
+        let error_message = self.to_string();
+        let mut response = Response::new(axum::body::Body::empty());
+        *response.status_mut() = status_code;
+        response.extensions_mut().insert(ErrorResponse::new(error_message));
+        response
+    }
+}
 
-            _ => {
-                dbg!(&self);
-                Status::InternalServerError.respond_to(req)
-            }
+impl From<AuthError> for Error {
+    fn from(err: AuthError) -> Self {
+        match err {
+            AuthError::Redirect(path) => Error::Redirect(path),
+            _ => Error::Auth(err),
         }
     }
+}
+
+
+#[derive(Debug, Error)]
+pub enum AuthError {
+    #[error("Invalid credentials")]
+    InvalidCredentials,
+    #[error("Database error: {0}")]
+    Database(#[from] PgError),
+    #[error("Password hashing error: {0}")]
+    PasswordHash(String),
+    #[error("JWT error: {0}")]
+    Jwt(#[from] jsonwebtoken::errors::Error),
+    #[error("Not authenticated")]
+    NotAuthenticated,
+    #[error("Redirect to {0}")]
+    Redirect(String),
+    #[error("Email already in use")]
+    EmailAlreadyExists,
+    #[error("Invalid email format")]
+    InvalidEmail,
+    #[error("Weak password")]
+    PasswordWeak,
+    #[error("Internal server error")]
+    InternalError,
+    #[error("Invalid token")]
+    InvalidToken,
+    #[error("User not found")]
+    UserNotFound
+}
+
+
+impl Clone for AuthError {
+    fn clone(&self) -> Self {
+        match self {
+            AuthError::InvalidCredentials => AuthError::InvalidCredentials,
+            AuthError::PasswordHash(e) => AuthError::PasswordHash(e.clone()),
+            AuthError::Jwt(e) => AuthError::Jwt(e.clone()),
+            AuthError::NotAuthenticated => AuthError::NotAuthenticated,
+            AuthError::Redirect(e) => AuthError::Redirect(e.clone()),
+            AuthError::EmailAlreadyExists => AuthError::EmailAlreadyExists,
+            AuthError::InvalidEmail => AuthError::InvalidEmail,
+            AuthError::PasswordWeak => AuthError::PasswordWeak,
+            AuthError::InternalError => AuthError::InternalError,
+            AuthError::InvalidToken => AuthError::InvalidToken,
+            AuthError::UserNotFound => AuthError::UserNotFound,
+            AuthError::Database(_error) => AuthError::PasswordHash("Database Error".to_string()) // tokio_posgres::Error doesn't implement clone() so i'm kinda fucked and its 2am so i'm just gonna do this for now
+            ,
+        }
+    }
+}
+
+impl AuthError {
+    fn get_status_and_message(&self) -> (StatusCode, &'static str) {
+        match self {
+            AuthError::NotAuthenticated => (
+                StatusCode::UNAUTHORIZED,
+                "Please log in to access this page",
+            ),
+            AuthError::InternalError => (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "An internal error occurred",
+            ),
+            AuthError::InvalidToken => (
+                StatusCode::UNAUTHORIZED,
+                "Your session has expired. Please log in again",
+            ),
+            AuthError::UserNotFound => (
+                StatusCode::NOT_FOUND,
+                "User not found",
+            ),
+            AuthError::InvalidCredentials => (
+                StatusCode::UNAUTHORIZED,
+                "Invalid email or password",
+            ),
+            AuthError::Database(_) => (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "Internal Error 23110",
+            ),
+            AuthError::PasswordHash(_) => (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "An error occurred while hashing the password",
+            ),
+            AuthError::Jwt(_) => (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "Internal Error 23810",
+            ),
+            AuthError::Redirect(_) => (StatusCode::FOUND, ""),
+            AuthError::EmailAlreadyExists => (
+                StatusCode::BAD_REQUEST,
+                "Email already in use",
+            ),
+            AuthError::InvalidEmail => (
+                StatusCode::BAD_REQUEST,
+                "Invalid email format",
+            ),
+            AuthError::PasswordWeak => (
+                StatusCode::BAD_REQUEST,
+                "Password is too weak",
+            ),
+        }
+    }
+}
+
+// Create a wrapper middleware for pretty error pages
+pub struct PrettyErrorHandler<S>(pub S);
+
+// Extension trait to handle errors with templates
+pub trait ErrorTemplate {
+    fn render_error_template(&self, app_state: &Arc<AppState>) -> Response;
+}
+
+impl IntoResponse for AuthError {
+    fn into_response(self) -> Response {
+        let (status_code, error_msg) = self.get_status_and_message();
+        let mut response = (status_code, error_msg).into_response();
+        response.extensions_mut().insert(self);
+        response
+    }
+}
+
+impl ErrorTemplate for AuthError {
+    fn render_error_template(&self, app_state: &Arc<AppState>) -> Response {
+        let (status_code, error_msg) = self.get_status_and_message();
+        let mut context = Context::new();
+        context.insert("message", error_msg);
+        
+        match app_state.tera.render("error.html", &context) {
+            Ok(html) => (status_code, Html(html)).into_response(),
+            Err(_) => (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "Failed to render error template",
+            ).into_response(),
+        }
+    }
+}
+
+impl ErrorTemplate for ErrorResponse {
+    fn render_error_template(&self, app_state: &Arc<AppState>) -> Response {
+        let status_code = StatusCode::BAD_REQUEST;
+        let error_msg = self.error.clone();
+        let mut context = Context::new();
+        context.insert("message", &error_msg);
+
+        match app_state.tera.render("error.html", &context) {
+            Ok(html) => (status_code, Html(html)).into_response(),
+            Err(_) => (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "Failed to render error template",
+            ).into_response(),
+        }
+    }
+}
+
+impl ErrorTemplate for NoteNotFoundContext {
+    fn render_error_template(&self, app_state: &Arc<AppState>) -> Response {
+        let error_msg = self.to_string();
+        let status_code = StatusCode::BAD_REQUEST;
+        let mut context = Context::new();
+        context.insert("message", &error_msg);
+        match app_state.tera.render("error.html", &context) {
+            Ok(html) => (status_code, Html(html)).into_response(),
+            Err(_) => (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "Failed to render error template",
+            ).into_response(),
+        }
+    }
+}
+
+// Middleware layer that wraps the handlers
+pub async fn pretty_error_middleware(
+    State(app_state): State<Arc<AppState>>,
+    request: Request,
+    next: Next,
+) -> Response {
+    // Process the request
+    let response = next.run(request).await;
+    
+    // Handle AuthError
+    if let Some(auth_error) = response.extensions().get::<AuthError>() {
+        return auth_error.render_error_template(&app_state);
+    }
+    
+    // Handle Error enum
+    if let Some(error_respoonse) = response.extensions().get::<ErrorResponse>() {
+        return error_respoonse.render_error_template(&app_state);
+    }
+
+    // Handle NoteNotFoundContext
+    if let Some(note_not_found_context) = response.extensions().get::<NoteNotFoundContext>() {
+        return note_not_found_context.render_error_template(&app_state);
+    }
+
+    // Handle 404
+    if response.status() == axum::http::StatusCode::NOT_FOUND {
+        let mut context = tera::Context::new();
+        context.insert("message", "Page not found");
+        if let Ok(html) = app_state.tera.render("error.html", &context) {
+            return (axum::http::StatusCode::NOT_FOUND, Html(html)).into_response();
+        }
+    }
+    
+    response
 }

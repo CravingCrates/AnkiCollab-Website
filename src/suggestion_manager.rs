@@ -1,7 +1,9 @@
+use std::sync::Arc;
+
 use crate::error::Error::*;
 use crate::error::NoteNotFoundContext;
 use crate::{database, note_manager, Return};
-use rocket_auth::User;
+use crate::user::User;
 
 pub async fn update_note_timestamp(
     tx: &tokio_postgres::Transaction<'_>,
@@ -27,8 +29,8 @@ pub async fn update_note_timestamp(
     Ok(())
 }
 
-pub async fn is_authorized(user: &User, deck: i64) -> Return<bool> {
-    let client = database::client().await?;
+pub async fn is_authorized(db_state: &Arc<database::AppState>,user: &User, deck: i64) -> Return<bool> {
+    let client = database::client(db_state).await?;
     let rows = client
         .query(
             "SELECT 1 FROM decks WHERE (owner = $1 AND id = $3) OR $2 LIMIT 1",
@@ -37,9 +39,9 @@ pub async fn is_authorized(user: &User, deck: i64) -> Return<bool> {
         .await?;
     let access = !rows.is_empty();
 
-    // Check if its a maintainer
+    // Check if it's a maintainer
     if !access {
-        // Get the topmost parent deck
+        // Get all parent decks including the current one
         let query = r#"
             WITH RECURSIVE parent_decks AS (
                 SELECT id, parent
@@ -52,28 +54,35 @@ pub async fn is_authorized(user: &User, deck: i64) -> Return<bool> {
             )
             SELECT id
             FROM parent_decks
-            WHERE parent IS NULL          
         "#;
-        let parent_deck = client.query(query, &[&deck]).await?;
-        if parent_deck.is_empty() {
+        let parent_decks = client.query(query, &[&deck]).await?;
+        if parent_decks.is_empty() {
             return Ok(false);
         }
-        let parent_deck: i64 = parent_deck[0].get(0);
-        let rows = client
-            .query(
-                "SELECT 1 FROM maintainers WHERE user_id = $1 AND deck = $2 LIMIT 1",
-                &[&user.id(), &parent_deck],
-            )
-            .await?;
-        return Ok(!rows.is_empty());
+        // Check if the user is a maintainer for any of the parent decks
+        for row in parent_decks {
+            let parent_deck_id: i64 = row.get(0);
+            let rows = client
+                .query(
+                    "SELECT 1 FROM maintainers WHERE user_id = $1 AND deck = $2 LIMIT 1",
+                    &[&user.id(), &parent_deck_id],
+                )
+                .await?;
+            if !rows.is_empty() {
+                // User is a maintainer for this deck or one of its parents
+                return Ok(true);
+            }
+        }
+        // User is not a maintainer for any of the decks in the hierarchy
+        return Ok(false);
     }
 
     Ok(access)
 }
 
 // Only used for unreviewed cards to prevent them from being added to the deck. Existing cards should use mark_note_deleted instead
-pub async fn delete_card(note_id: i64, user: User) -> Return<String> {
-    let client = database::client().await?;
+pub async fn delete_card(db_state: &Arc<database::AppState>,note_id: i64, user: User) -> Return<String> {
+    let client = database::client(db_state).await?;
 
     let q_guid = client
         .query(
@@ -87,7 +96,7 @@ pub async fn delete_card(note_id: i64, user: User) -> Return<String> {
     let guid: String = q_guid[0].get(0);
     let deck_id: i64 = q_guid[0].get(1);
 
-    let access = is_authorized(&user, deck_id).await?;
+    let access = is_authorized(db_state, &user, deck_id).await?;
     if !access {
         return Err(Unauthorized);
     }
@@ -100,8 +109,8 @@ pub async fn delete_card(note_id: i64, user: User) -> Return<String> {
 }
 
 // If bulk is true, we skip a few steps that have already been handled by the caller
-pub async fn approve_card(note_id: i64, user: User, bulk: bool) -> Return<String> {
-    let mut client = database::client().await?;
+pub async fn approve_card(db_state: &Arc<database::AppState>,note_id: i64, user: User, bulk: bool) -> Return<String> {
+    let mut client = database::client(db_state).await?;
     let tx = client.transaction().await?;
 
     let q_guid = tx
@@ -113,7 +122,7 @@ pub async fn approve_card(note_id: i64, user: User, bulk: bool) -> Return<String
     let deck_id: i64 = q_guid[0].get(0);
 
     if !bulk {
-        let access = is_authorized(&user, deck_id).await?;
+        let access = is_authorized(db_state, &user, deck_id).await?;
         if !access {
             return Err(Unauthorized);
         }
@@ -167,8 +176,27 @@ pub async fn approve_card(note_id: i64, user: User, bulk: bool) -> Return<String
     Ok(note_id.to_string())
 }
 
-pub async fn deny_tag_change(tag_id: i64) -> Return<String> {
-    let client = database::client().await?;
+pub async fn deny_note_move_request(db_state: &Arc<database::AppState>, move_id: i32) -> Return<String> {
+    let client = database::client(db_state).await?;
+
+    let rows = client
+        .query("SELECT note FROM note_move_suggestions WHERE id = $1", &[&move_id])
+        .await?;
+
+    if rows.is_empty() {
+        return Err(NoteNotFound(NoteNotFoundContext::NoteMovalRequest));
+    }
+
+    client
+        .query("DELETE FROM note_move_suggestions WHERE id = $1", &[&move_id])
+        .await?;
+
+    let note_id: i64 = rows[0].get(0);
+    Ok(note_id.to_string())
+}
+
+pub async fn deny_tag_change(db_state: &Arc<database::AppState>,tag_id: i64) -> Return<String> {
+    let client = database::client(db_state).await?;
 
     let rows = client
         .query("SELECT note FROM tags WHERE id = $1", &[&tag_id])
@@ -186,8 +214,8 @@ pub async fn deny_tag_change(tag_id: i64) -> Return<String> {
     Ok(note_id.to_string())
 }
 
-pub async fn deny_field_change(field_id: i64) -> Return<String> {
-    let client = database::client().await?;
+pub async fn deny_field_change(db_state: &Arc<database::AppState>,field_id: i64) -> Return<String> {
+    let client = database::client(db_state).await?;
 
     let rows = client
         .query("SELECT note FROM fields WHERE id = $1", &[&field_id])
@@ -205,8 +233,41 @@ pub async fn deny_field_change(field_id: i64) -> Return<String> {
     Ok(note_id.to_string())
 }
 
-pub async fn approve_tag_change(tag_id: i64, update_timestamp: bool) -> Return<String> {
-    let mut client = database::client().await?;
+pub async fn approve_move_note_request_by_moveid(db_state: &Arc<database::AppState>, move_id: i32) -> Return<String> {
+    let client = database::client(db_state).await?;
+    let rows = client
+        .query("SELECT note, target_deck FROM note_move_suggestions WHERE id = $1", &[&move_id])
+        .await?;
+
+    if rows.is_empty() {
+        return Err(NoteNotFound(NoteNotFoundContext::TagApprove));
+    }
+    let note_id: i64 = rows[0].get(0);
+    let target_id: i64 = rows[0].get(1);
+
+    approve_move_note_request(db_state, note_id, target_id, true).await?;
+
+    Ok(note_id.to_string())
+}
+
+pub async fn approve_move_note_request(db_state: &Arc<database::AppState>, note_id: i64, target_deck: i64, update_timestamp: bool) -> Return<String> {
+    let mut client = database::client(db_state).await?;
+    let tx = client.transaction().await?;
+
+    tx.execute("UPDATE notes SET deck = $1 WHERE id = $2", &[&target_deck, &note_id]).await?;
+    tx.execute("DELETE FROM note_move_suggestions WHERE note = $1 AND target_deck = $2", &[&note_id, &target_deck]).await?;
+
+    if update_timestamp {
+        update_note_timestamp(&tx, note_id).await?;
+    }
+
+    tx.commit().await?;
+    Ok(note_id.to_string())
+}
+
+
+pub async fn approve_tag_change(db_state: &Arc<database::AppState>,tag_id: i64, update_timestamp: bool) -> Return<String> {
+    let mut client = database::client(db_state).await?;
     let tx = client.transaction().await?;
 
     let rows = tx
@@ -254,8 +315,8 @@ pub async fn approve_tag_change(tag_id: i64, update_timestamp: bool) -> Return<S
     Ok(note_id.to_string())
 }
 
-pub async fn approve_field_change(field_id: i64, update_timestamp: bool) -> Return<String> {
-    let mut client = database::client().await?;
+pub async fn approve_field_change(db_state: &Arc<database::AppState>,field_id: i64, update_timestamp: bool) -> Return<String> {
+    let mut client = database::client(db_state).await?;
     let tx = client.transaction().await?;
 
     let rows = tx
@@ -303,8 +364,8 @@ pub async fn approve_field_change(field_id: i64, update_timestamp: bool) -> Retu
     Ok(note_id.to_string())
 }
 
-pub async fn merge_by_commit(commit_id: i32, approve: bool, user: User) -> Return<Option<i32>> {
-    let mut client = database::client().await?;
+pub async fn merge_by_commit(db_state: &Arc<database::AppState>,commit_id: i32, approve: bool, user: User) -> Return<Option<i32>> {
+    let mut client = database::client(db_state).await?;
 
     let q_guid = client
         .query(
@@ -317,7 +378,7 @@ pub async fn merge_by_commit(commit_id: i32, approve: bool, user: User) -> Retur
     }
     let deck_id: i64 = q_guid[0].get(0);
 
-    let access = is_authorized(&user, deck_id).await?;
+    let access = is_authorized(db_state, &user, deck_id).await?;
     if !access {
         return Err(Unauthorized);
     }
@@ -356,6 +417,8 @@ pub async fn merge_by_commit(commit_id: i32, approve: bool, user: User) -> Retur
             SELECT note FROM tags WHERE commit = $1 and reviewed = false
             UNION
             SELECT note from card_deletion_suggestions WHERE commit = $1
+            UNION
+            SELECT note FROM note_move_suggestions WHERE commit = $1
         ) AS n ON notes.id = n.note
         GROUP BY notes.id
     ",
@@ -374,6 +437,19 @@ pub async fn merge_by_commit(commit_id: i32, approve: bool, user: User) -> Retur
         .into_iter()
         .map(|row| row.get::<_, i64>("note"))
         .collect::<Vec<i64>>();
+
+    let moved_deck_suggestion = client
+        .query(
+        "
+            SELECT note, target_deck FROM note_move_suggestions WHERE commit = $1
+        ",
+        &[&commit_id],
+        )
+        .await?
+        .into_iter()
+        .map(|row| (row.get::<_, i64>("note"), row.get::<_, i64>("target_deck")))
+        .collect::<Vec<(i64, i64)>>();
+
 
     // The query is very similar to the one /reviews uses
     let next_review_query = r#"
@@ -408,6 +484,13 @@ pub async fn merge_by_commit(commit_id: i32, approve: bool, user: User) -> Retur
         WHERE EXISTS (
             SELECT 1 FROM card_deletion_suggestions
             WHERE card_deletion_suggestions.commit = commits.commit_id
+        )
+        UNION
+        SELECT commit_id, rationale, timestamp, deck
+        FROM commits
+        WHERE EXISTS (
+            SELECT 1 FROM note_move_suggestions
+            WHERE note_move_suggestions.commit = commits.commit_id
         )
     ),
     indexed_unreviewed AS (
@@ -458,15 +541,21 @@ pub async fn merge_by_commit(commit_id: i32, approve: bool, user: User) -> Retur
     // The performance difference is not relevant in this case
     if approve {
         for tag in affected_tags {
-            approve_tag_change(tag, false).await?;
+            approve_tag_change(db_state, tag, false).await?;
         }
 
         for field in affected_fields {
-            approve_field_change(field, false).await?;
+            approve_field_change(db_state, field, false).await?;
         }
 
         for note in deleted_notes {
-            note_manager::mark_note_deleted(note, user.clone(), true).await?;
+            note_manager::mark_note_deleted(db_state, note, user.clone(), true).await?;
+        }
+
+        for note in moved_deck_suggestion {
+            let note_id = note.0;
+            let target_deck = note.1;
+            approve_move_note_request(db_state, note_id, target_deck, false).await?;
         }
 
         let tx = client.transaction().await?;
@@ -475,7 +564,7 @@ pub async fn merge_by_commit(commit_id: i32, approve: bool, user: User) -> Retur
             let note_id: i64 = row.get(0);
             let reviewed: bool = row.get(1);
             if !reviewed {
-                approve_card(note_id, user.clone(), true).await?;
+                approve_card(db_state, note_id, user.clone(), true).await?;
             }
             update_note_timestamp(&tx, note_id).await?;
         }
@@ -483,13 +572,13 @@ pub async fn merge_by_commit(commit_id: i32, approve: bool, user: User) -> Retur
         tx.commit().await?;
     } else {
         for tag in affected_tags {
-            deny_tag_change(tag).await?;
+            deny_tag_change(db_state, tag).await?;
         }
 
         for field in affected_fields {
-            deny_field_change(field).await?;
+            deny_field_change(db_state, field).await?;
         }
-
+        
         let tx = client.transaction().await?;
 
         for row in affected_notes {
@@ -508,6 +597,14 @@ pub async fn merge_by_commit(commit_id: i32, approve: bool, user: User) -> Retur
             )
             .await?;
         }
+
+        for note in moved_deck_suggestion {
+            let note_id = note.0;
+            let target_deck = note.1;
+            tx.execute("DELETE FROM note_move_suggestions WHERE note = $1 AND target_deck = $2", &[&note_id, &target_deck])
+            .await?;
+        }
+
 
         tx.commit().await?;
     }

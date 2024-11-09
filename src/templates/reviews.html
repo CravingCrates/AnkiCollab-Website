@@ -4,7 +4,7 @@
     {% include "header_template.html" %}
     <!-- Custom Stylesheet -->
     <link
-      href="/plugins/tables/css/datatable/dataTables.bootstrap4.min.css"
+      href="/static/plugins/tables/css/datatable/dataTables.bootstrap4.min.css"
       rel="stylesheet"
     />
   </head>
@@ -29,6 +29,7 @@
                         <tr>
                           <th>Rationale</th>
                           <th>User provided Information</th>
+                          <th>Deck</th>
                           <th>Timestamp</th>
                         </tr>
                       </thead>
@@ -43,6 +44,11 @@
                           <td>
                             <a href="/commit/{{ commit.id }}"
                               >{{ commit.commit_info | striptags | truncate(length=125) }}</a
+                            >
+                          </td>
+                          <td>
+                            <a href="/commit/{{ commit.id }}"
+                              >{{ commit.deck | truncate(length=100) }}</a
                             >
                           </td>
                           <td>
@@ -72,8 +78,8 @@
         ***********************************-->
         {% include "layout_footer.html" %}
 
-    <script src="/plugins/tables/js/jquery.dataTables.min.js"></script>
-    <script src="/plugins/tables/js/datatable/dataTables.bootstrap4.min.js"></script>
-    <script src="/plugins/tables/js/datatable-init/datatable-basic.min.js"></script>
+    <script src="/static/plugins/tables/js/jquery.dataTables.min.js"></script>
+    <script src="/static/plugins/tables/js/datatable/dataTables.bootstrap4.min.js"></script>
+    <script src="/static/plugins/tables/js/datatable-init/datatable-basic.min.js"></script>
   </body>
 </html>

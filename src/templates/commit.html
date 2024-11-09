@@ -5,9 +5,9 @@
     {% include "header_template.html" %}
    
     <!-- Custom Stylesheet -->
-    <link href="/plugins/tables/css/datatable/dataTables.bootstrap4.min.css" rel="stylesheet">
+    <link href="/static/plugins/tables/css/datatable/dataTables.bootstrap4.min.css" rel="stylesheet">
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script> 
-    <script src="/js/bindiff.js"></script>
+    <script src="/static/js/bindiff.js"></script>
     <style>
         .leftside {
             background-color: #ffebe9;
@@ -17,14 +17,19 @@
         }
     </style>
     <script>
-    $(document).ready(function() {
         function acceptTag(tagId){
             window.location.href = `/AcceptTag/${tagId}`;
         }
         function denyTag(tagId){
             window.location.href = `/DenyTag/${tagId}`;
         }
-        
+        function acceptMove(MoveId) {
+            window.location.href = `/AcceptNoteMove/${MoveId}`;
+        }
+        function denyMove(MoveId) {
+        window.location.href = `/DenyNoteMove/${MoveId}`;
+        }
+    $(document).ready(function() {        
         function fixInsDel() {
             $('.leftside').each(function() {
                 $(this).find('ins').remove();
@@ -85,7 +90,7 @@
                     <div class="card-body text-center">
                         <h1 class="card-title">Review Commit from {{ commit.timestamp }}</h1>
                         <p>Rationale: <span style="color: var(--primary);">{{ commit.rationale }}</span></p>    
-                        <p>Deck: {{ commit.deck }}</p>
+                        <p style="font-weight:bold">Current Deck: {{ commit.deck }}</p>
                         <blockquote style="color: var(--secondary);">{{ commit.commit_info | striptags }}</blockquote>
                         {% if user and owned == true %}
                         <a href="/ApproveCommit/{{commit.id}}" class="btn mb-1 btn-success"><span class="fa fa-check"></span> Accept all</a>
@@ -140,6 +145,23 @@
                         </div>
                         {% if not note.delete_req %}
                         <div class="col">
+                            {% if note.move_req %}
+                            <p>Deck Changes (Suggestion to move the Note to the following Deck):</p>
+                            <div class="note_tag_container" style="margin-bottom: 3em;">
+                                <button class="btn mb-1 btn-flat w-100">{{note.move_req.path}}</button>
+                                {% if user and note.owner == user.id %}
+                                <div class="tag_actions">
+                                    <button class="tag_accept_button" role="button" onclick="acceptMove({{note.move_req.id}})">
+                                        <i class="fa fa-check"></i>
+                                    </button>
+                                    <button class="tag_deny_button" role="button" onclick="denyMove({{note.move_req.id}})">
+                                        <i class="fa fa-times"></i>
+                                    </button>
+                                </div>
+                                {% endif %}
+                            </div>
+                            {% endif %}
+                            <p>Field Changes:</p>
                             {% for field in note.fields %}
                                 <div class="media media-reply rightside">
                                     <div class="media-body">
@@ -177,6 +199,7 @@
                                         <hr />
                                 {% endif %}
                             {% endif %}
+                            <p>Tag Changes:</p>
                             {% for tag in note.removed_tags %}
                                 <div class="note_tag_container">
                                     <button class="btn mb-1 btn-flat btn-rmd-tag w-100">{{tag.content}}</button>
@@ -221,9 +244,9 @@
         
     {% include "layout_footer.html" %}
 
-    <script src="/plugins/tables/js/jquery.dataTables.min.js"></script>
-    <script src="/plugins/tables/js/datatable/dataTables.bootstrap4.min.js"></script>
-    <script src="/plugins/tables/js/datatable-init/datatable-basic.min.js"></script>
+    <script src="/static/plugins/tables/js/jquery.dataTables.min.js"></script>
+    <script src="/static/plugins/tables/js/datatable/dataTables.bootstrap4.min.js"></script>
+    <script src="/static/plugins/tables/js/datatable-init/datatable-basic.min.js"></script>
 
 
 </body>

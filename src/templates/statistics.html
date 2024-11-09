@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    {% include "header_template.html" %}
+    <link
+    href="/static/plugins/tables/css/datatable/dataTables.bootstrap4.min.css"
+    rel="stylesheet"
+  />
+  </head>
+  {% include "layout_header.html" %}
+        <!-- End Top layout-->
+
+        <!-- row -->
+        <div class="container-fluid mt-3"> 
+          <div class="alert alert-primary alert-dismissible fade show">
+            <button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span>
+            </button>It takes 24h before new statistics are included in these calculations.</div>
+          <div class="row">
+            <div class="col-3">
+                <div class="card card-widget">
+                    <div class="card-body gradient-1">
+                        <div class="media">
+                            <span class="card-widget__icon"><i class="icon-docs"></i></span>
+                            <div class="media-body">
+                                <h2 class="card-widget__title">{{base.note_count}}</h2>
+                                <h5 class="card-widget__subtitle">Notes Included</h5>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-3">
+                <div class="card card-widget">
+                    <div class="card-body gradient-4">
+                        <div class="media">
+                            <span class="card-widget__icon"><i class="icon-loop"></i></span>
+                            <div class="media-body">
+                                <h2 class="card-widget__title">{{base.lapses_avg | round(precision=1)}}</h2>
+                                <h5 class="card-widget__subtitle">Average Lapses</h5>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-3">
+              <div class="card card-widget">
+                  <div class="card-body gradient-4">
+                      <div class="media">
+                          <span class="card-widget__icon"><i class="icon-layers"></i></span>
+                          <div class="media-body">
+                              <h2 class="card-widget__title">{{base.reps_avg | round(precision=1)}}</h2>
+                              <h5 class="card-widget__subtitle">Average Reps</h5>
+                          </div>
+                      </div>
+                  </div>
+              </div>
+            </div>
+
+            <div class="col-3">
+                <div class="card card-widget">
+                    <div class="card-body gradient-3">
+                        <div class="media">
+                            <span class="card-widget__icon"><i class="icon-chart"></i></span>
+                            <div class="media-body">
+                                <h2 class="card-widget__title">{{ base.retention_avg | round(precision=1)}}%</h2>
+                                <h5 class="card-widget__subtitle">Average Retention</h5>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+          </div>
+          
+          <div class="card">
+            <div class="card-body">
+              <div class="card-title">
+                <h4>Decks</h4>
+              </div>
+              <div class="table-responsive">
+                <table id="deckOverview" class="table table-striped zero-configuration">
+                  <thead>
+                    <tr>
+                      <th>Full Path</th>
+                      <th>Average Retention</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {% for deck in decks %}
+                    <tr>
+                      <td>
+                        <a href="/Statistics/{{deck.hash}}"
+                          >{{ deck.path }}</a
+                        >
+                      </td>
+                      <td>
+                        <a href="/Statistics/{{deck.hash}}"><span class="label btn-rounded 
+                          {% if deck.retention > 85 %}
+                            gradient-1
+                          {% elif deck.retention > 75 %}
+                            gradient-3
+                          {% else %}
+                            gradient-2
+                          {% endif %}
+                          ">{{ deck.retention | round(precision=1) }}%</span></a>
+                      </td>
+                    </tr>
+                    {% endfor %}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-body">
+              <div class="card-title">
+                <h4>Worst Notes</h4>
+                <p>Based on average retention and average lapses.</p>
+              </div>
+              <div class="table-responsive">
+                <table id="notesOverview" class="table table-striped zero-configuration">
+                  <thead>
+                    <tr>
+                      <th>Note ID</th>
+                      <th>Fields</th>
+                      <th>Lapses</th>
+                      <th>Reps</th>
+                      <th>Retention</th>
+                      <th>Sample Size</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {% for note in notes %}
+                    <tr>
+                      <td><a href="/review/{{note.id}}">{{ note.id }}</a></td>
+                      <td><a href="/review/{{note.id}}">{{ note.fields | striptags | truncate(length=150) }}</a></td>
+                      <td><a href="/review/{{note.id}}">{{ note.lapses | round(precision=1) }}</a></td>
+                      <td><a href="/review/{{note.id}}">{{ note.reps | round(precision=1)}}</a></td>
+                      <td><a href="/review/{{note.id}}">{{ note.retention | round(precision=1) }}%</a></td>
+                      <td><a href="/review/{{note.id}}">{{ note.sample_size }}</a></td>
+                    </tr>
+                    {% endfor %}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>            
+
+        </div>
+        <!-- end container flud -->
+      </div>
+      <!--**********************************
+            Content body end
+        ***********************************-->
+        {% include "layout_footer.html" %}
+        <script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
+        <script src="https://cdn.datatables.net/1.10.25/js/jquery.dataTables.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.18.1/moment.min.js"></script>
+        <script src="https://cdn.datatables.net/plug-ins/1.10.15/sorting/datetime-moment.js"></script>
+        <script>
+            $(document).ready(function() {
+            $('#deckOverview').DataTable({
+                "pageLength": 10
+            });
+            $('#notesOverview').DataTable({
+                "pageLength": 25
+            });
+        </script
+        <script src="/static/plugins/tables/js/jquery.dataTables.min.js"></script>
+        <script src="/static/plugins/tables/js/datatable/dataTables.bootstrap4.min.js"></script>
+        <script src="/static/plugins/tables/js/datatable-init/datatable-basic.min.js"></script>
+  </body>
+</html>

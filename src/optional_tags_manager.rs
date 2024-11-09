@@ -1,9 +1,11 @@
+use std::sync::Arc;
+
 use crate::error::Error::*;
 use crate::{database, Return};
 
-pub async fn get_tags(deck: i64) -> Result<Vec<String>, Box<dyn std::error::Error>> {
+pub async fn get_tags(db_state: &Arc<database::AppState>, deck: i64) -> Result<Vec<String>, Box<dyn std::error::Error>> {
     let query = "SELECT tag_group from optional_tags WHERE deck = $1";
-    let client = database::client().await?;
+    let client = database::client(db_state).await?;
     let tags = client
         .query(query, &[&deck])
         .await?
@@ -14,12 +16,15 @@ pub async fn get_tags(deck: i64) -> Result<Vec<String>, Box<dyn std::error::Erro
     Ok(tags)
 }
 
-pub async fn add_tag(deck: i64, tag_group: String) -> Return<String> {
-    let client = database::client().await?;
+pub async fn add_tag(db_state: &Arc<database::AppState>, deck: i64, tag_group: String) -> Return<String> {
+    // Replace whitespaces with underscores in tag_group
+    let tag_group_fixed = tag_group.replace(" ", "_");
+
+    let client = database::client(db_state).await?;
     match client
         .query_one(
             "SELECT id FROM optional_tags WHERE deck = $1 AND tag_group = $2",
-            &[&deck, &tag_group],
+            &[&deck, &tag_group_fixed],
         )
         .await
     {
@@ -30,14 +35,14 @@ pub async fn add_tag(deck: i64, tag_group: String) -> Return<String> {
     client
         .execute(
             "INSERT INTO optional_tags (deck, tag_group) VALUES ($1, $2)",
-            &[&deck, &tag_group],
+            &[&deck, &tag_group_fixed],
         )
         .await?;
     Ok("added".to_string())
 }
 
-pub async fn remove_tag(deck: i64, tag_group: String) -> Return<String> {
-    let client = database::client().await?;
+pub async fn remove_tag(db_state: &Arc<database::AppState>, deck: i64, tag_group: String) -> Return<String> {
+    let client = database::client(db_state).await?;
     client
         .execute(
             "DELETE FROM optional_tags WHERE deck = $1 AND tag_group = $2",

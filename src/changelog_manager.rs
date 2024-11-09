@@ -1,19 +1,21 @@
+use std::sync::Arc;
+
 use crate::database;
 use crate::structs::*;
 use crate::Return;
 
-pub async fn insert_new_changelog(deck_hash: &String, message: &String) -> Return<()> {
+pub async fn insert_new_changelog(db_state: &Arc<database::AppState>, deck_hash: &String, message: &String) -> Return<()> {
     let query = r#"
         INSERT INTO changelogs (deck, message, timestamp)
         VALUES ((SELECT id FROM decks WHERE human_hash = $1), $2, NOW())
     "#;
-    let client = database::client().await?;
+    let client = database::client(db_state).await?;
     client.execute(query, &[&deck_hash, &message]).await?;
     Ok(())
 }
 
-pub async fn get_changelogs(deck_hash: &String) -> Return<Vec<ChangelogInfo>> {
-    let client = database::client().await?;
+pub async fn get_changelogs(db_state: &Arc<database::AppState>, deck_hash: &String) -> Return<Vec<ChangelogInfo>> {
+    let client = database::client(db_state).await?;
 
     let query = "SELECT id, message, TO_CHAR(timestamp, 'MM/DD/YYYY HH24:MI:SS') AS timestamp FROM changelogs WHERE deck = (SELECT id FROM decks WHERE human_hash = $1) ORDER BY timestamp DESC LIMIT 5";
 
@@ -31,13 +33,13 @@ pub async fn get_changelogs(deck_hash: &String) -> Return<Vec<ChangelogInfo>> {
     Ok(rows)
 }
 
-pub async fn delete_changelog(id: i64, user_id: i32) -> Result<String, Box<dyn std::error::Error>> {
+pub async fn delete_changelog(db_state: &Arc<database::AppState>, id: i64, user_id: i32) -> Result<String, Box<dyn std::error::Error>> {
     let query = r#"
         DELETE FROM changelogs
         WHERE id = $1 AND deck IN (SELECT id FROM decks WHERE owner = $2)
         RETURNING deck
     "#;
-    let client = database::client().await?;
+    let client = database::client(db_state).await?;
     let row = match client.query_opt(query, &[&id, &user_id]).await? {
         Some(row) => row,
         None => return Err("Deck not found".into()),

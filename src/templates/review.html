@@ -4,7 +4,7 @@
     {% include "header_template.html" %}
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script> 
 
-    <script src="/js/bindiff.js"></script>
+    <script src="/static/js/bindiff.js"></script>
   </head>
   {% include "layout_header.html" %}
         <!-- End Top layout-->
@@ -16,7 +16,7 @@
               <div class="text-center">
                 <h1 class="card-title">Review Note</h1>
                 <p>Last Update: {{ note.last_update }}</p>
-                <p>Deck: {{ note.deck }}</p>
+                <p style="font-weight:bold">Current Deck: {{ note.deck }}</p>
               </div>
               <div class="text-right">
                 <button
@@ -108,6 +108,25 @@
                 </div>
                 <div class="col">
                   <h4>Suggested Changes:</h4>
+                  <div style="margin-bottom:3em">
+                  <p>Deck Changes (Suggestion to move the Note to the following Deck):</p>
+                  {% for req in note.note_move_decks %}
+                    <div class="note_tag_container">
+                        <button class="btn mb-1 btn-flat w-100">{{req.path}}</button>
+                        {% if access %}
+                        <div class="tag_actions">
+                            <button class="tag_accept_button" role="button" onclick="acceptMove({{req.id}})">
+                                <i class="fa fa-check"></i>
+                            </button>
+                            <button class="tag_deny_button" role="button" onclick="denyMove({{req.id}})">
+                                <i class="fa fa-times"></i>
+                            </button>
+                        </div>
+                        {% endif %}
+                    </div>
+                  {% endfor %}
+                  </div>
+                  <p>Field Changes:</p>
                   {% for field in note.unconfirmed_fields %}
                     <div class="media media-reply">
                       <div class="media-body">
@@ -141,6 +160,7 @@
                       </div>
                     </div>
                   {% endfor %}
+                  <p>Tag Changes:</p>
                   {% for tag in note.new_tags %}
                   <div class="note_tag_container">
                     <button class="btn mb-1 btn-flat btn-new-tag w-100">{{tag.content}}</button>
@@ -208,6 +228,13 @@
       function denyTag(tagId) {
         window.location.href = `/DenyTag/${tagId}`;
       }
+      function acceptMove(MoveId) {
+        window.location.href = `/AcceptNoteMove/${MoveId}`;
+      }
+      function denyMove(MoveId) {
+        window.location.href = `/DenyNoteMove/${MoveId}`;
+      }
+
       function toggleTags(button) {
         var collapsedTags = document.getElementById("collapsedTags");
         if (collapsedTags.style.display === "none") {

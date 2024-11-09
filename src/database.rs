@@ -1,16 +1,21 @@
 use std::env;
+use std::sync::Arc;
 
 use bb8_postgres::bb8::{Pool, PooledConnection};
 use bb8_postgres::{tokio_postgres::NoTls, PostgresConnectionManager};
-use once_cell::sync::OnceCell;
 
-use crate::error::Error;
 use crate::{DeckHash, DeckId, Return, UserId};
+use crate::error::Error::*;
 
-pub(crate) static TOKIO_POSTGRES_POOL: OnceCell<Pool<PostgresConnectionManager<NoTls>>> =
-    OnceCell::new();
+use tera::Tera;
 
-pub async fn establish_connection() -> Result<
+#[derive(Debug)]
+pub struct AppState {
+    pub db_pool: Arc<Pool<PostgresConnectionManager<NoTls>>>,
+    pub tera: Arc<Tera>,
+}
+
+pub async fn establish_pool_connection() -> Result<
     Pool<PostgresConnectionManager<NoTls>>,
     Box<dyn std::error::Error + Send + Sync + 'static>,
 > {
@@ -24,12 +29,18 @@ pub async fn establish_connection() -> Result<
     Ok(pool)
 }
 
-pub async fn client() -> Return<PooledConnection<'static, PostgresConnectionManager<NoTls>>> {
-    Ok(TOKIO_POSTGRES_POOL.get().unwrap().get().await?)
+pub async fn client(db_state: &Arc<AppState>) -> Return<PooledConnection<'_, PostgresConnectionManager<NoTls>>> {
+    match db_state.db_pool.get().await {
+        Ok(pool) => Ok(pool),
+        Err(err) => {
+            println!("Error getting pool: {}", err);
+            Err(DatabaseConnection)
+        },
+    }
 }
 
-pub async fn owned_deck_id(deck_hash: &DeckHash, user_id: UserId) -> Return<DeckId> {
-    let owned_info = client()
+pub async fn owned_deck_id(db_state: &Arc<AppState>, deck_hash: &DeckHash, user_id: UserId) -> Return<DeckId> {
+    let owned_info = client(db_state)
         .await?
         .query(
             "Select id from decks where human_hash = $1 and owner = $2",
@@ -38,7 +49,7 @@ pub async fn owned_deck_id(deck_hash: &DeckHash, user_id: UserId) -> Return<Deck
         .await?;
 
     match owned_info.is_empty() {
-        true => Err(Error::Unauthorized),
+        true => Err(Unauthorized),
         false => Ok(owned_info[0].get(0)),
     }
 }

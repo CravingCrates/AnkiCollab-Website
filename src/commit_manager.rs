@@ -3,6 +3,10 @@ use crate::error::Error::*;
 use crate::structs::*;
 use crate::Return;
 
+use std::cmp::min;
+use std::collections::HashMap;
+use std::sync::Arc;
+
 fn get_string_from_rationale(input: i32) -> &'static str {
     match input {
         0 => "None",
@@ -17,11 +21,12 @@ fn get_string_from_rationale(input: i32) -> &'static str {
         9 => "Bulk Suggestion",
         10 => "Other",
         11 => "Card Deletion",
+        12 => "Changed Deck",
         _ => "Unknown Rationale",
     }
 }
 
-pub async fn get_commit_info(commit_id: i32) -> Return<CommitsOverview> {
+pub async fn get_commit_info(db_state: &Arc<database::AppState>, commit_id: i32) -> Return<CommitsOverview> {
     let query = r#"    
         SELECT c.commit_id, c.rationale, c.info,
         TO_CHAR(c.timestamp, 'MM/DD/YYYY') AS last_update,
@@ -30,7 +35,7 @@ pub async fn get_commit_info(commit_id: i32) -> Return<CommitsOverview> {
         JOIN decks d on d.id = c.deck
         WHERE c.commit_id = $1
     "#;
-    let client = database::client().await?;
+    let client = database::client(db_state).await?;
     let row = client.query_one(query, &[&commit_id]).await?;
     let commit = CommitsOverview {
         id: row.get(0),
@@ -42,65 +47,140 @@ pub async fn get_commit_info(commit_id: i32) -> Return<CommitsOverview> {
     Ok(commit)
 }
 
-pub async fn commits_review(uid: i32) -> Result<Vec<CommitsOverview>, Box<dyn std::error::Error>> {
-    let query = r#"
-    WITH RECURSIVE accessible AS (
-        SELECT id FROM decks WHERE id IN (
-          SELECT deck FROM maintainers WHERE user_id = $1
-          UNION
-          SELECT id FROM decks WHERE owner = $1
-        )
-        UNION
-        SELECT decks.id
-        FROM decks
-        INNER JOIN accessible ON decks.parent = accessible.id
-      ),
-      unreviewed_changes AS (
-        SELECT commit_id, rationale, info, timestamp, deck
-        FROM commits
-        WHERE EXISTS (
-          SELECT 1 FROM fields
-          WHERE fields.reviewed = false AND fields.commit = commits.commit_id
-        )
-        UNION
-        SELECT commit_id, rationale, info, timestamp, deck
-        FROM commits
-        WHERE EXISTS (
-          SELECT 1 FROM tags
-          WHERE tags.reviewed = false AND tags.commit = commits.commit_id
-        )
-        UNION
-        SELECT commit_id, rationale, info, timestamp, deck
-        FROM commits
-        WHERE EXISTS (
-          SELECT 1 FROM card_deletion_suggestions
-          WHERE card_deletion_suggestions.commit = commits.commit_id
-        )
-      )
-      SELECT commit_id, rationale, info, TO_CHAR(timestamp, 'MM/DD/YYYY') AS last_update
-      FROM unreviewed_changes
-      WHERE deck IN (SELECT id FROM accessible) OR (SELECT is_admin FROM users WHERE id = $1)      
-    "#;
-    let client = database::client().await?;
+// Helper function to find the shortest common prefix among a vector of strings
+fn find_common_prefix(paths: Vec<&str>) -> String {
+    if paths.is_empty() {
+        return String::new();
+    }
 
-    let rows = client
-        .query(query, &[&uid])
-        .await?
-        .into_iter()
-        .map(|row| CommitsOverview {
-            id: row.get(0),
-            rationale: get_string_from_rationale(row.get(1)).into(),
-            commit_info: row.get(2),
-            timestamp: row.get(3),
-            deck: String::new(),
-        })
-        .collect::<Vec<_>>();
+    let mut prefix_parts = paths[0].split("::").collect::<Vec<_>>();
 
-    Ok(rows)
+    for path in paths.iter().skip(1) {
+        let parts = path.split("::").collect::<Vec<_>>();
+        let mut i = 0;
+        while i < min(prefix_parts.len(), parts.len()) && prefix_parts[i] == parts[i] {
+            i += 1;
+        }
+        prefix_parts.truncate(i);
+    }
+
+    prefix_parts.join("::")
 }
 
-pub async fn notes_by_commit(commit_id: i32) -> Return<Vec<CommitData>> {
-    let client = database::client().await?;
+pub async fn commits_review(db_state: &Arc<database::AppState>, uid: i32) -> Result<Vec<CommitsOverview>, Box<dyn std::error::Error>> {
+    let client = database::client(db_state).await?;
+
+    let accessible_query = r#"
+        WITH RECURSIVE accessible AS (
+            SELECT id FROM decks WHERE id IN (
+                SELECT deck FROM maintainers WHERE user_id = $1
+                UNION
+                SELECT id FROM decks WHERE owner = $1
+            )
+            UNION
+            SELECT decks.id FROM decks
+            INNER JOIN accessible ON decks.parent = accessible.id
+        )
+        SELECT id FROM accessible
+    "#;
+    let accessible_decks: Vec<i64> = client
+        .query(accessible_query, &[&uid])
+        .await?
+        .iter()
+        .map(|row| row.get(0))
+        .collect();
+
+    let changes_query = r#"
+        WITH base_commits AS (
+            SELECT c.commit_id, c.rationale, c.info, TO_CHAR(c."timestamp", 'MM/DD/YYYY') AS formatted_timestamp, c.deck
+            FROM commits c
+            WHERE (c.deck = ANY($1) OR (SELECT is_admin FROM users WHERE id = $2))
+        )
+        SELECT
+            bc.commit_id,
+            bc.rationale,
+            bc.info,
+            bc.formatted_timestamp,
+            bc.deck,
+            combined_notes.note
+        FROM base_commits bc
+        CROSS JOIN LATERAL (
+            SELECT COALESCE(
+                (SELECT note FROM fields WHERE commit = bc.commit_id AND reviewed = false LIMIT 1),
+                (SELECT note FROM tags WHERE commit = bc.commit_id AND reviewed = false LIMIT 1),
+                (SELECT note FROM card_deletion_suggestions WHERE commit = bc.commit_id LIMIT 1),
+                (SELECT note FROM note_move_suggestions WHERE commit = bc.commit_id LIMIT 1)
+            ) AS note
+        ) AS combined_notes
+        WHERE combined_notes.note IS NOT NULL
+    "#;
+    let changes_rows = client
+        .query(changes_query, &[&accessible_decks, &uid])
+        .await?;
+
+    // This is new and kinda bad, bc its super slow and inefficient. But it works for now. gottaa think of a better way to do this tho
+    let deck_names_query = r#"
+        SELECT
+            n.id AS note_id,
+            d.full_path
+        FROM notes n
+        JOIN decks d ON d.id = n.deck
+        WHERE n.id = ANY($1)
+    "#;
+    let note_ids: Vec<i64> = changes_rows.iter().filter_map(|row| row.get(5)).collect();
+    let deck_names_rows = client.query(deck_names_query, &[&note_ids]).await?;
+
+    // Process results
+    let mut commit_map: HashMap<i32, (CommitsOverview, Vec<String>)> = HashMap::new();
+
+    for row in changes_rows {
+        let commit_id: i32 = row.get(0);
+        let note_id: Option<i64> = row.get(5);
+        
+        commit_map.entry(commit_id).or_insert_with(|| (
+            CommitsOverview {
+                id: commit_id,
+                rationale: get_string_from_rationale(row.get(1)).into(),
+                commit_info: row.get(2),
+                timestamp: row.get(3),
+                deck: String::new(),
+            },
+            Vec::new()
+        ));
+
+        if let Some(note_id) = note_id {
+            commit_map.get_mut(&commit_id).unwrap().1.push(note_id.to_string());
+        }
+    }
+
+    let mut deck_paths: HashMap<i64, String> = HashMap::new();
+    for row in deck_names_rows {
+        let note_id: i64 = row.get(0);
+        let full_path: String = row.get(1);
+        deck_paths.insert(note_id, full_path);
+    }
+
+    // We could do all that in just 1 sql query, but to break it down and make it more readable, we do it here
+    let result: Vec<CommitsOverview> = commit_map
+        .into_iter()
+        .map(|(_, (mut overview, note_ids))| {
+            let paths: Vec<&str> = note_ids
+                .iter()
+                .filter_map(|note_id| deck_paths.get(&note_id.parse::<i64>().unwrap()).map(|s| s.as_str()))
+                .collect();
+            
+            if !paths.is_empty() {
+                overview.deck = find_common_prefix(paths);
+            }
+            overview
+        })
+        .collect();
+
+    Ok(result)
+}
+
+pub async fn notes_by_commit(db_state: &Arc<database::AppState>, commit_id: i32) -> Return<Vec<CommitData>> {
+    let client = database::client(db_state).await?;
 
     let get_notes = "
         SELECT note FROM (
@@ -109,6 +189,8 @@ pub async fn notes_by_commit(commit_id: i32) -> Return<Vec<CommitData>> {
             SELECT note FROM tags WHERE commit = $1 and reviewed = false
             UNION ALL
             SELECT note FROM card_deletion_suggestions WHERE commit = $1
+            UNION ALL
+            SELECT note FROM note_move_suggestions WHERE commit = $1
         ) AS n
         GROUP BY note
         LIMIT 100
@@ -165,6 +247,17 @@ pub async fn notes_by_commit(commit_id: i32) -> Return<Vec<CommitData>> {
         )
         .await?;
 
+    let move_req_query = client
+    .prepare(
+            "
+            SELECT nms.id, d.full_path FROM note_move_suggestions nms
+            JOIN decks d ON d.id = nms.target_deck
+            WHERE nms.note = $1 and nms.commit = $2
+            LIMIT 1
+        ",
+        )
+        .await?;
+
     let first_field_query = client
         .prepare(
             "
@@ -177,8 +270,7 @@ pub async fn notes_by_commit(commit_id: i32) -> Return<Vec<CommitData>> {
         )
         .await?;
 
-    let mut commit_info = vec![];
-    commit_info.reserve(affected_notes.len());
+    let mut commit_info = Vec::with_capacity(affected_notes.len());
 
     for note_id in affected_notes {
         let mut current_note = CommitData {
@@ -191,6 +283,7 @@ pub async fn notes_by_commit(commit_id: i32) -> Return<Vec<CommitData>> {
             last_update: String::new(),
             reviewed: false,
             delete_req: false,
+            move_req: None,
             fields: Vec::new(),
             new_tags: Vec::new(),
             removed_tags: Vec::new(),
@@ -265,11 +358,21 @@ pub async fn notes_by_commit(commit_id: i32) -> Return<Vec<CommitData>> {
                     }
                 }
             }
+
+            let move_req_rows = client.query(&move_req_query, &[&note_id, &commit_id]).await?;
+            if !move_req_rows.is_empty() {
+                let move_req_row = NoteMoveReq {
+                    id: move_req_rows[0].get(0),
+                    path: move_req_rows[0].get(1),
+                };
+                current_note.move_req = Some(move_req_row);
+            }
         }
 
         if !current_note.fields.is_empty()
             || !current_note.new_tags.is_empty()
             || !current_note.removed_tags.is_empty()
+            || current_note.move_req.is_some()
         {
             commit_info.push(current_note);
         }

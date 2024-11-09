@@ -1,10 +1,12 @@
+use std::sync::Arc;
+
 use crate::database;
 use crate::error::Error::*;
 use crate::structs;
 use crate::Return;
 
-pub async fn update_media(deck: i64, data: structs::GDriveInfo) -> Return<String> {
-    let client = database::client().await?;
+pub async fn update_media(db_state: &Arc<database::AppState>, deck: i64, data: structs::GDriveInfo) -> Return<String> {
+    let client = database::client(db_state).await?;
     let google_json = serde_json::to_value(&data.service_account)?;
     let fixed_folder = data.folder_id.trim();
     let res = client

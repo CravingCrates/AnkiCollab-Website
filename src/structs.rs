@@ -1,4 +1,4 @@
-use rocket::serde::{Deserialize, Serialize};
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 pub type Return<T> = Result<T, crate::error::Error>;
@@ -9,7 +9,7 @@ pub type NoteId = i64;
 pub type FieldId = i64;
 
 /// The `Login` form is used along with the [`Auth`] guard to authenticate users.
-#[derive(rocket::FromForm, Deserialize)]
+#[derive(Deserialize)]
 pub struct BetterLogin {
     pub email: String,
     pub password: String,
@@ -65,6 +65,7 @@ pub struct CommitData {
     pub last_update: String,
     pub reviewed: bool,
     pub delete_req: bool,
+    pub move_req: Option<NoteMoveReq>,
     pub fields: Vec<FieldsReviewInfo>,
     pub new_tags: Vec<TagsInfo>,
     pub removed_tags: Vec<TagsInfo>,
@@ -98,6 +99,13 @@ pub struct NoteData {
     pub new_tags: Vec<TagsInfo>,
     pub removed_tags: Vec<TagsInfo>,
     pub note_model_fields: Vec<String>,
+    pub note_move_decks: Vec<NoteMoveReq>
+}
+
+#[derive(Serialize)]
+pub struct NoteMoveReq {
+    pub id: i32,
+    pub path: String,
 }
 
 /* Decks */

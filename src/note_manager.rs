@@ -1,12 +1,15 @@
+use std::sync::Arc;
+
 use crate::database;
 use crate::error::Error::*;
 use crate::error::NoteNotFoundContext;
 use crate::structs::*;
 use crate::suggestion_manager;
+use crate::user;
 use crate::NoteId;
 use crate::Return;
 
-pub async fn under_review(uid: i32) -> Result<Vec<ReviewOverview>, Box<dyn std::error::Error>> {
+pub async fn under_review(db_state: &Arc<database::AppState>, uid: i32) -> Result<Vec<ReviewOverview>, Box<dyn std::error::Error>> {
     let query = r#"
         WITH owned AS (
             SELECT id, full_path FROM decks WHERE id IN (
@@ -31,7 +34,7 @@ pub async fn under_review(uid: i32) -> Result<Vec<ReviewOverview>, Box<dyn std::
             (n.reviewed = true AND EXISTS (SELECT 1 FROM tags WHERE tags.note = n.id AND tags.reviewed = false)))
         GROUP BY n.id, n.guid, n.reviewed, d.full_path
     "#;
-    let client = database::client().await?;
+    let client = database::client(db_state).await?;
 
     let rows = client
         .query(query, &[&uid])
@@ -50,8 +53,8 @@ pub async fn under_review(uid: i32) -> Result<Vec<ReviewOverview>, Box<dyn std::
     Ok(rows)
 }
 
-pub async fn get_notes_count_in_deck(deck: i64) -> Result<i64, Box<dyn std::error::Error>> {
-    let client = database::client().await?;
+pub async fn get_notes_count_in_deck(db_state: &Arc<database::AppState>, deck: i64) -> Result<i64, Box<dyn std::error::Error>> {
+    let client = database::client(db_state).await?;
     let query = "
         WITH RECURSIVE cte AS (
             SELECT $1::bigint as id
@@ -67,8 +70,8 @@ pub async fn get_notes_count_in_deck(deck: i64) -> Result<i64, Box<dyn std::erro
     Ok(count)
 }
 
-pub async fn get_name_by_hash(deck: &String) -> Result<Option<String>, Box<dyn std::error::Error>> {
-    let client = database::client().await?;
+pub async fn get_name_by_hash(db_state: &Arc<database::AppState>, deck: &String) -> Result<Option<String>, Box<dyn std::error::Error>> {
+    let client = database::client(db_state).await?;
 
     let query = "SELECT name FROM decks WHERE human_hash = $1";
     let rows = client.query(query, &[&deck]).await?;
@@ -81,8 +84,8 @@ pub async fn get_name_by_hash(deck: &String) -> Result<Option<String>, Box<dyn s
     Ok(Some(name))
 }
 
-pub async fn get_note_data(note_id: NoteId) -> Return<NoteData> {
-    let client = database::client().await?;
+pub async fn get_note_data(db_state: &Arc<database::AppState>, note_id: NoteId) -> Return<NoteData> {
+    let client = database::client(db_state).await?;
 
     let note_query = "
         SELECT id, guid, TO_CHAR(last_update, 'MM/DD/YYYY HH12:MI AM') AS last_update, reviewed, 
@@ -113,6 +116,13 @@ pub async fn get_note_data(note_id: NoteId) -> Return<NoteData> {
         WHERE note = $1
     ";
 
+    let move_req_query ="
+        SELECT DISTINCT ON (d.full_path) d.full_path, nms.id
+        FROM decks d
+        JOIN note_move_suggestions nms ON d.id = nms.target_deck
+        WHERE nms.note = $1
+    ";
+
     let mut current_note = NoteData {
         id: 0,
         guid: String::new(),
@@ -127,6 +137,7 @@ pub async fn get_note_data(note_id: NoteId) -> Return<NoteData> {
         new_tags: Vec::new(),
         removed_tags: Vec::new(),
         note_model_fields: Vec::new(),
+        note_move_decks: Vec::new(),
     };
 
     let note_res = client.query_one(note_query, &[&note_id]).await?;
@@ -150,6 +161,17 @@ pub async fn get_note_data(note_id: NoteId) -> Return<NoteData> {
         .into_iter()
         .map(|row| row.get::<_, String>("name"))
         .collect::<Vec<String>>();
+
+    let move_suggestions = client
+        .query(move_req_query, &[&note_id])
+        .await?
+        .into_iter()
+        .map(|row| NoteMoveReq {
+            id: row.get("id"),
+            path: row.get("full_path"),
+        })
+        .collect::<Vec<NoteMoveReq>>();
+    current_note.note_move_decks = move_suggestions;
 
     current_note.note_model_fields = notetype_fields;
 
@@ -210,7 +232,7 @@ pub async fn get_note_data(note_id: NoteId) -> Return<NoteData> {
 }
 
 // Only show at most 1k cards. everything else is too much for the website to load. TODO Later: add incremental loading instead
-pub async fn retrieve_notes(deck: &String) -> Return<Vec<Note>> {
+pub async fn retrieve_notes(db_state: &Arc<database::AppState>, deck: &String) -> Return<Vec<Note>> {
     let query = r#"
         SELECT n.id, n.guid,
             CASE
@@ -226,7 +248,7 @@ pub async fn retrieve_notes(deck: &String) -> Return<Vec<Note>> {
         ORDER BY n.id ASC
         LIMIT 200;
     "#;
-    let client = database::client().await?;
+    let client = database::client(db_state).await?;
 
     let rows = client
         .query(query, &[&deck])
@@ -246,10 +268,11 @@ pub async fn retrieve_notes(deck: &String) -> Return<Vec<Note>> {
 }
 
 pub async fn deny_note_removal_request(
+    db_state: &Arc<database::AppState>, 
     note_id: i64,
-    user: rocket_auth::User,
+    user: user::User,
 ) -> Result<String, Box<dyn std::error::Error>> {
-    let client = database::client().await?;
+    let client = database::client(db_state).await?;
 
     let q_guid = client
         .query("Select deck from notes where id = $1", &[&note_id])
@@ -259,7 +282,7 @@ pub async fn deny_note_removal_request(
     }
     let deck_id: i64 = q_guid[0].get(0);
 
-    let access = suggestion_manager::is_authorized(&user, deck_id).await?;
+    let access = suggestion_manager::is_authorized(db_state, &user, deck_id).await?;
     if !access {
         return Err("Unauthorized.".into());
     }
@@ -276,11 +299,12 @@ pub async fn deny_note_removal_request(
 
 // We skip a few steps if the caller is a bulk approve since they handle some stuff
 pub async fn mark_note_deleted(
+    db_state: &Arc<database::AppState>, 
     note_id: i64,
-    user: rocket_auth::User,
+    user: user::User,
     bulk: bool,
 ) -> Return<String> {
-    let mut client = database::client().await?;
+    let mut client = database::client(db_state).await?;
 
     let q_guid = client
         .query(
@@ -295,7 +319,7 @@ pub async fn mark_note_deleted(
     let deck_id: i64 = q_guid[0].get(1);
 
     if !bulk {
-        let access = suggestion_manager::is_authorized(&user, deck_id).await?;
+        let access = suggestion_manager::is_authorized(db_state, &user, deck_id).await?;
         if !access {
             return Err(Unauthorized);
         }
@@ -313,10 +337,14 @@ pub async fn mark_note_deleted(
     // Remove note from deletion_suggestions table
     let query4 = "DELETE FROM card_deletion_suggestions WHERE note = $1";
 
+    // Remove note from move_suggestions table
+    let query5 = "DELETE FROM note_move_suggestions WHERE note = $1";
+
     tx.execute(query, &[&note_id]).await?;
     tx.execute(query2, &[&note_id]).await?;
     tx.execute(query3, &[&note_id]).await?;
     tx.execute(query4, &[&note_id]).await?;
+    tx.execute(query5, &[&note_id]).await?;
 
     if !bulk {
         // Update timestamp

@@ -1,4 +1,4 @@
-use rocket_auth::User;
+use crate::user::User;
 
 use crate::database;
 use crate::error::Error::*;
@@ -6,9 +6,10 @@ use crate::structs::*;
 use crate::Return;
 
 use std::collections::HashMap;
+use std::sync::Arc;
 
-pub async fn get_protected_fields(notetype_id: i64) -> Return<Vec<NoteModelFieldInfo>> {
-    let client = database::client().await?;
+pub async fn get_protected_fields(db_state: &Arc<database::AppState>, notetype_id: i64) -> Return<Vec<NoteModelFieldInfo>> {
+    let client = database::client(db_state).await?;
     let query = "SELECT id, name, protected, position FROM notetype_field WHERE notetype = $1 ORDER BY position";
 
     let rows = client
@@ -25,9 +26,9 @@ pub async fn get_protected_fields(notetype_id: i64) -> Return<Vec<NoteModelField
     Ok(rows)
 }
 
-pub async fn notetypes_by_commit(commit_id: i32) -> Return<HashMap<i64, Vec<String>>> {
+pub async fn notetypes_by_commit(db_state: &Arc<database::AppState>, commit_id: i32) -> Return<HashMap<i64, Vec<String>>> {
     // Returns a map of notetypes with a vector of the field names of that notetype
-    let client = database::client().await?;
+    let client = database::client(db_state).await?;
     let get_notetypes = "
         SELECT DISTINCT notetype FROM notes
         WHERE notes.id IN 
@@ -37,6 +38,8 @@ pub async fn notetypes_by_commit(commit_id: i32) -> Return<HashMap<i64, Vec<Stri
             SELECT tags.note FROM tags WHERE tags.commit = $1
             UNION
             SELECT card_deletion_suggestions.note FROM card_deletion_suggestions WHERE card_deletion_suggestions.commit = $1
+            UNION
+            SELECT note_move_suggestions.note FROM note_move_suggestions WHERE note_move_suggestions.commit = $1
         )
     ";
     let affected_notetypes = client
@@ -70,10 +73,11 @@ pub async fn notetypes_by_commit(commit_id: i32) -> Return<HashMap<i64, Vec<Stri
 }
 
 pub async fn update_notetype(
+    db_state: &Arc<database::AppState>,
     user: &User,
     notetype: &UpdateNotetype,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    let mut client = database::client().await?;
+    let mut client = database::client(db_state).await?;
     let rows = client
         .query(
             "SELECT 1 FROM notetype WHERE (owner = $1 AND id = $3) OR $2 LIMIT 1",
@@ -119,9 +123,10 @@ pub async fn update_notetype(
 }
 
 pub async fn get_notetype_overview(
+    db_state: &Arc<database::AppState>,
     user: &User,
 ) -> Result<Vec<NotetypeOverview>, Box<dyn std::error::Error>> {
-    let client = database::client().await?;
+    let client = database::client(db_state).await?;
 
     let query = client
         .prepare(
