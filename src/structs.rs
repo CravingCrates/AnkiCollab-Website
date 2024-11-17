@@ -11,7 +11,7 @@ pub type FieldId = i64;
 /// The `Login` form is used along with the [`Auth`] guard to authenticate users.
 #[derive(Deserialize)]
 pub struct BetterLogin {
-    pub email: String,
+    pub username: String,
     pub password: String,
     pub cookie: bool,
 }
@@ -123,7 +123,7 @@ pub struct DeckOverview {
     pub hash: String,
     pub last_update: String,
     pub id: i64,
-    pub notes: i64,
+    pub notes: String,
     pub children: Vec<BasicDeckInfo>,
     pub subscriptions: i64,
     pub stats_enabled: bool,
@@ -167,7 +167,7 @@ pub struct ChangelogInfo {
 #[derive(Deserialize, Serialize)]
 pub struct UpdateMaintainer {
     pub deck: String,
-    pub email: String,
+    pub username: String,
     pub action: i32, // 1 = add, 0 = remove
 }
 

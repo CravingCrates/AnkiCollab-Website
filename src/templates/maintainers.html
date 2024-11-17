@@ -24,10 +24,10 @@
                 <div class="tdl-holder">
                   <div class="tdl-content2 tdl-content--no-label">
                     <ul>
-                      {% for email in maintainers %}
+                      {% for username in maintainers %}
                       <li>
                         <label
-                          ><span>{{ email }}</span
+                          ><span>{{ username }}</span
                           ><a href="#" class="ti-close"></a>
                         </label>
                       </li>
@@ -37,7 +37,7 @@
                   <input
                     type="text"
                     class="tdl-new2 form-control"
-                    placeholder="Enter new email and hit 'Enter'..."
+                    placeholder="Enter new username and hit 'Enter'..."
                     required
                   />
                 </div>
@@ -96,19 +96,14 @@
         });
       }
 
-      $(document).ready(function () {
-        function isValidEmail(email) {
-            var regex = /^[\w-]+(\.[\w-]+)*@([\w-]+\.)+[a-zA-Z]{2,7}$/;
-            return regex.test(email);
-        }
-
+      $(document).ready(function () {      
         const ACTION_ADD = 1;
         const ACTION_REMOVE = 0;
 
-        function sendData(action, email) {
+        function sendData(action, username) {
           const data = {
               deck: "{{hash}}",
-              email: email,
+              username: username,
               action: action,
           };
 
@@ -125,7 +120,7 @@
                 $('.tdl-content2 ul').append(
                   `<li>
                     <label>
-                      <span>${email}</span>
+                      <span>${username}</span>
                       <a href="#" class="ti-close"></a>
                     </label>
                   </li>`
@@ -136,7 +131,7 @@
                 toast_success('Maintainer removed');
               }
               else {
-                toast_error('Invalid email');
+                toast_error('Invalid username');
               }
             })
             .catch((error) => {
@@ -145,12 +140,12 @@
             });
         }
 
-        function removeMaintainer(email) {
-          sendData(ACTION_REMOVE, email);
+        function removeMaintainer(username) {
+          sendData(ACTION_REMOVE, username);
         }
 
-        function addMaintainer(email) {
-          sendData(ACTION_ADD, email);
+        function addMaintainer(username) {
+          sendData(ACTION_ADD, username);
         }
 
         // addMaintainer
@@ -158,19 +153,15 @@
             var code = (e.keyCode ? e.keyCode : e.which);
             if (code == 13) { // Enter key
               e.preventDefault();
-              var email = $(this).val();
-              if (isValidEmail(email)) {
-                addMaintainer(email);
-              } else {
-                toast_error('Invalid email');
-              }
+              var username = $(this).val();
+              addMaintainer(username);              
               $(this).val(''); // Clear the input field
             }
           });
 
         $(document).on("click", ".ti-close", function () {
-          var email = $(this).siblings("span").text().trim();
-          removeMaintainer(email);
+          var username = $(this).siblings("span").text().trim();
+          removeMaintainer(username);
           var _li = $(this).parent().parent("li");
           _li.addClass("remove").stop().delay(100).slideUp("fast", function() {
               _li.remove();

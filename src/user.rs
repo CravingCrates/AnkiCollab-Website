@@ -23,7 +23,6 @@ use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use time::{Duration, OffsetDateTime};
 use tokio_postgres::Client;
-use regex::Regex;
 
 use crate::error::AuthError;
 
@@ -33,13 +32,13 @@ const COOKIE_MAX_AGE: i64 = 60 * 60 * 24 * 7; // 7 days in seconds
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct User {
     pub id: i32,
-    pub email: String,
+    pub username: String,
     pub is_admin: bool,
 }
 
 impl User {
     pub fn id(&self) -> i32 { self.id }
-    pub fn email(&self) -> String { self.email.clone() }
+    pub fn username(&self) -> String { self.username.clone() }
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -51,13 +50,13 @@ pub struct Claims {
 
 #[derive(Debug, Deserialize)]
 pub struct Credentials {
-    pub email: String,
+    pub username: String,
     pub password: String,
 }
 impl Clone for Credentials {
     fn clone(&self) -> Self {
         Self {
-            email: self.email.clone(),
+            username: self.username.clone(),
             password: self.password.clone(),
         }
     }
@@ -86,7 +85,7 @@ impl Auth {
         let row = self
             .db
             .query_one(
-                "SELECT id, email, is_admin
+                "SELECT id, username, is_admin
                  FROM users
                  WHERE id = $1",
                 &[&user_id],
@@ -94,35 +93,27 @@ impl Auth {
             .await?;
         Ok(User {
             id: row.get(0),
-            email: row.get(1),
+            username: row.get(1),
             is_admin: row.get(2),
         })
     }
     
     pub async fn signup(&self, creds: Credentials) -> Result<User, AuthError> {
-        // Normalize email to lowercase for case-insensitive comparison
-        let normalized_email = creds.email.to_lowercase();
+        // Normalize username to lowercase for case-insensitive comparison
+        let normalized_username = creds.username.to_lowercase();
             
-        // Validate email format using regex
-        let email_regex = Regex::new(r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$")
-            .map_err(|_| AuthError::InvalidEmail)?;
-
-        if !email_regex.is_match(&normalized_email) {
-            return Err(AuthError::InvalidEmail);
-        }
-
-        // Check if email already exists (case insensitive)
+        // Check if username already exists (case insensitive)
         let exists = self
             .db
             .query_one(
-                "SELECT EXISTS(SELECT 1 FROM users WHERE LOWER(email) = $1)",
-                &[&normalized_email],
+                "SELECT EXISTS(SELECT 1 FROM users WHERE LOWER(username) = $1)",
+                &[&normalized_username],
             )
             .await?
             .get::<_, bool>(0);
 
         if exists {
-            return Err(AuthError::EmailAlreadyExists);
+            return Err(AuthError::UsernameAlreadyExists);
         }
 
         // Validate password strength
@@ -139,16 +130,16 @@ impl Auth {
         let row = self
             .db
             .query_one(
-                "INSERT INTO users (email, password) 
+                "INSERT INTO users (username, password) 
                  VALUES ($1, $2) 
-                 RETURNING id, email",
-                &[&normalized_email, &password_hash],
+                 RETURNING id, username",
+                &[&normalized_username, &password_hash],
             )
             .await?;
 
         Ok(User {
             id: row.get(0),
-            email: row.get(1),
+            username: row.get(1),
             is_admin: false,
         })
     }
@@ -171,15 +162,15 @@ impl Auth {
     }
 
     pub async fn login(&self, creds: Credentials) -> Result<String, AuthError> {
-        let normalized_email = creds.email.to_lowercase();
+        let normalized_username = creds.username.to_lowercase();
         // Find user
         let row = self
             .db
             .query_opt(
                 "SELECT id, password 
                  FROM users 
-                 WHERE email = $1",
-                &[&normalized_email]
+                 WHERE username = $1",
+                &[&normalized_username]
             )
             .await?
             .ok_or(AuthError::InvalidCredentials)?;

@@ -5,22 +5,22 @@ use crate::{database, Return};
 
 pub async fn get_maintainers(db_state: &Arc<database::AppState>, deck: i64) -> Result<Vec<String>, Box<dyn std::error::Error>> {
     let query =
-        "SELECT email from users WHERE id IN (SELECT user_id FROM maintainers WHERE deck = $1)";
+        "SELECT username from users WHERE id IN (SELECT user_id FROM maintainers WHERE deck = $1)";
     let client = database::client(db_state).await?;
     let users = client
         .query(query, &[&deck])
         .await?
         .into_iter()
-        .map(|row| row.get::<_, String>("email"))
+        .map(|row| row.get::<_, String>("username"))
         .collect::<Vec<String>>();
 
     Ok(users)
 }
 
-pub async fn add_maintainer(db_state: &Arc<database::AppState>, deck: i64, email: String) -> Return<String> {
+pub async fn add_maintainer(db_state: &Arc<database::AppState>, deck: i64, username: String) -> Return<String> {
     let client = database::client(db_state).await?;
     let user = match client
-        .query_one("SELECT id FROM users WHERE email = $1", &[&email])
+        .query_one("SELECT id FROM users WHERE username = $1", &[&username])
         .await
     {
         Ok(user) => user,
@@ -48,10 +48,10 @@ pub async fn add_maintainer(db_state: &Arc<database::AppState>, deck: i64, email
     Ok("added".to_string())
 }
 
-pub async fn remove_maintainer(db_state: &Arc<database::AppState>, deck: i64, email: String) -> Return<String> {
+pub async fn remove_maintainer(db_state: &Arc<database::AppState>, deck: i64, username: String) -> Return<String> {
     let client = database::client(db_state).await?;
     let user = match client
-        .query_one("SELECT id FROM users WHERE email = $1", &[&email])
+        .query_one("SELECT id FROM users WHERE username = $1", &[&username])
         .await
     {
         Ok(user) => user,

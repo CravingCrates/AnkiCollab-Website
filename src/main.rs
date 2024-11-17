@@ -116,6 +116,12 @@ async fn privacy(State(appstate): State<Arc<AppState>>,) -> Result<impl IntoResp
     Ok(Html(rendered_template))
 }
 
+async fn imprint(State(appstate): State<Arc<AppState>>,) -> Result<impl IntoResponse, Error> {
+    let context = tera::Context::new();
+    let rendered_template = appstate.tera.render("imprint.html", &context)?;
+    Ok(Html(rendered_template))
+}
+
 async fn logout(Extension(auth): Extension<Arc<Auth>>,) -> Result<impl IntoResponse, Error> {
     let exp_cookie = auth.logout().await;
     let mut response = axum::response::Redirect::to("/").into_response();
@@ -226,10 +232,10 @@ async fn post_maintainers(
 
     // Add new maintainer
     if data.action == 1 {
-        maintainer_manager::add_maintainer(&appstate, deck_id, data.email).await
+        maintainer_manager::add_maintainer(&appstate, deck_id, data.username).await
     } else {
         // Delete existing maintainer
-        maintainer_manager::remove_maintainer(&appstate, deck_id, data.email).await
+        maintainer_manager::remove_maintainer(&appstate, deck_id, data.username).await
     }
 }
 
@@ -978,7 +984,7 @@ async fn get_notes_from_deck(
         desc: ammonia::clean(deck_info[0].get(2)),
         hash: deck_info[0].get(3),
         last_update: deck_info[0].get(5),
-        notes: 0,
+        notes: "0".to_string(),
         children: childr,
         subscriptions: 0,
         stats_enabled: false, // We don't care about this here
@@ -1023,25 +1029,22 @@ async fn deck_overview(
     user: Option<User>,
 ) -> Result<impl IntoResponse, Error> {
     let mut decks: Vec<DeckOverview> = vec![];
-    let mut user_id: i32 = 1;
-    if user.is_some() {
-        user_id = user.as_ref().unwrap().id();
-    }
+    let user_id: i32 = user.clone().map_or(1, |u| u.id());
     let client = database::client(&appstate).await?;
     let stmt = client
-        .prepare(
-            "
+        .prepare("
         SELECT 
             id, 
             name, 
             description, 
             human_hash, 
-            owner, 
+            owner,
             TO_CHAR(last_update, 'MM/DD/YYYY') AS last_update,
-            (SELECT COUNT(*) FROM subscriptions WHERE deck_id = decks.id) AS subs
-        FROM decks 
-        WHERE parent IS NULL and (private = false or owner = $1)
-    ",
+            (SELECT COUNT(*) FROM subscriptions WHERE deck_id = deck_stats.id) AS subs,
+            note_count
+        FROM deck_stats 
+        WHERE private = false OR owner = $1
+        ",
         )
         .await
         .expect("Error preparing decks overview statement");
@@ -1059,9 +1062,7 @@ async fn deck_overview(
             desc: ammonia::clean(row.get(2)),
             hash: row.get(3),
             last_update: row.get(5),
-            notes: note_manager::get_notes_count_in_deck(&appstate, row.get(0))
-                .await
-                .unwrap(),
+            notes: row.get(7),
             children: vec![],
             subscriptions: row.get(6),
             stats_enabled: false, // We don't care about this here
@@ -1133,7 +1134,7 @@ async fn manage_decks(
             last_update: row.get(5),
             notes: note_manager::get_notes_count_in_deck(&appstate, row.get(0))
                 .await
-                .unwrap(),
+                .unwrap().to_string(),
             children: vec![],
             subscriptions: row.get(6),
             stats_enabled: row.get(7),
@@ -1249,6 +1250,7 @@ async fn main() {
         .route("/", get(index))
         .route("/terms", get(terms))
         .route("/privacy", get(privacy))
+        .route("/imprint", get(imprint))
         .route("/logout", get(logout))
         .route("/OptionalTags", post(post_optional_tags))
         .route("/OptionalTags/:deck_hash", get(show_optional_tags))

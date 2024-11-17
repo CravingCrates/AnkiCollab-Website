@@ -198,10 +198,8 @@ pub enum AuthError {
     NotAuthenticated,
     #[error("Redirect to {0}")]
     Redirect(String),
-    #[error("Email already in use")]
-    EmailAlreadyExists,
-    #[error("Invalid email format")]
-    InvalidEmail,
+    #[error("Username already in use")]
+    UsernameAlreadyExists,
     #[error("Weak password")]
     PasswordWeak,
     #[error("Internal server error")]
@@ -221,8 +219,7 @@ impl Clone for AuthError {
             AuthError::Jwt(e) => AuthError::Jwt(e.clone()),
             AuthError::NotAuthenticated => AuthError::NotAuthenticated,
             AuthError::Redirect(e) => AuthError::Redirect(e.clone()),
-            AuthError::EmailAlreadyExists => AuthError::EmailAlreadyExists,
-            AuthError::InvalidEmail => AuthError::InvalidEmail,
+            AuthError::UsernameAlreadyExists => AuthError::UsernameAlreadyExists,
             AuthError::PasswordWeak => AuthError::PasswordWeak,
             AuthError::InternalError => AuthError::InternalError,
             AuthError::InvalidToken => AuthError::InvalidToken,
@@ -254,7 +251,7 @@ impl AuthError {
             ),
             AuthError::InvalidCredentials => (
                 StatusCode::UNAUTHORIZED,
-                "Invalid email or password",
+                "Invalid username or password",
             ),
             AuthError::Database(_) => (
                 StatusCode::INTERNAL_SERVER_ERROR,
@@ -269,13 +266,9 @@ impl AuthError {
                 "Internal Error 23810",
             ),
             AuthError::Redirect(_) => (StatusCode::FOUND, ""),
-            AuthError::EmailAlreadyExists => (
+            AuthError::UsernameAlreadyExists => (
                 StatusCode::BAD_REQUEST,
-                "Email already in use",
-            ),
-            AuthError::InvalidEmail => (
-                StatusCode::BAD_REQUEST,
-                "Invalid email format",
+                "Username already in use",
             ),
             AuthError::PasswordWeak => (
                 StatusCode::BAD_REQUEST,

@@ -91,28 +91,30 @@ pub async fn commits_review(db_state: &Arc<database::AppState>, uid: i32) -> Res
         .collect();
 
     let changes_query = r#"
-        WITH base_commits AS (
-            SELECT c.commit_id, c.rationale, c.info, TO_CHAR(c."timestamp", 'MM/DD/YYYY') AS formatted_timestamp, c.deck
-            FROM commits c
-            WHERE (c.deck = ANY($1) OR (SELECT is_admin FROM users WHERE id = $2))
+        WITH unreviewed_changes AS (
+            SELECT commit, note FROM fields WHERE reviewed = false
+            UNION ALL
+            SELECT commit, note FROM tags WHERE reviewed = false
+            UNION ALL 
+            SELECT commit, note FROM card_deletion_suggestions
+            UNION ALL
+            SELECT commit, note FROM note_move_suggestions
+        ),
+        distinct_commits AS (
+            SELECT DISTINCT commit,
+                FIRST_VALUE(note) OVER (PARTITION BY commit ORDER BY note) as note
+            FROM unreviewed_changes
         )
-        SELECT
-            bc.commit_id,
-            bc.rationale,
-            bc.info,
-            bc.formatted_timestamp,
-            bc.deck,
-            combined_notes.note
-        FROM base_commits bc
-        CROSS JOIN LATERAL (
-            SELECT COALESCE(
-                (SELECT note FROM fields WHERE commit = bc.commit_id AND reviewed = false LIMIT 1),
-                (SELECT note FROM tags WHERE commit = bc.commit_id AND reviewed = false LIMIT 1),
-                (SELECT note FROM card_deletion_suggestions WHERE commit = bc.commit_id LIMIT 1),
-                (SELECT note FROM note_move_suggestions WHERE commit = bc.commit_id LIMIT 1)
-            ) AS note
-        ) AS combined_notes
-        WHERE combined_notes.note IS NOT NULL
+        SELECT 
+            c.commit_id,
+            c.rationale,
+            c.info,
+            TO_CHAR(c."timestamp", 'MM/DD/YYYY') AS formatted_timestamp,
+            c.deck,
+            dc.note
+        FROM commits c
+        INNER JOIN distinct_commits dc ON c.commit_id = dc.commit
+        WHERE (c.deck = ANY($1) OR (SELECT is_admin FROM users WHERE id = $2))
     "#;
     let changes_rows = client
         .query(changes_query, &[&accessible_decks, &uid])
