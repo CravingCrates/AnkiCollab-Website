@@ -785,6 +785,34 @@ async fn accept_field(
     }
 }
 
+async fn update_field(
+    State(appstate): State<Arc<AppState>>,
+    user: User,
+    Json(edit_optional_tag): Json<structs::UpdateFieldSuggestion>
+) -> Result<impl IntoResponse, Error> {
+    let data = edit_optional_tag;
+    let deck_id = match get_deck_by_field_id(&appstate, data.field_id).await {
+        Ok(deck_id) => deck_id,
+        Err(error) => {
+            println!("Error: {}", error);
+            return Ok(Html(format!("Error: {}", error)));
+        }
+    };
+
+    if !access_check(&appstate, deck_id, &user).await? {
+        return Ok(Html("Error: You do not have access to this deck".to_string()));
+    }
+
+    match suggestion_manager::update_field_suggestion(&appstate, data.field_id, data.content).await {
+        Ok(_res) => Ok(Html("ok".to_string())),
+        Err(error) => {
+            println!("Error: {}", error);
+            Ok(Html(format!("Error: {}", error)))
+        }
+    }
+
+}
+
 async fn accept_note(
     State(appstate): State<Arc<AppState>>,
     Path(note_id): Path<i64>,
@@ -1280,6 +1308,7 @@ async fn main() {
         .route("/AcceptNoteMove/:move_id", get(accept_note_move))
         .route("/DenyField/:field_id", get(deny_field))
         .route("/AcceptField/:field_id", get(accept_field))
+        .route("/UpdateFieldSuggestion", post(update_field))
         .route("/DenyCommit/:commit_id", get(deny_commit))
         .route("/ApproveCommit/:commit_id", get(approve_commit))
         .route("/commit/:commit_id", get(review_commit))

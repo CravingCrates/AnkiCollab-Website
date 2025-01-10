@@ -43,6 +43,7 @@ pub struct CommitsOverview {
     pub commit_info: String,
     pub timestamp: String,
     pub deck: String,
+    pub user: String,
 }
 
 #[derive(Serialize)]
@@ -176,6 +177,12 @@ pub struct UpdateOptionalTag {
     pub deck: String,
     pub taggroup: String,
     pub action: i32, // 1 = add, 0 = remove
+}
+
+#[derive(Deserialize, Serialize)]
+pub struct UpdateFieldSuggestion {
+    pub field_id: i64,
+    pub content: String,
 }
 
 #[derive(Deserialize, Serialize)]

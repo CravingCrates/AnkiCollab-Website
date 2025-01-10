@@ -62,6 +62,8 @@ pub enum NoteNotFoundContext {
     FieldApprove,
     #[error("Field Denied")]
     FieldDenied,
+    #[error("Field Update")]
+    FieldUpdate,
     #[error("Mark Note Deleted")]
     MarkNoteDeleted,
     #[error("Approve Card")]
@@ -81,6 +83,7 @@ impl IntoResponse for NoteNotFoundContext {
             NoteNotFoundContext::TagDenied => StatusCode::FORBIDDEN,
             NoteNotFoundContext::FieldApprove => StatusCode::NOT_FOUND,
             NoteNotFoundContext::FieldDenied => StatusCode::FORBIDDEN,
+            NoteNotFoundContext::FieldUpdate => StatusCode::NOT_FOUND,
             NoteNotFoundContext::MarkNoteDeleted => StatusCode::NOT_FOUND,
             NoteNotFoundContext::ApproveCard => StatusCode::FORBIDDEN,
             NoteNotFoundContext::InvalidData => StatusCode::BAD_REQUEST,

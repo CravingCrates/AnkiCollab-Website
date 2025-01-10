@@ -315,6 +315,29 @@ pub async fn approve_tag_change(db_state: &Arc<database::AppState>,tag_id: i64, 
     Ok(note_id.to_string())
 }
 
+pub async fn update_field_suggestion(db_state: &Arc<database::AppState>, field_id: i64, new_content: String) -> Return<()> {
+    let mut client = database::client(db_state).await?;
+    let tx = client.transaction().await?;
+    
+    let rows = tx
+        .query("SELECT content FROM fields WHERE id = $1", &[&field_id])
+        .await?;
+
+    if rows.is_empty() {
+        return Err(NoteNotFound(NoteNotFoundContext::FieldUpdate));
+    }
+
+    let old_content: String = rows[0].get(0);
+
+    if !new_content.is_empty() && new_content != old_content {
+        tx.execute("UPDATE fields SET content = $1 WHERE id = $2 ", &[&new_content, &field_id]).await?;
+    }
+
+    tx.commit().await?;
+
+    Ok(())
+}
+
 pub async fn approve_field_change(db_state: &Arc<database::AppState>,field_id: i64, update_timestamp: bool) -> Return<String> {
     let mut client = database::client(db_state).await?;
     let tx = client.transaction().await?;
