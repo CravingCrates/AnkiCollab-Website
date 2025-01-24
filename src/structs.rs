@@ -155,6 +155,8 @@ pub struct EditDecksData {
     pub description: String,
     pub hash: String,
     pub is_private: bool,
+    pub prevent_subdecks: bool,
+    pub restrict_notetypes: bool,
     pub changelog: String,
 }
 

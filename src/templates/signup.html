@@ -3,7 +3,7 @@
 
 <head>
     {% include "header_template.html" %}
-    <link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.5.0/css/all.css" integrity="sha384-B4dIYHKNBt8Bc12p+WXckhzcICo0wtJAoU8YZTY5qE0Id1GSseTk6S+L3BlXeVIU" crossorigin="anonymous">
+    <link rel="stylesheet" href="/static/plugins/fontawesome/all.css">
 
 </head>
 
@@ -44,6 +44,7 @@
                                     </div>
                                     <div class="form-group">
                                         <input type="checkbox" class="css-control-input" id="val-terms" name="val-terms" value="1"> <span class="css-control-indicator"></span> I agree to the <a href="/terms">Terms of Service</a> and <a href="/privacy">Privacy Policy</a>
+                                        <input type="checkbox" class="css-control-input" id="cookie" name="cookie" value="0" style="display: none">
                                     </div>
                                     <button class="btn login-form__btn submit w-100" type="submit">Sign up</button>
                                 </form>

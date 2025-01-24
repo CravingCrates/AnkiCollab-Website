@@ -18,9 +18,10 @@ pub async fn get_maintainers(db_state: &Arc<database::AppState>, deck: i64) -> R
 }
 
 pub async fn add_maintainer(db_state: &Arc<database::AppState>, deck: i64, username: String) -> Return<String> {
+    let normalized_username = username.to_lowercase();
     let client = database::client(db_state).await?;
     let user = match client
-        .query_one("SELECT id FROM users WHERE username = $1", &[&username])
+        .query_one("SELECT id FROM users WHERE username = $1", &[&normalized_username])
         .await
     {
         Ok(user) => user,
@@ -49,9 +50,10 @@ pub async fn add_maintainer(db_state: &Arc<database::AppState>, deck: i64, usern
 }
 
 pub async fn remove_maintainer(db_state: &Arc<database::AppState>, deck: i64, username: String) -> Return<String> {
+    let normalized_username = username.to_lowercase();
     let client = database::client(db_state).await?;
     let user = match client
-        .query_one("SELECT id FROM users WHERE username = $1", &[&username])
+        .query_one("SELECT id FROM users WHERE username = $1", &[&normalized_username])
         .await
     {
         Ok(user) => user,

@@ -52,12 +52,14 @@ pub struct Claims {
 pub struct Credentials {
     pub username: String,
     pub password: String,
+    pub cookie: Option<String>
 }
 impl Clone for Credentials {
     fn clone(&self) -> Self {
         Self {
             username: self.username.clone(),
             password: self.password.clone(),
+            cookie: self.cookie.clone(),
         }
     }
 }
@@ -100,8 +102,16 @@ impl Auth {
     
     pub async fn signup(&self, creds: Credentials) -> Result<User, AuthError> {
         // Normalize username to lowercase for case-insensitive comparison
-        let normalized_username = creds.username.to_lowercase();
-            
+        let normalized_username = creds.username.trim().to_lowercase();
+
+        if normalized_username.is_empty() {
+            return Err(AuthError::InvalidCredentials);
+        }
+
+        if !normalized_username.chars().all(|c| c.is_alphanumeric() || c == '_' || c == '-') || normalized_username.len() > 30 {
+            return Err(AuthError::InvalidCredentials);
+        }
+
         // Check if username already exists (case insensitive)
         let exists = self
             .db
@@ -202,8 +212,8 @@ impl Auth {
             &EncodingKey::from_secret(self.jwt_secret.as_bytes()),
         )?;
 
-        // Create secure cookie
-        let cookie = CookieBuilder::build((AUTH_COOKIE_NAME, token))
+        if creds.cookie.unwrap_or("".to_string()) == "on" {
+            let cookie = CookieBuilder::build((AUTH_COOKIE_NAME, token))
             .path("/")
             .secure(self.cookie_secure)
             .http_only(true)
@@ -211,7 +221,18 @@ impl Auth {
             .max_age(time::Duration::new(COOKIE_MAX_AGE, 0))
             .to_string();
 
-        Ok(cookie)
+            Ok(cookie)
+        }
+        else {
+            let cookie = CookieBuilder::build((AUTH_COOKIE_NAME, token))
+            .path("/")
+            .secure(self.cookie_secure)
+            .http_only(true)
+            .same_site(SameSite::Lax)
+            .to_string();
+
+            Ok(cookie)
+        }
     }
 
     pub async fn logout(&self) -> String {

@@ -14,6 +14,33 @@
             <!-- row -->
             <div class="container-fluid mt-3">
                 <div class="row">
+                    <div class="col-12">
+                      <div class="card">
+                        <div class="card-body">
+                          <div class="text-center">
+                            <p>Share this Key with your Subscribers</p>
+                            <button
+                              onclick="CopyToClipboard(this)"
+                              type="button"
+                              class="btn btn-primary"
+                              data-toggle="tooltip"
+                              data-placement="bottom"
+                              title="Copy to clipboard"
+                            >
+                                {{hash}}
+                            </button>
+                            <a
+                              href="https://github.com/CravingCrates/AnkiCollab-Plugin/blob/main/getting_started_subscriber.md#adding-the-key-to-anki"
+                              target="_blank"
+                            >
+                              <i class="fa fa-question-circle" aria-hidden="true"></i>
+                            </a>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                <div class="row">
                     <div class="col-lg-3 col-sm-6">
                         <div class="card gradient-1">
                             <a class="card-body" href="/Maintainers/{{hash}}" style="color: inherit;">
@@ -68,12 +95,26 @@
                 </div>
                 <div class="card">
                     <div class="card-body">
-                        <h4 class="card-title">Make Deck private (unlisted)</h4>
+                        <h4 class="card-title">Deck Options</h4>
                         <div class="basic-form">
                             <div class="form-group">
                                 <div class="form-check mb-3">
                                     <label class="form-check-label">
-                                        <input type="checkbox" class="form-check-input" id="private" name="private" value="private" {% if private %} checked{% endif %}>Private Deck</label>
+                                        <input type="checkbox" class="form-check-input" id="private" name="private" value="private" {% if private %} checked{% endif %}>
+                                        Unlisted Deck (not shown under Explore Decks)
+                                    </label>
+                                </div>
+                                <div class="form-check mb-3">
+                                    <label class="form-check-label">
+                                        <input type="checkbox" class="form-check-input" id="prevent_subdecks" name="prevent_subdecks" value="prevent_subdecks" {% if prevent_subdecks %} checked{% endif %}>
+                                        Disable new Subdeck creation
+                                    </label>
+                                </div>
+                                <div class="form-check mb-3">
+                                    <label class="form-check-label">
+                                        <input type="checkbox" class="form-check-input" id="restrict_notetypes" name="restrict_notetypes" value="restrict_notetypes" {% if restrict_notetypes %} checked{% endif %}>
+                                        Disallow new notetype uploads
+                                    </label>
                                 </div>
                             </div>
                         </div>
@@ -155,6 +196,8 @@
 
             const description = $('#summernote').summernote('code').replace(/<p><br><\/p>/g, '').trim();
             const isPrivate = document.querySelector('input[name="private"]').checked;
+            const preventSubdecks = document.querySelector('input[name="prevent_subdecks"]').checked;
+            const restrictNotetypes = document.querySelector('input[name="restrict_notetypes"]').checked;
             let changelog = $('#changelogeditor').summernote('code').trim();
             changelog = changelog.replace(/<\/p>/g, '\n'); // Replace <br> with \r\n
             changelog = changelog.replace(/<[^>]*>/g, ''); // Remove all other HTML tags
@@ -168,6 +211,8 @@
             description: description,
             hash: '{{hash}}',
             is_private: isPrivate,
+            prevent_subdecks: preventSubdecks,
+            restrict_notetypes: restrictNotetypes,
             changelog: changelog
             };
 
@@ -183,29 +228,38 @@
             swal("Success!", "All changes have been saved!", "success");
         });
 
-          (document.querySelector(".sweet-success-cancel").onclick = function () {
-            const deckName = '{{hash}}';
-            swal(
-              {
-                title: "Are you sure you want to delete this deck?",
-                text: "This action cannot be undone.",
-                type: "warning",
-                showCancelButton: !0,
-                confirmButtonColor: "#DD6B55",
-                confirmButtonText: "Yes, delete it",
-                cancelButtonText: "No, abort",
-                closeOnConfirm: !1,
-                closeOnCancel: !1,
-              },
-              function (e) {
-                if (e) {
-                    window.location.href = `/DeleteDeck/${deckName}`;
-                } else {
-                    swal("Cancelled", "This action has been cancelled.", "error");
-                }                
-              }
-            );
-          });
+        (document.querySelector(".sweet-success-cancel").onclick = function () {
+        const deckName = '{{hash}}';
+        swal(
+            {
+            title: "Are you sure you want to delete this deck?",
+            text: "This action cannot be undone.",
+            type: "warning",
+            showCancelButton: !0,
+            confirmButtonColor: "#DD6B55",
+            confirmButtonText: "Yes, delete it",
+            cancelButtonText: "No, abort",
+            closeOnConfirm: !1,
+            closeOnCancel: !1,
+            },
+            function (e) {
+            if (e) {
+                window.location.href = `/DeleteDeck/${deckName}`;
+            } else {
+                swal("Cancelled", "This action has been cancelled.", "error");
+            }                
+            }
+        );
+        });
+        
+        function CopyToClipboard(button) {
+            var text = button.innerText;
+            navigator.clipboard.writeText(text).then(function() {
+                console.log('Copying to clipboard was successful!');
+            }, function(err) {
+                console.error('Could not copy text: ', err);
+            });
+        }
     </script>
 </body>
 

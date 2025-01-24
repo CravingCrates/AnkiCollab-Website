@@ -30,9 +30,11 @@ pub async fn get_commit_info(db_state: &Arc<database::AppState>, commit_id: i32)
     let query = r#"    
         SELECT c.commit_id, c.rationale, c.info,
         TO_CHAR(c.timestamp, 'MM/DD/YYYY') AS last_update,
-        d.name
+        d.name,
+        COALESCE(u.username, 'Unknown') as username
         FROM commits c
         JOIN decks d on d.id = c.deck
+        LEFT JOIN users u on u.id = c.user_id
         WHERE c.commit_id = $1
     "#;
     let client = database::client(db_state).await?;
@@ -43,6 +45,7 @@ pub async fn get_commit_info(db_state: &Arc<database::AppState>, commit_id: i32)
         commit_info: row.get(2),
         timestamp: row.get(3),
         deck: row.get(4),
+        user: row.get(5),
     };
     Ok(commit)
 }
@@ -111,9 +114,11 @@ pub async fn commits_review(db_state: &Arc<database::AppState>, uid: i32) -> Res
             c.info,
             TO_CHAR(c."timestamp", 'MM/DD/YYYY') AS formatted_timestamp,
             c.deck,
-            dc.note
+            dc.note,
+            COALESCE(u.username, 'Unknown') as username
         FROM commits c
         INNER JOIN distinct_commits dc ON c.commit_id = dc.commit
+        LEFT JOIN users u on u.id = c.user_id
         WHERE (c.deck = ANY($1) OR (SELECT is_admin FROM users WHERE id = $2))
     "#;
     let changes_rows = client
@@ -146,6 +151,7 @@ pub async fn commits_review(db_state: &Arc<database::AppState>, uid: i32) -> Res
                 commit_info: row.get(2),
                 timestamp: row.get(3),
                 deck: String::new(),
+                user: row.get(6),
             },
             Vec::new()
         ));

@@ -60,10 +60,7 @@
             Content body end
         ***********************************-->
         {% include "layout_footer.html" %}
-        <script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
-        <script src="https://cdn.datatables.net/1.10.25/js/jquery.dataTables.min.js"></script>
-        <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.18.1/moment.min.js"></script>
-        <script src="https://cdn.datatables.net/plug-ins/1.10.15/sorting/datetime-moment.js"></script>
+        <script src="/static/plugins/jquery/jquery.min.js"></script>
         <script>
             $(document).ready(function() {
                 $.fn.dataTable.ext.type.order['notes-pre'] = function(data) {

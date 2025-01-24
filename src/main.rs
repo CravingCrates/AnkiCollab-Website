@@ -348,7 +348,7 @@ async fn edit_deck(
     let client = database::client(&appstate).await?;
     let owned_info = client
         .query(
-            "Select owner, description, private, id from decks where human_hash = $1",
+            "Select owner, description, private, restrict_subdecks, restrict_notetypes from decks where human_hash = $1",
             &[&deck_hash],
         )
         .await
@@ -366,6 +366,8 @@ async fn edit_deck(
 
     let desc: String = owned_info[0].get(1);
     let is_private: bool = owned_info[0].get(2);
+    let prevent_subdecks: bool = owned_info[0].get(3);
+    let restrict_notetypes: bool = owned_info[0].get(4);
 
     let changelogs = changelog_manager::get_changelogs(&appstate, &deck_hash).await?;
 
@@ -373,6 +375,8 @@ async fn edit_deck(
     context.insert("hash", &deck_hash);
     context.insert("description", &desc);
     context.insert("private", &is_private);
+    context.insert("prevent_subdecks", &prevent_subdecks);
+    context.insert("restrict_notetypes", &restrict_notetypes);
     context.insert("changelogs", &changelogs);
 
     let rendered_template = appstate.tera
@@ -389,16 +393,16 @@ async fn post_edit_deck(
     let client = database::client(&appstate).await?;
     let data = edit_deck_data;
 
-    let _ = owned_deck_id(&appstate, &data.hash, user.id()).await?; // only for checking if user owns the deck
+    owned_deck_id(&appstate, &data.hash, user.id()).await?; // only for checking if user owns the deck
 
     client
         .query(
             "
         UPDATE decks 
-        SET description = $1, private = $2 
-        WHERE human_hash = $3
-        AND owner = $4",
-            &[&data.description, &data.is_private, &data.hash, &user.id()],
+        SET description = $1, private = $2, restrict_subdecks = $3, restrict_notetypes = $4
+        WHERE human_hash = $5
+        AND owner = $6",
+            &[&data.description, &data.is_private, &data.prevent_subdecks, &data.restrict_notetypes, &data.hash, &user.id()],
         )
         .await?;
 
