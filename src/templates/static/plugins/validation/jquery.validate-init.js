@@ -1,41 +1,57 @@
 jQuery.validator.addMethod("pattern", function(value, element, regexp) {
-    var re = new RegExp(regexp);
-    return this.optional(element) || re.test(value);
+  var re = new RegExp(regexp);
+  return this.optional(element) || re.test(value);
 }, "Please check your input.");
 
+jQuery.validator.addMethod("nowhitespace", function(value, element) {
+  return this.optional(element) || !(/\s/.test(value));
+}, "Spaces are not allowed in the username");
+
 jQuery(".form-valide").validate({
-  ignore: [],
-  errorClass: "invalid-feedback animated fadeInDown",
-  errorElement: "div",
-  errorPlacement: function (e, a) {
-    jQuery(a).parents(".form-group").append(e);
+ignore: [],
+errorClass: "invalid-feedback animated fadeInDown",
+errorElement: "div",
+errorPlacement: function (e, a) {
+  jQuery(a).parents(".form-group").append(e);
+},
+highlight: function (e) {
+  jQuery(e)
+    .closest(".form-group")
+    .removeClass("is-invalid")
+    .addClass("is-invalid");
+},
+success: function (e) {
+  jQuery(e).closest(".form-group").removeClass("is-invalid"),
+    jQuery(e).remove();
+},
+rules: {
+  "username": {
+    required: true,
+    minlength: 3,
+    maxlength: 30,
+    nowhitespace: true,
+    pattern: /^[a-zA-Z0-9_-]+$/  // Only allow letters, numbers, underscore, and hyphen
   },
-  highlight: function (e) {
-    jQuery(e)
-      .closest(".form-group")
-      .removeClass("is-invalid")
-      .addClass("is-invalid");
+  "password": {
+      required: true,
+      minlength: 8,
+      pattern: /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).+$/,
   },
-  success: function (e) {
-    jQuery(e).closest(".form-group").removeClass("is-invalid"),
-      jQuery(e).remove();
+  "val-terms": { required: true },
+},
+messages: {    
+  "username": {
+    required: "Please enter a username",
+    minlength: "Username must be at least 3 characters long",
+    maxlength: "Username cannot be longer than 30 characters",
+    nowhitespace: "Username cannot contain spaces",
+    pattern: "Username can only contain letters, numbers, underscores, and hyphens"
   },
-  rules: {
-    "email": { required: !0, email: !0 },
-    "password": {
-        required: !0,
-        minlength: 8,
-        pattern: /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).+$/,
-    },
-    "val-terms": { required: !0 },
+  "password": {
+    required: "Please provide a password",
+    minlength: "Your password must be at least 8 characters long",
+    pattern: "Your password needs a mix of uppercase, lowercase letters, and a number",
   },
-  messages: {    
-    "email": "Please enter a valid email address",
-    "password": {
-      required: "Please provide a password",
-      minlength: "Your password must be at least 8 characters long",
-      pattern: "Your password needs a mix of uppercase, lowercase letters, and a number",
-    },
-    "val-terms": "Please agree to our Terms of Service",
-  },
+  "val-terms": "Please agree to our Terms to continue",
+},
 });

@@ -3,6 +3,7 @@ use std::sync::Arc;
 use crate::database;
 use crate::structs::*;
 use crate::Return;
+use crate::cleanser;
 
 pub async fn insert_new_changelog(db_state: &Arc<database::AppState>, deck_hash: &String, message: &String) -> Return<()> {
     let query = r#"
@@ -10,7 +11,8 @@ pub async fn insert_new_changelog(db_state: &Arc<database::AppState>, deck_hash:
         VALUES ((SELECT id FROM decks WHERE human_hash = $1), $2, NOW())
     "#;
     let client = database::client(db_state).await?;
-    client.execute(query, &[&deck_hash, &message]).await?;
+    let cleaned = cleanser::clean(message);
+    client.execute(query, &[&deck_hash, &cleaned]).await?;
     Ok(())
 }
 

@@ -3,241 +3,52 @@
 
 <head>
     {% include "header_template.html" %}
-   
+
     <!-- Custom Stylesheet -->
     <link href="/static/plugins/summernote/dist/summernote.css" rel="stylesheet">
-    <script src="/static/plugins/jquery/jquery.min.js"></script> 
-    <script src="/static/js/bindiff.js"></script>
-    <style>
-        .leftside {
-            background-color: #ffebe9;
-        }
-        .rightside {
-            background-color: #e6ffec;
-        }
-        .action-buttons {
-            display: flex;
-            gap: 0.5rem;
-            align-items: center;
-        }
-    </style>
+    <link href="/static/css/commit_styling.css" rel="stylesheet">
+    <script src="/static/plugins/jquery/jquery.min.js"></script>
+
     <script>
-        function acceptTag(tagId){
-            fetch(`/AcceptTag/${tagId}`)
-                .then(() => window.location.reload());
-        }
-        
-        function denyTag(tagId){
-            fetch(`/DenyTag/${tagId}`)
-                .then(() => window.location.reload());
-        }
-        
-        function acceptMove(MoveId) {
-            fetch(`/AcceptNoteMove/${MoveId}`)
-                .then(() => window.location.reload());
-        }
-        
-        function denyMove(MoveId) {
-            fetch(`/DenyNoteMove/${MoveId}`)
-                .then(() => window.location.reload());
-        }
-
-        function editField(FieldId, content, button) {
-            fetch(`/UpdateFieldSuggestion`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    field_id:  FieldId,
-                    content: content,
-                }),
-            })
-            .then(response => {
-                if (!response.ok) throw new Error('Update failed');
-                console.log('Field updated');
-                window.location.reload();
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                button.disabled = false;  // Re-enable on error
-            });
-        }
-
-        
-    $(document).ready(function() {
-
-        function editSuggestion(id) {
-            let $noteFields = $("#" + id).find(".rightside .note_fields_highlighted");
-            // Hide approve/deny buttons
-            $("#" + id).find(".media-reply__link").hide();
-            $("#abort-edit-" + id).show();
-            
-            $noteFields.each(function() {
-                $(this).data('diff-content', $(this).html());
-                let cleanContent = $(this).html()
-                    .replace(/<ins[^>]*>([\s\S]*?)<\/ins>/g, '$1')
-                    .replace(/<del[^>]*>([\s\S]*?)<\/del>/g, '');
-                $(this).html(cleanContent);
-                $(this).summernote({
-                    focus: true,
-                    toolbar: [
-                        ['style', ['bold', 'italic', 'underline', 'clear']],
-                        ['font', ['strikethrough', 'superscript', 'subscript']],
-                        ['fontsize', ['fontsize']],
-                        ['insert', ['link', 'table', 'hr']],
-                        ['para', ['ul', 'ol', 'paragraph']],
-                        ['view', ['codeview', 'undo', 'redo']],
-                    ],
-                });
-            });
-        }
-        
-        function abortEdit(id) {
-            let $noteFields = $("#" + id).find(".rightside .note_fields_highlighted");
-            $noteFields.each(function() {
-                $(this).summernote('destroy');
-                $(this).html($(this).data('diff-content'));
-                $(this).removeData('diff-content');
-            });
-            // Show approve/deny buttons
-            $("#" + id).find(".media-reply__link").show();
-            // Reset edit button
-            const textSpan = $(`#edit-suggestion-text-${id}`);
-            const iconElement = $(`#edit-suggestion-icon-${id}`);
-            const editButton = $(`#edit-suggestion-${id}`);
-            
-            textSpan.text('Edit Suggestion');
-            editButton.removeClass('btn-primary').addClass('btn-light');
-            iconElement.removeClass('icon-check').addClass('icon-pencil');
-            // Hide abort button
-            $("#abort-edit-" + id).hide();
-        }
-
-        // Sometimes the wysiwyg editor adds a <br> at the end idk whyy, but i hate 
-        function cleanTrailingBr(content) {
-            return content.replace(/(<br\s*\/?>)+$/, '').trim();
-        }
-        function saveChanges(id, button) {
-            let $noteFields = $("#" + id).find(".rightside .note_fields_highlighted");
-            $noteFields.each(function() {
-                let content = $(this).summernote('code');
-                content = cleanTrailingBr(content);
-                let fieldId = $(this).data('field-id');
-                $(this).summernote('destroy');
-                // Restore original diff view
-                $(this).html($(this).data('diff-content'));
-                $(this).removeData('diff-content');
-                if (fieldId) {
-                    editField(fieldId, content, button);
-                }                
-            });
-        }
-
-        function fixInsDel() {
-            $('.leftside').each(function() {
-                $(this).find('ins').remove();
-            });
-        
-            $('.rightside').each(function() {
-                $(this).find('del').remove();
-            });
-        }
-
-        function toggleHTML(id) {
-            let $noteFields = $("#" + id).find(".note_fields_highlighted");
-            $noteFields.each(function() {
-                let originalContent = $(this).data("original");
-                let content = $(this).data("new-content");
-                let res = String(htmldiff(originalContent,content));
-                if (!$(this).data("eval")) {
-                    $(this).data("eval", res);
-                    res = res.replace(/(<[^>]*>)/g, function(match) {
-                        if(match === "<ins>" || match === "</ins>" || match === "<del>" || match === "</del>"){
-                            return match;
-                        }else{
-                            return match.replace(/</g,"&lt;").replace(/>/g,"&gt;");
-                        }
-                    });
-                    $(this).html(res);
-                    $("#toggle-html-text-" + id).html("Show HTML");
-                } else {
-                    $(this).html($(this).data("eval"));
-                    $(this).removeData("eval");
-                    $("#toggle-html-text-" + id).html("Show Source");
-                }
-                fixInsDel();
-            });
-        }
-    
-        $(".toggle-html").on("click", function() {
-            toggleHTML($(this).attr("id").split("-")[2]);
-        });
-
-        $('.abort-edit').click(function() {
-            const noteId = $(this).attr('id').split('-')[2];
-            abortEdit(noteId);
-        });
-
-        // Update existing edit-suggestion click handler
-        $('.edit-suggestion').click(function() {
-            const $button = $(this);  // Cache jQuery object
-            const buttonId = $button.attr('id');
-            const noteId = buttonId.replace('edit-suggestion-', '');
-            const textSpan = $(`#edit-suggestion-text-${noteId}`);
-            const iconElement = $(`#edit-suggestion-icon-${noteId}`);
-            
-            if (textSpan.text().trim() === 'Edit Suggestion') {
-                textSpan.text('Update Suggestion');
-                $button.removeClass('btn-light').addClass('btn-primary');
-                iconElement.removeClass('icon-pencil').addClass('icon-check');
-                editSuggestion(noteId);
-            } else {
-                textSpan.text('Edit Suggestion');
-                $button.removeClass('btn-primary').addClass('btn-light');
-                iconElement.removeClass('icon-check').addClass('icon-pencil');
-                $button.prop('disabled', true);  // prevent double click while saving
-                saveChanges(noteId, $button[0]);  // Pass DOM element
-                $("#abort-edit-" + noteId).hide();
-                $("#" + noteId).find(".media-reply__link").show();
-            }
-        });
-    
-        $('.card').each(function() {
-            var wrapperId = $(this).attr('id');
-            toggleHTML(wrapperId); // Toggle to source
-            toggleHTML(wrapperId); // Toggle to html (should be the default)
-        });
-        fixInsDel();
-    
-    });
+        // Global namespace for our app
+        window.HtmlDiffUtils = {};
+        window.ImageHandler = {};
+        window.EditorControls = {};
+        window.ApiService = {};
+        window.SharedUI = {};
     </script>
-   
+
+    <script src="/static/js/html_diff_utils.js"></script>
+    <script src="/static/js/image_handling.js"></script>
+    <script src="/static/js/editor_controls.js"></script>
+    <script src="/static/js/api_service.js"></script>
+    <script src="/static/js/shared_ui.js"></script>
+
 </head>
 {% include "layout_header.html" %}
             <!-- End Top layout-->
-           
+
             <!-- row -->
             <div class="container-fluid">
                 <div class="card">
-                    <div class="card-body text-center">
+                     <div class="card-body text-center">
                         <h1 class="card-title">Review Commit from {{ commit.timestamp }}</h1>
                         <p>Author: <span style="color: var(--primary);">{{ commit.user }}</span></p>
-                        <p>Rationale: <span style="color: var(--secondary);">{{ commit.rationale }}</span></p>    
-                        <p>Current Deck: <span style="font-weight:bold">{{ commit.deck }}</span></p>
+                        <p>Rationale: <span style="color: var(--secondary);">{{ commit.rationale }}</span></p>
+                        <p>Current Deck: <span style="font-weight:bold">{{ commit.deck | escape }}</span></p>
                         <blockquote style="color: var(--secondary);">{{ commit.commit_info | striptags }}</blockquote>
                         {% if user and owned == true %}
                         <a href="/ApproveCommit/{{commit.id}}" class="btn mb-1 btn-success"><span class="fa fa-check"></span> Accept all</a>
                         <a href="/DenyCommit/{{commit.id}}" class="btn mb-1 btn-danger"><span class="fa fa-close"></span> Deny all</a>
-                        {% endif %} 
+                        {% endif %}
                     </div>
-                </div>                        
+                </div>
                 {% for note in notes %}
-                <div id="{{note.id}}" class="card">
+                <div id="{{note.id}}" class="card note-context" data-context-type="note">
                     <div class="card-header text-right">
                         <h1 class="card-title text-center">Review Note</h1>
-                        <p class="text-center">Note Last Update: {{ note.last_update }}<br />Deck:  {{ note.deck }}</p>
-                        
+                        <p class="text-center">Note Last Update: {{ note.last_update }}<br />Deck:  {{ note.deck | escape}}</p>
+
                         <div class="d-flex justify-content-between align-items-center">
                             <div>
                                 <a href="/review/{{note.id}}" class="btn mb-1 btn-info">
@@ -247,29 +58,24 @@
                                     <a href="/AcceptNote/{{note.id}}" class="btn mb-1 btn-success"><span class="fa fa-check"></span> Publish Note</a>
                                     <a href="/DeleteNote/{{note.id}}" class="btn mb-1 btn-danger"><span class="fa fa-close"></span> Delete Note</a>
                                 {% elif user and owned == true and note.delete_req %}
-                                    <a href="/AcceptNoteRemoval/{{note.id}}" class="btn mb-1 btn-danger"><span class="fa fa-close"></span> Delete Note</a>      
+                                    <a href="/AcceptNoteRemoval/{{note.id}}" class="btn mb-1 btn-danger"><span class="fa fa-close"></span> Delete Note</a>
                                     <a href="/DenyNoteRemoval/{{note.id}}" class="btn mb-1 btn-warning"><span class="fa fa-check"></span> Keep Note</a>
                                 {% endif %}
                             </div>
-                            
+
                             <div class="action-buttons">
-                                <button class="btn mb-1 btn-light toggle-html" id="toggle-html-{{note.id}}">
-                                    <i class="icon-screen-desktop menu-icon"></i> 
-                                    <span id="toggle-html-text-{{note.id}}">Show Source</span>
-                                </button>
                                 {% if user and owned == true %}
-                                <button class="btn mb-1 btn-light edit-suggestion" id="edit-suggestion-{{note.id}}">
-                                    <i class="icon-pencil menu-icon" id="edit-suggestion-icon-{{note.id}}"></i> 
-                                    <span id="edit-suggestion-text-{{note.id}}">Edit Suggestion</span>
+                                <button class="btn mb-1 btn-light edit-suggestion-btn" data-action="toggle-edit" data-note-id="{{note.id}}">
+                                    <i class="icon-pencil menu-icon"></i>
+                                    <span>Edit Suggestion</span>
                                 </button>
-                                <button class="btn mb-1 btn-danger abort-edit" id="abort-edit-{{note.id}}" style="display:none;">
-                                    <i class="icon-close menu-icon"></i> 
+                                <button class="btn mb-1 btn-danger abort-edit-btn" data-action="cancel-edit" data-note-id="{{note.id}}" style="display:none;">
+                                    <i class="icon-close menu-icon"></i>
                                     <span>Cancel Edit</span>
                                 </button>
                                 {% endif %}
                             </div>
                         </div>
-
                         <div class="text-center mt-3">
                             <span
                             class="label label-pill {% if note.reviewed and not note.delete_req %}label-info {% elif note.delete_req %}label-danger {% else %}label-success {% endif %}px-5 py-2"
@@ -280,114 +86,114 @@
                             {% endif %}
                             </span>
                         </div>
-                    </div>     
-                    <div class="card-body">               
-                    <div {% if not note.delete_req %} class="row" {% endif %}>            
-                        <div class="col">
-                            {% for field in note.fields %}
-                            <div class="media media-reply leftside">
-                                <div class="media-body">
-                                    <div class="d-sm-flex justify-content-between mb-2">                           
-                                        <h5 class="mb-sm-0">{{notemodels[note.note_model][field.position]}}</h5>
-                                    </div>
-                                    <div class="note_fields_highlighted" 
-                                        data-original='{{ field.reviewed_content }}'
-                                        data-new-content='{{field.content}}'
-                                    ></div>
-                                </div>
-                            </div>
-                            {% endfor %}                        
-                        </div>
-                        {% if not note.delete_req %}
-                        <div class="col">
-                            {% if note.move_req %}
-                            <p>Deck Changes (Suggestion to move the Note to the following Deck):</p>
-                            <div class="note_tag_container" style="margin-bottom: 3em;">
-                                <button class="btn mb-1 btn-flat w-100">{{note.move_req.path}}</button>
-                                {% if user and owned == true %}
-                                <div class="tag_actions">
-                                    <button class="tag_accept_button" role="button" onclick="acceptMove({{note.move_req.id}})">
-                                        <i class="fa fa-check"></i>
-                                    </button>
-                                    <button class="tag_deny_button" role="button" onclick="denyMove({{note.move_req.id}})">
-                                        <i class="fa fa-times"></i>
-                                    </button>
-                                </div>
-                                {% endif %}
-                            </div>
-                            {% endif %}
-                            <p>Field Changes:</p>
-                            {% for field in note.fields %}
-                                <div class="media media-reply rightside">
+                    </div>
+                    <div class="card-body">
+                        <div {% if not note.delete_req %} class="row" {% else %} class="row justify-content-center" {% endif %}>
+                            <div class="col">
+                                <h5 class="text-center mb-3">Original Content</h5>
+                                {% for field in note.fields %}
+                                <div class="media media-reply original-side">
                                     <div class="media-body">
-                                    <div class="d-sm-flex justify-content-between mb-2">                           
-                                        <h5 class="mb-sm-0">{{notemodels[note.note_model][field.position]}}</h5>
-                                        {% if user and owned == true and note.reviewed %}
-                                        <div class="media-reply__link small-badge">
-                                        <span class="badge badge-pill badge-success mr-2">
-                                            <a
-                                            href="/AcceptField/{{field.id}}"
-                                            class="btn btn-approve"
-                                            style="padding: 1px 5px; margin: 5px"
-                                            ><span class="fa fa-check"></span></a
-                                            >
-                                        </span>
-                                        <span class="badge badge-pill badge-danger">
-                                            <a
-                                            href="/DenyField/{{field.id}}"
-                                            class="btn btn-deny"
-                                            style="padding: 1px 7px; margin: 5px"
-                                            ><span class="fa fa-close"></span
-                                            ></a>
-                                        </span>
+                                        <div class="d-sm-flex justify-content-between mb-2">
+                                            <h5 class="mb-sm-0">{{notemodels[note.note_model][field.position]}}</h5>
                                         </div>
-                                        {% endif %}                            
-                                    </div>
-                                    <div class="note_fields_highlighted" 
-                                        data-original='{{ field.reviewed_content }}' data-new-content='{{field.content}}' data-field-id='{{field.id}}'>
-                                    </div>
+                                        <div class="note-content-display original-content"
+                                             data-field-id='{{field.id}}'
+                                             data-content='{{ field.reviewed_content | escape }}'>
+                                             <!-- Content will be populated by JS -->
+                                        </div>
                                     </div>
                                 </div>
-                            {% endfor %}      
-                            {% if note.fields %}    
-                                {% if note.new_tags or note.removed_tags%}
-                                        <hr />
-                                {% endif %}
-                            {% endif %}
-                            <p>Tag Changes:</p>
-                            {% for tag in note.removed_tags %}
-                                <div class="note_tag_container">
-                                    <button class="btn mb-1 btn-flat btn-rmd-tag w-100">{{tag.content}}</button>
-                                    {% if user and owned == true %}
-                                    <div class="tag_actions">
-                                        <button class="tag_accept_button" role="button" onclick="acceptTag({{tag.id}})">
-                                            <i class="fa fa-check"></i>
-                                        </button>
-                                        <button class="tag_deny_button" role="button" onclick="denyTag({{tag.id}})">
-                                            <i class="fa fa-times"></i>
-                                        </button>
-                                    </div>
-                                    {% endif %}
-                                </div>
-                            {% endfor %}
-                            {% for tag in note.new_tags %}
-                                <div class="note_tag_container">
-                                    <button class="btn mb-1 btn-flat btn-new-tag w-100">{{tag.content}}</button>
-                                    {% if user and owned == true %}
-                                    <div class="tag_actions">
-                                        <button class="tag_accept_button" role="button" onclick="acceptTag({{tag.id}})">
-                                            <i class="fa fa-check"></i>
-                                        </button>
-                                        <button class="tag_deny_button" role="button" onclick="denyTag({{tag.id}})">
-                                            <i class="fa fa-times"></i>
-                                        </button>
-                                    </div>
-                                    {% endif %}
-                                </div>            
-                            {% endfor %}        
-                        </div>
-                        {% endif %}
-                    </div> <!-- end row -->
+                                {% endfor %}
+                            </div>
+                            {% if not note.delete_req %}
+                            <div class="col suggestion-side">
+                                <h5 class="text-center mb-3">Suggested Change</h5>
+                                 {% if note.move_req %}
+                                 <p>Deck Change Suggestion:</p>
+                                 <div class="note_tag_container suggestion-box" style="margin-bottom: 1em;">
+                                     <button class="btn mb-1 btn-flat w-100" disabled>{{note.move_req.path}}</button>
+                                     {% if user and owned == true %}
+                                     <div class="tag_actions">
+                                         <button class="tag_accept_button" role="button" data-action="accept-move" data-move-id="{{note.move_req.id}}">
+                                             <i class="fa fa-check"></i>
+                                         </button>
+                                         <button class="tag_deny_button" role="button" data-action="deny-move" data-move-id="{{note.move_req.id}}">
+                                             <i class="fa fa-times"></i>
+                                         </button>
+                                     </div>
+                                     {% endif %}
+                                 </div>
+                                 {% endif %}
+
+                                 {% if note.fields %} <p>Field Changes:</p> {% endif %}
+                                 {% for field in note.fields %}
+                                 <div class="media media-reply suggestion-box">
+                                     <div class="media-body">
+                                         <div class="d-sm-flex justify-content-between mb-2">
+                                             <h5 class="mb-sm-0">{{notemodels[note.note_model][field.position]}}</h5>
+                                             {% if user and owned == true and note.reviewed %}                                             
+                                             <div class="media-reply__link small-badge field-actions">
+                                                <span class="badge badge-pill badge-success mr-1">
+                                                    <button data-action="accept-field" data-field-id="{{field.id}}" class="btn btn-xs btn-approve" title="Accept Change">
+                                                        <span class="fa fa-check"></span> Accept
+                                                    </button>
+                                                </span>
+                                                <span class="badge badge-pill badge-danger">
+                                                    <button data-action="deny-field" data-field-id="{{field.id}}" class="btn btn-xs btn-deny" title="Deny Change">
+                                                        <span class="fa fa-close"></span> Deny
+                                                    </button>
+                                                </span>
+                                            </div>
+                                             {% endif %}
+                                         </div>
+                                         <div class="note-content-display diff-content"
+                                              data-field-id='{{field.id}}'
+                                              data-original='{{ field.reviewed_content | escape }}'
+                                              data-new-content='{{ field.content | escape }}'>
+                                              {{ field.diff | safe }}
+                                         </div>
+                                     </div>
+                                 </div>
+                                 {% endfor %}
+
+                                 {% if note.new_tags or note.removed_tags %}
+                                     <hr />
+                                     <p>Tag Changes:</p>
+                                 {% endif %}
+                                 {% for tag in note.removed_tags %}
+                                 <div class="note_tag_container suggestion-box">
+                                     <button class="btn mb-1 btn-flat btn-rmd-tag w-100" disabled>{{tag.content}}</button>
+                                     {% if user and owned == true and note.reviewed %}
+                                     <div class="tag_actions">
+                                         <button class="tag_accept_button" role="button" data-action="accept-tag" data-tag-id="{{tag.id}}">
+                                             <i class="fa fa-check"></i>
+                                         </button>
+                                         <button class="tag_deny_button" role="button" data-action="deny-tag" data-tag-id="{{tag.id}}">
+                                             <i class="fa fa-times"></i>
+                                         </button>
+                                     </div>
+                                     {% endif %}
+                                 </div>
+                                 {% endfor %}
+                                 {% for tag in note.new_tags %}
+                                 <div class="note_tag_container suggestion-box">
+                                     <button class="btn mb-1 btn-flat btn-new-tag w-100" disabled>{{tag.content}}</button>
+                                     {% if user and owned == true and note.reviewed %}
+                                     <div class="tag_actions">
+                                          <button class="tag_accept_button" role="button" data-action="accept-tag" data-tag-id="{{tag.id}}">
+                                             <i class="fa fa-check"></i>
+                                         </button>
+                                         <button class="tag_deny_button" role="button" data-action="deny-tag" data-tag-id="{{tag.id}}">
+                                             <i class="fa fa-times"></i>
+                                         </button>
+                                     </div>
+                                     {% endif %}
+                                 </div>
+                                 {% endfor %}
+                            </div>
+                            {% endif %} <!-- end not note.delete_req -->
+                        </div> <!-- end row -->
                     </div> <!-- end card-body -->
                 </div> <!-- end card -->
                 {% endfor %}
@@ -396,10 +202,15 @@
         <!--**********************************
             Content body end
         ***********************************-->
-        
+
     {% include "layout_footer.html" %}
 
     <script src="/static/plugins/summernote/dist/summernote.min.js"></script>
+    <script>
+        // Initialize the shared UI components after the page loads
+        $(document).ready(function() {
+            SharedUI.initializePage();
+        });
+    </script>
 </body>
-
 </html>

@@ -9,7 +9,6 @@
 The smaller device rules always should write below the bigger device rules
 Fixing Order => Base + Typography >> General Layout + Grid >> Page Layout + Component
 */
-@import url("https://fonts.googleapis.com/css?family=Roboto:400,500,700");
 @import url(../icons/font-awesome/css/font-awesome.min.css);
 @import url(../icons/simple-line-icons/css/simple-line-icons.css);
 @import url(../icons/weather-icons/css/weather-icons.min.css);

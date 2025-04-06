@@ -2,10 +2,13 @@ use crate::database;
 use crate::error::Error::*;
 use crate::structs::*;
 use crate::Return;
+use crate::cleanser;
 
 use std::cmp::min;
 use std::collections::HashMap;
 use std::sync::Arc;
+
+extern crate htmldiff;
 
 fn get_string_from_rationale(input: i32) -> &'static str {
     match input {
@@ -187,6 +190,37 @@ pub async fn commits_review(db_state: &Arc<database::AppState>, uid: i32) -> Res
     Ok(result)
 }
 
+
+pub async fn get_field_diff(db_state: &Arc<database::AppState>, field_id: i64) -> Return<String> {
+    let client = database::client(db_state).await?;
+    let new_content_row = client
+        .query_one("SELECT note, content, position FROM fields WHERE id = $1", &[&field_id])
+        .await?;
+    if new_content_row.is_empty() {
+        return Err(NoNotesAffected);
+    }
+    let note_id: i64 = new_content_row.get(0);
+    let new_content: String = new_content_row.get(1);
+    let position: u32 = new_content_row.get(2);
+    let og_content_row = client
+        .query_one(
+            "SELECT content FROM fields WHERE note = $1 AND position = $2 ORDER BY reviewed DESC LIMIT 1", 
+            &[&note_id, &position],
+        )
+        .await?; // See this is a cool query. We can't use reviewed=true bc for new notes it won't exist. Hence we sort by reviewed desc and take the first one which is either the reviewed one or the only one that exists
+    if og_content_row.is_empty() {
+        return Err(NoNotesAffected);
+    }
+    let current_content: String = og_content_row.get(0);
+
+    // Get original content from the note where reviewed = true, and the position is the same position as the field
+
+    let clean_new_content = cleanser::clean(&new_content);
+    let clean_content = cleanser::clean(&current_content);
+    let diff = htmldiff::htmldiff(&clean_content, &clean_new_content);
+    Ok(diff)
+}
+
 pub async fn notes_by_commit(db_state: &Arc<database::AppState>, commit_id: i32) -> Return<Vec<CommitData>> {
     let client = database::client(db_state).await?;
 
@@ -329,8 +363,9 @@ pub async fn notes_by_commit(db_state: &Arc<database::AppState>, commit_id: i32)
                     current_note.fields.push(FieldsReviewInfo {
                         id,
                         position,
-                        content: ammonia::clean(content),
-                        reviewed_content: ammonia::clean(content),
+                        content: cleanser::clean(content),
+                        reviewed_content: cleanser::clean(content),
+                        diff: cleanser::clean(content),
                     });
                 }
             }
@@ -343,11 +378,16 @@ pub async fn notes_by_commit(db_state: &Arc<database::AppState>, commit_id: i32)
                 let content = row.get(2);
                 let reviewed = row.get(3);
                 if let Some(content) = content {
+                    let clean_content = cleanser::clean(content);
+                    let clean_reviewed = cleanser::clean(reviewed);
+                    let diff_string = htmldiff::htmldiff(&clean_reviewed, &clean_content);
+
                     current_note.fields.push(FieldsReviewInfo {
                         id,
                         position,
-                        content: ammonia::clean(content),
-                        reviewed_content: ammonia::clean(reviewed),
+                        content: clean_content,
+                        reviewed_content: clean_reviewed,
+                        diff: diff_string,
                     });
                 }
             }
@@ -359,10 +399,10 @@ pub async fn notes_by_commit(db_state: &Arc<database::AppState>, commit_id: i32)
                 if let Some(content) = content {
                     if action {
                         // New suggested tag
-                        current_note.new_tags.push(TagsInfo { id, content });
+                        current_note.new_tags.push(TagsInfo { id, content: ammonia::clean(content) });
                     } else {
                         // Tag got removed
-                        current_note.removed_tags.push(TagsInfo { id, content });
+                        current_note.removed_tags.push(TagsInfo { id, content: ammonia::clean(content) });
                     }
                 }
             }

@@ -1,9 +1,12 @@
 use std::sync::Arc;
 
+use crate::cleanser;
 use crate::error::Error::*;
 use crate::error::NoteNotFoundContext;
 use crate::{database, note_manager, Return};
 use crate::user::User;
+use crate::media_reference_manager;
+
 
 pub async fn update_note_timestamp(
     tx: &tokio_postgres::Transaction<'_>,
@@ -105,6 +108,8 @@ pub async fn delete_card(db_state: &Arc<database::AppState>,note_id: i64, user: 
         .query("DELETE FROM notes CASCADE WHERE id = $1", &[&note_id])
         .await?;
 
+    // Clean up media references should be unnecessary since the card is deleted with cascade and we have a oreign key
+
     Ok(guid)
 }
 
@@ -169,6 +174,16 @@ pub async fn approve_card(db_state: &Arc<database::AppState>,note_id: i64, user:
 
     if !bulk {
         update_note_timestamp(&tx, note_id).await?;
+
+        // Update media references after approval
+        let state_clone = db_state.clone();
+        tokio::spawn(async move {
+            if let Err(e) = media_reference_manager::update_media_references_for_approved_note(&state_clone, note_id).await {
+                println!("Error updating media references: {:?}", e);
+                // Continue anyway since the card has been approved
+            }
+        });
+
     }
 
     tx.commit().await?;
@@ -214,7 +229,7 @@ pub async fn deny_tag_change(db_state: &Arc<database::AppState>,tag_id: i64) -> 
     Ok(note_id.to_string())
 }
 
-pub async fn deny_field_change(db_state: &Arc<database::AppState>,field_id: i64) -> Return<String> {
+pub async fn deny_field_change(db_state: &Arc<database::AppState>,field_id: i64, update_media_references: bool) -> Return<String> {
     let client = database::client(db_state).await?;
 
     let rows = client
@@ -230,6 +245,15 @@ pub async fn deny_field_change(db_state: &Arc<database::AppState>,field_id: i64)
         .await?;
 
     let note_id: i64 = rows[0].get(0);
+
+    if update_media_references {    
+        let state_clone = db_state.clone();
+        tokio::spawn(async move {
+            if let Err(e) = media_reference_manager::update_media_references_note_state(&state_clone, note_id).await {
+                println!("Error updating media references (3): {:?}", e);
+            }
+        });
+    }
     Ok(note_id.to_string())
 }
 
@@ -315,7 +339,7 @@ pub async fn approve_tag_change(db_state: &Arc<database::AppState>,tag_id: i64, 
     Ok(note_id.to_string())
 }
 
-pub async fn update_field_suggestion(db_state: &Arc<database::AppState>, field_id: i64, new_content: String) -> Return<()> {
+pub async fn update_field_suggestion(db_state: &Arc<database::AppState>, field_id: i64, new_content_r: &str) -> Return<()> {
     let mut client = database::client(db_state).await?;
     let tx = client.transaction().await?;
     
@@ -327,8 +351,9 @@ pub async fn update_field_suggestion(db_state: &Arc<database::AppState>, field_i
         return Err(NoteNotFound(NoteNotFoundContext::FieldUpdate));
     }
 
-    let old_content: String = rows[0].get(0);
-
+    let old_content_r: String = rows[0].get(0);
+    let old_content = cleanser::clean(&old_content_r);
+    let new_content = cleanser::clean(new_content_r);
     if !new_content.is_empty() && new_content != old_content {
         tx.execute("UPDATE fields SET content = $1 WHERE id = $2 ", &[&new_content, &field_id]).await?;
     }
@@ -383,6 +408,16 @@ pub async fn approve_field_change(db_state: &Arc<database::AppState>,field_id: i
     }
 
     tx.commit().await?;
+    
+    if update_timestamp {
+        // we use update_timestamp as a proxy for whether the note was bulk updated. Only if they updated it manually on the website, we spawn. otherwise it egts handled by the ulk
+        let state_clone = db_state.clone();
+        tokio::spawn(async move {
+            if let Err(e) = media_reference_manager::update_media_references_note_state(&state_clone, note_id).await {
+                println!("Error updating media references (3): {:?}", e);
+            }
+        });
+    }
 
     Ok(note_id.to_string())
 }
@@ -448,6 +483,8 @@ pub async fn merge_by_commit(db_state: &Arc<database::AppState>,commit_id: i32, 
             &[&commit_id],
         )
         .await?;
+
+    let affected_note_ids = affected_notes.iter().map(|row| row.get(0)).collect::<Vec<i64>>();
 
     let deleted_notes = client
         .query(
@@ -599,7 +636,7 @@ pub async fn merge_by_commit(db_state: &Arc<database::AppState>,commit_id: i32, 
         }
 
         for field in affected_fields {
-            deny_field_change(db_state, field).await?;
+            deny_field_change(db_state, field, false).await?;
         }
         
         let tx = client.transaction().await?;
@@ -610,6 +647,7 @@ pub async fn merge_by_commit(db_state: &Arc<database::AppState>,commit_id: i32, 
             if !reviewed {
                 tx.execute("DELETE FROM notes cascade WHERE id = $1", &[&note_id])
                     .await?;
+                // Should handle media reference automatically
             }
         }
 
@@ -631,6 +669,13 @@ pub async fn merge_by_commit(db_state: &Arc<database::AppState>,commit_id: i32, 
 
         tx.commit().await?;
     }
+
+    let state_clone = db_state.clone();
+    tokio::spawn(async move {
+        if let Err(e) = media_reference_manager::update_media_references_for_commit(&state_clone, &affected_note_ids).await {
+            println!("Error updating media references (4) for commit: {:?}", e);
+        }
+    });
 
     // Get next outstanding commit id and return it (if any)
     if next_review.is_empty() {

@@ -25,7 +25,7 @@
                       {% for tag in optional_tags %}
                       <li>
                         <label
-                          ><span>{{ tag }}</span
+                          ><span>{{ tag | escape }}</span
                           ><a href="#" class="ti-trash"></a>
                         </label>
                       </li>

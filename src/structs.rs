@@ -52,6 +52,7 @@ pub struct FieldsReviewInfo {
     pub position: u32,
     pub content: String,
     pub reviewed_content: String,
+    pub diff: String,
 }
 
 #[derive(Serialize)]
@@ -96,11 +97,20 @@ pub struct NoteData {
     pub delete_req: bool,
     pub reviewed_fields: Vec<FieldsInfo>,
     pub reviewed_tags: Vec<TagsInfo>,
-    pub unconfirmed_fields: Vec<FieldsInfo>,
+    pub unconfirmed_fields: Vec<FieldSuggestionInfo>,
     pub new_tags: Vec<TagsInfo>,
     pub removed_tags: Vec<TagsInfo>,
     pub note_model_fields: Vec<String>,
     pub note_move_decks: Vec<NoteMoveReq>
+}
+
+#[derive(Serialize)]
+pub struct FieldSuggestionInfo {
+    pub id: i64,
+    pub position: u32,
+    pub commit_id: i32,
+    pub content: String,
+    pub diff: String,
 }
 
 #[derive(Serialize)]
@@ -248,4 +258,17 @@ pub struct DeckBaseStatsInfo {
     pub lapses_avg: f64,
     pub reps_avg: f64,
     pub retention_avg: f32,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct PresignedURLRequest {
+    pub filename: String,
+    pub context_type: String,
+    pub context_id: String, // Note id 
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct PresignedURLResponse {
+    pub success: bool,
+    pub presigned_url: String,
 }

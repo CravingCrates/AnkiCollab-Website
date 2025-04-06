@@ -3,11 +3,15 @@ use std::sync::Arc;
 use crate::database;
 use crate::error::Error::*;
 use crate::error::NoteNotFoundContext;
+use crate::media_reference_manager;
 use crate::structs::*;
 use crate::suggestion_manager;
 use crate::user;
 use crate::NoteId;
 use crate::Return;
+use crate::cleanser;
+
+extern crate htmldiff;
 
 pub async fn under_review(db_state: &Arc<database::AppState>, uid: i32) -> Result<Vec<ReviewOverview>, Box<dyn std::error::Error>> {
     let query = r#"
@@ -94,10 +98,10 @@ pub async fn get_note_data(db_state: &Arc<database::AppState>, note_id: NoteId) 
         WHERE id = $1 AND deleted = false
     ";
     let fields_query = "
-        SELECT id, position, content, reviewed
+        SELECT id, position, content, reviewed, commit
         FROM fields
         WHERE note = $1
-        ORDER BY position
+        ORDER BY position, reviewed DESC NULLS LAST
     ";
     let tags_query = "
         SELECT id, content, reviewed, action
@@ -195,18 +199,25 @@ pub async fn get_note_data(db_state: &Arc<database::AppState>, note_id: NoteId) 
         let position = row.get(1);
         let content = row.get(2);
         let reviewed = row.get(3);
+        let commit_id = row.get(4);
+        let clean_content = cleanser::clean(content);
+
         if reviewed {
             // Overwrite the dummy element with the actual data
             current_note.reviewed_fields[position as usize] = FieldsInfo {
                 id,
                 position,
-                content: ammonia::clean(content),
+                content: clean_content,
             };
         } else {
-            current_note.unconfirmed_fields.push(FieldsInfo {
+            let reviewed_cont = current_note.reviewed_fields[position as usize].content.clone(); // This should work bc we sort by position and reviewed fields are first
+            let diff = htmldiff::htmldiff(&reviewed_cont, &clean_content);
+            current_note.unconfirmed_fields.push(FieldSuggestionInfo {
                 id,
                 position,
-                content: content.to_owned(),
+                content: clean_content, 
+                commit_id,
+                diff,
             });
         }
     }
@@ -216,7 +227,8 @@ pub async fn get_note_data(db_state: &Arc<database::AppState>, note_id: NoteId) 
         let content = row.get(1);
         let reviewed = row.get(2);
         let action = row.get(3);
-        if let Some(content) = content {
+        if let Some(c) = content {
+            let content = cleanser::clean(c);
             if reviewed {
                 current_note.reviewed_tags.push(TagsInfo { id, content });
             } else if action {
@@ -349,6 +361,14 @@ pub async fn mark_note_deleted(
     if !bulk {
         // Update timestamp
         suggestion_manager::update_note_timestamp(&tx, note_id).await?;
+
+        // Update media references after approval
+        let state_clone = db_state.clone();
+        tokio::spawn(async move {
+            if let Err(e) = media_reference_manager::cleanup_media_for_denied_note(&state_clone, note_id).await {
+                println!("Error updating media references: {:?}", e);
+            }
+        });
     }
 
     tx.commit().await?;

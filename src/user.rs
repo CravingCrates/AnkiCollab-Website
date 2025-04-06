@@ -6,10 +6,9 @@ use argon2::{
     Argon2
 };
 
-use async_trait::async_trait;
 use axum::http::request::Parts;
 
-use axum::extract::FromRequestParts;
+use axum::extract::{FromRequestParts, OptionalFromRequestParts};
 use axum_extra::{
     extract::cookie::CookieJar,
 };
@@ -84,6 +83,10 @@ impl Auth {
     }
 
     pub async fn get_user_by_id(&self, user_id: i32) -> Result<User, AuthError> {
+        if user_id == 0 {
+            return Err(AuthError::InvalidCredentials);
+        }
+        
         let row = self
             .db
             .query_one(
@@ -257,7 +260,36 @@ impl Auth {
     }
 }
 
-#[async_trait]
+impl User {
+    async fn extract_user<S>(parts: &mut Parts, state: &S) -> Result<Self, AuthError>
+    where
+        S: Send + Sync,
+    {
+        // Extract the cookies.
+        let cookies = CookieJar::from_request_parts(parts, state)
+            .await
+            .map_err(|_| AuthError::InternalError)?;
+
+        let auth_cookie = cookies
+            .get(AUTH_COOKIE_NAME)
+            .ok_or(AuthError::NotAuthenticated)?;
+
+        // Retrieve the Auth extension.
+        let auth = parts
+            .extensions
+            .get::<Arc<Auth>>()
+            .ok_or(AuthError::InternalError)?;
+
+        let user_id = auth.verify_token(auth_cookie.value())
+            .map_err(|_| AuthError::InvalidToken)?;
+
+        // Retrieve the user from the database.
+        auth.get_user_by_id(user_id)
+            .await
+            .map_err(|_| AuthError::UserNotFound)
+    }
+}
+
 impl<S> FromRequestParts<S> for User
 where
     S: Send + Sync,
@@ -265,28 +297,22 @@ where
     type Rejection = AuthError;
     
     async fn from_request_parts(parts: &mut Parts, state: &S) -> Result<Self, Self::Rejection> {
-        // Extract the cookie
-        let cookies = CookieJar::from_request_parts(parts, state)
-            .await
-            .map_err(|_| AuthError::InternalError)?;
-            
-        let auth_cookie = cookies
-            .get(AUTH_COOKIE_NAME)
-            .ok_or(AuthError::NotAuthenticated)?;
+        User::extract_user(parts, state).await
+    }
+}
 
-        // Decode and verify the JWT
-        let auth = parts
-            .extensions
-            .get::<Arc<Auth>>()
-            .ok_or(AuthError::InternalError)?;
-            
-        let user_id = auth.verify_token(auth_cookie.value())
-            .map_err(|_| AuthError::InvalidToken)?;
+impl<S> OptionalFromRequestParts<S> for User
+where
+    S: Send + Sync,
+{
+    type Rejection = AuthError;
 
-        // Retrieve user from database
-        auth.get_user_by_id(user_id)
-            .await
-            .map_err(|_| AuthError::UserNotFound)
+    async fn from_request_parts(parts: &mut Parts, state: &S) -> Result<Option<Self>, Self::Rejection> {
+        match User::extract_user(parts, state).await {
+            Ok(user) => Ok(Some(user)),
+            Err(_e) => Ok(None),
+            //Err(e) => Err(e), we dont propagate the error here, we just return None if the user is not authenticated
+        }
     }
 }
 

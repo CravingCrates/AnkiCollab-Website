@@ -7,12 +7,14 @@ use bb8_postgres::{tokio_postgres::NoTls, PostgresConnectionManager};
 use crate::{DeckHash, DeckId, Return, UserId};
 use crate::error::Error::*;
 
+use aws_sdk_s3::Client as S3Client;
 use tera::Tera;
 
 #[derive(Debug)]
 pub struct AppState {
     pub db_pool: Arc<Pool<PostgresConnectionManager<NoTls>>>,
     pub tera: Arc<Tera>,
+    pub s3_client: S3Client,
 }
 
 pub async fn establish_pool_connection() -> Result<

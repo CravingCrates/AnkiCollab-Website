@@ -1,0 +1,278 @@
+/* Primary structure */
+.leftside {
+  background-color: #ffebe9;
+}
+.rightside {
+  background-color: #e6ffec;
+}
+
+/* Action buttons */
+.action-buttons {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+/* Image diff styling */
+.diff-img-added {
+  border: 2px solid #1a7f37;
+  background-color: rgba(26, 127, 55, 0.05);
+  padding: 4px;
+  border-radius: 4px;
+  max-width: 150px;
+  max-height: 150px;
+}
+
+.diff-img-removed {
+  border: 2px solid #cf222e;
+  background-color: rgba(207, 34, 46, 0.05);
+  padding: 4px;
+  border-radius: 4px;
+  opacity: 0.7;
+  max-width: 150px;
+  max-height: 150px;
+}
+
+.img-diff-wrapper {
+  display: inline-block;
+  position: relative;
+  margin: 4px;
+  max-width: 100%;
+}
+
+.img-diff-wrapper.added {
+  background-color: rgba(26, 127, 55, 0.05);
+  border-radius: 4px;
+}
+
+.img-diff-wrapper.removed {
+  background-color: rgba(207, 34, 46, 0.05);
+  border-radius: 4px;
+}
+
+.img-diff-indicator {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  font-size: 10px;
+  font-weight: bold;
+  padding: 2px 4px;
+  border-radius: 2px;
+  opacity: 0.9;
+}
+
+.img-diff-indicator.added {
+  background-color: #1a7f37;
+  color: white;
+}
+
+.img-diff-indicator.removed {
+  background-color: #cf222e;
+  color: white;
+}
+
+/* Source diff styling */
+.html-source-diff {
+  background-color: #f8f9fa;
+  padding: 10px;
+  border-radius: 5px;
+  font-family: monospace;
+  white-space: pre-wrap;
+  word-break: break-all;
+  max-height: 400px;
+  overflow: auto;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  line-height: 1.5;
+}
+
+.html-source-diff ins {
+  background-color: #e6ffec;
+  text-decoration: none;
+  display: inline-block;
+  width: 100%;
+}
+
+.html-source-diff del {
+  background-color: #ffebe9;
+  text-decoration: line-through;
+  display: inline-block;
+  width: 100%;
+}
+
+.line-number {
+  color: #6e7781;
+  text-align: right;
+  padding-right: 10px;
+  user-select: none;
+  border-right: 1px solid #d0d7de;
+  margin-right: 10px;
+}
+
+.line-content {
+  padding-left: 5px;
+  white-space: pre-wrap;
+}
+
+.image-tag-highlight {
+  color: #0550ae;
+  font-weight: bold;
+  background-color: #ddf4ff;
+  padding: 2px;
+  border-radius: 3px;
+  font-family: monospace;
+}
+
+.image-tag-highlight.added {
+  color: #1a7f37;
+  background-color: #dafbe1;
+}
+
+.image-tag-highlight.removed {
+  color: #cf222e;
+  background-color: #ffebe9;
+}
+
+/* Add to your commit_styling.css */
+.html-added, .html-removed {
+    display: inline-block;
+    padding: 5px;
+    border-radius: 4px;
+    margin: 2px 0;
+}
+
+.html-added {
+    background-color: rgba(26, 127, 55, 0.05);
+    border-left: 3px solid #1a7f37;
+}
+
+.html-removed {
+    background-color: rgba(207, 34, 46, 0.05);
+    border-left: 3px solid #cf222e;
+    text-decoration: line-through;
+}
+
+.html-added img, .html-removed img {
+    display: inline-block;
+    max-width: 150px;
+    max-height: 150px;
+    margin: 5px;
+    vertical-align: middle;
+}
+
+.note-content-display {
+    border: 1px solid #eee;
+    padding: 10px;
+    margin-top: 5px;
+    min-height: 50px; /* Ensure visibility */
+}
+.diff-content del {
+    background-color: #ffe6e6; /* Light red background for deletions */
+    text-decoration: line-through;
+    color: #a80000;
+}
+.diff-content ins {
+    background-color: #e6ffe6; /* Light green background for insertions */
+    text-decoration: none;
+    color: #006400;
+}
+.img-diff-wrapper {
+    display: inline-block; /* Allow text flow */
+    position: relative;
+    border: 2px dashed;
+    padding: 5px;
+    margin: 5px;
+    vertical-align: middle; /* Align with text */
+}
+.img-diff-wrapper.added { border-color: green; }
+.img-diff-wrapper.removed { border-color: red; }
+.img-diff-wrapper img {
+    display: block; /* Ensure image takes up wrapper width */
+    max-width: 150px;
+    max-height: 150px;
+    object-fit: contain;
+}
+.img-diff-wrapper.removed img { opacity: 0.6; }
+
+.img-diff-indicator {
+    position: absolute;
+    top: 0;
+    right: 0;
+    font-size: 0.7em;
+    font-weight: bold;
+    padding: 1px 4px;
+    color: white;
+    border-radius: 3px;
+}
+.img-diff-indicator.added { background-color: green; }
+.img-diff-indicator.removed { background-color: red; }
+
+/* Style for summernote editor during edits */
+.note-editor.note-frame {
+    border: 1px solid #007bff; /* Highlight editor */
+}
+
+.lazy-load-image {
+  cursor: pointer;
+  border: 1px dashed #ccc; /* Indicate it's interactive */
+  min-height: 50px; /* Prevent collapsing before load */
+  min-width: 50px;
+  display: inline-block; /* Or block depending on context */
+  vertical-align: middle;
+  position: relative; /* For potential loading overlay */
+  background-color: #f8f8f8; /* Light background */
+}
+
+.lazy-load-image::after {
+  /* Optional: Add a 'click to load' icon or text */
+  content: '🖼️ Load'; /* Example Icon + Text */
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 0.8em;
+  color: #888;
+  padding: 2px 5px;
+  background-color: rgba(255, 255, 255, 0.7);
+  border-radius: 3px;
+}
+
+
+.lazy-load-image.loading {
+  cursor: wait;
+  opacity: 0.7;
+}
+
+.lazy-load-image.loading::after {
+  /* Optional: Change indicator during loading */
+   content: '⏳ Loading...';
+}
+
+.lazy-load-image.error {
+  cursor: not-allowed;
+  border: 1px dashed red;
+}
+.lazy-load-image.error::after {
+   content: '⚠️ Error';
+   color: red;
+   background-color: rgba(255, 200, 200, 0.7);
+}
+
+
+/* Style adjustments for loaded images inside wrappers */
+.img-diff-wrapper img.lazy-load-image {
+  border: none; /* Remove placeholder border once potentially loaded */
+  min-height: 0;
+  min-width: 0;
+  background-color: transparent;
+}
+.img-diff-wrapper img.lazy-load-image::after {
+   content: ''; /* Remove placeholder text */
+}
+
+.note-context img {
+  max-width: 150px;
+  height: auto;
+  border-radius: 4px;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+}

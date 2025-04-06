@@ -1,6 +1,3 @@
-extern crate ammonia;
-extern crate html5ever;
-
 pub mod changelog_manager;
 pub mod commit_manager;
 pub mod database;
@@ -14,6 +11,8 @@ pub mod structs;
 pub mod suggestion_manager;
 pub mod stats_manager;
 pub mod user;
+pub mod cleanser;
+pub mod media_reference_manager;
 
 use database::owned_deck_id;
 use database::AppState;
@@ -28,9 +27,16 @@ use crate::error::NoteNotFoundContext;
 use tower_http::trace::TraceLayer;
 use tower_http::services::ServeDir;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
+use tower_governor::{governor::GovernorConfigBuilder, GovernorLayer};
 
 use axum::{
-    extract::{Path, State}, http::{header, HeaderValue}, middleware::{self, Next}, response::{Html, IntoResponse, Redirect, Response}, routing::{get, post}, Extension, Json, Router
+    extract::{Path, State}, 
+    http::{header, HeaderValue}, 
+    middleware::{self, Next}, 
+    response::{Html, IntoResponse, Redirect, Response}, 
+    routing::{get, post}, 
+    Extension, Json, Router, BoxError, 
+    error_handling::HandleErrorLayer
 };
 
 use structs::*;
@@ -38,6 +44,9 @@ use tera::Tera;
 
 use std::result::Result;
 use std::*;
+use aws_sdk_s3::Client as S3Client;
+
+
 
 fn check_login(user: Option<User>) -> Result<User, Error> {
     match user {
@@ -178,10 +187,10 @@ async fn post_optional_tags(
 
     // Add new tag
     if data.action == 1 {
-        optional_tags_manager::add_tag(&appstate, deck_id, data.taggroup).await
+        optional_tags_manager::add_tag(&appstate, deck_id, cleanser::clean(&data.taggroup)).await
     } else {
         // Delete existing optional_tag
-        optional_tags_manager::remove_tag(&appstate, deck_id, data.taggroup).await
+        optional_tags_manager::remove_tag(&appstate, deck_id, cleanser::clean(&data.taggroup)).await
     }
 }
 
@@ -239,33 +248,33 @@ async fn post_maintainers(
     }
 }
 
-async fn post_media_manager(
-    State(appstate): State<Arc<AppState>>,
-    user: User,
-    Json(update_media): Json<structs::GDriveInfo>
-) -> Result<impl IntoResponse, Error> {
-    let data = update_media;
+// async fn post_media_manager(
+//     State(appstate): State<Arc<AppState>>,
+//     user: User,
+//     Json(update_media): Json<structs::GDriveInfo>
+// ) -> Result<impl IntoResponse, Error> {
+//     let data = update_media;
 
-    let deck_id: i64 = owned_deck_id(&appstate, &data.deck, user.id()).await?;
+//     let deck_id: i64 = owned_deck_id(&appstate, &data.deck, user.id()).await?;
 
-    gdrive_manager::update_media(&appstate, deck_id, data).await
-}
+//     gdrive_manager::update_media(&appstate, deck_id, data).await
+// }
 
-async fn media_manager(
-    State(appstate): State<Arc<AppState>>,
-    user: User,
-    Path(deck_hash): Path<String>,
-) -> Result<impl IntoResponse, Error> {
-    let _ = owned_deck_id(&appstate, &deck_hash, user.id()).await?;
-    let mut context = tera::Context::new();
-    context.insert("hash", &deck_hash);
-    context.insert("user", &user);
+// async fn media_manager(
+//     State(appstate): State<Arc<AppState>>,
+//     user: User,
+//     Path(deck_hash): Path<String>,
+// ) -> Result<impl IntoResponse, Error> {
+//     let _ = owned_deck_id(&appstate, &deck_hash, user.id()).await?;
+//     let mut context = tera::Context::new();
+//     context.insert("hash", &deck_hash);
+//     context.insert("user", &user);
 
-    let rendered_template = appstate.tera
-        .render("media_manager.html", &context)
-        .expect("Failed to render template");
-    Ok(Html(rendered_template))
-}
+//     let rendered_template = appstate.tera
+//         .render("media_manager.html", &context)
+//         .expect("Failed to render template");
+//     Ok(Html(rendered_template))
+// }
 
 async fn show_maintainers(
     State(appstate): State<Arc<AppState>>,
@@ -395,6 +404,7 @@ async fn post_edit_deck(
 
     owned_deck_id(&appstate, &data.hash, user.id()).await?; // only for checking if user owns the deck
 
+    let cleaned_desc = cleanser::clean(&data.description);
     client
         .query(
             "
@@ -402,7 +412,7 @@ async fn post_edit_deck(
         SET description = $1, private = $2, restrict_subdecks = $3, restrict_notetypes = $4
         WHERE human_hash = $5
         AND owner = $6",
-            &[&data.description, &data.is_private, &data.prevent_subdecks, &data.restrict_notetypes, &data.hash, &user.id()],
+            &[&cleaned_desc, &data.is_private, &data.prevent_subdecks, &data.restrict_notetypes, &data.hash, &user.id()],
         )
         .await?;
 
@@ -754,7 +764,7 @@ async fn deny_field(
         return Ok(Redirect::to("/"));
     }
 
-    match suggestion_manager::deny_field_change(&appstate, field_id).await {
+    match suggestion_manager::deny_field_change(&appstate, field_id, true).await {
         Ok(res) => Ok(Redirect::to(&format!("/review/{}", res))),
         Err(error) => {
             println!("Error: {}", error);
@@ -799,19 +809,29 @@ async fn update_field(
         Ok(deck_id) => deck_id,
         Err(error) => {
             println!("Error: {}", error);
-            return Ok(Html(format!("Error: {}", error)));
+            return Ok("".to_string());
         }
     };
 
     if !access_check(&appstate, deck_id, &user).await? {
-        return Ok(Html("Error: You do not have access to this deck".to_string()));
+        return Ok("".to_string());
     }
 
-    match suggestion_manager::update_field_suggestion(&appstate, data.field_id, data.content).await {
-        Ok(_res) => Ok(Html("ok".to_string())),
+    match suggestion_manager::update_field_suggestion(&appstate, data.field_id, &data.content).await {
+        Ok(_res) => {
+            match commit_manager::get_field_diff(&appstate, data.field_id).await {
+                Ok(diff) => {
+                    Ok(diff.to_string())
+                },
+                Err(error) => {
+                    println!("Error: {}", error);
+                    Ok("".to_string())
+                }
+            }            
+        },
         Err(error) => {
             println!("Error: {}", error);
-            Ok(Html(format!("Error: {}", error)))
+            Ok("".to_string())
         }
     }
 
@@ -875,14 +895,23 @@ async fn deny_note_removal(
     }
 }
 
+use once_cell::sync::Lazy;
+
+static STATS_CACHE_KEY: Lazy<String> = Lazy::new(|| {
+    std::env::var("STATS_CACHE_KEY").expect("STATS_CACHE_KEY must be set")
+});
+
 async fn refresh_stats_cache(
     State(appstate): State<Arc<AppState>>,
     Path(secret): Path<String>
-) -> Result<impl IntoResponse, Error> {
-    if secret != "iloveanki" {
+) -> Result<impl IntoResponse, Error> {    
+    if secret != *STATS_CACHE_KEY {
         return Ok(Redirect::to("/"));
     }
-    stats_manager::update_stats(&appstate).await.unwrap();
+    let db_state_clone = Arc::clone(&appstate);
+    tokio::spawn(async move {
+        stats_manager::update_stats(&db_state_clone).await.unwrap();
+    });
     Ok(Redirect::to("/"))
 }
 
@@ -942,7 +971,7 @@ async fn show_statistics(
 
     let deck_base_info = match stats_manager::get_base_deck_info(&appstate, &deck_hash).await {
         Ok(deck_base_info) => deck_base_info,
-        Err(error) => return Ok(Html(format!("Error: {}", error))),
+        Err(error) => return Ok(Html("Error showing the statistics.".to_string())),
     };
 
     if deck_base_info.note_count == 0 {
@@ -954,12 +983,12 @@ async fn show_statistics(
     
     let deck_info = match stats_manager::get_deck_stat_info(&appstate, &deck_hash).await {
         Ok(deck_info) => deck_info,
-        Err(error) => return Ok(Html(format!("Error: {}", error))),
+        Err(error) => return Ok(Html("Error showing the statistics.".to_string())),
     };
     
     let notes_info = match stats_manager::get_worst_notes_info(&appstate, &deck_hash).await {
         Ok(notes_info) => notes_info,
-        Err(error) => return Ok(Html(format!("Error: {}", error))),
+        Err(error) => return Ok(Html("Error showing the statistics.".to_string())),
     };
 
     context.insert("decks", &deck_info);
@@ -1013,7 +1042,7 @@ async fn get_notes_from_deck(
         owner: deck_info[0].get(4),
         id,
         name: deck_info[0].get(1),
-        desc: ammonia::clean(deck_info[0].get(2)),
+        desc: cleanser::clean(deck_info[0].get(2)),
         hash: deck_info[0].get(3),
         last_update: deck_info[0].get(5),
         notes: "0".to_string(),
@@ -1043,7 +1072,7 @@ async fn all_reviews(
 
     let commits = match commit_manager::commits_review(&appstate, user.id()).await {
         Ok(commits) => commits,
-        Err(error) => return Ok(Html(format!("Error: {}", error))),
+        Err(error) => return Ok(Html("Error getting the reviews.".to_string())),
     };
 
     context.insert("commits", &commits);
@@ -1091,7 +1120,7 @@ async fn deck_overview(
             owner: row.get(4),
             id: row.get(0),
             name: row.get(1),
-            desc: ammonia::clean(row.get(2)),
+            desc: cleanser::clean(row.get(2)),
             hash: row.get(3),
             last_update: row.get(5),
             notes: row.get(7),
@@ -1161,7 +1190,7 @@ async fn manage_decks(
             owner: row.get(4),
             id: row.get(0),
             name: row.get(1),
-            desc: ammonia::clean(row.get(2)),
+            desc: cleanser::clean(row.get(2)),
             hash: row.get(3),
             last_update: row.get(5),
             notes: note_manager::get_notes_count_in_deck(&appstate, row.get(0))
@@ -1175,7 +1204,7 @@ async fn manage_decks(
 
     let notetypes = match notetype_manager::get_notetype_overview(&appstate, &user).await {
         Ok(cl) => cl,
-        Err(error) => return Ok(Html(format!("Error: {}", error))),
+        Err(error) => return Ok(Html("Error managing your decks.".to_string())),
     };
 
     context.insert("decks", &decks);
@@ -1187,6 +1216,35 @@ async fn manage_decks(
         .expect("Failed to render template");
 
     Ok(Html(rendered_template))
+}
+
+async fn get_presigned_url(
+    State(appstate): State<Arc<AppState>>,
+    user: User,
+    Json(data): Json<structs::PresignedURLRequest>
+) -> Result<impl IntoResponse, Error> {
+    let mut response: structs::PresignedURLResponse = structs::PresignedURLResponse {
+        success: false,
+        presigned_url: String::new(),
+    };
+
+    if data.filename.is_empty() || data.context_type != "note" {
+        return Ok(Json(response));
+    }
+
+    let parsed_nid = data.context_id.parse::<i64>().unwrap_or(0);
+    if parsed_nid == 0 {
+        return Ok(Json(response));
+    }
+    let presigned_url = match media_reference_manager::get_presigned_url(&appstate, &data.filename, parsed_nid).await {
+        Ok(presigned_url) => presigned_url,
+        Err(_error) => return Ok(Json(response)),
+    };
+    
+    response.success = true;
+    response.presigned_url = presigned_url;
+    
+    Ok(Json(response))
 }
 
 async fn set_static_cache_control(request: axum::extract::Request, next: Next) -> Response {
@@ -1221,13 +1279,38 @@ async fn main() {
             ::std::process::exit(1);
         }
     };
-    tera.autoescape_on(vec![".html", ".sql"]);
+    tera.autoescape_on(vec![".html", ".sql", ".htm", ".xml"]);
 
     let pool = database::establish_pool_connection().await.expect("Failed to establish database connection pool");
     
+    let s3_access_key_id = std::env::var("S3_ACCESS_KEY_ID").expect("S3_ACCESS_KEY_ID must be set");
+    let s3_secret_access_key = std::env::var("S3_SECRET_ACCESS_KEY").expect("S3_SECRET_ACCESS_KEY must be set");
+    let s3_domain = std::env::var("S3_DOMAIN").expect("S3_DOMAIN must be set");
+
+    let credentials = aws_sdk_s3::config::Credentials::new(
+        s3_access_key_id,
+        s3_secret_access_key,
+        None, None, "s3-credentials");
+    
+    let region_provider = aws_config::meta::region::RegionProviderChain::default_provider().or_else("eu-central-1"); // Europe (Frankfurt)
+    let s3_config = aws_config::from_env()
+        .region(region_provider)
+        .credentials_provider(aws_sdk_s3::config::SharedCredentialsProvider::new(credentials))
+        .endpoint_url(&s3_domain)
+        .load()
+        .await;
+    
+    let s3_service_config = aws_sdk_s3::config::Builder::from(&s3_config)
+    .force_path_style(true) // Contabo is <special>
+    .build();
+    
+    let s3_client = S3Client::from_conf(s3_service_config);
+
+
     let state = Arc::new(database::AppState {
         db_pool: Arc::new(pool),
         tera: Arc::new(tera),
+        s3_client,
     });
 
     // Enable tracing.
@@ -1255,6 +1338,22 @@ async fn main() {
         .with(env_filter)
         .with(tracing_subscriber::fmt::layer().without_time())
         .init();
+
+    // let governor_conf = Arc::new(
+    //     GovernorConfigBuilder::default()
+    //         .finish()
+    //         .unwrap(),
+    // );
+    
+    // let governor_limiter = governor_conf.limiter().clone();
+    // let interval = std::time::Duration::from_secs(60);
+    // // a separate background task to clean up
+    // std::thread::spawn(move || {
+    //     loop {
+    //         std::thread::sleep(interval);
+    //         governor_limiter.retain_recent();
+    //     }
+    // });
 
     // Second db connection for the auth. idk.. should prolly use the pool for this too
     let (client, connection) = tokio_postgres::connect(
@@ -1285,40 +1384,41 @@ async fn main() {
         .route("/imprint", get(imprint))
         .route("/logout", get(logout))
         .route("/OptionalTags", post(post_optional_tags))
-        .route("/OptionalTags/:deck_hash", get(show_optional_tags))
-        .route("/Maintainers/:deck_hash", get(show_maintainers))
+        .route("/OptionalTags/{deck_hash}", get(show_optional_tags))
+        .route("/Maintainers/{deck_hash}", get(show_maintainers))
         .route("/Maintainers", post(post_maintainers))
         // .route("/MediaManager/:deck_hash", get(media_manager))
         // .route("/MediaManager", post(post_media_manager))
-        .route("/EditNotetype/:notetype_id", get(edit_notetype))
+        .route("/EditNotetype/{notetype_id}", get(edit_notetype))
         .route("/EditNotetype", post(post_edit_notetype))
-        .route("/EditDeck/:deck_hash", get(edit_deck))
+        .route("/EditDeck/{deck_hash}", get(edit_deck))
         .route("/EditDeck", post(post_edit_deck))
-        .route("/DeleteChangelog/:changelog_id", get(delete_changelog))
-        .route("/DeleteDeck/:deck_hash", get(delete_deck))
+        .route("/DeleteChangelog/{changelog_id}", get(delete_changelog))
+        .route("/DeleteDeck/{deck_hash}", get(delete_deck))
         .route("/leavereview", get(forward_donation))
         .route("/decks", get(deck_overview))
-        .route("/notes/:deck_hash", get(get_notes_from_deck))
+        .route("/notes/{deck_hash}", get(get_notes_from_deck))
         .route("/ManageDecks", get(manage_decks))
-        .route("/review/:note_id", get(review_note))
-        .route("/ToggleStats/:deck_hash", get(toggle_stats))
-        .route("/Statistics/:deck_hash", get(show_statistics))
-        .route("/UpdateStatsPages/:secret", get(refresh_stats_cache))
-        .route("/DenyNoteRemoval/:note_id", get(deny_note_removal))
-        .route("/AcceptNoteRemoval/:note_id", get(remove_note_from_deck))
-        .route("/DenyTag/:tag_id", get(deny_tag))
-        .route("/AcceptTag/:tag_id", get(accept_tag))
-        .route("/DenyNoteMove/:move_id", get(deny_note_move))
-        .route("/AcceptNoteMove/:move_id", get(accept_note_move))
-        .route("/DenyField/:field_id", get(deny_field))
-        .route("/AcceptField/:field_id", get(accept_field))
+        .route("/review/{note_id}", get(review_note))
+        .route("/ToggleStats/{deck_hash}", get(toggle_stats))
+        .route("/Statistics/{deck_hash}", get(show_statistics))
+        .route("/UpdateStatsPages/{secret}", get(refresh_stats_cache))
+        .route("/DenyNoteRemoval/{note_id}", get(deny_note_removal))
+        .route("/AcceptNoteRemoval/{note_id}", get(remove_note_from_deck))
+        .route("/DenyTag/{tag_id}", get(deny_tag))
+        .route("/AcceptTag/{tag_id}", get(accept_tag))
+        .route("/DenyNoteMove/{move_id}", get(deny_note_move))
+        .route("/AcceptNoteMove/{move_id}", get(accept_note_move))
+        .route("/DenyField/{field_id}", get(deny_field))
+        .route("/AcceptField/{field_id}", get(accept_field))
         .route("/UpdateFieldSuggestion", post(update_field))
-        .route("/DenyCommit/:commit_id", get(deny_commit))
-        .route("/ApproveCommit/:commit_id", get(approve_commit))
-        .route("/commit/:commit_id", get(review_commit))
+        .route("/DenyCommit/{commit_id}", get(deny_commit))
+        .route("/ApproveCommit/{commit_id}", get(approve_commit))
+        .route("/commit/{commit_id}", get(review_commit))
         .route("/reviews", get(all_reviews))
-        .route("/DeleteNote/:note_id", get(deny_note))
-        .route("/AcceptNote/:note_id", get(accept_note))
+        .route("/DeleteNote/{note_id}", get(deny_note))
+        .route("/AcceptNote/{note_id}", get(accept_note))
+        .route("/GetImageFile", post(get_presigned_url))
         .nest_service(
             "/static",
             ServiceBuilder::new()
@@ -1339,6 +1439,9 @@ async fn main() {
             state.clone(),
             error::pretty_error_middleware,
         ))
+        // .layer(GovernorLayer {
+        //     config: governor_conf,
+        // })
         .with_state(state)
         .layer(Extension(auth));
 
