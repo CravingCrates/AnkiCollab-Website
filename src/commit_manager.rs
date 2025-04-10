@@ -399,10 +399,10 @@ pub async fn notes_by_commit(db_state: &Arc<database::AppState>, commit_id: i32)
                 if let Some(content) = content {
                     if action {
                         // New suggested tag
-                        current_note.new_tags.push(TagsInfo { id, content: ammonia::clean(content) });
+                        current_note.new_tags.push(TagsInfo { id, content: cleanser::clean(content) });
                     } else {
                         // Tag got removed
-                        current_note.removed_tags.push(TagsInfo { id, content: ammonia::clean(content) });
+                        current_note.removed_tags.push(TagsInfo { id, content: cleanser::clean(content) });
                     }
                 }
             }

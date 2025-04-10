@@ -28,7 +28,7 @@
                     <div class="text-center mb-3">
                         <h1 class="card-title">Review Note</h1>
                         <p class="text-muted">Last Update: {{ note.last_update }}</p>
-                        <p><strong>Current Deck:</strong> {{ note.deck | escape }}</p>
+                        <p><strong>Current Deck:</strong> {{ note.deck }}</p>
                         <span
                           class="label label-pill {% if note.reviewed and not note.delete_req %}label-info {% elif note.delete_req %}label-danger {% else %}label-success {% endif %}px-4 py-2"
                         >

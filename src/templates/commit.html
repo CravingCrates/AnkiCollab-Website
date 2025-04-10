@@ -35,7 +35,7 @@
                         <h1 class="card-title">Review Commit from {{ commit.timestamp }}</h1>
                         <p>Author: <span style="color: var(--primary);">{{ commit.user }}</span></p>
                         <p>Rationale: <span style="color: var(--secondary);">{{ commit.rationale }}</span></p>
-                        <p>Current Deck: <span style="font-weight:bold">{{ commit.deck | escape }}</span></p>
+                        <p>Current Deck: <span style="font-weight:bold">{{ commit.deck }}</span></p>
                         <blockquote style="color: var(--secondary);">{{ commit.commit_info | striptags }}</blockquote>
                         {% if user and owned == true %}
                         <a href="/ApproveCommit/{{commit.id}}" class="btn mb-1 btn-success"><span class="fa fa-check"></span> Accept all</a>
@@ -47,7 +47,7 @@
                 <div id="{{note.id}}" class="card note-context" data-context-type="note">
                     <div class="card-header text-right">
                         <h1 class="card-title text-center">Review Note</h1>
-                        <p class="text-center">Note Last Update: {{ note.last_update }}<br />Deck:  {{ note.deck | escape}}</p>
+                        <p class="text-center">Note Last Update: {{ note.last_update }}<br />Deck:  {{ note.deck }}</p>
 
                         <div class="d-flex justify-content-between align-items-center">
                             <div>
