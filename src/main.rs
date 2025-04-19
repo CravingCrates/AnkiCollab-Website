@@ -1,3 +1,9 @@
+#![warn(
+    clippy::all,
+    clippy::pedantic,
+    clippy::nursery,
+)]
+
 pub mod changelog_manager;
 pub mod commit_manager;
 pub mod database;
@@ -27,7 +33,6 @@ use crate::error::NoteNotFoundContext;
 use tower_http::trace::TraceLayer;
 use tower_http::services::ServeDir;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
-use tower_governor::{governor::GovernorConfigBuilder, GovernorLayer};
 
 use axum::{
     extract::{Path, State}, 
@@ -35,15 +40,14 @@ use axum::{
     middleware::{self, Next}, 
     response::{Html, IntoResponse, Redirect, Response}, 
     routing::{get, post}, 
-    Extension, Json, Router, BoxError, 
-    error_handling::HandleErrorLayer
+    Extension, Json, Router
 };
 
-use structs::*;
+use structs::{BasicDeckInfo, DeckHash, DeckId, DeckOverview, FieldId, NoteId, Return, UpdateNotetype, UserId};
 use tera::Tera;
 
 use std::result::Result;
-use std::*;
+use std::{cfg, env, eprintln, format, i32, i64, net, option_env, panic, println, str, sync, u32, unreachable, usize, vec};
 use aws_sdk_s3::Client as S3Client;
 
 
@@ -158,7 +162,7 @@ async fn render_optional_tags(
     let tags = match optional_tags_manager::get_tags(appstate, deck_id).await {
         Ok(tags) => tags,
         Err(e) => {
-            println!("Error retrieving opt tags: {}", e);
+            println!("Error retrieving opt tags: {e}");
             return Ok(Html(
                 "Error retrieving optional tags. Please notify us.".to_string(),
             ));
@@ -214,7 +218,7 @@ async fn render_maintainers(
     let maintainers = match maintainer_manager::get_maintainers(appstate, deck_id).await {
         Ok(maintainers) => maintainers,
         Err(e) => {
-            println!("Error getting maintainers: {}", e);
+            println!("Error getting maintainers: {e}");
             return Html("Error getting maintainers.".to_string());
         }
     };
@@ -429,7 +433,7 @@ async fn delete_changelog(
     Path(changelog_id): Path<i64>
 ) -> Result<impl IntoResponse, Error> {
     match changelog_manager::delete_changelog(&appstate, changelog_id, user.id()).await {
-        Ok(hash) => Ok(Redirect::permanent(format!("/EditDeck/{}", hash).as_str())),
+        Ok(hash) => Ok(Redirect::permanent(format!("/EditDeck/{hash}").as_str())),
         Err(_err) => Ok(Redirect::permanent("/")),
     }
 }
@@ -481,7 +485,7 @@ async fn deny_commit(
             }
         }
         Err(error) => {
-            println!("Error: {}", error);
+            println!("Error: {error}");
             Ok(Redirect::to("/"))
         }
     }
@@ -651,7 +655,7 @@ async fn deny_tag(
     let deck_id = match get_deck_by_tag_id(&appstate, tag_id).await {
         Ok(deck_id) => deck_id,
         Err(error) => {
-            println!("Error: {}", error);
+            println!("Error: {error}");
             return Ok(Redirect::to("/"));
         }
     };
@@ -661,9 +665,9 @@ async fn deny_tag(
     }
 
     match suggestion_manager::deny_tag_change(&appstate, tag_id).await {
-        Ok(res) => Ok(Redirect::to(&format!("/review/{}", res))),
+        Ok(res) => Ok(Redirect::to(&format!("/review/{res}"))),
         Err(error) => {
-            println!("Error: {}", error);
+            println!("Error: {error}");
             Ok(Redirect::to("/"))
         }
     }
@@ -677,7 +681,7 @@ async fn deny_note_move(
     let deck_id = match get_deck_by_move_id(&appstate, move_id).await {
         Ok(deck_id) => deck_id,
         Err(error) => {
-            println!("Error: {}", error);
+            println!("Error: {error}");
             return Ok(Redirect::to("/"));
         }
     };
@@ -687,9 +691,9 @@ async fn deny_note_move(
     }
 
     match suggestion_manager::deny_note_move_request(&appstate, move_id).await {
-        Ok(res) => Ok(Redirect::to(&format!("/review/{}", res))),
+        Ok(res) => Ok(Redirect::to(&format!("/review/{res}"))),
         Err(error) => {
-            println!("Error: {}", error);
+            println!("Error: {error}");
             Ok(Redirect::to("/"))
         }
     }
@@ -703,7 +707,7 @@ async fn accept_note_move(
     let deck_id = match get_deck_by_move_id(&appstate, move_id).await {
         Ok(deck_id) => deck_id,
         Err(error) => {
-            println!("Error: {}", error);
+            println!("Error: {error}");
             return Ok(Redirect::to("/"));
         }
     };
@@ -713,9 +717,9 @@ async fn accept_note_move(
     }
 
     match suggestion_manager::approve_move_note_request_by_moveid(&appstate, move_id).await {
-        Ok(res) => Ok(Redirect::to(&format!("/review/{}", res))),
+        Ok(res) => Ok(Redirect::to(&format!("/review/{res}"))),
         Err(error) => {
-            println!("Error: {}", error);
+            println!("Error: {error}");
             Ok(Redirect::to("/"))
         }
     }
@@ -729,7 +733,7 @@ async fn accept_tag(
     let deck_id = match get_deck_by_tag_id(&appstate, tag_id).await {
         Ok(deck_id) => deck_id,
         Err(error) => {
-            println!("Error: {}", error);
+            println!("Error: {error}");
             return Ok(Redirect::to("/"));
         }
     };
@@ -739,9 +743,9 @@ async fn accept_tag(
     }
 
     match suggestion_manager::approve_tag_change(&appstate, tag_id, true).await {
-        Ok(res) => Ok(Redirect::to(&format!("/review/{}", res))),
+        Ok(res) => Ok(Redirect::to(&format!("/review/{res}"))),
         Err(error) => {
-            println!("Error: {}", error);
+            println!("Error: {error}");
             Ok(Redirect::to("/"))
         }
     }
@@ -755,7 +759,7 @@ async fn deny_field(
     let deck_id = match get_deck_by_field_id(&appstate, field_id).await {
         Ok(deck_id) => deck_id,
         Err(error) => {
-            println!("Error: {}", error);
+            println!("Error: {error}");
             return Ok(Redirect::to("/"));
         }
     };
@@ -765,9 +769,9 @@ async fn deny_field(
     }
 
     match suggestion_manager::deny_field_change(&appstate, field_id, true).await {
-        Ok(res) => Ok(Redirect::to(&format!("/review/{}", res))),
+        Ok(res) => Ok(Redirect::to(&format!("/review/{res}"))),
         Err(error) => {
-            println!("Error: {}", error);
+            println!("Error: {error}");
             Ok(Redirect::to("/"))
         }
     }
@@ -781,7 +785,7 @@ async fn accept_field(
     let deck_id = match get_deck_by_field_id(&appstate, field_id).await {
         Ok(deck_id) => deck_id,
         Err(error) => {
-            println!("Error: {}", error);
+            println!("Error: {error}");
             return Ok(Redirect::to("/"));
         }
     };
@@ -791,9 +795,9 @@ async fn accept_field(
     }
 
     match suggestion_manager::approve_field_change(&appstate, field_id, true).await {
-        Ok(res) => Ok(Redirect::to(&format!("/review/{}", res))),
+        Ok(res) => Ok(Redirect::to(&format!("/review/{res}"))),
         Err(error) => {
-            println!("Error: {}", error);
+            println!("Error: {error}");
             Ok(Redirect::to("/"))
         }
     }
@@ -808,30 +812,30 @@ async fn update_field(
     let deck_id = match get_deck_by_field_id(&appstate, data.field_id).await {
         Ok(deck_id) => deck_id,
         Err(error) => {
-            println!("Error: {}", error);
-            return Ok("".to_string());
+            println!("Error: {error}");
+            return Ok(String::new());
         }
     };
 
     if !access_check(&appstate, deck_id, &user).await? {
-        return Ok("".to_string());
+        return Ok(String::new());
     }
 
     match suggestion_manager::update_field_suggestion(&appstate, data.field_id, &data.content).await {
         Ok(_res) => {
             match commit_manager::get_field_diff(&appstate, data.field_id).await {
                 Ok(diff) => {
-                    Ok(diff.to_string())
+                    Ok(diff)
                 },
                 Err(error) => {
-                    println!("Error: {}", error);
-                    Ok("".to_string())
+                    println!("Error: {error}");
+                    Ok(String::new())
                 }
             }            
         },
         Err(error) => {
-            println!("Error: {}", error);
-            Ok("".to_string())
+            println!("Error: {error}");
+            Ok(String::new())
         }
     }
 
@@ -843,9 +847,9 @@ async fn accept_note(
     user: User
 ) -> Result<impl IntoResponse, Error> {
     match suggestion_manager::approve_card(&appstate, note_id, user, false).await {
-        Ok(res) => Ok(Redirect::to(&format!("/review/{}", res))),
+        Ok(res) => Ok(Redirect::to(&format!("/review/{res}"))),
         Err(error) => {
-            println!("Error: {}", error);
+            println!("Error: {error}");
             Ok(Redirect::to("/"))
         }
     }
@@ -858,9 +862,9 @@ async fn deny_note(
     user: User
 ) -> Result<impl IntoResponse, Error> {
     match suggestion_manager::delete_card(&appstate, note_id, user).await {
-        Ok(res) => Ok(Redirect::to(&format!("/notes/{}", res))),
+        Ok(res) => Ok(Redirect::to(&format!("/notes/{res}"))),
         Err(error) => {
-            println!("Error: {}", error);
+            println!("Error: {error}");
             Ok(Redirect::to("/"))
         }
     }
@@ -873,9 +877,9 @@ async fn remove_note_from_deck(
     user: User
 ) -> Result<impl IntoResponse, Error> {
     match note_manager::mark_note_deleted(&appstate, note_id, user, false).await {
-        Ok(res) => Ok(Redirect::to(&format!("/notes/{}", res))),
+        Ok(res) => Ok(Redirect::to(&format!("/notes/{res}"))),
         Err(error) => {
-            println!("Error: {}", error);
+            println!("Error: {error}");
             Ok(Redirect::to("/"))
         }
     }
@@ -887,9 +891,9 @@ async fn deny_note_removal(
     user: User
 ) -> Result<impl IntoResponse, Error> {
     match note_manager::deny_note_removal_request(&appstate, note_id, user).await {
-        Ok(res) => Ok(Redirect::to(&format!("/review/{}", res))),
+        Ok(res) => Ok(Redirect::to(&format!("/review/{res}"))),
         Err(error) => {
-            println!("Error: {}", error);
+            println!("Error: {error}");
             Ok(Redirect::to("/"))
         }
     }
@@ -971,7 +975,10 @@ async fn show_statistics(
 
     let deck_base_info = match stats_manager::get_base_deck_info(&appstate, &deck_hash).await {
         Ok(deck_base_info) => deck_base_info,
-        Err(error) => return Ok(Html("Error showing the statistics.".to_string())),
+        Err(error) => {
+            println!("Error get_base_deck_info: {error}");
+            return Ok(Html("Error showing the statistics.".to_string()));
+        }
     };
 
     if deck_base_info.note_count == 0 {
@@ -983,12 +990,18 @@ async fn show_statistics(
     
     let deck_info = match stats_manager::get_deck_stat_info(&appstate, &deck_hash).await {
         Ok(deck_info) => deck_info,
-        Err(error) => return Ok(Html("Error showing the statistics.".to_string())),
+        Err(error) => {
+            println!("Error get_deck_stat_info: {error}");
+            return Ok(Html("Error showing the statistics.".to_string()));
+        },
     };
     
     let notes_info = match stats_manager::get_worst_notes_info(&appstate, &deck_hash).await {
         Ok(notes_info) => notes_info,
-        Err(error) => return Ok(Html("Error showing the statistics.".to_string())),
+        Err(error) => {
+            println!("Error get_worst_notes_info: {error}");
+            return Ok(Html("Error showing the statistics.".to_string()));
+        }
     };
 
     context.insert("decks", &deck_info);
@@ -1072,7 +1085,10 @@ async fn all_reviews(
 
     let commits = match commit_manager::commits_review(&appstate, user.id()).await {
         Ok(commits) => commits,
-        Err(error) => return Ok(Html("Error getting the reviews.".to_string())),
+        Err(error) => {
+            println!("Error commits_review: {error}");
+            return Ok(Html("Error getting the reviews.".to_string()));
+        }
     };
 
     context.insert("commits", &commits);
@@ -1204,7 +1220,10 @@ async fn manage_decks(
 
     let notetypes = match notetype_manager::get_notetype_overview(&appstate, &user).await {
         Ok(cl) => cl,
-        Err(error) => return Ok(Html("Error managing your decks.".to_string())),
+        Err(error) => {
+            println!("Error get_notetype_overview: {error}");
+            return Ok(Html("Error managing your decks.".to_string()));
+        }
     };
 
     context.insert("decks", &decks);
@@ -1220,7 +1239,7 @@ async fn manage_decks(
 
 async fn get_presigned_url(
     State(appstate): State<Arc<AppState>>,
-    user: User,
+    _user: User,
     Json(data): Json<structs::PresignedURLRequest>
 ) -> Result<impl IntoResponse, Error> {
     let mut response: structs::PresignedURLResponse = structs::PresignedURLResponse {
@@ -1275,7 +1294,7 @@ async fn main() {
     let mut tera = match Tera::new("src/templates/**/*.html") {
         Ok(t) => t,
         Err(e) => {
-            println!("Parsing error(s): {}", e);
+            println!("Parsing error(s): {e}");
             ::std::process::exit(1);
         }
     };
@@ -1363,7 +1382,7 @@ async fn main() {
     // Spawn connection handling
     tokio::spawn(async move {
         if let Err(e) = connection.await {
-            eprintln!("connection error: {}", e);
+            eprintln!("connection error: {e}");
         }
     });
     let db = Arc::new(client);    
@@ -1473,7 +1492,7 @@ async fn shutdown_signal() {
     let terminate = std::future::pending::<()>();
 
     tokio::select! {
-        _ = ctrl_c => {},
-        _ = terminate => {},
+        () = ctrl_c => {},
+        () = terminate => {},
     }
 }

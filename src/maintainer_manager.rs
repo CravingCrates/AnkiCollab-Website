@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use crate::error::Error::*;
+use crate::error::Error::{UserIsAlreadyMaintainer, UserNotFound};
 use crate::{database, Return};
 
 pub async fn get_maintainers(db_state: &Arc<database::AppState>, deck: i64) -> Result<Vec<String>, Box<dyn std::error::Error>> {

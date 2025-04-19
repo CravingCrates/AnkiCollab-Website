@@ -8,7 +8,7 @@ use tera::Context;
 
 use tokio_postgres::Error as PgError;
 
-use crate::*;
+use crate::{AppState, Html, Next, NoteId, State, format, option_env, str, usize};
 
 use std::sync::Arc;
 
@@ -79,16 +79,16 @@ pub enum NoteNotFoundContext {
 impl IntoResponse for NoteNotFoundContext {
     fn into_response(self) -> Response {
         let status_code = match self {
-            NoteNotFoundContext::TagApprove => StatusCode::NOT_FOUND,
-            NoteNotFoundContext::TagDenied => StatusCode::FORBIDDEN,
-            NoteNotFoundContext::FieldApprove => StatusCode::NOT_FOUND,
-            NoteNotFoundContext::FieldDenied => StatusCode::FORBIDDEN,
-            NoteNotFoundContext::FieldUpdate => StatusCode::NOT_FOUND,
-            NoteNotFoundContext::MarkNoteDeleted => StatusCode::NOT_FOUND,
-            NoteNotFoundContext::ApproveCard => StatusCode::FORBIDDEN,
-            NoteNotFoundContext::InvalidData => StatusCode::BAD_REQUEST,
-            NoteNotFoundContext::DeleteCard => StatusCode::FORBIDDEN,
-            NoteNotFoundContext::NoteMovalRequest => StatusCode::NOT_FOUND,
+            Self::TagApprove => StatusCode::NOT_FOUND,
+            Self::TagDenied => StatusCode::FORBIDDEN,
+            Self::FieldApprove => StatusCode::NOT_FOUND,
+            Self::FieldDenied => StatusCode::FORBIDDEN,
+            Self::FieldUpdate => StatusCode::NOT_FOUND,
+            Self::MarkNoteDeleted => StatusCode::NOT_FOUND,
+            Self::ApproveCard => StatusCode::FORBIDDEN,
+            Self::InvalidData => StatusCode::BAD_REQUEST,
+            Self::DeleteCard => StatusCode::FORBIDDEN,
+            Self::NoteMovalRequest => StatusCode::NOT_FOUND,
         };
 
         let mut response = Response::new(axum::body::Body::empty());
@@ -165,7 +165,7 @@ impl IntoResponse for Error {
             _ => StatusCode::INTERNAL_SERVER_ERROR,
         };
 
-        if let Error::Redirect(path) = &self {
+        if let Self::Redirect(path) = &self {
             return axum::response::Redirect::to(path).into_response();
         }
 
@@ -180,8 +180,8 @@ impl IntoResponse for Error {
 impl From<AuthError> for Error {
     fn from(err: AuthError) -> Self {
         match err {
-            AuthError::Redirect(path) => Error::Redirect(path),
-            _ => Error::Auth(err),
+            AuthError::Redirect(path) => Self::Redirect(path),
+            _ => Self::Auth(err),
         }
     }
 }
@@ -217,63 +217,63 @@ pub enum AuthError {
 impl Clone for AuthError {
     fn clone(&self) -> Self {
         match self {
-            AuthError::InvalidCredentials => AuthError::InvalidCredentials,
-            AuthError::PasswordHash(e) => AuthError::PasswordHash(e.clone()),
-            AuthError::Jwt(e) => AuthError::Jwt(e.clone()),
-            AuthError::NotAuthenticated => AuthError::NotAuthenticated,
-            AuthError::Redirect(e) => AuthError::Redirect(e.clone()),
-            AuthError::UsernameAlreadyExists => AuthError::UsernameAlreadyExists,
-            AuthError::PasswordWeak => AuthError::PasswordWeak,
-            AuthError::InternalError => AuthError::InternalError,
-            AuthError::InvalidToken => AuthError::InvalidToken,
-            AuthError::UserNotFound => AuthError::UserNotFound,
-            AuthError::Database(_error) => AuthError::PasswordHash("Database Error".to_string()) // tokio_posgres::Error doesn't implement clone() so i'm kinda fucked and its 2am so i'm just gonna do this for now
+            Self::InvalidCredentials => Self::InvalidCredentials,
+            Self::PasswordHash(e) => Self::PasswordHash(e.clone()),
+            Self::Jwt(e) => Self::Jwt(e.clone()),
+            Self::NotAuthenticated => Self::NotAuthenticated,
+            Self::Redirect(e) => Self::Redirect(e.clone()),
+            Self::UsernameAlreadyExists => Self::UsernameAlreadyExists,
+            Self::PasswordWeak => Self::PasswordWeak,
+            Self::InternalError => Self::InternalError,
+            Self::InvalidToken => Self::InvalidToken,
+            Self::UserNotFound => Self::UserNotFound,
+            Self::Database(_error) => Self::PasswordHash("Database Error".to_string()) // tokio_posgres::Error doesn't implement clone() so i'm kinda fucked and its 2am so i'm just gonna do this for now
             ,
         }
     }
 }
 
 impl AuthError {
-    fn get_status_and_message(&self) -> (StatusCode, &'static str) {
+    const fn get_status_and_message(&self) -> (StatusCode, &'static str) {
         match self {
-            AuthError::NotAuthenticated => (
+            Self::NotAuthenticated => (
                 StatusCode::UNAUTHORIZED,
                 "Please log in to access this page",
             ),
-            AuthError::InternalError => (
+            Self::InternalError => (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 "An internal error occurred",
             ),
-            AuthError::InvalidToken => (
+            Self::InvalidToken => (
                 StatusCode::UNAUTHORIZED,
                 "Your session has expired. Please log in again",
             ),
-            AuthError::UserNotFound => (
+            Self::UserNotFound => (
                 StatusCode::NOT_FOUND,
                 "User not found",
             ),
-            AuthError::InvalidCredentials => (
+            Self::InvalidCredentials => (
                 StatusCode::UNAUTHORIZED,
                 "Invalid username or password",
             ),
-            AuthError::Database(_) => (
+            Self::Database(_) => (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 "Internal Error 23110",
             ),
-            AuthError::PasswordHash(_) => (
+            Self::PasswordHash(_) => (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 "An error occurred while hashing the password",
             ),
-            AuthError::Jwt(_) => (
+            Self::Jwt(_) => (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 "Internal Error 23810",
             ),
-            AuthError::Redirect(_) => (StatusCode::FOUND, ""),
-            AuthError::UsernameAlreadyExists => (
+            Self::Redirect(_) => (StatusCode::FOUND, ""),
+            Self::UsernameAlreadyExists => (
                 StatusCode::BAD_REQUEST,
                 "Username already in use",
             ),
-            AuthError::PasswordWeak => (
+            Self::PasswordWeak => (
                 StatusCode::BAD_REQUEST,
                 "Password is too weak",
             ),

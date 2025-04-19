@@ -1,15 +1,15 @@
 use std::sync::Arc;
 
 use crate::database;
-use crate::structs::*;
+use crate::structs::ChangelogInfo;
 use crate::Return;
 use crate::cleanser;
 
-pub async fn insert_new_changelog(db_state: &Arc<database::AppState>, deck_hash: &String, message: &String) -> Return<()> {
-    let query = r#"
+pub async fn insert_new_changelog(db_state: &Arc<database::AppState>, deck_hash: &String, message: &str) -> Return<()> {
+    let query = r"
         INSERT INTO changelogs (deck, message, timestamp)
         VALUES ((SELECT id FROM decks WHERE human_hash = $1), $2, NOW())
-    "#;
+    ";
     let client = database::client(db_state).await?;
     let cleaned = cleanser::clean(message);
     client.execute(query, &[&deck_hash, &cleaned]).await?;
@@ -36,11 +36,11 @@ pub async fn get_changelogs(db_state: &Arc<database::AppState>, deck_hash: &Stri
 }
 
 pub async fn delete_changelog(db_state: &Arc<database::AppState>, id: i64, user_id: i32) -> Result<String, Box<dyn std::error::Error>> {
-    let query = r#"
+    let query = r"
         DELETE FROM changelogs
         WHERE id = $1 AND deck IN (SELECT id FROM decks WHERE owner = $2)
         RETURNING deck
-    "#;
+    ";
     let client = database::client(db_state).await?;
     let row = match client.query_opt(query, &[&id, &user_id]).await? {
         Some(row) => row,

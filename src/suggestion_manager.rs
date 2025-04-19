@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use crate::cleanser;
-use crate::error::Error::*;
+use crate::error::Error::{AmbiguousFields, CommitDeckNotFound, InvalidNote, NoteNotFound, Unauthorized};
 use crate::error::NoteNotFoundContext;
 use crate::{database, note_manager, Return};
 use crate::user::User;
@@ -45,7 +45,7 @@ pub async fn is_authorized(db_state: &Arc<database::AppState>,user: &User, deck:
     // Check if it's a maintainer
     if !access {
         // Get all parent decks including the current one
-        let query = r#"
+        let query = r"
             WITH RECURSIVE parent_decks AS (
                 SELECT id, parent
                 FROM decks
@@ -57,7 +57,7 @@ pub async fn is_authorized(db_state: &Arc<database::AppState>,user: &User, deck:
             )
             SELECT id
             FROM parent_decks
-        "#;
+        ";
         let parent_decks = client.query(query, &[&deck]).await?;
         if parent_decks.is_empty() {
             return Ok(false);
@@ -179,7 +179,7 @@ pub async fn approve_card(db_state: &Arc<database::AppState>,note_id: i64, user:
         let state_clone = db_state.clone();
         tokio::spawn(async move {
             if let Err(e) = media_reference_manager::update_media_references_for_approved_note(&state_clone, note_id).await {
-                println!("Error updating media references: {:?}", e);
+                println!("Error updating media references: {e:?}");
                 // Continue anyway since the card has been approved
             }
         });
@@ -250,7 +250,7 @@ pub async fn deny_field_change(db_state: &Arc<database::AppState>,field_id: i64,
         let state_clone = db_state.clone();
         tokio::spawn(async move {
             if let Err(e) = media_reference_manager::update_media_references_note_state(&state_clone, note_id).await {
-                println!("Error updating media references (3): {:?}", e);
+                println!("Error updating media references (3): {e:?}");
             }
         });
     }
@@ -414,7 +414,7 @@ pub async fn approve_field_change(db_state: &Arc<database::AppState>,field_id: i
         let state_clone = db_state.clone();
         tokio::spawn(async move {
             if let Err(e) = media_reference_manager::update_media_references_note_state(&state_clone, note_id).await {
-                println!("Error updating media references (3): {:?}", e);
+                println!("Error updating media references (3): {e:?}");
             }
         });
     }
@@ -512,7 +512,7 @@ pub async fn merge_by_commit(db_state: &Arc<database::AppState>,commit_id: i32, 
 
 
     // The query is very similar to the one /reviews uses
-    let next_review_query = r#"
+    let next_review_query = r"
     WITH RECURSIVE accessible AS (
         SELECT id FROM decks WHERE id IN (
             SELECT deck FROM maintainers WHERE user_id = $1
@@ -592,7 +592,7 @@ pub async fn merge_by_commit(db_state: &Arc<database::AppState>,commit_id: i32, 
     )
     ORDER BY commit_id
     LIMIT 1
-    "#;
+    ";
     let next_review = client
         .query(next_review_query, &[&user.id(), &commit_id])
         .await?;
@@ -673,7 +673,7 @@ pub async fn merge_by_commit(db_state: &Arc<database::AppState>,commit_id: i32, 
     let state_clone = db_state.clone();
     tokio::spawn(async move {
         if let Err(e) = media_reference_manager::update_media_references_for_commit(&state_clone, &affected_note_ids).await {
-            println!("Error updating media references (4) for commit: {:?}", e);
+            println!("Error updating media references (4) for commit: {e:?}");
         }
     });
 

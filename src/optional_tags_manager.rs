@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use crate::error::Error::*;
+use crate::error::Error::TagAlreadyExists;
 use crate::{database, Return};
 
 pub async fn get_tags(db_state: &Arc<database::AppState>, deck: i64) -> Result<Vec<String>, Box<dyn std::error::Error>> {
@@ -18,7 +18,7 @@ pub async fn get_tags(db_state: &Arc<database::AppState>, deck: i64) -> Result<V
 
 pub async fn add_tag(db_state: &Arc<database::AppState>, deck: i64, tag_group: String) -> Return<String> {
     // Replace whitespaces with underscores in tag_group
-    let tag_group_fixed = tag_group.replace(" ", "_");
+    let tag_group_fixed = tag_group.replace(' ', "_");
 
     let client = database::client(db_state).await?;
     match client

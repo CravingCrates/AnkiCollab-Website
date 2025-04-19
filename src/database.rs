@@ -5,7 +5,7 @@ use bb8_postgres::bb8::{Pool, PooledConnection};
 use bb8_postgres::{tokio_postgres::NoTls, PostgresConnectionManager};
 
 use crate::{DeckHash, DeckId, Return, UserId};
-use crate::error::Error::*;
+use crate::error::Error::{DatabaseConnection, Unauthorized};
 
 use aws_sdk_s3::Client as S3Client;
 use tera::Tera;
@@ -35,7 +35,7 @@ pub async fn client(db_state: &Arc<AppState>) -> Return<PooledConnection<'_, Pos
     match db_state.db_pool.get().await {
         Ok(pool) => Ok(pool),
         Err(err) => {
-            println!("Error getting pool: {}", err);
+            println!("Error getting pool: {err}");
             Err(DatabaseConnection)
         },
     }

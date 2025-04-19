@@ -2,20 +2,17 @@ use crate::{database, AppState};
 use regex::Regex;
 use std::collections::HashSet;
 use std::sync::Arc;
-use sha2::Digest;
 
 use bb8_postgres::bb8::PooledConnection;
 use bb8_postgres::PostgresConnectionManager;
 use tokio_postgres::Error as PgError;
 
-use aws_sdk_s3::{
-    presigning::PresigningConfig
-};
+use aws_sdk_s3::presigning::PresigningConfig;
 
 type SharedConn = PooledConnection<'static, PostgresConnectionManager<tokio_postgres::NoTls>>;
 
 /// Extract all media references from a field content string as anki does
-pub fn extract_media_references(field_content: &str) -> HashSet<String> {
+#[must_use] pub fn extract_media_references(field_content: &str) -> HashSet<String> {
     let mut references = HashSet::new();
     
     // Sound references [sound:filename.mp3]
@@ -163,7 +160,7 @@ pub async fn update_media_references_note_state(
     let mut client: SharedConn = match state.db_pool.get_owned().await {
         Ok(pool) => pool,
         Err(err) => {
-            println!("Error getting pool: {}", err);
+            println!("Error getting pool: {err}");
             return Err("Internal Error".into());
         },
     };
@@ -179,7 +176,7 @@ pub async fn update_media_references_for_approved_note(
     let mut client: SharedConn = match state.db_pool.get_owned().await {
         Ok(pool) => pool,
         Err(err) => {
-            println!("Error getting pool: {}", err);
+            println!("Error getting pool: {err}");
             return Err("Internal Error".into());
         },
     };
@@ -198,7 +195,7 @@ pub async fn cleanup_media_for_denied_note(
     // Remove all references for this note
     let tx = client.transaction().await?;
     
-    let removed = tx.execute(
+    let _ = tx.execute(
         "DELETE FROM media_references WHERE note_id = $1",
         &[&note_id]
     ).await?;
@@ -220,7 +217,7 @@ pub async fn update_media_references_for_commit(
     let mut client: SharedConn = match state.db_pool.get_owned().await {
         Ok(pool) => pool,
         Err(err) => {
-            println!("Error getting pool: {}", err);
+            println!("Error getting pool: {err}");
             return Err("Internal Error".into());
         },
     };
@@ -237,22 +234,22 @@ pub async fn get_presigned_url(
     filename: &str,
     note_id: i64
 ) -> Result<String, Box<dyn std::error::Error>> {
-    let mut client: SharedConn = match state.db_pool.get_owned().await {
+    let client: SharedConn = match state.db_pool.get_owned().await {
         Ok(pool) => pool,
         Err(err) => {
-            println!("Error getting pool: {}", err);
+            println!("Error getting pool: {err}");
             return Err("Internal Error".into());
         },
     };
     
-    let clean_filename = crate::cleanser::clean(&filename);
+    let clean_filename = crate::cleanser::clean(filename);
     let query = "SELECT hash from media_files where id = (select media_id from media_references where file_name = $1 and note_id = $2)";
     let row = client.query_one(query, &[&clean_filename, &note_id]).await?;
     
     let hash: String = row.get(0);
 
     let prefix = &hash[0..2];
-    let s3_key = format!("{}/{}", prefix, hash);
+    let s3_key = format!("{prefix}/{hash}");
     
     let bucket_name = std::env::var("S3_MEDIA_BUCKET").expect("S3_MEDIA_BUCKET must be set");
     // Generate a presigned URL for each file
@@ -263,7 +260,7 @@ pub async fn get_presigned_url(
             PresigningConfig::expires_in(std::time::Duration::from_secs(5 * 60)).unwrap() // 5 minutes
         )
         .await.map_err(|err| {
-            println!("Error generating presigned URL for {}: {}", hash, err);
+            println!("Error generating presigned URL for {hash}: {err}");
         }).unwrap();    
     Ok(presigned_req.uri().to_string())
 }

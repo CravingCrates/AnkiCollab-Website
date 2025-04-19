@@ -21,7 +21,7 @@ fn sanitize_style(style: &str, allowed_props: &[&str], allowed_colors: &[&str]) 
                 {
                     if prop_clean == "background-color" || prop_clean == "color" 
                     {
-                        if !value.trim().starts_with("#") && 
+                        if !value.trim().starts_with('#') && 
                             !value.trim().starts_with("rgb") && 
                             !value.trim().starts_with("rgba") && 
                             !value.trim().starts_with("hsl") && 
@@ -92,9 +92,9 @@ fn sanitize_html_styles(html: String) -> String {
             };
             let sanitized = sanitize_style(original, &allowed_props, &allowed_colors);
             if sanitized.is_empty() {
-                "".to_string()
+                String::new()
             } else {
-                format!("style=\"{}\"", sanitized)
+                format!("style=\"{sanitized}\"")
             }
         })
         .to_string()

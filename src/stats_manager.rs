@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use crate::database;
-use crate::structs::*;
+use crate::structs::{DeckBaseStatsInfo, DeckStatsInfo, NoteStatsInfo};
 use async_recursion::async_recursion;
 
 pub async fn update_stats(db_state: &Arc<database::AppState>, ) -> Result<(), Box<dyn std::error::Error>> {
@@ -196,12 +196,7 @@ pub async fn get_base_deck_info(db_state: &Arc<database::AppState>, deck_hash: &
         return Err(Box::new(std::io::Error::new(std::io::ErrorKind::Other, "No calculated stats found for the given deck")));
     };
 
-    Ok(DeckBaseStatsInfo {
-        note_count,
-        retention_avg,
-        lapses_avg,
-        reps_avg,
-    })
+    Ok(DeckBaseStatsInfo { note_count, lapses_avg, reps_avg, retention_avg })
 }
 
 pub async fn get_deck_stat_info(db_state: &Arc<database::AppState>, deck_hash: &String) -> Result<Vec<DeckStatsInfo>, Box<dyn std::error::Error>> {

@@ -1,10 +1,10 @@
 use std::sync::Arc;
 
 use crate::database;
-use crate::error::Error::*;
+use crate::error::Error::{NoteNotFound, Unauthorized};
 use crate::error::NoteNotFoundContext;
 use crate::media_reference_manager;
-use crate::structs::*;
+use crate::structs::{FieldSuggestionInfo, FieldsInfo, Note, NoteData, NoteMoveReq, ReviewOverview, TagsInfo};
 use crate::suggestion_manager;
 use crate::user;
 use crate::NoteId;
@@ -14,7 +14,7 @@ use crate::cleanser;
 extern crate htmldiff;
 
 pub async fn under_review(db_state: &Arc<database::AppState>, uid: i32) -> Result<Vec<ReviewOverview>, Box<dyn std::error::Error>> {
-    let query = r#"
+    let query = r"
         WITH owned AS (
             SELECT id, full_path FROM decks WHERE id IN (
                 SELECT deck FROM maintainers WHERE user_id = $1
@@ -37,7 +37,7 @@ pub async fn under_review(db_state: &Arc<database::AppState>, uid: i32) -> Resul
             (n.reviewed = true AND EXISTS (SELECT 1 FROM fields WHERE fields.note = n.id AND fields.reviewed = false)) OR
             (n.reviewed = true AND EXISTS (SELECT 1 FROM tags WHERE tags.note = n.id AND tags.reviewed = false)))
         GROUP BY n.id, n.guid, n.reviewed, d.full_path
-    "#;
+    ";
     let client = database::client(db_state).await?;
 
     let rows = client
@@ -245,7 +245,7 @@ pub async fn get_note_data(db_state: &Arc<database::AppState>, note_id: NoteId) 
 
 // Only show at most 1k cards. everything else is too much for the website to load. TODO Later: add incremental loading instead
 pub async fn retrieve_notes(db_state: &Arc<database::AppState>, deck: &String) -> Return<Vec<Note>> {
-    let query = r#"
+    let query = r"
         SELECT n.id, n.guid,
             CASE
                 WHEN n.reviewed = false THEN 0
@@ -259,7 +259,7 @@ pub async fn retrieve_notes(db_state: &Arc<database::AppState>, deck: &String) -
         WHERE d.human_hash = $1 AND n.deleted = false
         ORDER BY n.id ASC
         LIMIT 200;
-    "#;
+    ";
     let client = database::client(db_state).await?;
 
     let rows = client
@@ -366,7 +366,7 @@ pub async fn mark_note_deleted(
         let state_clone = db_state.clone();
         tokio::spawn(async move {
             if let Err(e) = media_reference_manager::cleanup_media_for_denied_note(&state_clone, note_id).await {
-                println!("Error updating media references: {:?}", e);
+                println!("Error updating media references: {e:?}");
             }
         });
     }

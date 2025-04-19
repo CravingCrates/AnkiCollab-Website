@@ -36,8 +36,8 @@ pub struct User {
 }
 
 impl User {
-    pub fn id(&self) -> i32 { self.id }
-    pub fn username(&self) -> String { self.username.clone() }
+    #[must_use] pub const fn id(&self) -> i32 { self.id }
+    #[must_use] pub fn username(&self) -> String { self.username.clone() }
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -70,7 +70,7 @@ pub struct Auth {
 }
 
 impl Auth {
-    pub fn new(
+    #[must_use] pub const fn new(
         db: Arc<Client>, 
         jwt_secret: String,
         cookie_secure: bool,
@@ -157,7 +157,7 @@ impl Auth {
         })
     }
 
-    fn validate_password(&self, password: &str) -> Result<(), AuthError> {
+    const fn validate_password(&self, password: &str) -> Result<(), AuthError> {
         // Check password length
         if password.len() < 8 {
             return Err(AuthError::PasswordWeak);
@@ -215,7 +215,7 @@ impl Auth {
             &EncodingKey::from_secret(self.jwt_secret.as_bytes()),
         )?;
 
-        if creds.cookie.unwrap_or("".to_string()) == "on" {
+        if creds.cookie.unwrap_or_default() == "on" {
             let cookie = CookieBuilder::build((AUTH_COOKIE_NAME, token))
             .path("/")
             .secure(self.cookie_secure)
@@ -297,7 +297,7 @@ where
     type Rejection = AuthError;
     
     async fn from_request_parts(parts: &mut Parts, state: &S) -> Result<Self, Self::Rejection> {
-        User::extract_user(parts, state).await
+        Self::extract_user(parts, state).await
     }
 }
 
@@ -308,7 +308,7 @@ where
     type Rejection = AuthError;
 
     async fn from_request_parts(parts: &mut Parts, state: &S) -> Result<Option<Self>, Self::Rejection> {
-        match User::extract_user(parts, state).await {
+        match Self::extract_user(parts, state).await {
             Ok(user) => Ok(Some(user)),
             Err(_e) => Ok(None),
             //Err(e) => Err(e), we dont propagate the error here, we just return None if the user is not authenticated

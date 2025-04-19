@@ -1,8 +1,8 @@
 use crate::user::User;
 
 use crate::database;
-use crate::error::Error::*;
-use crate::structs::*;
+use crate::error::Error::NoNoteTypesAffected;
+use crate::structs::{NoteModelFieldInfo, NotetypeOverview, UpdateNotetype};
 use crate::Return;
 
 use std::collections::HashMap;
@@ -90,7 +90,7 @@ pub async fn update_notetype(
 
     let tx = client.transaction().await?;
 
-    for (field_id, checked) in notetype.items.iter() {
+    for (field_id, checked) in &notetype.items {
         tx.execute(
             "
             UPDATE notetype_field 

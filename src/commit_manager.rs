@@ -1,6 +1,6 @@
 use crate::database;
-use crate::error::Error::*;
-use crate::structs::*;
+use crate::error::Error::NoNotesAffected;
+use crate::structs::{CommitData, CommitsOverview, FieldsReviewInfo, NoteMoveReq, TagsInfo};
 use crate::Return;
 use crate::cleanser;
 
@@ -10,7 +10,7 @@ use std::sync::Arc;
 
 extern crate htmldiff;
 
-fn get_string_from_rationale(input: i32) -> &'static str {
+const fn get_string_from_rationale(input: i32) -> &'static str {
     match input {
         0 => "None",
         1 => "Deck Creation",
@@ -30,7 +30,7 @@ fn get_string_from_rationale(input: i32) -> &'static str {
 }
 
 pub async fn get_commit_info(db_state: &Arc<database::AppState>, commit_id: i32) -> Return<CommitsOverview> {
-    let query = r#"    
+    let query = r"    
         SELECT c.commit_id, c.rationale, c.info,
         TO_CHAR(c.timestamp, 'MM/DD/YYYY') AS last_update,
         d.name,
@@ -39,7 +39,7 @@ pub async fn get_commit_info(db_state: &Arc<database::AppState>, commit_id: i32)
         JOIN decks d on d.id = c.deck
         LEFT JOIN users u on u.id = c.user_id
         WHERE c.commit_id = $1
-    "#;
+    ";
     let client = database::client(db_state).await?;
     let row = client.query_one(query, &[&commit_id]).await?;
     let commit = CommitsOverview {
@@ -76,7 +76,7 @@ fn find_common_prefix(paths: Vec<&str>) -> String {
 pub async fn commits_review(db_state: &Arc<database::AppState>, uid: i32) -> Result<Vec<CommitsOverview>, Box<dyn std::error::Error>> {
     let client = database::client(db_state).await?;
 
-    let accessible_query = r#"
+    let accessible_query = r"
         WITH RECURSIVE accessible AS (
             SELECT id FROM decks WHERE id IN (
                 SELECT deck FROM maintainers WHERE user_id = $1
@@ -88,7 +88,7 @@ pub async fn commits_review(db_state: &Arc<database::AppState>, uid: i32) -> Res
             INNER JOIN accessible ON decks.parent = accessible.id
         )
         SELECT id FROM accessible
-    "#;
+    ";
     let accessible_decks: Vec<i64> = client
         .query(accessible_query, &[&uid])
         .await?
@@ -129,14 +129,14 @@ pub async fn commits_review(db_state: &Arc<database::AppState>, uid: i32) -> Res
         .await?;
 
     // This is new and kinda bad, bc its super slow and inefficient. But it works for now. gottaa think of a better way to do this tho
-    let deck_names_query = r#"
+    let deck_names_query = r"
         SELECT
             n.id AS note_id,
             d.full_path
         FROM notes n
         JOIN decks d ON d.id = n.deck
         WHERE n.id = ANY($1)
-    "#;
+    ";
     let note_ids: Vec<i64> = changes_rows.iter().filter_map(|row| row.get(5)).collect();
     let deck_names_rows = client.query(deck_names_query, &[&note_ids]).await?;
 
@@ -177,7 +177,7 @@ pub async fn commits_review(db_state: &Arc<database::AppState>, uid: i32) -> Res
         .map(|(_, (mut overview, note_ids))| {
             let paths: Vec<&str> = note_ids
                 .iter()
-                .filter_map(|note_id| deck_paths.get(&note_id.parse::<i64>().unwrap()).map(|s| s.as_str()))
+                .filter_map(|note_id| deck_paths.get(&note_id.parse::<i64>().unwrap()).map(std::string::String::as_str))
                 .collect();
             
             if !paths.is_empty() {
