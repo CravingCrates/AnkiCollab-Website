@@ -1,9 +1,43 @@
 use once_cell::sync::Lazy;
 use ammonia::Builder;
 use regex::Regex;
+use std::collections::HashSet;
+
+static ALLOWED_CSS_PROPERTIES: Lazy<HashSet<&'static str>> = Lazy::new(|| {
+    [
+        "color",
+        "background-color",
+        "font-size",
+        "font-weight",
+        "text-align",
+        "text-decoration",
+        "line-height",
+        "margin",
+        "padding",
+        "border-width",
+        "border-style",
+        "border-color",
+    ]
+    .iter()
+    .cloned()
+    .collect()
+});
+
+static ALLOWED_COLOR_NAMES: Lazy<HashSet<&'static str>> = Lazy::new(|| {
+    [
+        "aqua", "black", "blue", "fuchsia", "gray", "green", "lime",
+        "maroon", "navy", "olive", "purple", "red", "silver", "teal",
+        "white", "yellow",
+        "currentcolor", "transparent",
+        "rebeccapurple",
+    ]
+    .iter()
+    .cloned()
+    .collect()
+});
 
 /// Sanitize inline style declarations by retaining only allowed CSS properties.
-fn sanitize_style(style: &str, allowed_props: &[&str], allowed_colors: &[&str]) -> String {
+fn sanitize_style(style: &str) -> String {
     style
         .split(';')
         .filter_map(|decl| {
@@ -13,27 +47,26 @@ fn sanitize_style(style: &str, allowed_props: &[&str], allowed_colors: &[&str]) 
             }
             // Split property and value.
             if let Some((prop, value)) = decl.split_once(':') {
-                // Compare property names case-insensitively.
-                let prop_clean = prop.trim().to_lowercase();                
-                if allowed_props
-                    .iter()
-                    .any(|&allowed| allowed.eq_ignore_ascii_case(&prop_clean))
+                let prop_clean = prop.trim().to_lowercase();
+                let value_clean = value.trim();
+                if ALLOWED_CSS_PROPERTIES.contains(prop_clean.as_str())
                 {
-                    if prop_clean == "background-color" || prop_clean == "color" 
+                    if prop_clean == "background-color" || prop_clean == "color" || prop_clean == "border-color" 
                     {
-                        if !value.trim().starts_with('#') && 
-                            !value.trim().starts_with("rgb") && 
-                            !value.trim().starts_with("rgba") && 
-                            !value.trim().starts_with("hsl") && 
-                            !value.trim().starts_with("hsla") && 
-                            !allowed_colors.contains(&value.trim()) 
+                        let value_lower = value_clean.to_lowercase();
+                        if !value_lower.starts_with('#') && 
+                            !value_lower.starts_with("rgb(") && 
+                            !value_lower.starts_with("rgba(") && 
+                            !value_lower.starts_with("hsl(") && 
+                            !value_lower.starts_with("hsla(") && 
+                            !ALLOWED_COLOR_NAMES.contains(&value_lower.as_str()) 
                         {
                             None
                         } else {
-                            Some(format!("{}: {};", prop_clean, value.trim()))
+                            Some(format!("{}: {};", prop_clean, value_clean))
                         }
                     } else {
-                        Some(format!("{}: {};", prop_clean, value.trim()))
+                        Some(format!("{}: {};", prop_clean, value_clean))
                     }
                 } else {
                     None
@@ -47,54 +80,31 @@ fn sanitize_style(style: &str, allowed_props: &[&str], allowed_colors: &[&str]) 
 
 /// This regex matches a style attribute (case-insensitive) using either double or single quotes or unquoted attributes.
 static STYLE_REGEX: Lazy<Regex> = Lazy::new(|| {
-    Regex::new(r#"(?i)style\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]*))"#).unwrap()
+    Regex::new(r#"(?i)\s+style\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]*))"#).unwrap()
 });
 
 /// The ammonia builder, allowing the "style" attribute.
 static CLEANSER: Lazy<Builder<'static>> = Lazy::new(|| {
     let mut builder = Builder::default();
-    builder.add_generic_attributes(&["style"]);
+    builder.add_generic_attributes(&["style", "class", "data-src"]);
     builder
 });
 
 /// Post-process the sanitized HTML to restrict inline styles.
-fn sanitize_html_styles(html: String) -> String {
-    // Define allowed CSS properties.
-    let allowed_props = [
-        "color",
-        "background-color",
-        "font-size",
-        "font-weight",
-        "text-align",
-        "text-decoration",
-        "line-height",
-        "margin",
-        "padding",
-        "border-width",
-        "border-style",
-        "border-color",
-    ];
-    let allowed_colors = [
-        "aqua", "black", "blue", 
-        "fuchsia", "gray", "green", 
-        "lime", "maroon", "navy", 
-        "olive", "purple", "red", 
-        "silver", "teal", "white", "yellow"
-    ];
+fn sanitize_html_styles(html: String) -> String {    
     STYLE_REGEX
         .replace_all(&html, |caps: &regex::Captures| {
-            let original = if let Some(m) = caps.get(1) {
-                m.as_str()
-            } else if let Some(m) = caps.get(2) {
-                m.as_str()
-            } else {
-                ""
-            };
-            let sanitized = sanitize_style(original, &allowed_props, &allowed_colors);
+            let original = caps
+                .get(1) // Double quotes
+                .or_else(|| caps.get(2)) // Single quotes
+                .or_else(|| caps.get(3)) // Unquoted
+                .map_or("", |m| m.as_str()); // Use empty string if no match (shouldn't happen with this regex)
+
+            let sanitized = sanitize_style(original);
             if sanitized.is_empty() {
                 String::new()
             } else {
-                format!("style=\"{sanitized}\"")
+                format!(" style=\"{sanitized}\"")
             }
         })
         .to_string()
@@ -102,6 +112,9 @@ fn sanitize_html_styles(html: String) -> String {
 
 /// Clean the provided HTML and then sanitize inline style declarations.
 pub fn clean(src: &str) -> String {
+    if src.trim().is_empty() {
+        return String::new();
+    }
     if !ammonia::is_html(src) {
         return src.to_string();
     }

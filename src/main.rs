@@ -135,6 +135,12 @@ async fn imprint(State(appstate): State<Arc<AppState>>,) -> Result<impl IntoResp
     Ok(Html(rendered_template))
 }
 
+async fn datenschutz(State(appstate): State<Arc<AppState>>,) -> Result<impl IntoResponse, Error> {
+    let context = tera::Context::new();
+    let rendered_template = appstate.tera.render("datenschutz.html", &context)?;
+    Ok(Html(rendered_template))
+}
+
 async fn logout(Extension(auth): Extension<Arc<Auth>>,) -> Result<impl IntoResponse, Error> {
     let exp_cookie = auth.logout().await;
     let mut response = axum::response::Redirect::to("/").into_response();
@@ -1401,6 +1407,7 @@ async fn main() {
         .route("/terms", get(terms))
         .route("/privacy", get(privacy))
         .route("/imprint", get(imprint))
+        .route("/datenschutz", get(datenschutz))
         .route("/logout", get(logout))
         .route("/OptionalTags", post(post_optional_tags))
         .route("/OptionalTags/{deck_hash}", get(show_optional_tags))

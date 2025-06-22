@@ -363,58 +363,77 @@ pub async fn update_field_suggestion(db_state: &Arc<database::AppState>, field_i
     Ok(())
 }
 
-pub async fn approve_field_change(db_state: &Arc<database::AppState>,field_id: i64, update_timestamp: bool) -> Return<String> {
-    let mut client = database::client(db_state).await?;
+pub async fn approve_field_change(
+    db_state: &Arc<database::AppState>,
+    field_id: i64,
+    update_timestamp: bool,
+) -> Return<String> {
+    let mut client = match database::client(db_state).await {
+        Ok(client) => client,
+        Err(e) => {
+            eprintln!("Error connecting to the database: {:?}", e);
+            return Err(e)
+        }
+    };
+
     let tx = client.transaction().await?;
 
-    let rows = tx
-        .query("SELECT note FROM fields WHERE id = $1", &[&field_id])
+    let field_info_row = tx
+        .query_opt(
+            "SELECT note, content, position FROM fields WHERE id = $1",
+            &[&field_id],
+        )
         .await?;
 
-    if rows.is_empty() {
-        return Err(NoteNotFound(NoteNotFoundContext::FieldApprove));
-    }
+    let (note_id, field_content, field_position): (i64, String, u32) =
+        match field_info_row {
+            Some(row) => (row.get(0), row.get(1), row.get(2)),
+            None => {
+                eprintln!("Field with id {} not found", field_id);
+                return Err(NoteNotFound(NoteNotFoundContext::FieldApprove));
+            }
+        };
 
-    let note_id: i64 = rows[0].get(0);
+    tx.execute(
+        "DELETE FROM fields
+         WHERE reviewed = true
+           AND note = $1
+           AND position = $2
+           AND id <> $3",
+        &[&note_id, &field_position, &field_id],
+    )
+    .await?;
 
-    let del_cur_field_q = "
-        DELETE FROM fields
-        WHERE reviewed = true
-        AND position = (SELECT position FROM fields WHERE id = $1)
-        AND id <> $1
-        AND note = $2
-    ";
-    let appr_new_field_q = "
-        UPDATE fields
-        SET reviewed = true
-        WHERE id = $1
-    ";
-
-    let content = tx
-        .query("Select content from fields where id = $1", &[&field_id])
-        .await?
-        [0].get::<_, String>(0);
-
-    tx.execute(del_cur_field_q, &[&field_id, &note_id]).await?;
-
-    if !content.is_empty() {
-        tx.execute(appr_new_field_q, &[&field_id]).await?;
+    if !field_content.is_empty() {
+        // Content is not empty, mark the field as reviewed.
+        tx.execute(
+            "UPDATE fields SET reviewed = true WHERE id = $1",
+            &[&field_id],
+        )
+        .await?;
     } else {
-        tx.execute("DELETE FROM fields WHERE id = $1",&[&field_id]).await?;
+        // Content is empty, delete this field suggestion.
+        tx.execute("DELETE FROM fields WHERE id = $1", &[&field_id])
+            .await?;
     }
 
     if update_timestamp {
-        update_note_timestamp(&tx, note_id).await?;
+        match update_note_timestamp(&tx, note_id).await {
+            Ok(_) => {}
+            Err(e) => {
+                eprintln!("Error updating note timestamp for note_id {}: {:?}", note_id, e);
+            }
+        }
     }
 
     tx.commit().await?;
-    
+
+    // The `update_timestamp` flag is used as a proxy to determine if this is a "manual" single update rather than part of a bulk operation
     if update_timestamp {
-        // we use update_timestamp as a proxy for whether the note was bulk updated. Only if they updated it manually on the website, we spawn. otherwise it egts handled by the ulk
         let state_clone = db_state.clone();
         tokio::spawn(async move {
             if let Err(e) = media_reference_manager::update_media_references_note_state(&state_clone, note_id).await {
-                println!("Error updating media references (3): {e:?}");
+                eprintln!("Error updating media references for note_id {}: {:?}", note_id, e);
             }
         });
     }
