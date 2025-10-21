@@ -1,395 +1,686 @@
 /**
- * Editor functionality using Summernote.
- * Manages initialization, content preparation, and saving for note fields.
+ * EditorControls for managing Trumbowyg instances.
+ * Handles editor initialization, content preparation, and persistence for note suggestions.
  */
-window.EditorControls = (function() {
+window.EditorControls = (() => {
+    const EDITOR_SELECTOR = '.diff-content';
+    const PARAGRAPH_CLEANUP_EVENTS = 'tbwpaste.paragraphCleanup tbwblur.paragraphCleanup';
+    const fieldSnapshots = new Map();
 
-    const EDITOR_SELECTOR = '.diff-content'; // Target diff divs for editing
+    const TRUMBOWYG_BUTTON_GROUPS = [
+        ['viewHTML'],
+        ['undo', 'redo'],
+        ['strong', 'em', 'underline'],
+        ['superscript', 'subscript'],
+        ['link'],
+        ['customImage'],
+        ['foreColor'],
+        ['justifyLeft', 'justifyCenter', 'justifyRight', 'justifyFull'],
+        ['unorderedList', 'orderedList'],
+        ['horizontalRule'],
+        ['removeformat'],
+        ['fullscreen'],
+    ];
 
-    /**
-     * Initializes Summernote editors for all editable fields within a specific note card.
-     * @param {string} noteId - The ID of the note card.
-     * @returns {Promise<void>} - Resolves when all editors are initialized.
-     */
+    const TRUMBOWYG_OPTIONS = {
+        semantic: false,
+        tagsToRemove: ['script'],
+        removeformatPasted: true,
+        resetCss: true,
+        changeActiveDropdownIcon: true,
+        autogrow: true,
+        btnsDef: {
+            customImage: {
+                fn() {
+                    alert('Direct image upload is not supported. Please add images via Anki and suggest the change.');
+                },
+                title: 'Insert Image (Disabled)',
+                text: 'Image',
+                ico: 'insertImage',
+            },
+            underline: {
+                key: 'U',
+                tag: 'u',
+            },
+        },
+        btns: TRUMBOWYG_BUTTON_GROUPS,
+    };
+
     async function initializeEditorsForNote(noteId) {
         const $noteCard = $(`#${noteId}`);
-        const $diffFields = $noteCard.find(`.suggestion-side ${EDITOR_SELECTOR}`);
-        const contextElement = $noteCard[0]; // The note card element itself for context
+        const contextElement = $noteCard[0];
 
-        if (!contextElement || !$diffFields.length) {
-            console.warn(`No editable fields found or missing context for note ${noteId}`);
-            return Promise.resolve(); // Nothing to do
+        if (!$noteCard.length || !contextElement) {
+            return;
         }
 
-        console.log(`Initializing ${$diffFields.length} editors for note ${noteId}...`);
-        const initPromises = [];
+        ensureFieldContentExists($noteCard);
+        destroyEditorsForNote(noteId);
 
-        $diffFields.each(function() {
-            const fieldDiv = this;
-            const $fieldDiv = $(this);
-            const fieldId = $fieldDiv.data('field-id');
+        const fields = getFieldElements($noteCard);
 
-            // Store pre-edit HTML for cancellation
-            $fieldDiv.data('pre-edit-html', $fieldDiv.html());
-
-            // Get the *current* suggested content (unescaped)
-            const currentSuggestedHtml = HtmlDiffUtils.unescapeHtml($fieldDiv.data('new-content') || '');
-
-            // Add the promise for initializing this single editor
-            initPromises.push(
-                _initializeSingleEditor(fieldDiv, currentSuggestedHtml, contextElement)
-                    .catch(error => {
-                        console.error(`Failed to initialize editor for field ${fieldId}:`, error);
-                        $fieldDiv.html('<p style="color:red;">Error initializing editor.</p>').css('border', '2px solid red');
-                        // Allow Promise.all to continue, but log the error
-                    })
-            );
-        });
-
-        // Wait for all editors to finish initializing (or fail individually)
-        await Promise.all(initPromises);
-        console.log(`Finished initializing editors for note ${noteId}`);
-    }
-
-    /**
-     * Initializes a single Summernote editor instance.
-     * @param {HTMLElement} element - The DOM element (div) to attach Summernote to.
-     * @param {string} initialContentHtml - The starting HTML content (unescaped).
-     * @param {HTMLElement} contextElement - The parent element providing context (type/id).
-     * @returns {Promise<void>}
-     */
-    async function _initializeSingleEditor(element, initialContentHtml, contextElement) {
-        const $editor = $(element);
-
-        // 1. Prepare content: Remove diff markup, pre-fetch image URLs
-        const preparedContent = await _prepareContentForEditing(initialContentHtml, contextElement);
-        $editor.html(preparedContent); // Set the prepared content
-
-        // 2. Initialize Summernote
-        return new Promise((resolve, reject) => {
-            try {
-                $editor.summernote({
-                    // height: 300, // Optional: Set height
-                    focus: false, // Don't autofocus first editor usually
-                    toolbar: [
-                        ['style', ['style', 'bold', 'italic', 'underline', 'clear']],
-                        ['font', ['strikethrough', 'superscript', 'subscript']],
-                        ['fontsize', ['fontsize']],
-                        ['color', ['color']],
-                        ['para', ['ul', 'ol', 'paragraph']],
-                        ['table', ['table']],
-                        ['insert', ['link', /*'picture',*/ 'hr']],
-                        ['view', ['fullscreen', 'codeview', 'undo', 'redo', 'help']],
-                    ],
-                    callbacks: {
-                        onInit: function() {
-                            // console.log(`Summernote initialized for field ${$editor.data('field-id')}`);
-                            resolve(); // Resolve promise when initialized
-                        },
-                        onImageUpload: function(files) {
-                            alert('Direct image upload is not supported. Please add images via Anki and suggest the change.');
-                        },
-                        // Add other callbacks if needed
-                    },
-                    enterHtml: '<br>',
-                });
-                 // Optional: Add small delay before focus if needed, but usually not required on manual edit start
-                 // setTimeout(() => $editor.summernote('focus'), 50);
-            } catch (error) {
-                 console.error("Summernote initialization failed:", error);
-                 reject(error);
-            }
-        });
-    }
-
-    /**
-     * Prepares HTML content for the editor: removes diff markup, pre-fetches presigned URLs.
-     * @param {string} htmlContent - Unescaped HTML content (e.g., the 'new-content' data).
-     * @param {HTMLElement} contextElement - The element providing context (type/id).
-     * @returns {Promise<string>} - Resolves with HTML ready for the editor.
-     */
-    async function _prepareContentForEditing(htmlContent, contextElement) {
-        if (typeof htmlContent !== 'string') return '';
-
-        const context = ApiService.getContext(contextElement);
-        if (!context.type || !context.id) {
-            console.error("Cannot prepare content for editing: Missing context.");
-            // Return original content with an error comment?
-             return `<!-- Error: Missing context --> ${htmlContent}`;
+        if (!fields.length) {
+            console.warn(`No editable fields found for note ${noteId}`);
+            return;
         }
 
-        // Use DOMParser for safer and more robust HTML manipulation
-        const parser = new DOMParser();
-        const doc = parser.parseFromString(htmlContent, 'text/html');
-        const body = doc.body; // Work within the body element
+        await Promise.all(
+            fields.map($field =>
+                setupFieldEditor($field, contextElement).catch(error => {
+                    const fieldId = $field.data('field-id');
+                    console.error(`Failed to initialize editor for field ${fieldId}:`, error);
+                    $field.html('<p style="color:red;">Error initializing editor.</p>').css('border', '2px solid red');
+                }),
+            ),
+        );
 
-        // 1. Remove diff markers (<ins>, <del>) - Keep their content
-        body.querySelectorAll('ins, del').forEach(el => {
-            // Replace the element with its child nodes
-            el.replaceWith(...el.childNodes);
-        });
-
-        // 2. Remove image diff wrappers, keeping the image
-        body.querySelectorAll('span.img-diff-wrapper').forEach(wrapper => {
-            const img = wrapper.querySelector('img');
-            if (img) {
-                wrapper.replaceWith(img); // Replace wrapper with the image it contains
-            } else {
-                wrapper.remove(); // Remove wrapper if it somehow doesn't contain an image
-            }
-        });
-
-        // 3. Find images and fetch presigned URLs for those needing them
-        const images = Array.from(body.querySelectorAll('img'));
-        const fetchPromises = [];
-
-        images.forEach(img => {
-            const currentSrc = img.getAttribute('src');
-            const filename = img.dataset.filename || ( (currentSrc && !currentSrc.startsWith('http') && !currentSrc.startsWith('data:') && currentSrc.includes('.')) ? currentSrc : null );
-
-            // Only fetch if we identified a local filename (either from data-filename or src)
-            if (filename) {
-                 // Ensure data-filename is set for later saving
-                 img.dataset.filename = filename;
-
-                 // Set placeholder initially while fetching
-                 img.src = '/static/images/click_to_show.webp'; // Loading placeholder
-
-                 fetchPromises.push(
-                     ApiService.getPresignedImageUrl(filename, context.type, context.id)
-                         .then(result => {
-                             if (result && result.presigned_url) {
-                                 img.src = result.presigned_url;
-                                 // Keep data-filename!
-                             } else {
-                                 console.warn(`Failed to pre-fetch image ${filename} for editor: ${result?.error || 'No URL'}`);
-                                 img.src = '/static/images/placeholder-error.png'; // Error placeholder
-                                 img.classList.add('fetch-error');
-                             }
-                         })
-                         .catch(error => {
-                             console.error(`Error pre-fetching image ${filename} for editor:`, error);
-                             img.src = '/static/images/placeholder-error.png'; // Error placeholder
-                             img.classList.add('fetch-error');
-                         })
-                 );
-            } else if (currentSrc && currentSrc.startsWith('/static/images/click_to_show')) {
-                 // If it was a lazy load placeholder that wasn't clicked, show error state
-                 img.src = '/static/images/placeholder-error.png';
-                 img.classList.add('fetch-error');
-                 // Try to recover filename if it exists in data attribute
-                 const originalFilename = img.dataset.filename;
-                 if(originalFilename) img.dataset.filename = originalFilename; // Ensure filename persists if possible
-
-            } else {
-                // Assume it's an external image or data URI - leave src as is, ensure no data-filename
-                // img.removeAttribute('data-filename'); // Clean up just in case
-            }
-        });
-
-        // Wait for all necessary image fetches to complete
-        await Promise.all(fetchPromises);
-
-        // 4. Return the processed HTML content from the body
-        return body.innerHTML;
+        $(document).trigger('editors:initialized', [noteId]);
     }
 
-
-    /**
-     * Saves changes from all Summernote editors within a note card.
-     * @param {string} noteId - The ID of the note card.
-     * @returns {Promise<boolean>} - Resolves with true if all fields saved successfully, false otherwise.
-     */
     async function saveEditorsForNote(noteId) {
         const $noteCard = $(`#${noteId}`);
-        const $diffFields = $noteCard.find(`.suggestion-side ${EDITOR_SELECTOR}`);
-        let allUpdatesSuccessful = true;
-        const updatePromises = [];
+        const fields = getFieldElements($noteCard);
 
-        console.log(`Saving changes for ${$diffFields.length} fields in note ${noteId}...`);
+        if (!fields.length) {
+            return true;
+        }
 
-        $diffFields.each(function() {
-            const $fieldDiv = $(this);
-            const fieldId = $fieldDiv.data('field-id');
-
-            // Check if Summernote was initialized on this element
-            if (!$fieldDiv.data('summernote')) {
-                 console.warn(`Field ${fieldId} skipped: Not in edit mode or editor not initialized.`);
-                 // Restore pre-edit state if available? Or just skip.
-                 const preEditHtml = $fieldDiv.data('pre-edit-html');
-                 if (preEditHtml !== undefined) {
-                    $fieldDiv.html(preEditHtml).removeData('pre-edit-html');
-                 }
-                 return; // Skip this field
-            }
-
-            let content = '';
-            try {
-                content = $fieldDiv.summernote('code');
-            } catch (e) {
-                console.error(`Error getting code for field ${fieldId}:`, e);
-                allUpdatesSuccessful = false;
-                $fieldDiv.html('<p style="color: red;">Error getting content.</p>').css('border', '2px solid red');
-                // Attempt to destroy anyway
-                try { $fieldDiv.summernote('destroy'); } catch (err) {}
-                $fieldDiv.removeData('pre-edit-html');
-                return; // Skip update for this field
-            }
-
-            // Clean the HTML (replace presigned URLs with filenames, etc.)
-            const cleanedContent = cleanHtmlForSave(content);
-
-            try {
-                $fieldDiv.summernote('destroy');
-            } catch (e) { console.warn(`Error destroying summernote post-save for field ${fieldId}:`, e); }
-
-            // --- Make API Call to Update Field ---
-            if (fieldId) {
-                console.log(`Updating field ${fieldId}...`); // Content logged below if successful
-                updatePromises.push(
-                    ApiService.updateFieldSuggestion(fieldId, cleanedContent)
-                        .then(result => { // Backend returns new diff HTML string or { diff_html: "..." }
-                            let newDiffHtml = '';
-                            if (typeof result === 'string') {
-                                newDiffHtml = result;
-                            } else if (result && typeof result.diff_html === 'string') {
-                                newDiffHtml = result.diff_html;
-                            } else {
-                                 throw new Error(`Invalid diff response for field ${fieldId}`);
-                            }
-
-                            console.log(`Field ${fieldId} updated successfully.`);
-                            // Update the field div with the new diff HTML from the server
-                            $fieldDiv.html(newDiffHtml);
-                            // Update data attributes
-                            $fieldDiv.data('new-content', cleanedContent); // Store the cleaned content we sent
-                            // Original content is fetched from data-original when needed for diff processing
-                            // Mark for re-processing (image wrappers, lazy load) by SharedUI
-                            $fieldDiv.addClass('needs-reprocess');
-                            $fieldDiv.css('border', ''); // Clear any error border
-                            $fieldDiv.removeData('pre-edit-html');
-                            return true; // Indicate success for this field
-                        })
-                        .catch(error => {
-                            console.error(`Error updating field ${fieldId}:`, error);
-                            allUpdatesSuccessful = false;
-                            // Display error, keep pre-edit HTML if possible
-                            const preEditHtml = $fieldDiv.data('pre-edit-html');
-                            if (preEditHtml) {
-                                $fieldDiv.html(preEditHtml); // Restore previous view
-                            } else {
-                                $fieldDiv.html('<p style="color: red;">Error updating field. Cannot restore previous view.</p>');
-                            }
-                            $fieldDiv.css('border', '2px solid red');
-                            $fieldDiv.removeData('pre-edit-html');
-                            return false; // Indicate failure for this field
-                        })
-                );
-            } else {
-                console.error("Cannot save field: Missing field-id.", $fieldDiv);
-                $fieldDiv.html('<p style="color: red;">Error: Missing Field ID.</p>').css('border', '2px solid red');
-                allUpdatesSuccessful = false;
-                $fieldDiv.removeData('pre-edit-html');
-            }
-        }); // End $diffFields.each
-
-        // Wait for all individual field updates to complete
-        await Promise.all(updatePromises);
-
-        console.log(`Finished saving fields for note ${noteId}. Overall success: ${allUpdatesSuccessful}`);
-        return allUpdatesSuccessful; // Return overall success status
+        const results = await Promise.all(fields.map(saveFieldEditor));
+        return results.every(Boolean);
     }
 
-    /**
-     * Cleans HTML content from Summernote before saving.
-     * Replaces temporary image URLs (presigned) with permanent filenames.
-     * @param {string} summernoteHtml - HTML content from summernote('code').
-     * @returns {string} - Cleaned HTML ready for database.
-     */
-    function cleanHtmlForSave(summernoteHtml) {
-        if (typeof summernoteHtml !== 'string') return '';
+    function destroyEditorsForNote(noteId) {
+        const $noteCard = $(`#${noteId}`);
 
-        const parser = new DOMParser();
-        const doc = parser.parseFromString(summernoteHtml, 'text/html');
-        const body = doc.body;
+        if (!$noteCard.length) {
+            return;
+        }
 
-        // Process images: Replace relevant src attributes with filenames stored in data-filename
-        body.querySelectorAll('img').forEach(img => {
-            const filename = img.dataset.filename; // Check for our preserved filename
-            const currentSrc = img.getAttribute('src');
-
-            if (filename) {
-                // If we have a filename stored, ALWAYS use it as the src for saving
-                img.setAttribute('src', filename);
-                // Remove potentially temporary attributes but keep alt
-                const alt = img.getAttribute('alt');
-                // Clear all attributes except src and alt (more targeted)
-                Array.from(img.attributes).forEach(attr => {
-                    if (attr.name !== 'src' && attr.name !== 'alt' && attr.name !== 'data-filename') {
-                        img.removeAttribute(attr.name);
-                    }
-                });
-                 img.removeAttribute('data-filename'); // Remove after use
-                 if (alt) img.setAttribute('alt', alt); // Restore alt if it existed
-
-            } else if (currentSrc) {
-                // No data-filename. This is likely an external image or wasn't handled correctly.
-                // Basic check: avoid saving potentially broken placeholders or large data URIs
-                 if (currentSrc.includes('placeholder-error.png') || currentSrc.includes('click_to_show.webp')) {
-                     console.warn("Removing placeholder image during save:", currentSrc);
-                     img.remove(); // Remove the placeholder image entirely
-                 } else if (currentSrc.startsWith('data:image/') && currentSrc.length > 10000) { // Limit data URI size
-                     console.warn("Removing large data URI image during save.");
-                     img.remove();
-                 } else {
-                     // Keep legitimate external URLs or small data URIs
-                     // Clean potentially harmful attributes anyway
-                     const alt = img.getAttribute('alt');
-                     Array.from(img.attributes).forEach(attr => {
-                         if (attr.name !== 'src' && attr.name !== 'alt') {
-                             img.removeAttribute(attr.name);
-                         }
-                     });
-                     if (alt) img.setAttribute('alt', alt);
-                 }
+        $noteCard.find('.trumbowyg-editor-box').each(function() {
+            const $box = $(this);
+            const $field = $box.find(EDITOR_SELECTOR).first();
+            if ($field.length) {
+                destroyEditorInstance($field);
             } else {
-                 // Image has no src and no filename? Remove it.
-                 img.remove();
+                const $fieldContainer = $box.closest('.field-item.suggestion-box');
+                const fieldId = $fieldContainer.find('[data-field-id]').first().data('field-id');
+                const snapshot = fieldSnapshots.get(fieldId);
+
+                if (!fieldId || !snapshot) {
+                    console.warn('Trumbowyg wrapper without snapshot data; removing box for field', fieldId);
+                    $box.remove();
+                    return;
+                }
+
+                const $newField = $('<div/>', {
+                    class: 'field-content note-content-display diff-content',
+                    'data-field-id': fieldId || '',
+                });
+
+                $newField.html(snapshot.diffHtml || '');
+                $newField.attr('data-original', snapshot.original || '');
+                $newField.data('original', snapshot.original || '');
+                $newField.attr('data-new-content', snapshot.newContent || '');
+                $newField.data('new-content', snapshot.newContent || '');
+
+                if ($fieldContainer.length) {
+                    $fieldContainer.find('.field-header').after($newField);
+                }
+
+                $box.remove();
             }
         });
 
-        // Basic cleaning: remove trailing <br> tags which Summernote sometimes adds
-        let cleanedHtml = body.innerHTML.replace(/(<br\s*\/?>\s*)+$/, '').trim();
+        getFieldElements($noteCard).forEach($field => {
+            if (isEditorActive($field)) {
+                try {
+                    $field.off('.editorControls');
+                    $field.trumbowyg('destroy');
+                } catch (error) {
+                    console.warn(`Could not destroy Trumbowyg instance for field ${$field.data('field-id')}:`, error);
+                } finally {
+                    ensureFieldElementRestored($field);
+                }
+            } else {
+                ensureFieldElementRestored($field);
+            }
+        });
 
-        // Remove leading/trailing whitespace
-        cleanedHtml = cleanedHtml.trim();
+        const strayBoxes = $noteCard.find('.trumbowyg-editor-box');
+        if (strayBoxes.length) {
+            strayBoxes.remove();
+        }
 
-        return cleanedHtml;
+        ensureFieldContentExists($noteCard);
     }
 
+    function ensureFieldElementRestored($field) {
+        if (!$field || !$field.length) {
+            return;
+        }
 
-    /**
-     * Destroys all Summernote instances within a note card.
-     * @param {string} noteId - The ID of the note card.
-     */
-    function destroyEditorsForNote(noteId) {
-        const $noteCard = $(`#${noteId}`);
+        const $box = $field.closest('.trumbowyg-editor-box');
+        if ($box.length) {
+            $box.after($field);
+            $box.remove();
+        }
+
+        if (!$field.hasClass('diff-content')) {
+            $field.addClass('diff-content');
+        }
+
+        $field.removeClass('trumbowyg-textarea trumbowyg-textarea-visible');
+
+        const inlineStyle = $field.attr('style');
+        if (inlineStyle && inlineStyle.includes('display')) {
+            $field.css('display', '');
+        }
+    }
+
+    function ensureFieldContentExists($noteCard) {
+        if (!$noteCard || !$noteCard.length) {
+            return;
+        }
+
+        $noteCard.find('.field-item.suggestion-box').each(function() {
+            const $container = $(this);
+            let $field = $container.find(EDITOR_SELECTOR);
+            if ($field.length) {
+                const strayBoxes = $container.find('.trumbowyg-editor-box');
+                if (strayBoxes.length) {
+                    strayBoxes.remove();
+                }
+                return;
+            }
+
+            const fieldId = $container.find('[data-field-id]').first().data('field-id');
+            const snapshot = fieldSnapshots.get(fieldId);
+
+            if (!fieldId || !snapshot) {
+                console.warn('Unable to reconstruct missing field content: snapshot not found.', fieldId);
+                return;
+            }
+
+            $field = $('<div/>', {
+                class: 'field-content note-content-display diff-content',
+                'data-field-id': fieldId || '',
+            });
+
+            if (snapshot.diffHtml !== undefined) {
+                $field.html(snapshot.diffHtml);
+            }
+            if (snapshot.original !== undefined) {
+                $field.attr('data-original', snapshot.original);
+                $field.data('original', snapshot.original);
+            }
+            if (snapshot.newContent !== undefined) {
+                $field.attr('data-new-content', snapshot.newContent);
+                $field.data('new-content', snapshot.newContent);
+            }
+
+            $container.find('.field-header').after($field);
+        });
+    }
+
+    function getFieldElements($noteCard) {
+        const collected = new Map();
+
+        const collectIfEligible = element => {
+            if (!element) {
+                return;
+            }
+
+            const $element = $(element);
+            const withinSuggestionSide = $element.closest('.suggestion-side').length > 0;
+            if (!withinSuggestionSide) {
+                return;
+            }
+
+            const hasSuggestionData = $element.data('new-content') !== undefined || $element.attr('data-new-content') !== undefined;
+            const fieldId = $element.data('field-id');
+            if (!hasSuggestionData || !fieldId) {
+                return;
+            }
+
+            if (!collected.has(fieldId)) {
+                collected.set(fieldId, $element);
+            }
+        };
+
         $noteCard.find(`.suggestion-side ${EDITOR_SELECTOR}`).each(function() {
-            const $fieldDiv = $(this);
-            // Check if summernote instance exists before destroying
-            if ($fieldDiv.data('summernote')) {
+            collectIfEligible(this);
+        });
+
+        if (collected.size === 0) {
+            $noteCard.find('.suggestion-side [data-field-id]').each(function() {
+                const $candidate = $(this);
+                collectIfEligible($candidate[0]);
+                if (collected.has($candidate[0]) && !$candidate.hasClass('diff-content')) {
+                    $candidate.addClass('diff-content');
+                }
+            });
+        }
+
+        return Array.from(collected.values());
+    }
+
+    async function setupFieldEditor($field, contextElement) {
+        const fieldId = $field.data('field-id');
+        const preEditHtml = $field.html();
+        $field.data('pre-edit-html', preEditHtml);
+
+        const suggestedHtml = HtmlDiffUtils.unescapeHtml($field.data('new-content') || '');
+        const preparedHtml = await prepareContentForEditor(suggestedHtml, contextElement);
+        $field.html(preparedHtml);
+
+        const baseline = getOriginalBaseline($field, suggestedHtml);
+        $field.data('paragraph-cleanup-baseline', baseline);
+
+        if (fieldId) {
+            const snapshot = {
+                diffHtml: $field.html(),
+                original: $field.data('original') || $field.attr('data-original') || '',
+                newContent: $field.data('new-content') || $field.attr('data-new-content') || '',
+            };
+            fieldSnapshots.set(fieldId, snapshot);
+        }
+
+        return attachTrumbowyg($field);
+    }
+
+    function getOriginalBaseline($field, fallbackHtml) {
+        const originalAttr = $field.data('original') || $field.attr('data-original');
+        if (!originalAttr) {
+            return fallbackHtml;
+        }
+
+        try {
+            return HtmlDiffUtils.unescapeHtml(originalAttr);
+        } catch (error) {
+            console.warn('Failed to unescape original content:', error);
+            return fallbackHtml;
+        }
+    }
+
+    function attachTrumbowyg($field) {
+        return new Promise((resolve, reject) => {
+            try {
+                $field.trumbowyg(TRUMBOWYG_OPTIONS).on('tbwinit', () => {
+                    installEnterKeyHandler($field);
+                    installParagraphCleanup($field);
+                    resolve();
+                });
+            } catch (error) {
+                reject(error);
+            }
+        });
+    }
+
+    function installEnterKeyHandler($field) {
+        $field.off('keydown.editorControls').on('keydown.editorControls', event => {
+            if (event.which !== 13 || event.shiftKey) {
+                return;
+            }
+
+            event.preventDefault();
+            event.stopPropagation();
+
+            const selection = window.getSelection();
+            if (!selection || selection.rangeCount === 0) {
+                return;
+            }
+
+            const range = selection.getRangeAt(0);
+            const br = document.createElement('br');
+            const zws = document.createTextNode('\u200B');
+
+            range.deleteContents();
+            range.insertNode(br);
+            range.setStartAfter(br);
+            range.insertNode(zws);
+
+            range.setStartAfter(br);
+            range.collapse(true);
+            selection.removeAllRanges();
+            selection.addRange(range);
+
+            $(event.currentTarget).trigger('tbwchange');
+        });
+    }
+
+    function installParagraphCleanup($field) {
+        $field.off(PARAGRAPH_CLEANUP_EVENTS);
+
+        let isCleaning = false;
+        const cleanup = () => {
+            if (isCleaning) {
+                return;
+            }
+
+            let currentHtml;
+            try {
+                currentHtml = $field.trumbowyg('html');
+            } catch (error) {
+                console.warn('Failed to fetch editor HTML during cleanup:', error);
+                return;
+            }
+
+            const baseline = $field.data('paragraph-cleanup-baseline') || '';
+            const stripped = stripParagraphTags(currentHtml, baseline);
+            if (stripped === currentHtml) {
+                return;
+            }
+
+            const instance = $field.data('trumbowyg');
+            const editorBody = instance && instance.$ed ? instance.$ed : null;
+            const editingElement = editorBody && editorBody.length ? editorBody[0] : null;
+            const shouldPreserveSelection = editingElement && document.activeElement === editingElement;
+            const previousScrollTop = editorBody ? editorBody.scrollTop() : null;
+
+            if (shouldPreserveSelection && instance && typeof instance.saveRange === 'function') {
                 try {
-                    $fieldDiv.summernote('destroy');
-                } catch (e) {
-                    console.warn(`Could not destroy summernote instance for field ${$fieldDiv.data('field-id')}:`, e);
+                    instance.saveRange();
+                } catch (error) {
+                    console.warn('Failed to save selection range before cleanup:', error);
+                }
+            }
+
+            isCleaning = true;
+            try {
+                $field.trumbowyg('html', stripped);
+            } finally {
+                isCleaning = false;
+            }
+
+            if (editorBody && previousScrollTop !== null) {
+                editorBody.scrollTop(previousScrollTop);
+            }
+
+            if (shouldPreserveSelection && instance && typeof instance.restoreRange === 'function') {
+                try {
+                    instance.restoreRange();
+                } catch (error) {
+                    console.warn('Failed to restore selection range after cleanup:', error);
+                    if (editingElement && typeof editingElement.focus === 'function') {
+                        editingElement.focus();
+                    }
+                }
+            }
+        };
+
+        $field.on(PARAGRAPH_CLEANUP_EVENTS, cleanup);
+        cleanup();
+    }
+
+    function stripParagraphTags(content, originalContent = '') {
+        if (typeof content !== 'string') {
+            return '';
+        }
+
+        const trimmedContent = content.trim();
+        const trimmedOriginal = (originalContent || '').trim();
+
+        if (!trimmedContent) {
+            return '';
+        }
+
+        const blockLevelPattern = /<(ul|ol|li|table|thead|tbody|tfoot|tr|td|th|blockquote|pre|code|section|article|header|footer|nav|figure|h[1-6])/i;
+        if (blockLevelPattern.test(trimmedContent)) {
+            return trimmedContent;
+        }
+
+        const originalHadBlockWrappers = /<(p|div)[\s>]/i.test(trimmedOriginal);
+
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(`<div>${trimmedContent}</div>`, 'text/html');
+        const container = doc.body.firstChild || doc.body;
+
+        const ELEMENT_NODE = typeof Node !== 'undefined' ? Node.ELEMENT_NODE : 1;
+        const TEXT_NODE = typeof Node !== 'undefined' ? Node.TEXT_NODE : 3;
+
+        const segments = [];
+        let sawParagraphLikeWrapper = false;
+
+        Array.from(container.childNodes).forEach(node => {
+            if (node.nodeType === ELEMENT_NODE && (node.tagName === 'P' || node.tagName === 'DIV')) {
+                sawParagraphLikeWrapper = true;
+                const inner = node.innerHTML.trim();
+                if (inner) {
+                    segments.push(inner);
+                }
+            } else {
+                const asString = node.nodeType === TEXT_NODE ? node.textContent : node.outerHTML;
+                if (asString && asString.trim()) {
+                    segments.push(asString.trim());
                 }
             }
         });
-        console.log(`Destroyed editors for note ${noteId}`);
+
+        if (!sawParagraphLikeWrapper || originalHadBlockWrappers) {
+            return trimmedContent;
+        }
+
+        if (!segments.length) {
+            return '';
+        }
+
+        let sanitised = segments.join('<br>');
+        sanitised = sanitised
+            .replace(/(<br>\s*){2,}/gi, '<br>')
+            .replace(/^<br>\s*/i, '')
+            .replace(/\s*<br>$/i, '')
+            .trim();
+
+        return sanitised;
     }
 
+    async function prepareContentForEditor(htmlContent, contextElement) {
+        if (typeof htmlContent !== 'string') {
+            return '';
+        }
 
-    // --- Public API ---
+        const context = ApiService.getContext(contextElement) || {};
+        if (!context.type || !context.id) {
+            console.error('Cannot prepare content for editing: Missing context.');
+            return `<!-- Error: Missing context --> ${htmlContent}`;
+        }
+
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(htmlContent, 'text/html');
+        const body = doc.body;
+
+        body.querySelectorAll('ins, del').forEach(el => {
+            el.replaceWith(...el.childNodes);
+        });
+
+        body.querySelectorAll('span.img-diff-wrapper').forEach(wrapper => {
+            const img = wrapper.querySelector('img');
+            if (img) {
+                wrapper.replaceWith(img);
+            } else {
+                wrapper.remove();
+            }
+        });
+
+        const fetchPromises = [];
+        body.querySelectorAll('img').forEach(img => {
+            const currentSrc = img.getAttribute('src') || '';
+            const filename = img.dataset.filename || (currentSrc && !currentSrc.startsWith('http') && !currentSrc.startsWith('data:') && currentSrc.includes('.') ? currentSrc : null);
+
+            if (filename) {
+                img.dataset.filename = filename;
+                img.src = '/static/images/click_to_show.webp';
+
+                fetchPromises.push(
+                    ApiService.getPresignedImageUrl(filename, context.type, context.id)
+                        .then(result => {
+                            if (result && result.presigned_url) {
+                                img.src = result.presigned_url;
+                            } else {
+                                console.warn(`Failed to pre-fetch image ${filename} for editor: ${result?.error || 'No URL'}`);
+                                img.src = '/static/images/placeholder-error.png';
+                                img.classList.add('fetch-error');
+                            }
+                        })
+                        .catch(error => {
+                            console.error(`Error pre-fetching image ${filename} for editor:`, error);
+                            img.src = '/static/images/placeholder-error.png';
+                            img.classList.add('fetch-error');
+                        }),
+                );
+            } else if (currentSrc.startsWith('/static/images/click_to_show')) {
+                img.src = '/static/images/placeholder-error.png';
+                img.classList.add('fetch-error');
+            }
+        });
+
+        await Promise.all(fetchPromises);
+        return body.innerHTML;
+    }
+
+    async function saveFieldEditor($field) {
+        const fieldId = $field.data('field-id');
+
+        if (!isEditorActive($field)) {
+            restorePreEditHtml($field);
+            return true;
+        }
+
+        const preEditHtml = $field.data('pre-edit-html');
+        let editorContent;
+
+        try {
+            editorContent = $field.trumbowyg('html');
+        } catch (error) {
+            console.error(`Error getting content for field ${fieldId}:`, error);
+            renderFieldError($field, preEditHtml, 'Error getting content.');
+            destroyEditorInstance($field);
+            return false;
+        }
+
+        const baseline = $field.data('paragraph-cleanup-baseline') || '';
+        const normalisedContent = stripParagraphTags(editorContent, baseline);
+        const cleanedContent = cleanHtmlForSave(normalisedContent);
+
+        destroyEditorInstance($field);
+
+        if (!fieldId) {
+            console.error('Cannot save field: Missing field-id.', $field);
+            renderFieldError($field, preEditHtml, 'Error: Missing Field ID.');
+            return false;
+        }
+
+        try {
+            const result = await ApiService.updateFieldSuggestion(fieldId, cleanedContent);
+            const newDiffHtml = typeof result === 'string' ? result : result?.diff_html;
+            if (typeof newDiffHtml !== 'string') {
+                throw new Error(`Invalid diff response for field ${fieldId}`);
+            }
+
+            $field.html(newDiffHtml);
+            $field.data('new-content', cleanedContent);
+            $field.attr('data-new-content', cleanedContent);
+            $field.addClass('needs-reprocess');
+            $field.css('border', '');
+            $field.removeData('pre-edit-html');
+
+            fieldSnapshots.set(fieldId, {
+                diffHtml: newDiffHtml,
+                original: $field.data('original') || $field.attr('data-original') || '',
+                newContent: cleanedContent,
+            });
+            return true;
+        } catch (error) {
+            console.error(`Error updating field ${fieldId}:`, error);
+            renderFieldError($field, preEditHtml, 'Error updating field. Cannot restore previous view.');
+            return false;
+        }
+    }
+
+    function isEditorActive($field) {
+        return Boolean($field.data('trumbowyg') || $field.parent().hasClass('trumbowyg-editor'));
+    }
+
+    function restorePreEditHtml($field) {
+        const preEditHtml = $field.data('pre-edit-html');
+        if (preEditHtml !== undefined) {
+            $field.html(preEditHtml);
+        }
+        $field.removeData('pre-edit-html');
+    }
+
+    function destroyEditorInstance($field) {
+        try {
+            $field.off('.editorControls');
+            $field.off(PARAGRAPH_CLEANUP_EVENTS);
+            $field.trumbowyg('destroy');
+        } catch (error) {
+            console.warn(`Error destroying Trumbowyg instance for field ${$field.data('field-id')}:`, error);
+        } finally {
+            ensureFieldElementRestored($field);
+        }
+    }
+
+    function renderFieldError($field, preEditHtml, message) {
+        if (preEditHtml !== undefined) {
+            $field.html(preEditHtml);
+        } else {
+            $field.html(`<p style="color: red;">${message}</p>`);
+        }
+        $field.css('border', '2px solid red');
+        $field.removeData('pre-edit-html');
+    }
+
+    function cleanHtmlForSave(trumbowygHtml) {
+        if (typeof trumbowygHtml !== 'string') {
+            return '';
+        }
+
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(trumbowygHtml, 'text/html');
+        const body = doc.body;
+
+        body.querySelectorAll('img').forEach(img => {
+            const filename = img.dataset.filename;
+            const currentSrc = img.getAttribute('src') || '';
+
+            if (filename) {
+                const alt = img.getAttribute('alt');
+                img.setAttribute('src', filename);
+                Array.from(img.attributes).forEach(attr => {
+                    if (!['src', 'alt', 'data-filename'].includes(attr.name)) {
+                        img.removeAttribute(attr.name);
+                    }
+                });
+                img.removeAttribute('data-filename');
+                if (alt) {
+                    img.setAttribute('alt', alt);
+                }
+            } else if (currentSrc.includes('placeholder-error.png') || currentSrc.includes('click_to_show.webp')) {
+                console.warn('Removing placeholder image during save:', currentSrc);
+                img.remove();
+            } else if (currentSrc.startsWith('data:image/') && currentSrc.length > 10000) {
+                console.warn('Removing large data URI image during save.');
+                img.remove();
+            } else if (!currentSrc) {
+                img.remove();
+            } else {
+                const alt = img.getAttribute('alt');
+                Array.from(img.attributes).forEach(attr => {
+                    if (!['src', 'alt'].includes(attr.name)) {
+                        img.removeAttribute(attr.name);
+                    }
+                });
+                if (alt) {
+                    img.setAttribute('alt', alt);
+                }
+            }
+        });
+
+            let cleanedHtml = body.innerHTML.replace(/(<br\s*\/?>\s*)+$/, '').trim();
+        return cleanedHtml;
+    }
+
     return {
         initializeEditorsForNote,
         saveEditorsForNote,

@@ -8,7 +8,10 @@ use crate::Return;
 use std::collections::HashMap;
 use std::sync::Arc;
 
-pub async fn get_protected_fields(db_state: &Arc<database::AppState>, notetype_id: i64) -> Return<Vec<NoteModelFieldInfo>> {
+pub async fn get_protected_fields(
+    db_state: &Arc<database::AppState>,
+    notetype_id: i64,
+) -> Return<Vec<NoteModelFieldInfo>> {
     let client = database::client(db_state).await?;
     let query = "SELECT id, name, protected, position FROM notetype_field WHERE notetype = $1 ORDER BY position";
 
@@ -26,7 +29,10 @@ pub async fn get_protected_fields(db_state: &Arc<database::AppState>, notetype_i
     Ok(rows)
 }
 
-pub async fn notetypes_by_commit(db_state: &Arc<database::AppState>, commit_id: i32) -> Return<HashMap<i64, Vec<String>>> {
+pub async fn notetypes_by_commit(
+    db_state: &Arc<database::AppState>,
+    commit_id: i32,
+) -> Return<HashMap<i64, Vec<String>>> {
     // Returns a map of notetypes with a vector of the field names of that notetype
     let client = database::client(db_state).await?;
     let get_notetypes = "
@@ -90,14 +96,82 @@ pub async fn update_notetype(
 
     let tx = client.transaction().await?;
 
-    for (field_id, checked) in &notetype.items {
+    // Batch update field protection flags only where changed, returning changed rows.
+    // Collect ids & new statuses for UNNEST arrays.
+    let mut field_ids: Vec<i64> = Vec::new();
+    let mut new_statuses: Vec<bool> = Vec::new();
+    for (id, status) in &notetype.items {
+        field_ids.push(*id);
+        new_statuses.push(*status);
+    }
+
+    // Only run the heavy logic if there are any candidate fields.
+    let mut newly_protected_positions: Vec<i32> = Vec::new();
+    if !field_ids.is_empty() {
+        let changed_rows = tx
+            .query(
+                r#"
+                WITH incoming AS (
+                    SELECT unnest($1::bigint[]) AS id, unnest($2::bool[]) AS new_protected
+                ), updated AS (
+                    UPDATE notetype_field nf
+                    SET protected = incoming.new_protected
+                    FROM incoming
+                    WHERE nf.id = incoming.id
+                      AND nf.notetype = $3
+                      AND nf.protected IS DISTINCT FROM incoming.new_protected
+                    RETURNING nf.id, nf.position::int AS position, nf.protected AS new_protected
+                )
+                SELECT position, new_protected FROM updated
+                "#,
+                &[&field_ids, &new_statuses, &notetype.notetype_id],
+            )
+            .await?;
+
+        for row in changed_rows {
+            let pos: i32 = row.get(0);
+            let new_protected: bool = row.get(1);
+            if new_protected {
+                newly_protected_positions.push(pos);
+            }
+        }
+    }
+
+    if !newly_protected_positions.is_empty() {
+        newly_protected_positions.sort_unstable();
+        newly_protected_positions.dedup();
+
+        // Remove newly protected field positions from explicit subscription_field_policy arrays.
         tx.execute(
-            "
-            UPDATE notetype_field 
-            SET protected = $1 
-            WHERE id = $2 AND notetype = $3
-        ",
-            &[&checked, &field_id, &notetype.notetype_id],
+            r#"
+            UPDATE subscription_field_policy
+            SET subscribed_fields = (
+                SELECT COALESCE(array_agg(elem ORDER BY elem), '{}')
+                FROM unnest(subscribed_fields) elem
+                WHERE NOT (elem = ANY($1))
+            )
+            WHERE notetype_id = $2
+              AND subscribed_fields IS NOT NULL
+              AND EXISTS (
+                  SELECT 1 FROM unnest(subscribed_fields) e WHERE e = ANY($1)
+              )
+            "#,
+            &[&newly_protected_positions, &notetype.notetype_id],
+        )
+        .await?;
+
+        // Materialize NULL policies to explicit list of unprotected positions (after protection changes).
+        let unprotected_rows = tx
+            .query(
+                "SELECT position::int FROM notetype_field WHERE notetype = $1 AND protected = false ORDER BY position",
+                &[&notetype.notetype_id],
+            )
+            .await?;
+        let unprotected_positions: Vec<i32> =
+            unprotected_rows.into_iter().map(|r| r.get(0)).collect();
+        tx.execute(
+            "UPDATE subscription_field_policy SET subscribed_fields = $2 WHERE notetype_id = $1 AND subscribed_fields IS NULL",
+            &[&notetype.notetype_id, &unprotected_positions],
         )
         .await?;
     }
@@ -107,16 +181,19 @@ pub async fn update_notetype(
         &[&notetype.styling, &notetype.notetype_id],
     )
     .await?;
-    tx.execute(
-        "UPDATE notetype_template SET qfmt = $1, afmt = $2 WHERE id = $3 AND notetype = $4",
-        &[
-            &notetype.front,
-            &notetype.back,
-            &notetype.template_id,
-            &notetype.notetype_id,
-        ],
-    )
-    .await?;
+
+    for template in &notetype.templates {
+        tx.execute(
+            "UPDATE notetype_template SET qfmt = $1, afmt = $2 WHERE id = $3 AND notetype = $4",
+            &[
+                &template.front,
+                &template.back,
+                &template.template_id,
+                &notetype.notetype_id,
+            ],
+        )
+        .await?;
+    }
 
     tx.commit().await?;
     Ok(())

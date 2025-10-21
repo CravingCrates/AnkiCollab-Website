@@ -154,6 +154,6 @@ window.ApiService = (function() {
         // Utility methods
         getContext,
         // Expose apiCall if needed directly elsewhere, but generally prefer specific methods
-        // apiCall
+        apiCall
     };
 })();

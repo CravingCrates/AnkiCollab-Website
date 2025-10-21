@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    {% include "header_template.html" %}
+    <script>
+        window.ApiService = window.ApiService || {};
+    </script>
+    <script src="/static/js/api_service.js"></script>
+    <style>
+        #policy-root .form-check-input:checked:not(:disabled) ~ .form-check-label { color:#333; font-weight:500; }
+        #policy-root .form-check-input:disabled ~ .form-check-label { color:#8898aa; opacity:.9; }
+    </style>
+</head>
+{% include "layout_header.html" %}
+            <div class="container-fluid mt-3">
+                <div class="card">
+                    <div class="card-body">
+                        <h3 class="card-title">Subscription Field Policy</h3>
+                        <p class="text-muted">Configure which fields to inherit from the base deck. Protected fields cannot be toggled and always remain local.</p>
+                        <div id="policy-root"></div>
+                        <button id="saveBtn" class="btn btn-success mt-3">Save</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% include "layout_footer.html" %}
+
+    <script>
+        const subscriberHash = '{{subscriber_hash}}';
+        const baseHash = '{{base_hash}}';
+
+        const state = {
+            notetypes: [], // [{id, name, fields: [{position, name, protected}], selected: Set<int> | null }]
+            existingPolicies: new Map(), // notetype_id -> subscribed_fields (array|null)
+        };
+
+        function render() {
+            const root = document.getElementById('policy-root');
+            root.innerHTML = '';
+            state.notetypes.forEach(nt => {
+                const card = document.createElement('div');
+                card.className = 'card mb-3';
+                const body = document.createElement('div');
+                body.className = 'card-body';
+                const h5 = document.createElement('h5');
+                h5.className = 'card-title';
+                h5.textContent = `${nt.name} (ID ${nt.id})`;
+                body.appendChild(h5);
+
+                const selectAllDiv = document.createElement('div');
+                // Make subscribe-all look like other field checkboxes for consistent contrast
+                selectAllDiv.className = 'form-check mb-2 subscribe-all';
+                const selectAll = document.createElement('input');
+                selectAll.type = 'checkbox';
+                selectAll.className = 'form-check-input';
+                const selectAllId = `subscribe_all_${nt.id}`;
+                selectAll.id = selectAllId;
+                const hasProtected = nt.fields.some(f => f.protected);
+                // Subscribe-all only allowed if there are zero protected fields
+                selectAll.disabled = hasProtected;
+                selectAll.checked = !hasProtected && nt.selected === null; // null means subscribe-all
+                selectAll.addEventListener('change', () => {
+                    if (selectAll.disabled) return; // safety
+                    if (selectAll.checked) {
+                        nt.selected = null;
+                    } else {
+                        nt.selected = new Set(nt.fields.filter(f => !f.protected).map(f => f.position));
+                    }
+                    render();
+                });
+                const selectAllLbl = document.createElement('label');
+                selectAllLbl.className = 'form-check-label ml-2';
+                selectAllLbl.htmlFor = selectAllId;
+                selectAllLbl.textContent = 'Subscribe all' + (selectAll.disabled ? ' (disabled: protected fields present)' : '');
+                selectAllDiv.appendChild(selectAll);
+                selectAllDiv.appendChild(selectAllLbl);
+                body.appendChild(selectAllDiv);
+
+                const list = document.createElement('div');
+                nt.fields.forEach(f => {
+                    const item = document.createElement('div');
+                    item.className = 'form-check';
+                    const cb = document.createElement('input');
+                    cb.type = 'checkbox';
+                    cb.className = 'form-check-input';
+                    cb.disabled = f.protected || nt.selected === null; // protected or subscribe-all mode
+                    const checked = nt.selected === null ? true : nt.selected.has(f.position);
+                    cb.checked = checked;
+                    cb.addEventListener('change', () => {
+                        if (nt.selected === null) return;
+                        if (cb.checked) nt.selected.add(f.position); else nt.selected.delete(f.position);
+                    });
+                    const label = document.createElement('label');
+                    label.className = 'form-check-label';
+                    label.textContent = `${f.name} ${f.protected ? '(protected)' : ''}`;
+                    item.appendChild(cb);
+                    item.appendChild(label);
+                    list.appendChild(item);
+                });
+                body.appendChild(list);
+
+                card.appendChild(body);
+                root.appendChild(card);
+            });
+        }
+
+        async function loadPolicies() {
+            const resp = await fetch(`/api/subscription-field-policy?subscriber_deck_hash=${encodeURIComponent(subscriberHash)}&base_deck_hash=${encodeURIComponent(baseHash)}`);
+            if (!resp.ok) return;
+            const data = await resp.json();
+            state.existingPolicies = new Map((data.policies || []).map(p => [p.notetype_id, p.subscribed_fields]));
+        }
+
+        async function loadNotetypes() {
+            // Minimal server-provided context
+            const meta = JSON.parse(document.getElementById('notetype_meta').textContent);
+            state.notetypes = meta.map(nt => ({
+                id: nt.id,
+                name: nt.name,
+                fields: nt.fields,
+                selected: undefined,
+            }));
+            // apply existing policies
+            state.notetypes.forEach(nt => {
+                const sf = state.existingPolicies.get(nt.id);
+                const hasProtected = nt.fields.some(f => f.protected);
+                if (sf === undefined) {
+                    nt.selected = new Set();
+                } else if (sf === null) {
+                    // If protected fields exist, treat legacy subscribe-all as selecting all unprotected instead.
+                    nt.selected = hasProtected ? new Set(nt.fields.filter(f => !f.protected).map(f => f.position)) : null;
+                } else {
+                    // Filter out any protected positions just in case server sent them erroneously
+                    const allowed = new Set(nt.fields.filter(f => !f.protected).map(f => f.position));
+                    nt.selected = new Set(sf.filter(p => allowed.has(p)));
+                }
+            });
+            render();
+        }
+
+        async function savePolicies() {
+            const payload = {
+                subscriber_deck_hash: subscriberHash,
+                base_deck_hash: baseHash,
+                policies: state.notetypes.map(nt => ({
+                    notetype_id: nt.id,
+                    subscribed_fields: nt.selected === null ? null : Array.from(nt.selected).sort((a,b)=>a-b),
+                }))
+            };
+            const resp = await fetch('/api/subscription-field-policy', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload),
+            });
+            if (resp.ok) {
+                alert('Saved');
+            } else {
+                alert('Save failed');
+            }
+        }
+
+        document.getElementById('saveBtn').addEventListener('click', savePolicies);
+
+        (async function init() {
+            await loadPolicies();
+            await loadNotetypes();
+        })();
+    </script>
+    <script id="notetype_meta" type="application/json">{{ notetypes | safe }}</script>
+</body>
+
+</html>

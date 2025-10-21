@@ -3,19 +3,360 @@
 
 <head>
     {% include "header_template.html" %}
-
+    <title>Review Commit</title>
+    
     <!-- Custom Stylesheet -->
-    <link href="/static/plugins/summernote/dist/summernote.css" rel="stylesheet">
+    <link href="/static/plugins/trumbowyg/ui/trumbowyg.css" rel="stylesheet">
+    <link href="/static/plugins/trumbowyg/plugins/colors/ui/trumbowyg.colors.css" rel="stylesheet">
     <link href="/static/css/commit_styling.css" rel="stylesheet">
-    <script src="/static/plugins/jquery/jquery.min.js"></script>
+    <style>      
+        .main-container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 24px;
+        }
+        
+        .page-title {
+            font-size: 24px;
+            font-weight: 700;
+            margin: 0 0 12px 0;
+            color: white;
+            letter-spacing: -0.5px;
+        }
+                
+        .note-card {
+            background: white;
+            border-radius: 20px;
+            margin-bottom: 32px;
+            overflow: hidden;
+            box-shadow: 0 4px 32px rgba(0, 0, 0, 0.06);
+            border: 1px solid rgba(0, 0, 0, 0.04);
+        }
+        
+        .note-header {
+            background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+            padding: 24px 32px;
+            border-bottom: 1px solid #e2e8f0;
+        }
+        
+        
+        .status-badge {
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 13px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-left: 1em;
+        }
+        
+        .field-item {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+            border: 1px solid rgba(0, 0, 0, 0.05);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+        }
+        
+        .field-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+        }
+        
+        .field-name {
+            font-weight: 600;
+            color: #374151;
+            font-size: 16px;
+        }
+        
+        .field-actions {
+            display: flex;
+            gap: 8px;
+        }
+        
+        .action-btn {
+            padding: 6px 12px;
+            border-radius: 8px;
+            border: none;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+        
+        .field-content {
+            line-height: 1.6;
+            color: #374151;
+        }
+        
+        .note_tag_container {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px 16px;
+            border-radius: 12px;
+            margin-bottom: 8px;
+            font-weight: 500;
+            font-size: 14px;
+            border: none;
+        }
 
+        .tag_accept_button, .tag_deny_button {
+            width: 24px;
+            height: 24px;
+            border-radius: 6px;
+            border: none;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 10px;
+            font-weight: bold;
+            transition: all 0.2s ease;
+        }
+
+        /* Responsive design */
+        @media (max-width: 768px) {
+            .main-container {
+                padding: 16px;
+            }
+            
+            .page-header {
+                padding: 16px 20px;
+                margin-bottom: 16px;
+            }
+            
+            .page-title {
+                font-size: 20px;
+            }
+            
+            .commit-meta {
+                gap: 16px;
+            }
+            
+            .commit-actions {
+                flex-direction: column;
+                gap: 8px;
+            }
+            
+            .primary-action, .danger-action {
+                width: 100%;
+                justify-content: center;
+            }
+            
+            .content-comparison {
+                grid-template-columns: 1fr;
+            }
+            
+            .original-side, .suggestion-side {
+                padding: 20px;
+            }
+            
+            .note-actions-row {
+                flex-direction: column;
+                align-items: stretch;
+                gap: 12px;
+            }
+            
+            .action-group {
+                justify-content: center;
+                flex-wrap: wrap;
+            }
+            
+            .modern-btn {
+                flex: 1;
+                min-width: 120px;
+            }
+        }
+        
+        .disabled {
+            opacity: 0.6;
+            cursor: not-allowed !important;
+            pointer-events: none !important;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .disabled::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(255, 255, 255, 0.1);
+            pointer-events: none;
+        }
+        
+        /* Specific disabled states for different button types */
+        .action-btn.disabled,
+        .tag_accept_button.disabled,
+        .tag_deny_button.disabled {
+            transform: scale(0.98);
+            transition: all 0.2s ease;
+        }
+        
+        .modern-btn.disabled {
+            background: #94a3b8 !important;
+            border-color: #94a3b8 !important;
+            color: #64748b !important;
+        }
+        
+        /* Prevent double-click selection */
+        .disabled {
+            -webkit-user-select: none;
+            -moz-user-select: none;
+            user-select: none;
+        }
+        
+        /* Focus states for accessibility */
+        .modern-btn:focus,
+        .action-btn:focus,
+        .tag_accept_button:focus,
+        .tag_deny_button:focus {
+            outline: 2px solid #006699;
+            outline-offset: 2px;
+        }
+        
+        /* Smooth loading states */
+        .loading {
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .loading::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent);
+            animation: loading-shimmer 1.5s infinite;
+        }
+        
+        @keyframes loading-shimmer {
+            0% { left: -100%; }
+            100% { left: 100%; }
+        }
+        
+        /* Micro-interactions for better UX */
+        .suggestion-box {
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        
+        .suggestion-box:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 32px rgba(0, 102, 153, 0.1);
+        }
+        
+        /* Success/error states */
+        .field-success {
+            border-left: 4px solid #10b981;
+            background: linear-gradient(135deg, rgba(16, 185, 129, 0.05), rgba(16, 185, 129, 0.02));
+        }
+        
+        .field-error {
+            border-left: 4px solid #ef4444;
+            background: linear-gradient(135deg, rgba(239, 68, 68, 0.05), rgba(239, 68, 68, 0.02));
+        }
+        
+        /* Enhanced visual hierarchy */
+        .section-title {
+            position: relative;
+            padding-left: 12px;
+        }
+        
+        .section-title::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 4px;
+            height: 20px;
+            background: linear-gradient(135deg, #006699, #0ea5e9);
+            border-radius: 2px;
+        }
+        
+        /* Dark mode friendly adjustments */
+        @media (prefers-color-scheme: dark) {
+            .page-header {
+                box-shadow: 0 4px 20px rgba(0, 102, 153, 0.2);
+            }
+            
+            .suggestion-box {
+                border: 1px solid rgba(255, 255, 255, 0.1);
+                box-shadow: 0 2px 12px rgba(0, 0, 0, 0.3);
+            }
+        }
+        
+        /* High contrast mode support */
+        @media (prefers-contrast: high) {
+            .modern-btn,
+            .action-btn,
+            .tag_accept_button,
+            .tag_deny_button {
+                border: 2px solid currentColor;
+            }
+            
+            .suggestion-box {
+                border: 2px solid #374151;
+            }
+        }
+        
+        /* Reduced motion for accessibility */
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after {
+                animation-duration: 0.01ms !important;
+                animation-iteration-count: 1 !important;
+                transition-duration: 0.01ms !important;
+            }
+            
+            .suggestion-box:hover {
+                transform: none;
+            }
+        }
+        
+        /* Print styles */
+        @media print {
+            .page-header {
+                background: #006699 !important;
+                color: white !important;
+                -webkit-print-color-adjust: exact;
+            }
+            
+            .modern-btn,
+            .action-btn,
+            .commit-actions,
+            .note-actions-row {
+                display: none !important;
+            }
+            
+            .suggestion-box {
+                border: 1px solid #ccc !important;
+                box-shadow: none !important;
+                break-inside: avoid;
+            }
+        }
+
+    </style>
+
+    <script src="/static/plugins/jquery/jquery.min.js"></script>
+    
     <script>
         // Global namespace for our app
         window.HtmlDiffUtils = {};
         window.ImageHandler = {};
         window.EditorControls = {};
         window.ApiService = {};
-        window.SharedUI = {};
+        // Don't overwrite SharedUI - let shared_ui.js handle it
     </script>
 
     <script src="/static/js/html_diff_utils.js"></script>
@@ -26,190 +367,440 @@
 
 </head>
 {% include "layout_header.html" %}
-            <!-- End Top layout-->
 
-            <!-- row -->
-            <div class="container-fluid">
-                <div class="card">
-                     <div class="card-body text-center">
-                        <h1 class="card-title">Review Commit from {{ commit.timestamp }}</h1>
-                        <p>Author: <span style="color: var(--primary);">{{ commit.user }}</span></p>
-                        <p>Rationale: <span style="color: var(--secondary);">{{ commit.rationale }}</span></p>
-                        <p>Current Deck: <span style="font-weight:bold">{{ commit.deck }}</span></p>
-                        <blockquote style="color: var(--secondary);">{{ commit.commit_info | striptags }}</blockquote>
-                        {% if user and owned == true %}
-                        <a href="/ApproveCommit/{{commit.id}}" class="btn mb-1 btn-success"><span class="fa fa-check"></span> Accept all</a>
-                        <a href="/DenyCommit/{{commit.id}}" class="btn mb-1 btn-danger"><span class="fa fa-close"></span> Deny all</a>
-                        {% endif %}
+<div class="main-container">
+    <div class="container-fluid">
+    <div class="page-header">
+        <div class="header-content">
+            <h1 class="page-title">Review Commit</h1>
+            
+            <div class="commit-meta">
+                <div class="meta-item">
+                    <div class="meta-icon">
+                        <i class="fa fa-clock-o"></i>
+                    </div>
+                    <span>{{ commit.timestamp }}</span>
+                </div>
+                <div class="meta-item">
+                    <div class="meta-icon">
+                        <i class="fa fa-user"></i>
+                    </div>
+                    <span>{{ commit.user }}</span>
+                </div>
+                <div class="meta-item">
+                    <div class="meta-icon">
+                        <i class="fa fa-folder"></i>
+                    </div>
+                    <span>{{ commit.deck }}</span>
+                </div>
+            </div>
+            
+            {% if commit.rationale %}
+            <div style="background: rgba(255, 255, 255, 0.1); padding: 16px; border-radius: 12px; margin-bottom: 16px;">
+                <strong>Rationale:</strong> {{ commit.rationale }}
+            </div>
+            {% endif %}
+            
+            {% if commit.commit_info %}
+            <div style="background: rgba(255, 255, 255, 0.1); padding: 16px; border-radius: 12px; margin-bottom: 16px; font-style: italic;">
+                {{ commit.commit_info | striptags }}
+            </div>
+            {% endif %}
+            
+            {% if user and owned == true %}
+            <div class="commit-actions">
+                <a href="/ApproveCommit/{{commit.id}}" class="primary-action" onclick="this.classList.add('disabled','loading'); this.style.pointerEvents='none'; this.setAttribute('aria-busy','true');">
+                    <i class="fa fa-check"></i>
+                    Accept All Changes
+                </a>
+                <a href="/DenyCommit/{{commit.id}}" class="danger-action" onclick="this.classList.add('disabled','loading'); this.style.pointerEvents='none'; this.setAttribute('aria-busy','true');">
+                    <i class="fa fa-times"></i>
+                    Deny All Changes
+                </a>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    {% for note in notes %}
+    <div id="{{note.id}}" class="note-card note-context" data-context-type="note">
+        <div class="note-header">
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 16px;">
+                <div>
+                    <h2 class="note-title">Review Note #{{note.id}}</h2>
+                    <div class="note-meta">
+                        Last Updated: {{ note.last_update }}<br>
+                        Deck: {{ note.deck }}
                     </div>
                 </div>
-                {% for note in notes %}
-                <div id="{{note.id}}" class="card note-context" data-context-type="note">
-                    <div class="card-header text-right">
-                        <h1 class="card-title text-center">Review Note</h1>
-                        <p class="text-center">Note Last Update: {{ note.last_update }}<br />Deck:  {{ note.deck }}</p>
+                
+                <div class="status-badge {% if note.reviewed and not note.delete_req %}badge-suggestion{% elif note.delete_req %}badge-removal{% else %}badge-new{% endif %}">
+                    {% if note.reviewed and not note.delete_req %}Changes Suggested
+                    {% elif note.delete_req %}Removal Requested
+                    {% else %}New Card
+                    {% endif %}
+                </div>
+            </div>
 
-                        <div class="d-flex justify-content-between align-items-center">
-                            <div>
-                                <a href="/review/{{note.id}}" class="btn mb-1 btn-info">
-                                    <i class="icon-magnifier menu-icon"></i> Review Suggestions
-                                </a>
-                                {% if user and owned == true and note.reviewed == false %}
-                                    <a href="/AcceptNote/{{note.id}}" class="btn mb-1 btn-success"><span class="fa fa-check"></span> Publish Note</a>
-                                    <a href="/DeleteNote/{{note.id}}" class="btn mb-1 btn-danger"><span class="fa fa-close"></span> Delete Note</a>
-                                {% elif user and owned == true and note.delete_req %}
-                                    <a href="/AcceptNoteRemoval/{{note.id}}" class="btn mb-1 btn-danger"><span class="fa fa-close"></span> Delete Note</a>
-                                    <a href="/DenyNoteRemoval/{{note.id}}" class="btn mb-1 btn-warning"><span class="fa fa-check"></span> Keep Note</a>
-                                {% endif %}
-                            </div>
+            <div class="note-actions-row">
+                <div class="action-group">
+                    <a href="/review/{{note.id}}" class="modern-btn btn-primary">
+                        <i class="fa fa-search"></i>
+                        Review Suggestions
+                    </a>
+                    {% if user and owned == true and note.reviewed == false %}
+                        <a href="/AcceptNote/{{note.id}}" class="modern-btn btn-success">
+                            <i class="fa fa-check"></i>
+                            Publish Note
+                        </a>
+                        <a href="/DeleteNote/{{note.id}}" class="modern-btn btn-danger">
+                            <i class="fa fa-trash"></i>
+                            Delete Note
+                        </a>
+                    {% elif user and owned == true and note.delete_req %}
+                        <a href="/AcceptNoteRemoval/{{note.id}}" class="modern-btn btn-danger">
+                            <i class="fa fa-trash"></i>
+                            Delete Note
+                        </a>
+                        <a href="/DenyNoteRemoval/{{note.id}}" class="modern-btn btn-warning">
+                            <i class="fa fa-shield"></i>
+                            Keep Note
+                        </a>
+                    {% endif %}
+                </div>
 
-                            <div class="action-buttons">
-                                {% if user and owned == true %}
-                                <button class="btn mb-1 btn-light edit-suggestion-btn" data-action="toggle-edit" data-note-id="{{note.id}}">
-                                    <i class="icon-pencil menu-icon"></i>
-                                    <span>Edit Suggestion</span>
-                                </button>
-                                <button class="btn mb-1 btn-danger abort-edit-btn" data-action="cancel-edit" data-note-id="{{note.id}}" style="display:none;">
-                                    <i class="icon-close menu-icon"></i>
-                                    <span>Cancel Edit</span>
-                                </button>
-                                {% endif %}
-                            </div>
-                        </div>
-                        <div class="text-center mt-3">
-                            <span
-                            class="label label-pill {% if note.reviewed and not note.delete_req %}label-info {% elif note.delete_req %}label-danger {% else %}label-success {% endif %}px-5 py-2"
-                        >
-                            {% if note.reviewed and not note.delete_req %}New Suggestion
-                            {% elif note.delete_req %}Removal Requested
-                            {% else %}New Card
-                            {% endif %}
-                            </span>
-                        </div>
-                    </div>
-                    <div class="card-body">
-                        <div {% if not note.delete_req %} class="row" {% else %} class="row justify-content-center" {% endif %}>
-                            <div class="col">
-                                <h5 class="text-center mb-3">Original Content</h5>
-                                {% for field in note.fields %}
-                                <div class="media media-reply original-side">
-                                    <div class="media-body">
-                                        <div class="d-sm-flex justify-content-between mb-2">
-                                            <h5 class="mb-sm-0">{{notemodels[note.note_model][field.position]}}</h5>
-                                        </div>
-                                        <div class="note-content-display original-content"
-                                             data-field-id='{{field.id}}'
-                                             data-content='{{ field.reviewed_content | escape }}'>
-                                             <!-- Content will be populated by JS -->
-                                        </div>
-                                    </div>
-                                </div>
-                                {% endfor %}
-                            </div>
-                            {% if not note.delete_req %}
-                            <div class="col suggestion-side">
-                                <h5 class="text-center mb-3">Suggested Change</h5>
-                                 {% if note.move_req %}
-                                 <p>Deck Change Suggestion:</p>
-                                 <div class="note_tag_container suggestion-box" style="margin-bottom: 1em;">
-                                     <button class="btn mb-1 btn-flat w-100" disabled>{{note.move_req.path}}</button>
-                                     {% if user and owned == true %}
-                                     <div class="tag_actions">
-                                         <button class="tag_accept_button" role="button" data-action="accept-move" data-move-id="{{note.move_req.id}}">
-                                             <i class="fa fa-check"></i>
-                                         </button>
-                                         <button class="tag_deny_button" role="button" data-action="deny-move" data-move-id="{{note.move_req.id}}">
-                                             <i class="fa fa-times"></i>
-                                         </button>
-                                     </div>
-                                     {% endif %}
-                                 </div>
-                                 {% endif %}
-
-                                 {% if note.fields %} <p>Field Changes:</p> {% endif %}
-                                 {% for field in note.fields %}
-                                 <div class="media media-reply suggestion-box">
-                                     <div class="media-body">
-                                         <div class="d-sm-flex justify-content-between mb-2">
-                                             <h5 class="mb-sm-0">{{notemodels[note.note_model][field.position]}}</h5>
-                                             {% if user and owned == true and note.reviewed %}                                             
-                                             <div class="media-reply__link small-badge field-actions">
-                                                <span class="badge badge-pill badge-success mr-1">
-                                                    <button data-action="accept-field" data-field-id="{{field.id}}" class="btn btn-xs btn-approve" title="Accept Change">
-                                                        <span class="fa fa-check"></span> Accept
-                                                    </button>
-                                                </span>
-                                                <span class="badge badge-pill badge-danger">
-                                                    <button data-action="deny-field" data-field-id="{{field.id}}" class="btn btn-xs btn-deny" title="Deny Change">
-                                                        <span class="fa fa-close"></span> Deny
-                                                    </button>
-                                                </span>
-                                            </div>
-                                             {% endif %}
-                                         </div>
-                                         <div class="note-content-display diff-content"
-                                              data-field-id='{{field.id}}'
-                                              data-original='{{ field.reviewed_content | escape }}'
-                                              data-new-content='{{ field.content | escape }}'>
-                                              {{ field.diff | safe }}
-                                         </div>
-                                     </div>
-                                 </div>
-                                 {% endfor %}
-
-                                 {% if note.new_tags or note.removed_tags %}
-                                     <hr />
-                                     <p>Tag Changes:</p>
-                                 {% endif %}
-                                 {% for tag in note.removed_tags %}
-                                 <div class="note_tag_container suggestion-box">
-                                     <button class="btn mb-1 btn-flat btn-rmd-tag w-100" disabled>{{tag.content}}</button>
-                                     {% if user and owned == true and note.reviewed %}
-                                     <div class="tag_actions">
-                                         <button class="tag_accept_button" role="button" data-action="accept-tag" data-tag-id="{{tag.id}}">
-                                             <i class="fa fa-check"></i>
-                                         </button>
-                                         <button class="tag_deny_button" role="button" data-action="deny-tag" data-tag-id="{{tag.id}}">
-                                             <i class="fa fa-times"></i>
-                                         </button>
-                                     </div>
-                                     {% endif %}
-                                 </div>
-                                 {% endfor %}
-                                 {% for tag in note.new_tags %}
-                                 <div class="note_tag_container suggestion-box">
-                                     <button class="btn mb-1 btn-flat btn-new-tag w-100" disabled>{{tag.content}}</button>
-                                     {% if user and owned == true and note.reviewed %}
-                                     <div class="tag_actions">
-                                          <button class="tag_accept_button" role="button" data-action="accept-tag" data-tag-id="{{tag.id}}">
-                                             <i class="fa fa-check"></i>
-                                         </button>
-                                         <button class="tag_deny_button" role="button" data-action="deny-tag" data-tag-id="{{tag.id}}">
-                                             <i class="fa fa-times"></i>
-                                         </button>
-                                     </div>
-                                     {% endif %}
-                                 </div>
-                                 {% endfor %}
-                            </div>
-                            {% endif %} <!-- end not note.delete_req -->
-                        </div> <!-- end row -->
-                    </div> <!-- end card-body -->
-                </div> <!-- end card -->
-                {% endfor %}
-            </div> <!-- end container-fluid -->
+                {% if user and owned == true %}
+                <div class="action-group">
+                    <button class="modern-btn btn-light edit-suggestion-btn" data-action="toggle-edit" data-note-id="{{note.id}}">
+                        <i class="fa fa-edit"></i>
+                        <span>Edit Suggestion</span>
+                    </button>
+                    <button class="modern-btn btn-danger abort-edit-btn" data-action="cancel-edit" data-note-id="{{note.id}}" style="display:none;">
+                        <i class="fa fa-times"></i>
+                        <span>Cancel Edit</span>
+                    </button>
+                </div>
+                {% endif %}
+            </div>
         </div>
-        <!--**********************************
-            Content body end
-        ***********************************-->
+        <div class="content-comparison {% if note.delete_req %}deletion-request{% endif %}">
+            {% if not note.delete_req %}
+            <div class="original-side">
+                <h3 class="content-header">Original Content</h3>
+                {% for field in note.fields %}
+                <div class="field-item">
+                    <div class="field-header">
+                        <div class="field-name">{{notemodels[note.note_model][field.position]}}</div>
+                    </div>
+                    <div class="field-content note-content-display original-content"
+                         data-field-id='{{field.id}}'
+                         data-content='{{ field.reviewed_content | escape }}'>
+                         <!-- Content will be populated by JS -->
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            
+            <div class="suggestion-side">
+                <h3 class="content-header">Suggested Changes</h3>
+                
+                {% if note.move_req %}
+                <div class="section-title">Deck Change Request</div>
+                <div class="note_tag_container suggestion-box tag-move">
+                    <div class="tag-content">
+                        <span class="tag-icon">📁</span>
+                        <span>Move to: <strong>{{note.move_req.path}}</strong></span>
+                    </div>
+                    {% if user and owned == true %}
+                    <div class="tag_actions">
+                        <button class="tag_accept_button" role="button" data-action="accept-move" data-move-id="{{note.move_req.id}}">
+                            <i class="fa fa-check"></i>
+                        </button>
+                        <button class="tag_deny_button" role="button" data-action="deny-move" data-move-id="{{note.move_req.id}}">
+                            <i class="fa fa-times"></i>
+                        </button>
+                    </div>
+                    {% endif %}
+                </div>
+                {% endif %}
+
+                {% if note.fields %}
+                <div class="section-title">Field Changes</div>
+                {% for field in note.fields %}
+                <div class="field-item suggestion-box">
+                    <div class="field-header">
+                        <div class="field-name">{{notemodels[note.note_model][field.position]}}</div>
+                        {% if user and owned == true and note.reviewed %}
+                        <div class="field-actions">
+                            <button data-action="accept-field" data-field-id="{{field.id}}" class="action-btn btn-approve" title="Accept Change">
+                                <i class="fa fa-check"></i>
+                                Accept
+                            </button>
+                            <button data-action="deny-field" data-field-id="{{field.id}}" class="action-btn btn-deny" title="Deny Change">
+                                <i class="fa fa-times"></i>
+                                Deny
+                            </button>
+                        </div>
+                        {% endif %}
+                    </div>
+                    <div class="field-content note-content-display diff-content"
+                         data-field-id='{{field.id}}'
+                         data-original='{{ field.reviewed_content | escape }}'
+                         data-new-content='{{ field.content | escape }}'>
+                         {{ field.diff | safe }}
+                    </div>
+                </div>
+                {% endfor %}
+                {% endif %}
+
+                {% if note.new_tags or note.removed_tags %}
+                <hr class="section-divider">
+                <div class="section-title">Tag Changes</div>
+                {% for tag in note.removed_tags %}
+                <div class="note_tag_container suggestion-box tag-remove">
+                    <div class="tag-content">
+                        <span class="tag-icon">−</span>
+                        <span><strong>{{tag.content}}</strong></span>
+                    </div>
+                    {% if user and owned == true and note.reviewed %}
+                    <div class="tag_actions">
+                        <button class="tag_accept_button" role="button" data-action="accept-tag" data-tag-id="{{tag.id}}">
+                            <i class="fa fa-check"></i>
+                        </button>
+                        <button class="tag_deny_button" role="button" data-action="deny-tag" data-tag-id="{{tag.id}}">
+                            <i class="fa fa-times"></i>
+                        </button>
+                    </div>
+                    {% endif %}
+                </div>
+                {% endfor %}
+                {% for tag in note.new_tags %}
+                <div class="note_tag_container suggestion-box tag-add">
+                    <div class="tag-content">
+                        <span class="tag-icon">+</span>
+                        <span><strong>{{tag.content}}</strong></span>
+                    </div>
+                    {% if user and owned == true and note.reviewed %}
+                    <div class="tag_actions">
+                        <button class="tag_accept_button" role="button" data-action="accept-tag" data-tag-id="{{tag.id}}">
+                            <i class="fa fa-check"></i>
+                        </button>
+                        <button class="tag_deny_button" role="button" data-action="deny-tag" data-tag-id="{{tag.id}}">
+                            <i class="fa fa-times"></i>
+                        </button>
+                    </div>
+                    {% endif %}
+                </div>
+                {% endfor %}
+                {% endif %}
+            </div>
+            {% else %}
+            <div class="deletion-message">
+                <i class="fa fa-trash" style="font-size: 48px; color: #dc2626; margin-bottom: 16px;"></i>
+                <div>This note has been requested for deletion.</div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    {% endfor %}
+    </div>
+</div>
 
     {% include "layout_footer.html" %}
 
-    <script src="/static/plugins/summernote/dist/summernote.min.js"></script>
+    <script src="/static/plugins/trumbowyg/trumbowyg.min.js"></script>
+    <script src="/static/plugins/trumbowyg/plugins/colors/trumbowyg.colors.js"></script>
     <script>
         // Initialize the shared UI components after the page loads
         $(document).ready(function() {
             SharedUI.initializePage();
+            initButtonFeatures();
+            
+            function initButtonFeatures() {
+                // Comprehensive spam-click protection for all interactive buttons (EXCEPT editor buttons and editor content)
+                // Use event delegation with a delay to allow original handlers to run first
+                $(document).on('click.protection', '.action-btn, .tag_accept_button, .tag_deny_button, [data-action]:not([data-action="toggle-edit"]):not([data-action="cancel-edit"])', function(e) {
+                    const $btn = $(this);
+                    
+                    // Skip if click originated from within Trumbowyg editor
+                    if ($btn.closest('.trumbowyg-editor-box, .trumbowyg-modal-box, .trumbowyg-dropdown').length) {
+                        return; // Allow editor interactions to proceed normally
+                    }
+                    
+                    // If button is already disabled from previous click, prevent this click
+                    if ($btn.hasClass('disabled') || $btn.prop('disabled')) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        return false;
+                    }
+                    
+                    // Allow the original click to proceed, then apply protection with a small delay
+                    setTimeout(() => {
+                        // Check again - if button was already processed by original handler, don't interfere
+                        if ($btn.hasClass('disabled')) {
+                            return; // Already handled by existing protection
+                        }
+                        
+                        if (typeof $btn.data('original-html') === 'undefined') {
+                            $btn.data('original-html', $btn.html());
+                        }
+                        if (typeof $btn.data('original-aria-busy') === 'undefined') {
+                            $btn.data('original-aria-busy', $btn.attr('aria-busy'));
+                        }
+
+                        // Apply protection
+                        $btn.addClass('disabled loading')
+                            .prop('disabled', true)
+                            .css('pointer-events', 'none')
+                            .attr('aria-busy', 'true');
+
+                        // Timestamp for failsafe restoration
+                        $btn.data('click-timestamp', Date.now());
+                        
+                    }, 10); // Small delay to let original handlers run first
+                    
+                    // Set up failsafe restore
+                    setTimeout(() => {
+                        if ($btn.hasClass('disabled')) {
+                            window.restoreButton($btn);
+                        }
+                    }, 5000); // 5 second failsafe
+                });
+                
+                // Function to restore button state (can be called externally) - EXCLUDES editor buttons
+                window.restoreButton = function($btn) {
+                    if ($btn && $btn.length) {
+                        // Don't restore editor buttons - let them manage their own state
+                        const action = $btn.data('action');
+                        if (action === 'toggle-edit' || action === 'cancel-edit') {
+                            return;
+                        }
+                        
+                        $btn.removeClass('disabled loading')
+                            .prop('disabled', false)
+                            .css('pointer-events', '');
+
+                        const originalHtml = $btn.data('original-html');
+                        if (typeof originalHtml !== 'undefined') {
+                            $btn.html(originalHtml);
+                        }
+
+                        const originalAriaBusy = $btn.data('original-aria-busy');
+                        if (typeof originalAriaBusy !== 'undefined' && originalAriaBusy !== null && originalAriaBusy !== '') {
+                            $btn.attr('aria-busy', originalAriaBusy);
+                        } else {
+                            $btn.removeAttr('aria-busy');
+                        }
+
+                        $btn.removeData('original-html');
+                        $btn.removeData('original-aria-busy');
+                        $btn.removeData('click-timestamp');
+
+                    }
+                };
+                                
+                // Listen for successful API responses to restore buttons
+                $(document).on('api:success', function(e, data) {
+                    if (data && data.buttonId) {
+                        const $btn = $(`#${data.buttonId}`);
+                        window.restoreButton($btn);
+                    }
+                });
+                
+                // Listen for API errors to restore buttons
+                $(document).on('api:error', function(e, data) {
+                    if (data && data.buttonId) {
+                        const $btn = $(`#${data.buttonId}`);
+                        window.restoreButton($btn);
+                        // Show error state briefly
+                        $btn.addClass('field-error');
+                        setTimeout(() => $btn.removeClass('field-error'), 2000);
+                    }
+                });
+                
+                // Keyboard navigation support - exclude editor areas
+                $('.suggestion-box').attr('tabindex', '0').on('keydown', function(e) {
+                    // Don't intercept keyboard events if we're inside an editor
+                    if ($(e.target).closest('.trumbowyg-box').length) {
+                        return; // Let the editor handle it
+                    }
+                    
+                    if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        $(this).find('.modern-btn').first().click();
+                    }
+                });
+                
+                // Auto-scroll to active edit field
+                $(document).on('editors:initialized', function(e, noteId) {
+                    const $activeField = $(`#${noteId} .trumbowyg-editor`).first();
+                    if ($activeField.length) {
+                        $activeField[0].scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    }
+                });
+                
+                // Visual feedback for successful actions
+                $(document).on('field:accepted field:denied', function(e, fieldId) {
+                    const $field = $(`[data-field-id="${fieldId}"]`).closest('.suggestion-box');
+                    const isAccepted = e.type === 'field:accepted';
+                    
+                    $field.addClass(isAccepted ? 'field-success' : 'field-error');
+                    
+                    // Show brief success/error state
+                    setTimeout(() => {
+                        $field.fadeOut(300, function() {
+                            $(this).remove();
+                        });
+                    }, 1000);
+                });
+                
+                // Improved error handling with user feedback
+                window.addEventListener('error', function(e) {
+                    console.error('JavaScript error:', e.error);
+                    // Could integrate with error reporting service here
+                });
+                                
+                // Page visibility change - restore buttons when page becomes visible
+                // (handles cases where user switches tabs during processing)
+                document.addEventListener('visibilitychange', function() {
+                    if (!document.hidden) {
+                        // Check for buttons disabled longer than 10 seconds (EXCLUDE editor buttons)
+                        $('.disabled').each(function() {
+                            const $btn = $(this);
+                            const action = $btn.data('action');
+                            const timestamp = $btn.data('click-timestamp');
+                            
+                            // Skip editor buttons - they manage their own state
+                            if (action === 'toggle-edit' || action === 'cancel-edit') {
+                                return;
+                            }
+                            
+                            if (timestamp && (Date.now() - timestamp > 10000)) {
+                                window.restoreButton($btn);
+                            }
+                        });
+                    }
+                });
+                
+                // Performance monitoring
+                if (window.performance && window.performance.mark) {
+                    window.performance.mark('commit-page-interactive');
+                }
+                
+                // Preload critical resources
+                const criticalResources = [
+                    '/static/plugins/trumbowyg/trumbowyg.min.js',
+                    '/static/plugins/trumbowyg/plugins/colors/trumbowyg.colors.js'
+                ];
+                
+                criticalResources.forEach(resource => {
+                    const link = document.createElement('link');
+                    link.rel = 'preload';
+                    link.as = 'script';
+                    link.href = resource;
+                    document.head.appendChild(link);
+                });
+                
+            }
         });
     </script>
 </body>

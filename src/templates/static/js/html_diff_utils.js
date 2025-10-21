@@ -11,17 +11,9 @@ window.HtmlDiffUtils = (function() {
     function unescapeHtml(html) {
         if (typeof html !== 'string') return '';
         // Use DOMParser for robust unescaping
-        try {
-            const parser = new DOMParser();
-            const doc = parser.parseFromString(html, 'text/html');
-            return doc.documentElement.textContent || '';
-        } catch (e) {
-            console.error("Error unescaping HTML:", e);
-            // Fallback for simple cases if DOMParser fails unexpectedly
-            const temp = document.createElement('textarea');
-            temp.innerHTML = html;
-            return temp.value;
-        }
+        const temp = document.createElement('textarea');
+        temp.innerHTML = html;
+        return temp.value;
     }
 
     // --- Public API ---

@@ -1,38 +1,83 @@
 use std::sync::Arc;
 
 use crate::cleanser;
-use crate::error::Error::{AmbiguousFields, CommitDeckNotFound, InvalidNote, NoteNotFound, Unauthorized};
+use crate::error::Error::{
+    AmbiguousFields, CommitDeckNotFound, InvalidNote, NoteNotFound, Unauthorized,
+};
 use crate::error::NoteNotFoundContext;
-use crate::{database, note_manager, Return};
-use crate::user::User;
 use crate::media_reference_manager;
-
+use crate::note_history::{self, EventType};
+use crate::user::User;
+use crate::{database, note_manager, Return};
 
 pub async fn update_note_timestamp(
     tx: &tokio_postgres::Transaction<'_>,
     note_id: i64,
 ) -> Return<()> {
+    // Delegate to bulk implementation for single note
+    update_notes_timestamps(tx, &[note_id]).await
+}
+
+// Bulk version to reduce round trips when updating many notes (and their ancestor decks)
+pub async fn update_notes_timestamps(
+    tx: &tokio_postgres::Transaction<'_>,
+    note_ids: &[i64],
+) -> Return<()> {
+    if note_ids.is_empty() {
+        return Ok(());
+    }
+
+    // Update all ancestor decks (recursive) for all affected notes in one shot
     let query1 = "
-    WITH RECURSIVE tree AS (
-        SELECT id, last_update, parent FROM decks
-        WHERE id = (SELECT deck FROM notes WHERE id = $1)
-        UNION ALL
-        SELECT d.id, d.last_update, d.parent FROM decks d
-        JOIN tree t ON d.id = t.parent
-    )
-    UPDATE decks
-    SET last_update = NOW()
-    WHERE id IN (SELECT id FROM tree)";
+        WITH RECURSIVE target_notes AS (
+            SELECT UNNEST($1::bigint[]) AS nid
+        ), note_decks AS (
+            SELECT DISTINCT deck AS id
+            FROM notes n
+            JOIN target_notes t ON n.id = t.nid
+        ), tree AS (
+            SELECT id, parent FROM decks WHERE id IN (SELECT id FROM note_decks)
+            UNION ALL
+            SELECT d.id, d.parent FROM decks d
+            JOIN tree t ON d.id = t.parent
+        )
+        UPDATE decks
+        SET last_update = NOW()
+        WHERE id IN (SELECT id FROM tree)";
 
-    let query2 = "UPDATE notes SET last_update = NOW() WHERE id = $1";
+    let query2 = "UPDATE notes SET last_update = NOW() WHERE id = ANY($1)";
 
-    tx.query(query1, &[&note_id]).await?;
-    tx.query(query2, &[&note_id]).await?;
-
+    tx.query(query1, &[&note_ids]).await?;
+    tx.query(query2, &[&note_ids]).await?;
     Ok(())
 }
 
-pub async fn is_authorized(db_state: &Arc<database::AppState>,user: &User, deck: i64) -> Return<bool> {
+async fn derive_commit_id(
+    tx: &tokio_postgres::Transaction<'_>,
+    note_id: i64,
+) -> Return<Option<i32>> {
+    const QUERIES: [&str; 4] = [
+        "SELECT commit FROM fields WHERE note = $1 AND commit IS NOT NULL LIMIT 1",
+        "SELECT commit FROM tags WHERE note = $1 AND commit IS NOT NULL LIMIT 1",
+        "SELECT commit FROM note_move_suggestions WHERE note = $1 AND commit IS NOT NULL LIMIT 1",
+        "SELECT commit FROM card_deletion_suggestions WHERE note = $1 AND commit IS NOT NULL LIMIT 1",
+    ];
+
+    for query in QUERIES {
+        if let Some(row) = tx.query_opt(query, &[&note_id]).await? {
+            let commit_id: i32 = row.get(0);
+            return Ok(Some(commit_id));
+        }
+    }
+
+    Ok(None)
+}
+
+pub async fn is_authorized(
+    db_state: &Arc<database::AppState>,
+    user: &User,
+    deck: i64,
+) -> Return<bool> {
     let client = database::client(db_state).await?;
     let rows = client
         .query(
@@ -84,7 +129,11 @@ pub async fn is_authorized(db_state: &Arc<database::AppState>,user: &User, deck:
 }
 
 // Only used for unreviewed cards to prevent them from being added to the deck. Existing cards should use mark_note_deleted instead
-pub async fn delete_card(db_state: &Arc<database::AppState>,note_id: i64, user: User) -> Return<String> {
+pub async fn delete_card(
+    db_state: &Arc<database::AppState>,
+    note_id: i64,
+    user: User,
+) -> Return<String> {
     let client = database::client(db_state).await?;
 
     let q_guid = client
@@ -105,7 +154,7 @@ pub async fn delete_card(db_state: &Arc<database::AppState>,note_id: i64, user: 
     }
 
     client
-        .query("DELETE FROM notes CASCADE WHERE id = $1", &[&note_id])
+        .query("DELETE FROM notes WHERE id = $1", &[&note_id])
         .await?;
 
     // Clean up media references should be unnecessary since the card is deleted with cascade and we have a oreign key
@@ -114,20 +163,27 @@ pub async fn delete_card(db_state: &Arc<database::AppState>,note_id: i64, user: 
 }
 
 // If bulk is true, we skip a few steps that have already been handled by the caller
-pub async fn approve_card(db_state: &Arc<database::AppState>,note_id: i64, user: User, bulk: bool) -> Return<String> {
-    let mut client = database::client(db_state).await?;
-    let tx = client.transaction().await?;
-
+pub async fn approve_card(
+    tx: &tokio_postgres::Transaction<'_>,
+    db_state: &Arc<database::AppState>,
+    note_id: i64,
+    user: &User,
+    bulk: bool,
+) -> Return<String> {
     let q_guid = tx
-        .query("select deck from notes where id = $1", &[&note_id])
+        .query(
+            "select deck, reviewed from notes where id = $1",
+            &[&note_id],
+        )
         .await?;
     if q_guid.is_empty() {
         return Err(NoteNotFound(NoteNotFoundContext::ApproveCard));
     }
     let deck_id: i64 = q_guid[0].get(0);
+    let was_reviewed: bool = q_guid[0].get(1);
 
     if !bulk {
-        let access = is_authorized(db_state, &user, deck_id).await?;
+        let access = is_authorized(db_state, user, deck_id).await?;
         if !access {
             return Err(Unauthorized);
         }
@@ -142,7 +198,8 @@ pub async fn approve_card(db_state: &Arc<database::AppState>,note_id: i64, user:
                 WHERE note = $1
                 GROUP BY position
                 HAVING COUNT(*) > 1
-            )",&[&note_id],
+            )",
+            &[&note_id],
         )
         .await?;
     if unique_fields_row.is_empty() {
@@ -172,95 +229,270 @@ pub async fn approve_card(db_state: &Arc<database::AppState>,note_id: i64, user:
     )
     .await?;
 
-    if !bulk {
-        update_note_timestamp(&tx, note_id).await?;
-
-        // Update media references after approval
-        let state_clone = db_state.clone();
-        tokio::spawn(async move {
-            if let Err(e) = media_reference_manager::update_media_references_for_approved_note(&state_clone, note_id).await {
-                println!("Error updating media references: {e:?}");
-                // Continue anyway since the card has been approved
+    if !was_reviewed {
+        // Only emit baseline NoteCreated if the note has no prior events (fresh approval)
+        let prior = tx
+            .query(
+                "SELECT 1 FROM note_events WHERE note_id = $1 LIMIT 1",
+                &[&note_id],
+            )
+            .await?;
+        if prior.is_empty() {
+            let commit_id = derive_commit_id(tx, note_id).await?;
+            // Build snapshot of reviewed fields/tags after approval
+            let field_rows = tx.query(
+                "SELECT position, content FROM fields WHERE note = $1 AND reviewed = true ORDER BY position",
+                &[&note_id]
+            ).await?;
+            let mut fields_json = Vec::with_capacity(field_rows.len());
+            for fr in field_rows {
+                let pos: u32 = fr.get(0);
+                let content: String = fr.get(1);
+                fields_json.push(
+                    serde_json::json!({"position": pos, "content": cleanser::clean(&content)}),
+                );
             }
-        });
-
+            let tag_rows = tx.query(
+                "SELECT content FROM tags WHERE note = $1 AND reviewed = true AND action = true",
+                &[&note_id]
+            ).await?;
+            let mut tags_json = Vec::with_capacity(tag_rows.len());
+            for tr in tag_rows {
+                if let Some(c) = tr.get::<_, Option<String>>(0) {
+                    tags_json.push(cleanser::clean(&c));
+                }
+            }
+            let snapshot = serde_json::json!({
+                "reviewed": true,
+                "fields": fields_json,
+                "tags": tags_json
+            });
+            let _ = note_history::log_event(
+                tx,
+                note_id,
+                EventType::NoteCreated,
+                None,
+                Some(&snapshot),
+                Some(user.id()),
+                commit_id,
+                Some(true),
+            )
+            .await?;
+        }
     }
 
-    tx.commit().await?;
+    if !bulk {
+        // Collect timestamps to update: the note plus any subscribers
+        let mut to_bump: Vec<i64> = vec![note_id];
+        // Bump linked subscriber notes' timestamps if this note is a base for others (bubble to decks)
+        let subs = tx
+            .query(
+                "SELECT subscriber_note_id FROM note_inheritance WHERE base_note_id = $1",
+                &[&note_id],
+            )
+            .await?;
+        for r in &subs {
+            let sid: i64 = r.get(0);
+            to_bump.push(sid);
+        }
+        update_notes_timestamps(tx, &to_bump).await?;
+    } else {
+        // bulk path still needs to handle subscriber timestamp bump outside (caller responsibility)
+    }
 
     Ok(note_id.to_string())
 }
 
-pub async fn deny_note_move_request(db_state: &Arc<database::AppState>, move_id: i32) -> Return<String> {
-    let client = database::client(db_state).await?;
-
-    let rows = client
-        .query("SELECT note FROM note_move_suggestions WHERE id = $1", &[&move_id])
+pub async fn deny_note_move_request(
+    tx: &tokio_postgres::Transaction<'_>,
+    move_id: i32,
+    actor_user_id: i32,
+) -> Return<String> {
+    let rows = tx
+        .query(
+            "SELECT note, target_deck, commit FROM note_move_suggestions WHERE id = $1",
+            &[&move_id],
+        )
         .await?;
 
     if rows.is_empty() {
         return Err(NoteNotFound(NoteNotFoundContext::NoteMovalRequest));
     }
 
-    client
-        .query("DELETE FROM note_move_suggestions WHERE id = $1", &[&move_id])
-        .await?;
-
     let note_id: i64 = rows[0].get(0);
+    let target: i64 = rows[0].get(1);
+    let commit_id: Option<i32> = rows[0].get(2);
+    tx.query(
+        "DELETE FROM note_move_suggestions WHERE id = $1",
+        &[&move_id],
+    )
+    .await?;
+    let _ = note_history::log_event(
+        tx,
+        note_id,
+        EventType::SuggestionDenied,
+        Some(&serde_json::json!({"type":"move","target_deck": target})),
+        None,
+        Some(actor_user_id),
+        commit_id,
+        Some(false),
+    )
+    .await?;
     Ok(note_id.to_string())
 }
 
-pub async fn deny_tag_change(db_state: &Arc<database::AppState>,tag_id: i64) -> Return<String> {
-    let client = database::client(db_state).await?;
-
-    let rows = client
-        .query("SELECT note FROM tags WHERE id = $1", &[&tag_id])
+pub async fn deny_tag_change(
+    tx: &tokio_postgres::Transaction<'_>,
+    tag_id: i64,
+    actor_user_id: i32,
+) -> Return<String> {
+    let rows = tx
+        .query(
+            "SELECT note, content, action, commit FROM tags WHERE id = $1",
+            &[&tag_id],
+        )
         .await?;
 
     if rows.is_empty() {
         return Err(NoteNotFound(NoteNotFoundContext::TagDenied));
     }
+    let note_id: i64 = rows[0].get(0);
+    let content: Option<String> = rows[0].get(1);
+    let action: bool = rows[0].get(2); // addition if true
+    let commit_id: Option<i32> = rows[0].get(3);
 
-    client
-        .query("DELETE FROM tags WHERE id = $1", &[&tag_id])
+    tx.query("DELETE FROM tags WHERE id = $1", &[&tag_id])
         .await?;
 
-    let note_id: i64 = rows[0].get(0);
+    let old_json = content.map(|c| {
+        serde_json::json!({
+            "content": c,
+            "action": action,
+            "suggestion": true
+        })
+    });
+    let _ = note_history::log_event(
+        tx,
+        note_id,
+        EventType::TagChangeDenied,
+        old_json.as_ref(),
+        None,
+        Some(actor_user_id),
+        commit_id,
+        Some(false),
+    )
+    .await?;
+
     Ok(note_id.to_string())
 }
 
-pub async fn deny_field_change(db_state: &Arc<database::AppState>,field_id: i64, update_media_references: bool) -> Return<String> {
-    let client = database::client(db_state).await?;
-
-    let rows = client
-        .query("SELECT note FROM fields WHERE id = $1", &[&field_id])
+pub async fn deny_field_change(
+    tx: &tokio_postgres::Transaction<'_>,
+    field_id: i64,
+    actor_user_id: i32,
+) -> Return<String> {
+    // Load target field details
+    let row_opt = tx
+        .query_opt(
+            "SELECT note, position, reviewed, content, commit FROM fields WHERE id = $1",
+            &[&field_id],
+        )
         .await?;
 
-    if rows.is_empty() {
+    if row_opt.is_none() {
         return Err(NoteNotFound(NoteNotFoundContext::FieldDenied));
     }
 
-    client
-        .query("DELETE FROM fields WHERE id = $1", &[&field_id])
+    let row = row_opt.unwrap();
+    let note_id: i64 = row.get(0);
+    let position: u32 = row.get(1);
+    let reviewed: bool = row.get(2);
+    let denied_content: String = row.get(3);
+    let commit_id: Option<i32> = row.get(4);
+
+    // Fetch the current reviewed field content at the same position (if it exists)
+    let current_content_opt = tx
+        .query_opt(
+            "SELECT content FROM fields WHERE note = $1 AND position = $2 AND reviewed = true AND id <> $3",
+            &[&note_id, &position, &field_id],
+        )
+        .await?;
+    
+    let current_content = current_content_opt.map(|r| r.get::<_, String>(0));
+
+    // Determine whether the parent note is already reviewed
+    let note_reviewed: bool = tx
+        .query_one("SELECT reviewed FROM notes WHERE id = $1", &[&note_id])
+        .await?
+        .get(0);
+
+    // Never allow deletion of the reviewed base field (position 0)
+    if reviewed && position == 0 {
+        // Keep invariants: field 0 must remain non-empty and present
+        // Rollback implicit by dropping tx on error
+        return Err(InvalidNote);
+    }
+
+    // Perform the deletion (typically for unreviewed suggestions)
+    tx.execute("DELETE FROM fields WHERE id = $1", &[&field_id])
         .await?;
 
-    let note_id: i64 = rows[0].get(0);
+    if note_reviewed {
+        // For reviewed notes, enforce invariant: keep a non-empty reviewed field 0
+        let exists_pos0 = tx
+            .query_one(
+                "SELECT EXISTS(SELECT 1 FROM fields WHERE note = $1 AND position = 0 AND reviewed = true AND content <> '')",
+                &[&note_id],
+            )
+            .await?
+            .get::<_, bool>(0);
 
-    if update_media_references {    
-        let state_clone = db_state.clone();
-        tokio::spawn(async move {
-            if let Err(e) = media_reference_manager::update_media_references_note_state(&state_clone, note_id).await {
-                println!("Error updating media references (3): {e:?}");
-            }
-        });
+        if !exists_pos0 {
+            return Err(InvalidNote);
+        }
+    } else {
+        // For unreviewed notes, ensure we don't end up with zero fields at all
+        let remaining: i64 = tx
+            .query_one("SELECT COUNT(*) FROM fields WHERE note = $1", &[&note_id])
+            .await?
+            .get(0);
+        if remaining == 0 {
+            return Err(InvalidNote);
+        }
     }
+
+    // Log the denial with both current and denied content
+    let old_value = serde_json::json!({
+        "position": position,
+        "current_content": current_content.as_ref().map(|c| cleanser::clean(c)).unwrap_or_default(),
+        "denied_content": cleanser::clean(&denied_content),
+        "had_current": current_content.is_some()
+    });
+
+    let _ = note_history::log_event(
+        tx,
+        note_id,
+        EventType::FieldChangeDenied,
+        Some(&old_value),
+        None,
+        Some(actor_user_id),
+        commit_id,
+        Some(false),
+    )
+    .await?;
     Ok(note_id.to_string())
 }
 
-pub async fn approve_move_note_request_by_moveid(db_state: &Arc<database::AppState>, move_id: i32) -> Return<String> {
-    let client = database::client(db_state).await?;
-    let rows = client
-        .query("SELECT note, target_deck FROM note_move_suggestions WHERE id = $1", &[&move_id])
+pub async fn approve_move_note_request_by_moveid(
+    tx: &tokio_postgres::Transaction<'_>,
+    move_id: i32,
+    actor_user_id: i32,
+) -> Return<String> {
+    let rows = tx
+        .query(
+            "SELECT note, target_deck, commit FROM note_move_suggestions WHERE id = $1",
+            &[&move_id],
+        )
         .await?;
 
     if rows.is_empty() {
@@ -268,81 +500,277 @@ pub async fn approve_move_note_request_by_moveid(db_state: &Arc<database::AppSta
     }
     let note_id: i64 = rows[0].get(0);
     let target_id: i64 = rows[0].get(1);
+    let commit_id: Option<i32> = rows[0].get(2);
 
-    approve_move_note_request(db_state, note_id, target_id, true).await?;
+    approve_move_note_request(tx, note_id, target_id, true, commit_id, actor_user_id).await?;
 
     Ok(note_id.to_string())
 }
 
-pub async fn approve_move_note_request(db_state: &Arc<database::AppState>, note_id: i64, target_deck: i64, update_timestamp: bool) -> Return<String> {
-    let mut client = database::client(db_state).await?;
-    let tx = client.transaction().await?;
-
-    tx.execute("UPDATE notes SET deck = $1 WHERE id = $2", &[&target_deck, &note_id]).await?;
-    tx.execute("DELETE FROM note_move_suggestions WHERE note = $1 AND target_deck = $2", &[&note_id, &target_deck]).await?;
+pub async fn approve_move_note_request(
+    tx: &tokio_postgres::Transaction<'_>,
+    note_id: i64,
+    target_deck: i64,
+    update_timestamp: bool,
+    commit_id: Option<i32>,
+    actor_user_id: i32,
+) -> Return<String> {
+    // Capture old deck and get deck paths for both old and new
+    let old_deck_row = tx
+        .query_one("SELECT deck FROM notes WHERE id = $1", &[&note_id])
+        .await?;
+    let old_deck: i64 = old_deck_row.get(0);
+    
+    // Get deck names (consider paths instead?) for human-readable event logging
+    let old_deck_path_row = tx
+        .query_one("SELECT name FROM decks WHERE id = $1", &[&old_deck])
+        .await?;
+    let old_deck_path: String = old_deck_path_row.get(0);
+    
+    let new_deck_path_row = tx
+        .query_one("SELECT name FROM decks WHERE id = $1", &[&target_deck])
+        .await?;
+    let new_deck_path: String = new_deck_path_row.get(0);
+    
+    tx.execute(
+        "UPDATE notes SET deck = $1 WHERE id = $2",
+        &[&target_deck, &note_id],
+    )
+    .await?;
+    tx.execute(
+        "DELETE FROM note_move_suggestions WHERE note = $1 AND target_deck = $2",
+        &[&note_id, &target_deck],
+    )
+    .await?;
 
     if update_timestamp {
-        update_note_timestamp(&tx, note_id).await?;
+        update_notes_timestamps(tx, &[note_id]).await?;
     }
 
-    tx.commit().await?;
+    let _ = note_history::log_event(
+        tx,
+        note_id,
+        EventType::NoteMoved,
+        Some(&serde_json::json!({"from": old_deck_path})),
+        Some(&serde_json::json!({"to": new_deck_path})),
+        Some(actor_user_id),
+        commit_id,
+        Some(true),
+    )
+    .await?;
+
     Ok(note_id.to_string())
 }
 
+pub async fn approve_tag_change(
+    tx: &tokio_postgres::Transaction<'_>,
+    tag_id: i64,
+    update_timestamp: bool,
+    actor_user_id: i32,
+) -> Return<String> {
+    approve_tag_change_with_commit(tx, tag_id, update_timestamp, None, actor_user_id).await
+}
 
-pub async fn approve_tag_change(db_state: &Arc<database::AppState>,tag_id: i64, update_timestamp: bool) -> Return<String> {
-    let mut client = database::client(db_state).await?;
-    let tx = client.transaction().await?;
-
-    let rows = tx
-        .query("SELECT note, content FROM tags WHERE id = $1", &[&tag_id])
+pub async fn approve_tag_change_with_commit(
+    tx: &tokio_postgres::Transaction<'_>,
+    tag_id: i64,
+    update_timestamp: bool,
+    commit_id: Option<i32>,
+    actor_user_id: i32,
+) -> Return<String> {
+    // Fetch suggestion row
+    let row_opt = tx
+        .query_opt(
+            "SELECT note, content, action, commit FROM tags WHERE id = $1",
+            &[&tag_id],
+        )
         .await?;
-    
-    if rows.is_empty() {
+    if row_opt.is_none() {
         return Err(NoteNotFound(NoteNotFoundContext::TagApprove));
     }
-    let note_id: i64 = rows[0].get(0);
-    let content: String = rows[0].get(1);
-    
-    // Only approve new tags if they don't already exist to prevent duplicates
-    let existing_tag_check = tx.query(
-        "SELECT 1 FROM tags WHERE content = $1 AND note = $2 AND reviewed = true",
-        &[&content, &note_id],
+    let row = row_opt.unwrap();
+    let note_id: i64 = row.get(0);
+    let content: String = row.get(1);
+    let action: bool = row.get(2); // true = addition, false = removal
+    let suggestion_commit: Option<i32> = row.get(3);
+    let effective_commit_id = commit_id.or(suggestion_commit);
+
+    // Determine inheritance role of this note
+    let subscriber_inh = tx.query(
+        "SELECT base_note_id, removed_base_tags FROM note_inheritance WHERE subscriber_note_id = $1",
+        &[&note_id]
     ).await?;
-    
-    if !existing_tag_check.is_empty() { // Tag already exists, delete the new one
-        tx.execute(
-            "DELETE FROM tags WHERE id = $1 AND action = true",
-            &[&tag_id],
-        ).await?;
-    } else { // Tag doesn't exist, approve it
-        tx.execute(
-            "UPDATE tags SET reviewed = true WHERE id = $1 AND action = true",
-            &[&tag_id],
-        ).await?;
-    }
-    
-    let delete_query = "
-    WITH hit AS (
-        SELECT content, note 
-        FROM tags WHERE id = $1 AND action = false
-    )
-    DELETE FROM tags WHERE note in (select note from hit) and content in (select content from hit)";
-    
-    tx.execute(delete_query, &[&tag_id]).await?;
+    let is_subscriber = !subscriber_inh.is_empty();
+    let (base_note_id, removed_base_tags): (Option<i64>, Vec<String>) = if is_subscriber {
+        let b: i64 = subscriber_inh[0].get(0);
+        let arr: Vec<String> = subscriber_inh[0].get(1);
+        (Some(b), arr)
+    } else {
+        (None, vec![])
+    };
 
+    // Helper checks (only executed when relevant)
+    let mut base_has_tag = false;
+    if let Some(bid) = base_note_id {
+        // subscriber scenario
+        let res = tx.query(
+            "SELECT 1 FROM tags WHERE note = $1 AND content = $2 AND reviewed = true AND action = true LIMIT 1",
+            &[&bid, &content]
+        ).await?;
+        base_has_tag = !res.is_empty();
+    }
+
+    let existing_local_reviewed = tx.query(
+        "SELECT id FROM tags WHERE note = $1 AND content = $2 AND reviewed = true AND action = true",
+        &[&note_id, &content]
+    ).await?;
+    let has_local_reviewed = !existing_local_reviewed.is_empty();
+
+    if is_subscriber {
+        // Subscriber-specific logic
+        if !action {
+            // removal request
+            if has_local_reviewed {
+                // Remove the local tag(s)
+                tx.execute("DELETE FROM tags WHERE note = $1 AND content = $2 AND reviewed = true AND action = true", &[&note_id, &content]).await?;
+            }
+            if base_has_tag {
+                // hide base tag
+                tx.execute(
+                    "UPDATE note_inheritance SET removed_base_tags = CASE WHEN $2 = ANY(removed_base_tags) THEN removed_base_tags ELSE array_append(removed_base_tags, $2) END WHERE subscriber_note_id = $1",
+                    &[&note_id, &content]
+                ).await?;
+            } else if !has_local_reviewed { // stale removal suggestion (neither base nor local)
+                 // nothing to track
+            }
+            // Delete the removal suggestion row itself
+            tx.execute("DELETE FROM tags WHERE id = $1", &[&tag_id])
+                .await?;
+        } else {
+            // addition request
+            if base_has_tag {
+                // re-enable hidden base tag or duplicate of base
+                // Ensure it's not hidden anymore
+                tx.execute(
+                    "UPDATE note_inheritance SET removed_base_tags = array_remove(removed_base_tags, $2) WHERE subscriber_note_id = $1 AND $2 = ANY(removed_base_tags)",
+                    &[&note_id, &content]
+                ).await?;
+                // Drop the suggestion (no local duplicate wanted)
+                tx.execute("DELETE FROM tags WHERE id = $1", &[&tag_id])
+                    .await?;
+            } else {
+                // Base does not have tag
+                if has_local_reviewed {
+                    // duplicate addition -> discard suggestion
+                    tx.execute("DELETE FROM tags WHERE id = $1", &[&tag_id])
+                        .await?;
+                } else {
+                    // Promote suggestion to local tag
+                    tx.execute("UPDATE tags SET reviewed = true WHERE id = $1", &[&tag_id])
+                        .await?;
+                }
+                // Remove stale hidden marker if somehow present (base no longer has tag but array retained)
+                if removed_base_tags.iter().any(|t| t == &content) {
+                    tx.execute(
+                        "UPDATE note_inheritance SET removed_base_tags = array_remove(removed_base_tags, $2) WHERE subscriber_note_id = $1",
+                        &[&note_id, &content]
+                    ).await?;
+                }
+            }
+        }
+    } else {
+        // Base (or standalone) note logic
+        if action {
+            // approve addition on base or standalone
+            if has_local_reviewed {
+                // duplicate local already exists -> just delete suggestion
+                tx.execute("DELETE FROM tags WHERE id = $1", &[&tag_id])
+                    .await?;
+            } else {
+                tx.execute("UPDATE tags SET reviewed = true WHERE id = $1", &[&tag_id])
+                    .await?;
+            }
+        } else {
+            // removal on base or standalone
+            // Delete both the suggestion row and any existing reviewed tag rows of same content
+            tx.execute(
+                "WITH hit AS (SELECT content, note FROM tags WHERE id = $1 AND action = false) DELETE FROM tags WHERE (note, content) IN (SELECT note, content FROM hit)",
+                &[&tag_id]
+            ).await?;
+        }
+    }
+
+    // Update timestamp for the note itself if requested
+    let mut bump: Vec<i64> = Vec::new();
     if update_timestamp {
-        update_note_timestamp(&tx, note_id).await?;
+        bump.push(note_id);
     }
 
-    tx.commit().await?;
+    // Propagation for base note changes (both additions and removals) to subscribers
+    if !is_subscriber {
+        // Check if this note has subscribers
+        let subs = tx.query(
+            "SELECT subscriber_note_id, removed_base_tags FROM note_inheritance WHERE base_note_id = $1",
+            &[&note_id]
+        ).await?;
+        if !subs.is_empty() {
+            if action {
+                // base tag addition
+                for r in &subs {
+                    let sid: i64 = r.get(0);
+                    let rb: Vec<String> = r.get(1);
+                    // If subscriber is not hiding this tag, remove duplicate local copies
+                    if !rb.iter().any(|t| t == &content) {
+                        tx.execute(
+                            "DELETE FROM tags WHERE note = $1 AND content = $2 AND reviewed = true AND action = true",
+                            &[&sid, &content]
+                        ).await?;
+                    }
+                    bump.push(sid);
+                }
+            } else {
+                // base tag removal
+                // Clean removed_base_tags arrays and bump timestamps
+                tx.execute(
+                    "UPDATE note_inheritance SET removed_base_tags = array_remove(removed_base_tags, $2) WHERE base_note_id = $1 AND $2 = ANY(removed_base_tags)",
+                    &[&note_id, &content]
+                ).await?;
+                for r in &subs {
+                    let sid: i64 = r.get(0);
+                    bump.push(sid);
+                }
+            }
+        }
+    }
+
+    if !bump.is_empty() {
+        update_notes_timestamps(tx, &bump).await?;
+    }
+    // Basic event(s): we log one event representing the resolved suggestion outcome.
+    // For simplicity we just capture final intent rather than every branch nuance.
+    let _ = note_history::log_event(
+        tx,
+        note_id,
+        if action {
+            EventType::TagAdded
+        } else {
+            EventType::TagRemoved
+        },
+        None,
+        Some(&serde_json::json!({"content": content, "action": action, "reviewed": true })),
+        Some(actor_user_id),
+        effective_commit_id,
+        Some(true),
+    )
+    .await?;
     Ok(note_id.to_string())
 }
 
-pub async fn update_field_suggestion(db_state: &Arc<database::AppState>, field_id: i64, new_content_r: &str) -> Return<()> {
-    let mut client = database::client(db_state).await?;
-    let tx = client.transaction().await?;
-    
+pub async fn update_field_suggestion(
+    tx: &tokio_postgres::Transaction<'_>,
+    field_id: i64,
+    new_content_r: &str,
+) -> Return<()> {
     let rows = tx
         .query("SELECT content FROM fields WHERE id = $1", &[&field_id])
         .await?;
@@ -353,95 +781,241 @@ pub async fn update_field_suggestion(db_state: &Arc<database::AppState>, field_i
 
     let old_content_r: String = rows[0].get(0);
     let old_content = cleanser::clean(&old_content_r);
-    let new_content = cleanser::clean(new_content_r);
+    // Remove zero-width spaces from the frontend spaghetti fix
+    let cleaned_new_content_r = new_content_r.replace('\u{200B}', "");
+    let new_content = cleanser::clean(&cleaned_new_content_r);
     if !new_content.is_empty() && new_content != old_content {
-        tx.execute("UPDATE fields SET content = $1 WHERE id = $2 ", &[&new_content, &field_id]).await?;
+        tx.execute(
+            "UPDATE fields SET content = $1 WHERE id = $2 ",
+            &[&new_content, &field_id],
+        )
+        .await?;
     }
-
-    tx.commit().await?;
 
     Ok(())
 }
 
 pub async fn approve_field_change(
-    db_state: &Arc<database::AppState>,
+    tx: &tokio_postgres::Transaction<'_>,
     field_id: i64,
     update_timestamp: bool,
+    actor_user_id: i32,
 ) -> Return<String> {
-    let mut client = match database::client(db_state).await {
-        Ok(client) => client,
-        Err(e) => {
-            eprintln!("Error connecting to the database: {:?}", e);
-            return Err(e)
-        }
-    };
+    approve_field_change_with_commit(tx, field_id, update_timestamp, None, actor_user_id).await
+}
 
-    let tx = client.transaction().await?;
-
+pub async fn approve_field_change_with_commit(
+    tx: &tokio_postgres::Transaction<'_>,
+    field_id: i64,
+    update_timestamp: bool,
+    commit_id: Option<i32>,
+    actor_user_id: i32,
+) -> Return<String> {
     let field_info_row = tx
         .query_opt(
-            "SELECT note, content, position FROM fields WHERE id = $1",
+            "SELECT note, content, position, commit FROM fields WHERE id = $1",
             &[&field_id],
         )
         .await?;
 
-    let (note_id, field_content, field_position): (i64, String, u32) =
-        match field_info_row {
-            Some(row) => (row.get(0), row.get(1), row.get(2)),
-            None => {
-                eprintln!("Field with id {} not found", field_id);
-                return Err(NoteNotFound(NoteNotFoundContext::FieldApprove));
+    let (note_id, field_content, field_position, suggestion_commit): (
+        i64,
+        String,
+        u32,
+        Option<i32>,
+    ) = match field_info_row {
+        Some(row) => (row.get(0), row.get(1), row.get(2), row.get(3)),
+        None => {
+            eprintln!("Field with id {} not found", field_id);
+            return Err(NoteNotFound(NoteNotFoundContext::FieldApprove));
+        }
+    };
+
+    let effective_commit_id = commit_id.or(suggestion_commit);
+
+    // Enforce invariants around field 0 and empty content approvals
+    let is_empty = field_content.trim().is_empty();
+
+    if is_empty && field_position == 0 {
+        // Cannot approve an empty first field
+        return Err(InvalidNote);
+    }
+
+    // Determine note review state to tailor invariants for new vs reviewed notes
+    let note_reviewed: bool = tx
+        .query_one("SELECT reviewed FROM notes WHERE id = $1", &[&note_id])
+        .await?
+        .get(0);
+
+    // We'll capture old reviewed field (if any) before mutation for event logging
+    let prior_reviewed_same_pos = tx.query(
+        "SELECT id, content, reviewed FROM fields WHERE note = $1 AND position = $2 AND reviewed = true AND id <> $3",
+        &[&note_id, &field_position, &field_id]
+    ).await?;
+    let old_field_json = if prior_reviewed_same_pos.is_empty() {
+        None
+    } else {
+        let c: String = prior_reviewed_same_pos[0].get(1);
+        Some(serde_json::json!({
+            "position": field_position,
+            "content": cleanser::clean(&c),
+            "reviewed": true
+        }))
+    };
+
+    if is_empty {
+        // For non-zero positions, ensure field 0 remains present and non-empty
+        if note_reviewed {
+            let exists_pos0 = tx
+                .query_one(
+                    "SELECT EXISTS(SELECT 1 FROM fields WHERE note = $1 AND position = 0 AND reviewed = true AND content <> '')",
+                    &[&note_id],
+                )
+                .await?
+                .get::<_, bool>(0);
+            if !exists_pos0 {
+                return Err(InvalidNote);
             }
-        };
+        }
+        // Remove existing reviewed field(s) at that position and drop the empty suggestion
+        tx.execute(
+            "DELETE FROM fields
+             WHERE reviewed = true
+               AND note = $1
+               AND position = $2
+               AND id <> $3",
+            &[&note_id, &field_position, &field_id],
+        )
+        .await?;
 
-    tx.execute(
-        "DELETE FROM fields
-         WHERE reviewed = true
-           AND note = $1
-           AND position = $2
-           AND id <> $3",
-        &[&note_id, &field_position, &field_id],
-    )
-    .await?;
+        tx.execute("DELETE FROM fields WHERE id = $1", &[&field_id])
+            .await?;
 
-    if !field_content.is_empty() {
-        // Content is not empty, mark the field as reviewed.
+        // For unreviewed notes, ensure we didn't delete the last field row
+        if !note_reviewed {
+            let remaining: i64 = tx
+                .query_one("SELECT COUNT(*) FROM fields WHERE note = $1", &[&note_id])
+                .await?
+                .get(0);
+            if remaining == 0 {
+                return Err(InvalidNote);
+            }
+        }
+    } else {
+        // Non-empty: replace any reviewed at same position, then approve this one
+        tx.execute(
+            "DELETE FROM fields
+             WHERE reviewed = true
+               AND note = $1
+               AND position = $2
+               AND id <> $3",
+            &[&note_id, &field_position, &field_id],
+        )
+        .await?;
+
         tx.execute(
             "UPDATE fields SET reviewed = true WHERE id = $1",
             &[&field_id],
         )
         .await?;
-    } else {
-        // Content is empty, delete this field suggestion.
-        tx.execute("DELETE FROM fields WHERE id = $1", &[&field_id])
-            .await?;
     }
 
-    if update_timestamp {
-        match update_note_timestamp(&tx, note_id).await {
-            Ok(_) => {}
-            Err(e) => {
-                eprintln!("Error updating note timestamp for note_id {}: {:?}", note_id, e);
-            }
+    // Final invariant check before commit (only for reviewed notes): field 0 must exist, be reviewed and non-empty
+    if note_reviewed {
+        let pos0_ok = tx
+            .query_one(
+                "SELECT EXISTS(SELECT 1 FROM fields WHERE note = $1 AND position = 0 AND reviewed = true AND content <> '')",
+                &[&note_id],
+            )
+            .await?
+            .get::<_, bool>(0);
+
+        if !pos0_ok {
+            return Err(InvalidNote);
         }
     }
 
-    tx.commit().await?;
-
-    // The `update_timestamp` flag is used as a proxy to determine if this is a "manual" single update rather than part of a bulk operation
-    if update_timestamp {
-        let state_clone = db_state.clone();
-        tokio::spawn(async move {
-            if let Err(e) = media_reference_manager::update_media_references_note_state(&state_clone, note_id).await {
-                eprintln!("Error updating media references for note_id {}: {:?}", note_id, e);
-            }
+    // Decide event type & construct JSON payloads now that DB state changed
+    // Determine if this approval created, updated, or removed a field
+    // Removal path already executed when is_empty and we deleted the suggestion and any reviewed field
+    if is_empty {
+        // Emit FieldRemoved if there was a prior reviewed field at that position
+        if old_field_json.is_some() {
+            let _ = note_history::log_event(
+                tx,
+                note_id,
+                EventType::FieldRemoved,
+                old_field_json.as_ref(),
+                None,
+                Some(actor_user_id),
+                effective_commit_id,
+                Some(true),
+            )
+            .await?;
+        } else {
+            // Removing an unreviewed suggestion that had no prior reviewed field -> treat as SuggestionDenied (approved=false)
+            let _ = note_history::log_event(
+                tx,
+                note_id,
+                EventType::SuggestionDenied,
+                Some(&serde_json::json!({"type":"field","position": field_position,"reviewed": false})),
+                None,
+            Some(actor_user_id),
+                effective_commit_id,
+                Some(false),
+            ).await?;
+        }
+    } else {
+        let new_json = serde_json::json!({
+            "position": field_position,
+            "content": cleanser::clean(&field_content),
+            "reviewed": true
         });
+        let event_type = if old_field_json.is_none() {
+            EventType::FieldAdded
+        } else {
+            EventType::FieldUpdated
+        };
+        let _ = note_history::log_event(
+            tx,
+            note_id,
+            event_type,
+            old_field_json.as_ref(),
+            Some(&new_json),
+            Some(actor_user_id),
+            effective_commit_id,
+            Some(true),
+        )
+        .await?;
+    }
+
+    // Timestamp bumps (note + subscribers) collected then updated in bulk
+    let mut bump: Vec<i64> = Vec::new();
+    if update_timestamp {
+        bump.push(note_id);
+    }
+    let subs = tx
+        .query(
+            "SELECT subscriber_note_id FROM note_inheritance WHERE base_note_id = $1",
+            &[&note_id],
+        )
+        .await?;
+    for r in subs {
+        bump.push(r.get(0));
+    }
+    if !bump.is_empty() {
+        let _ = update_notes_timestamps(&tx, &bump).await;
     }
 
     Ok(note_id.to_string())
 }
 
-pub async fn merge_by_commit(db_state: &Arc<database::AppState>,commit_id: i32, approve: bool, user: User) -> Return<Option<i32>> {
+pub async fn merge_by_commit(
+    db_state: &Arc<database::AppState>,
+    commit_id: i32,
+    approve: bool,
+    user: User,
+) -> Return<Option<i32>> {
     let mut client = database::client(db_state).await?;
 
     let q_guid = client
@@ -472,6 +1046,17 @@ pub async fn merge_by_commit(db_state: &Arc<database::AppState>,commit_id: i32, 
         .map(|row| row.get::<_, i64>("id"))
         .collect::<Vec<i64>>();
 
+    // Map tag->note for deny path decisions
+    let tag_note_pairs = client
+        .query(
+            "SELECT id, note FROM tags WHERE commit = $1 AND reviewed = false",
+            &[&commit_id],
+        )
+        .await?
+        .into_iter()
+        .map(|row| (row.get::<_, i64>(0), row.get::<_, i64>(1)))
+        .collect::<Vec<(i64, i64)>>();
+
     let affected_fields = client
         .query(
             "
@@ -483,6 +1068,17 @@ pub async fn merge_by_commit(db_state: &Arc<database::AppState>,commit_id: i32, 
         .into_iter()
         .map(|row| row.get::<_, i64>("id"))
         .collect::<Vec<i64>>();
+
+    // Map field->note for deny path decisions
+    let field_note_pairs = client
+        .query(
+            "SELECT id, note FROM fields WHERE commit = $1 AND reviewed = false",
+            &[&commit_id],
+        )
+        .await?
+        .into_iter()
+        .map(|row| (row.get::<_, i64>(0), row.get::<_, i64>(1)))
+        .collect::<Vec<(i64, i64)>>();
 
     let affected_notes = client
         .query(
@@ -503,7 +1099,16 @@ pub async fn merge_by_commit(db_state: &Arc<database::AppState>,commit_id: i32, 
         )
         .await?;
 
-    let affected_note_ids = affected_notes.iter().map(|row| row.get(0)).collect::<Vec<i64>>();
+    let affected_note_ids = affected_notes
+        .iter()
+        .map(|row| row.get(0))
+        .collect::<Vec<i64>>();
+    use std::collections::HashSet;
+    let reviewed_notes: HashSet<i64> = affected_notes
+        .iter()
+        .filter(|row| row.get::<usize, bool>(1) == true)
+        .map(|row| row.get::<usize, i64>(0))
+        .collect();
 
     let deleted_notes = client
         .query(
@@ -519,98 +1124,88 @@ pub async fn merge_by_commit(db_state: &Arc<database::AppState>,commit_id: i32, 
 
     let moved_deck_suggestion = client
         .query(
-        "
+            "
             SELECT note, target_deck FROM note_move_suggestions WHERE commit = $1
         ",
-        &[&commit_id],
+            &[&commit_id],
         )
         .await?
         .into_iter()
         .map(|row| (row.get::<_, i64>("note"), row.get::<_, i64>("target_deck")))
         .collect::<Vec<(i64, i64)>>();
 
-
     // The query is very similar to the one /reviews uses
     let next_review_query = r"
-    WITH RECURSIVE accessible AS (
-        SELECT id FROM decks WHERE id IN (
-            SELECT deck FROM maintainers WHERE user_id = $1
+        WITH RECURSIVE accessible AS (
+            SELECT id FROM decks WHERE id IN (
+                SELECT deck FROM maintainers WHERE user_id = $1
+                UNION
+                SELECT id FROM decks WHERE owner = $1
+            )
             UNION
-            SELECT id FROM decks WHERE owner = $1
-        )
-        UNION
-        SELECT decks.id
-        FROM decks
-        INNER JOIN accessible ON decks.parent = accessible.id
-    ),
-    unreviewed_changes AS (
-        SELECT commit_id, rationale, timestamp, deck
-        FROM commits
-        WHERE EXISTS (
-            SELECT 1 FROM fields
-            WHERE fields.reviewed = false AND fields.commit = commits.commit_id
-        )
-        UNION
-        SELECT commit_id, rationale, timestamp, deck
-        FROM commits
-        WHERE EXISTS (
-            SELECT 1 FROM tags
-            WHERE tags.reviewed = false AND tags.commit = commits.commit_id
-        )
-        UNION
-        SELECT commit_id, rationale, timestamp, deck
-        FROM commits
-        WHERE EXISTS (
-            SELECT 1 FROM card_deletion_suggestions
-            WHERE card_deletion_suggestions.commit = commits.commit_id
-        )
-        UNION
-        SELECT commit_id, rationale, timestamp, deck
-        FROM commits
-        WHERE EXISTS (
-            SELECT 1 FROM note_move_suggestions
-            WHERE note_move_suggestions.commit = commits.commit_id
-        )
-    ),
-    indexed_unreviewed AS (
-        SELECT commit_id, ROW_NUMBER() OVER (ORDER BY timestamp) AS row_num
-        FROM unreviewed_changes
-        WHERE deck IN (SELECT id FROM accessible) OR (SELECT is_admin FROM users WHERE id = $1)
-    )
-    SELECT commit_id
-    FROM indexed_unreviewed
-    WHERE row_num = (
-        SELECT CASE
-            WHEN EXISTS (
-                SELECT 1
-                FROM indexed_unreviewed
-                WHERE row_num > (
-                    SELECT row_num
-                    FROM indexed_unreviewed
-                    WHERE commit_id = $2
-                )
-            ) THEN (
-                SELECT MIN(row_num)
-                FROM indexed_unreviewed
-                WHERE row_num > (
-                    SELECT row_num
-                    FROM indexed_unreviewed
-                    WHERE commit_id = $2
-                )
+            SELECT d.id
+            FROM decks d
+            INNER JOIN accessible a ON d.parent = a.id
+        ),
+        unreviewed_changes AS (
+            SELECT commit_id, rationale, timestamp, deck
+            FROM commits c
+            WHERE EXISTS (
+                SELECT 1 FROM fields f
+                WHERE f.reviewed = false AND f.commit = c.commit_id
             )
-            ELSE (
-                SELECT MAX(row_num)
-                FROM indexed_unreviewed
-                WHERE row_num < (
-                    SELECT row_num
-                    FROM indexed_unreviewed
-                    WHERE commit_id = $2
-                )
+            UNION
+            SELECT commit_id, rationale, timestamp, deck
+            FROM commits c
+            WHERE EXISTS (
+                SELECT 1 FROM tags t
+                WHERE t.reviewed = false AND t.commit = c.commit_id
             )
-        END
-    )
-    ORDER BY commit_id
-    LIMIT 1
+            UNION
+            SELECT commit_id, rationale, timestamp, deck
+            FROM commits c
+            WHERE EXISTS (
+                SELECT 1 FROM card_deletion_suggestions cds
+                WHERE cds.commit = c.commit_id
+            )
+            UNION
+            SELECT commit_id, rationale, timestamp, deck
+            FROM commits c
+            WHERE EXISTS (
+                SELECT 1 FROM note_move_suggestions nms
+                WHERE nms.commit = c.commit_id
+            )
+        ),
+        indexed_unreviewed AS (
+            SELECT commit_id, ROW_NUMBER() OVER (ORDER BY timestamp) AS row_num
+            FROM unreviewed_changes
+            WHERE deck IN (SELECT id FROM accessible)
+        )
+        SELECT commit_id
+        FROM indexed_unreviewed
+        WHERE row_num = (
+            SELECT CASE
+                WHEN EXISTS (
+                    SELECT 1
+                    FROM indexed_unreviewed o
+                    JOIN indexed_unreviewed cur ON cur.commit_id = $2
+                    WHERE o.row_num > cur.row_num
+                ) THEN (
+                    SELECT MIN(o.row_num)
+                    FROM indexed_unreviewed o
+                    JOIN indexed_unreviewed cur ON cur.commit_id = $2
+                    WHERE o.row_num > cur.row_num
+                )
+                ELSE (
+                    SELECT MAX(o.row_num)
+                    FROM indexed_unreviewed o
+                    JOIN indexed_unreviewed cur ON cur.commit_id = $2
+                    WHERE o.row_num < cur.row_num
+                )
+            END
+        )
+        ORDER BY commit_id
+        LIMIT 1
     ";
     let next_review = client
         .query(next_review_query, &[&user.id(), &commit_id])
@@ -618,80 +1213,153 @@ pub async fn merge_by_commit(db_state: &Arc<database::AppState>,commit_id: i32, 
 
     // Slightly less performant to do it in single queries than doing a bigger query here, but for readability and easier code maintenance, we keep it that way.
     // The performance difference is not relevant in this case
-    if approve {
-        for tag in affected_tags {
-            approve_tag_change(db_state, tag, false).await?;
-        }
-
-        for field in affected_fields {
-            approve_field_change(db_state, field, false).await?;
-        }
-
-        for note in deleted_notes {
-            note_manager::mark_note_deleted(db_state, note, user.clone(), true).await?;
-        }
-
-        for note in moved_deck_suggestion {
-            let note_id = note.0;
-            let target_deck = note.1;
-            approve_move_note_request(db_state, note_id, target_deck, false).await?;
-        }
-
-        let tx = client.transaction().await?;
-
-        for row in affected_notes {
-            let note_id: i64 = row.get(0);
-            let reviewed: bool = row.get(1);
-            if !reviewed {
-                approve_card(db_state, note_id, user.clone(), true).await?;
-            }
-            update_note_timestamp(&tx, note_id).await?;
-        }
-
-        tx.commit().await?;
-    } else {
-        for tag in affected_tags {
-            deny_tag_change(db_state, tag).await?;
-        }
-
-        for field in affected_fields {
-            deny_field_change(db_state, field, false).await?;
-        }
-        
-        let tx = client.transaction().await?;
-
-        for row in affected_notes {
-            let note_id: i64 = row.get(0);
-            let reviewed: bool = row.get(1);
-            if !reviewed {
-                tx.execute("DELETE FROM notes cascade WHERE id = $1", &[&note_id])
+    // Bulk processing in a single transaction; rollback on any error.
+    let tx = client.transaction().await?;
+    let tx_res: Return<()> = async {
+        if approve {
+            for tag in &affected_tags {
+                approve_tag_change_with_commit(&tx, *tag, false, Some(commit_id), user.id())
                     .await?;
-                // Should handle media reference automatically
+            }
+            for field in &affected_fields {
+                approve_field_change_with_commit(&tx, *field, false, Some(commit_id), user.id())
+                    .await?;
+            }
+            for note in &deleted_notes {
+                note_manager::mark_note_deleted(&tx, db_state, *note, user.clone(), true).await?;
+            }
+            for (note_id, target_deck) in &moved_deck_suggestion {
+                approve_move_note_request(
+                    &tx,
+                    *note_id,
+                    *target_deck,
+                    false,
+                    Some(commit_id),
+                    user.id(),
+                )
+                .await?;
+            }
+
+            // Collect note IDs to bump timestamps (notes + their subscribers)
+            let mut bump: Vec<i64> = Vec::new();
+            for row in &affected_notes {
+                let note_id: i64 = row.get(0);
+                let reviewed: bool = row.get(1);
+                if !reviewed {
+                    let _ = approve_card(&tx, db_state, note_id, &user, true).await?;
+                }
+                bump.push(note_id);
+            }
+            if !affected_note_ids.is_empty() {
+                let subs = tx.query(
+                    "SELECT subscriber_note_id FROM note_inheritance WHERE base_note_id = ANY($1)",
+                    &[&affected_note_ids]
+                ).await?;
+                for r in subs {
+                    bump.push(r.get(0));
+                }
+            }
+            if !bump.is_empty() {
+                update_notes_timestamps(&tx, &bump).await?;
+            }
+            // Commit approved effect events per affected reviewed note (after operations)
+            for nid in &affected_note_ids {
+                let _ = note_history::log_event(
+                    &tx,
+                    *nid,
+                    EventType::CommitApprovedEffect,
+                    Some(&serde_json::json!({"commit_state":"pending"})),
+                    Some(&serde_json::json!({"commit_state":"approved"})),
+                    Some(user.id()),
+                    Some(commit_id),
+                    Some(true),
+                )
+                .await?;
+            }
+        } else {
+            // Only deny individual suggestions for reviewed notes; unreviewed notes are removed in bulk below
+            for (tag_id, note_id) in &tag_note_pairs {
+                if reviewed_notes.contains(note_id) {
+                    let _ = deny_tag_change(&tx, *tag_id, user.id()).await?;
+                }
+            }
+            for (field_id, note_id) in &field_note_pairs {
+                if reviewed_notes.contains(note_id) {
+                    let _ = deny_field_change(&tx, *field_id, user.id()).await?;
+                }
+            }
+
+            // Remove unreviewed notes and any pending suggestions tied to them (cascade handles suggestions)
+            let unreviewed_note_ids: Vec<i64> = affected_notes
+                .iter()
+                .filter(|row| !row.get::<usize, bool>(1))
+                .map(|row| row.get::<usize, i64>(0))
+                .collect();
+            if !unreviewed_note_ids.is_empty() {
+                tx.execute(
+                    "DELETE FROM notes WHERE id = ANY($1)",
+                    &[&unreviewed_note_ids],
+                )
+                .await?;
+            }
+            // Clean up commit-level suggestions not tied to unreviewed notes, in batches
+            if !deleted_notes.is_empty() {
+                tx.execute(
+                    "DELETE FROM card_deletion_suggestions WHERE note = ANY($1)",
+                    &[&deleted_notes],
+                )
+                .await?;
+            }
+            if !moved_deck_suggestion.is_empty() {
+                let move_notes: Vec<i64> = moved_deck_suggestion.iter().map(|(n, _)| *n).collect();
+                let move_targets: Vec<i64> =
+                    moved_deck_suggestion.iter().map(|(_, d)| *d).collect();
+                tx.execute(
+                    "DELETE FROM note_move_suggestions nms
+                     USING unnest($1::bigint[], $2::bigint[]) AS t(note_id, target_deck)
+                     WHERE nms.note = t.note_id AND nms.target_deck = t.target_deck",
+                    &[&move_notes, &move_targets],
+                )
+                .await?;
+            }
+            // Denial commit events
+            for nid in &affected_note_ids {
+                let _ = note_history::log_event(
+                    &tx,
+                    *nid,
+                    EventType::CommitDeniedEffect,
+                    Some(&serde_json::json!({"commit_state":"pending"})),
+                    Some(&serde_json::json!({"commit_state":"denied"})),
+                    Some(user.id()),
+                    Some(commit_id),
+                    Some(false),
+                )
+                .await?;
             }
         }
+        Ok(())
+    }
+    .await;
 
-        for note_id in deleted_notes {
-            tx.execute(
-                "DELETE FROM card_deletion_suggestions WHERE note = $1",
-                &[&note_id],
-            )
-            .await?;
+    match tx_res {
+        Ok(()) => {
+            tx.commit().await?;
         }
-
-        for note in moved_deck_suggestion {
-            let note_id = note.0;
-            let target_deck = note.1;
-            tx.execute("DELETE FROM note_move_suggestions WHERE note = $1 AND target_deck = $2", &[&note_id, &target_deck])
-            .await?;
+        Err(e) => {
+            // Explicit rollback for clarity; drop would also rollback
+            let _ = tx.rollback().await;
+            return Err(e);
         }
-
-
-        tx.commit().await?;
     }
 
     let state_clone = db_state.clone();
     tokio::spawn(async move {
-        if let Err(e) = media_reference_manager::update_media_references_for_commit(&state_clone, &affected_note_ids).await {
+        if let Err(e) = media_reference_manager::update_media_references_for_commit(
+            &state_clone,
+            &affected_note_ids,
+        )
+        .await
+        {
             println!("Error updating media references (4) for commit: {e:?}");
         }
     });

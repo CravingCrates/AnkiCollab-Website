@@ -1,24 +1,17 @@
 use argon2::{
-    password_hash::{
-        rand_core::OsRng,
-        PasswordHash, PasswordHasher, PasswordVerifier, SaltString
-    },
-    Argon2
+    password_hash::{rand_core::OsRng, PasswordHash, PasswordHasher, PasswordVerifier, SaltString},
+    Argon2,
 };
 
 use axum::http::request::Parts;
 
 use axum::extract::{FromRequestParts, OptionalFromRequestParts};
-use axum_extra::{
-    extract::cookie::CookieJar,
-};
+use axum_extra::extract::cookie::CookieJar;
 
-use cookie::{
-    Cookie as CookieBuilder,
-    SameSite
-};
+use cookie::{Cookie as CookieBuilder, SameSite};
 use jsonwebtoken::{decode, encode, DecodingKey, EncodingKey, Header, Validation};
 use serde::{Deserialize, Serialize};
+use std::net::IpAddr;
 use std::sync::Arc;
 use time::{Duration, OffsetDateTime};
 use tokio_postgres::Client;
@@ -36,22 +29,28 @@ pub struct User {
 }
 
 impl User {
-    #[must_use] pub const fn id(&self) -> i32 { self.id }
-    #[must_use] pub fn username(&self) -> String { self.username.clone() }
+    #[must_use]
+    pub const fn id(&self) -> i32 {
+        self.id
+    }
+    #[must_use]
+    pub fn username(&self) -> String {
+        self.username.clone()
+    }
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Claims {
-    sub: i32,          // user id
-    exp: i64,          // expiration time
-    iat: i64,          // issued at
+    sub: i32, // user id
+    exp: i64, // expiration time
+    iat: i64, // issued at
 }
 
 #[derive(Debug, Deserialize)]
 pub struct Credentials {
     pub username: String,
     pub password: String,
-    pub cookie: Option<String>
+    pub cookie: Option<String>,
 }
 impl Clone for Credentials {
     fn clone(&self) -> Self {
@@ -70,13 +69,10 @@ pub struct Auth {
 }
 
 impl Auth {
-    #[must_use] pub const fn new(
-        db: Arc<Client>, 
-        jwt_secret: String,
-        cookie_secure: bool,
-    ) -> Self {
-        Self { 
-            db, 
+    #[must_use]
+    pub const fn new(db: Arc<Client>, jwt_secret: String, cookie_secure: bool) -> Self {
+        Self {
+            db,
             jwt_secret,
             cookie_secure,
         }
@@ -86,7 +82,7 @@ impl Auth {
         if user_id == 0 {
             return Err(AuthError::InvalidCredentials);
         }
-        
+
         let row = self
             .db
             .query_one(
@@ -102,8 +98,8 @@ impl Auth {
             is_admin: row.get(2),
         })
     }
-    
-    pub async fn signup(&self, creds: Credentials) -> Result<User, AuthError> {
+
+    pub async fn signup(&self, creds: Credentials, ip: IpAddr) -> Result<User, AuthError> {
         // Normalize username to lowercase for case-insensitive comparison
         let normalized_username = creds.username.trim().to_lowercase();
 
@@ -111,7 +107,11 @@ impl Auth {
             return Err(AuthError::InvalidCredentials);
         }
 
-        if !normalized_username.chars().all(|c| c.is_alphanumeric() || c == '_' || c == '-') || normalized_username.len() > 30 {
+        if !normalized_username
+            .chars()
+            .all(|c| c.is_alphanumeric() || c == '_' || c == '-')
+            || normalized_username.len() > 30
+        {
             return Err(AuthError::InvalidCredentials);
         }
 
@@ -143,10 +143,10 @@ impl Auth {
         let row = self
             .db
             .query_one(
-                "INSERT INTO users (username, password) 
-                 VALUES ($1, $2) 
-                 RETURNING id, username",
-                &[&normalized_username, &password_hash],
+                "INSERT INTO users (username, password, signup_ip) 
+         VALUES ($1, $2, $3::INET) 
+         RETURNING id, username",
+                &[&normalized_username, &password_hash, &ip],
             )
             .await?;
 
@@ -174,7 +174,7 @@ impl Auth {
         Ok(())
     }
 
-    pub async fn login(&self, creds: Credentials) -> Result<String, AuthError> {
+    pub async fn login(&self, creds: Credentials, ip: IpAddr) -> Result<String, AuthError> {
         let normalized_username = creds.username.to_lowercase();
         // Find user
         let row = self
@@ -183,7 +183,7 @@ impl Auth {
                 "SELECT id, password 
                  FROM users 
                  WHERE username = $1",
-                &[&normalized_username]
+                &[&normalized_username],
             )
             .await?
             .ok_or(AuthError::InvalidCredentials)?;
@@ -215,24 +215,32 @@ impl Auth {
             &EncodingKey::from_secret(self.jwt_secret.as_bytes()),
         )?;
 
+        // Insert login log (best-effort)
+        let _ = self
+            .db
+            .execute(
+                "INSERT INTO login_logs (user_id, ip_address) VALUES ($1, $2::INET)",
+                &[&user_id, &ip],
+            )
+            .await;
+
         if creds.cookie.unwrap_or_default() == "on" {
             let cookie = CookieBuilder::build((AUTH_COOKIE_NAME, token))
-            .path("/")
-            .secure(self.cookie_secure)
-            .http_only(true)
-            .same_site(SameSite::Lax)
-            .max_age(time::Duration::new(COOKIE_MAX_AGE, 0))
-            .to_string();
+                .path("/")
+                .secure(self.cookie_secure)
+                .http_only(true)
+                .same_site(SameSite::Lax)
+                .max_age(time::Duration::new(COOKIE_MAX_AGE, 0))
+                .to_string();
 
             Ok(cookie)
-        }
-        else {
+        } else {
             let cookie = CookieBuilder::build((AUTH_COOKIE_NAME, token))
-            .path("/")
-            .secure(self.cookie_secure)
-            .http_only(true)
-            .same_site(SameSite::Lax)
-            .to_string();
+                .path("/")
+                .secure(self.cookie_secure)
+                .http_only(true)
+                .same_site(SameSite::Lax)
+                .to_string();
 
             Ok(cookie)
         }
@@ -280,7 +288,8 @@ impl User {
             .get::<Arc<Auth>>()
             .ok_or(AuthError::InternalError)?;
 
-        let user_id = auth.verify_token(auth_cookie.value())
+        let user_id = auth
+            .verify_token(auth_cookie.value())
             .map_err(|_| AuthError::InvalidToken)?;
 
         // Retrieve the user from the database.
@@ -295,7 +304,7 @@ where
     S: Send + Sync,
 {
     type Rejection = AuthError;
-    
+
     async fn from_request_parts(parts: &mut Parts, state: &S) -> Result<Self, Self::Rejection> {
         Self::extract_user(parts, state).await
     }
@@ -307,7 +316,10 @@ where
 {
     type Rejection = AuthError;
 
-    async fn from_request_parts(parts: &mut Parts, state: &S) -> Result<Option<Self>, Self::Rejection> {
+    async fn from_request_parts(
+        parts: &mut Parts,
+        state: &S,
+    ) -> Result<Option<Self>, Self::Rejection> {
         match Self::extract_user(parts, state).await {
             Ok(user) => Ok(Some(user)),
             Err(_e) => Ok(None),

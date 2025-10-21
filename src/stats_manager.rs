@@ -4,8 +4,9 @@ use crate::database;
 use crate::structs::{DeckBaseStatsInfo, DeckStatsInfo, NoteStatsInfo};
 use async_recursion::async_recursion;
 
-pub async fn update_stats(db_state: &Arc<database::AppState>, ) -> Result<(), Box<dyn std::error::Error>> {
-
+pub async fn update_stats(
+    db_state: &Arc<database::AppState>,
+) -> Result<(), Box<dyn std::error::Error>> {
     // Refresh the note calculated_stats
     calculate_note_stats(db_state).await?;
 
@@ -15,21 +16,26 @@ pub async fn update_stats(db_state: &Arc<database::AppState>, ) -> Result<(), Bo
     Ok(())
 }
 
-pub async fn calculate_note_stats(db_state: &Arc<database::AppState>, ) -> Result<(), Box<dyn std::error::Error>> {
+pub async fn calculate_note_stats(
+    db_state: &Arc<database::AppState>,
+) -> Result<(), Box<dyn std::error::Error>> {
     let client = database::client(db_state).await?;
     let query = "
         INSERT INTO calculated_stats (note_id, sample_size, retention, lapses, reps)
-        SELECT 
+        SELECT
             ns.note_id,
             COUNT(DISTINCT ns.user_hash) as sample_size,
             ROUND(AVG(ns.retention), 1) as retention,
             ROUND(AVG(ns.lapses), 1) as lapses,
             ROUND(AVG(ns.reps), 1) as reps
-        FROM note_stats ns
-        WHERE ns.note_id IN (SELECT id FROM notes)
-        GROUP BY ns.note_id
+        FROM
+            note_stats ns
+        INNER JOIN
+            notes n ON ns.note_id = n.id AND NOT n.deleted
+        GROUP BY
+            ns.note_id
         ON CONFLICT (note_id) DO UPDATE
-        SET 
+        SET
             sample_size = EXCLUDED.sample_size,
             retention = EXCLUDED.retention,
             lapses = EXCLUDED.lapses,
@@ -42,7 +48,7 @@ pub async fn calculate_note_stats(db_state: &Arc<database::AppState>, ) -> Resul
         SET notes_with_stats_count = (
             SELECT COUNT(*)
             FROM notes n JOIN calculated_stats cs ON n.id = cs.note_id
-            WHERE n.deck = decks.id
+            WHERE n.deck = decks.id AND NOT n.deleted
         )
         WHERE id IN (
             SELECT deck
@@ -57,7 +63,9 @@ pub async fn calculate_note_stats(db_state: &Arc<database::AppState>, ) -> Resul
     Ok(())
 }
 
-pub async fn get_leaf_decks(db_state: &Arc<database::AppState>, ) -> Result<Vec<i64>, Box<dyn std::error::Error>> {
+pub async fn get_leaf_decks(
+    db_state: &Arc<database::AppState>,
+) -> Result<Vec<i64>, Box<dyn std::error::Error>> {
     let client = database::client(db_state).await?;
     let query = "
         WITH RECURSIVE cte AS (
@@ -78,7 +86,10 @@ pub async fn get_leaf_decks(db_state: &Arc<database::AppState>, ) -> Result<Vec<
 }
 
 #[async_recursion]
-pub async fn calculate_average_retention(db_state: &Arc<database::AppState>, deck: i64) -> Result<Option<f32>, Box<dyn std::error::Error>> {
+pub async fn calculate_average_retention(
+    db_state: &Arc<database::AppState>,
+    deck: i64,
+) -> Result<Option<f32>, Box<dyn std::error::Error>> {
     let client = database::client(db_state).await?;
     let query = "
         WITH notes_with_stats AS (
@@ -114,7 +125,10 @@ pub async fn calculate_average_retention(db_state: &Arc<database::AppState>, dec
 }
 
 #[async_recursion]
-pub async fn update_deck_and_parent_retention(db_state: &Arc<database::AppState>, deck: i64) -> Result<(), Box<dyn std::error::Error>> {
+pub async fn update_deck_and_parent_retention(
+    db_state: &Arc<database::AppState>,
+    deck: i64,
+) -> Result<(), Box<dyn std::error::Error>> {
     let client = database::client(db_state).await?;
     // Get the note count for the current deck and its subdecks
     let update_note_count_query = "
@@ -126,7 +140,7 @@ pub async fn update_deck_and_parent_retention(db_state: &Arc<database::AppState>
         ) + (
             SELECT COUNT(*)
             FROM notes n JOIN calculated_stats cs ON n.id = cs.note_id
-            WHERE n.deck = $1
+            WHERE n.deck = $1 AND NOT n.deleted
         )
         WHERE id = $1
     ";
@@ -136,7 +150,7 @@ pub async fn update_deck_and_parent_retention(db_state: &Arc<database::AppState>
     if let Some(retention) = retention {
         let parent_query = "SELECT parent FROM decks WHERE id = $1";
         let rows = client.query(parent_query, &[&deck]).await?;
-        
+
         let query = "UPDATE decks SET retention = $2 WHERE id = $1";
         client.execute(query, &[&deck, &retention]).await?;
 
@@ -148,7 +162,9 @@ pub async fn update_deck_and_parent_retention(db_state: &Arc<database::AppState>
     Ok(())
 }
 
-pub async fn update_all_decks(db_state: &Arc<database::AppState>, ) -> Result<(), Box<dyn std::error::Error>> {
+pub async fn update_all_decks(
+    db_state: &Arc<database::AppState>,
+) -> Result<(), Box<dyn std::error::Error>> {
     let leaf_decks = get_leaf_decks(db_state).await?;
 
     for deck in leaf_decks {
@@ -158,7 +174,10 @@ pub async fn update_all_decks(db_state: &Arc<database::AppState>, ) -> Result<()
     Ok(())
 }
 
-pub async fn get_base_deck_info(db_state: &Arc<database::AppState>, deck_hash: &String) -> Result<DeckBaseStatsInfo, Box<dyn std::error::Error>> {
+pub async fn get_base_deck_info(
+    db_state: &Arc<database::AppState>,
+    deck_hash: &String,
+) -> Result<DeckBaseStatsInfo, Box<dyn std::error::Error>> {
     let client = database::client(db_state).await?;
 
     // Query to get note_count and retention_avg
@@ -171,7 +190,10 @@ pub async fn get_base_deck_info(db_state: &Arc<database::AppState>, deck_hash: &
     let (note_count, retention_avg) = if let Some(row) = rows.first() {
         (row.get(0), row.get(1))
     } else {
-        return Err(Box::new(std::io::Error::new(std::io::ErrorKind::Other, "No deck found with the given hash")));
+        return Err(Box::new(std::io::Error::new(
+            std::io::ErrorKind::Other,
+            "No deck found with the given hash",
+        )));
     };
 
     // Query to get lapses_avg and reps_avg
@@ -186,20 +208,31 @@ pub async fn get_base_deck_info(db_state: &Arc<database::AppState>, deck_hash: &
         )
         SELECT COALESCE(AVG(cs.lapses), 0), COALESCE(AVG(cs.reps), 0)
         FROM cte
-        JOIN notes n ON cte.id = n.deck
+        JOIN notes n ON cte.id = n.deck AND NOT n.deleted
         JOIN calculated_stats cs ON n.id = cs.note_id
     ";
     let rows = client.query(query2, &[&deck_hash]).await?;
     let (lapses_avg, reps_avg) = if let Some(row) = rows.first() {
         (row.get(0), row.get(1))
     } else {
-        return Err(Box::new(std::io::Error::new(std::io::ErrorKind::Other, "No calculated stats found for the given deck")));
+        return Err(Box::new(std::io::Error::new(
+            std::io::ErrorKind::Other,
+            "No calculated stats found for the given deck",
+        )));
     };
 
-    Ok(DeckBaseStatsInfo { note_count, lapses_avg, reps_avg, retention_avg })
+    Ok(DeckBaseStatsInfo {
+        note_count,
+        lapses_avg,
+        reps_avg,
+        retention_avg,
+    })
 }
 
-pub async fn get_deck_stat_info(db_state: &Arc<database::AppState>, deck_hash: &String) -> Result<Vec<DeckStatsInfo>, Box<dyn std::error::Error>> {
+pub async fn get_deck_stat_info(
+    db_state: &Arc<database::AppState>,
+    deck_hash: &String,
+) -> Result<Vec<DeckStatsInfo>, Box<dyn std::error::Error>> {
     let client = database::client(db_state).await?;
     // Get all the stat infos on the deck and (recursively) all subdecks
     let query = "
@@ -216,21 +249,27 @@ pub async fn get_deck_stat_info(db_state: &Arc<database::AppState>, deck_hash: &
     ";
     let rows = client.query(query, &[&deck_hash]).await?;
 
-    let res = rows.into_iter().map(|row| {
-        let hash: String = row.get(1);
-        let path: String = row.get(3);
-        let retention: f32 = row.get(4);
-        DeckStatsInfo {
-            hash,
-            path,
-            retention,
-        }
-    }).collect::<Vec<DeckStatsInfo>>();
+    let res = rows
+        .into_iter()
+        .map(|row| {
+            let hash: String = row.get(1);
+            let path: String = row.get(3);
+            let retention: f32 = row.get(4);
+            DeckStatsInfo {
+                hash,
+                path,
+                retention,
+            }
+        })
+        .collect::<Vec<DeckStatsInfo>>();
 
     Ok(res)
 }
 
-pub async fn get_worst_notes_info(db_state: &Arc<database::AppState>, deck_hash: &String) -> Result<Vec<NoteStatsInfo>, Box<dyn std::error::Error>> {
+pub async fn get_worst_notes_info(
+    db_state: &Arc<database::AppState>,
+    deck_hash: &String,
+) -> Result<Vec<NoteStatsInfo>, Box<dyn std::error::Error>> {
     let client = database::client(db_state).await?;
     let query = "
         WITH RECURSIVE cte AS (
@@ -244,7 +283,7 @@ pub async fn get_worst_notes_info(db_state: &Arc<database::AppState>, deck_hash:
             SELECT n.id, cs.lapses, cs.reps, cs.retention, cs.sample_size
             FROM notes n 
             JOIN calculated_stats cs ON n.id = cs.note_id
-            WHERE n.deck IN (SELECT id FROM cte)
+            WHERE n.deck IN (SELECT id FROM cte) and NOT n.deleted
             ORDER BY cs.retention ASC, cs.lapses DESC
             LIMIT 100
         )
@@ -255,21 +294,25 @@ pub async fn get_worst_notes_info(db_state: &Arc<database::AppState>, deck_hash:
     ";
     let rows = client.query(query, &[&deck_hash]).await?;
 
-    let res = rows.into_iter().map(|row| {
-        NoteStatsInfo {
+    let res = rows
+        .into_iter()
+        .map(|row| NoteStatsInfo {
             id: row.get(0),
             fields: row.get::<usize, Option<String>>(1).unwrap_or_default(),
             lapses: row.get(2),
             reps: row.get(3),
             retention: row.get(4),
             sample_size: row.get(5),
-        }
-    }).collect::<Vec<NoteStatsInfo>>();
+        })
+        .collect::<Vec<NoteStatsInfo>>();
 
     Ok(res)
 }
 
-pub async fn toggle_stats(db_state: &Arc<database::AppState>, deck_id: i64) -> Result<(), Box<dyn std::error::Error>> {
+pub async fn toggle_stats(
+    db_state: &Arc<database::AppState>,
+    deck_id: i64,
+) -> Result<(), Box<dyn std::error::Error>> {
     let client = database::client(db_state).await?;
     let query = "
         UPDATE decks

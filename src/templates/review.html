@@ -1,249 +1,531 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
+<head>
     {% include "header_template.html" %}
-    <script src="/static/plugins/jquery/jquery.min.js"></script>
+    <title>Review Note</title>
+    
+    <!-- Custom Stylesheet -->
+    <link href="/static/plugins/trumbowyg/ui/trumbowyg.css" rel="stylesheet">
+    <link href="/static/plugins/trumbowyg/plugins/colors/ui/trumbowyg.colors.css" rel="stylesheet">
     <link href="/static/css/commit_styling.css" rel="stylesheet">
+    <script src="/static/plugins/jquery/jquery.min.js"></script>
+    <style>
+        .content-comparison {
+            gap: 30px;
+        }
+    </style>
     <script>
-        // Global namespace for our app
         window.HtmlDiffUtils = {};
         window.ImageHandler = {};
         window.EditorControls = {};
         window.ApiService = {};
-        window.SharedUI = {};
     </script>
     <script src="/static/js/html_diff_utils.js"></script>
     <script src="/static/js/image_handling.js"></script>
     <script src="/static/js/editor_controls.js"></script>
     <script src="/static/js/api_service.js"></script>
     <script src="/static/js/shared_ui.js"></script>
-  </head>
-  {% include "layout_header.html" %}
-        <!-- End Top layout-->
+</head>
+{% include "layout_header.html" %}
 
-        <!-- row -->
+<body>
+    <div class="main-container">
         <div class="container-fluid">
-            <div class="card">
-                <div class="card-body">
-                    <div class="text-center mb-3">
-                        <h1 class="card-title">Review Note</h1>
-                        <p class="text-muted">Last Update: {{ note.last_update }}</p>
-                        <p><strong>Current Deck:</strong> {{ note.deck }}</p>
-                        <span
-                          class="label label-pill {% if note.reviewed and not note.delete_req %}label-info {% elif note.delete_req %}label-danger {% else %}label-success {% endif %}px-4 py-2"
-                        >
-                          {% if note.reviewed and not note.delete_req %}Published
-                          {% elif note.delete_req %}Removal Requested
-                          {% else %}New Card (Unpublished)
-                          {% endif %}
-                        </span>
-                      </div>
-                      <div class="text-right">
-                        {% if access and note.reviewed == false %}
-                        <a href="/AcceptNote/{{note.id}}" class="btn mb-1 btn-sm btn-success" title="Publish New Note">
-                            <i class="fa fa-check"></i> Publish
-                        </a>
-                        <a href="/DeleteNote/{{note.id}}" class="btn mb-1 btn-sm btn-danger" title="Delete Unpublished Note">
-                            <i class="fa fa-trash"></i> Delete
-                        </a>
-                        {% elif access and note.delete_req %}
-                        <a href="/AcceptNoteRemoval/{{note.id}}" class="btn mb-1 btn-sm btn-danger" title="Confirm Note Deletion">
-                            <i class="fa fa-trash"></i> Delete Note
-                        </a>
-                        <a href="/DenyNoteRemoval/{{note.id}}" class="btn mb-1 btn-sm btn-warning" title="Cancel Removal Request">
-                            <i class="fa fa-undo"></i> Keep Note
-                        </a>
-                        {% endif %}
-                      </div>
+            
+            {% if note.is_inherited %}
+            <div class="inherited-alert">
+                <i class="fa fa-link" aria-hidden="true"></i>
+                <div>
+                    <strong>Inherited Content:</strong> This note inherits content from a base note. Protected fields remain local. Tag removals are tracked per-subscriber.
                 </div>
             </div>
-          <div class="card note-context" id="{{ note.id }}" data-context-type="note">
-            <div class="card-body">
-              <div class="row">
-                <div class="col-md-6">
-                  {% if note.reviewed_fields %}
-                    <div>
-                      <h4 class="text-center text-muted mb-3">Currently Published Content</h4>
-                      <hr>
-                      {% for field in note.reviewed_fields %}
-                        <div class="media media-reply mb-4">
-                          <div class="media-body">
-                              <h5 class="mb-2">{{ note.note_model_fields[field.position] }}</h5>
-                              <div class="note-content-display current-content"
-                                   data-field-id="{{field.id}}" {# Assuming reviewed fields have IDs #}
-                                   data-content="{{ field.content | escape }}">
-                                  <!-- Content populated by JS -->
-                              </div>
-                          </div>
-                        </div>
-                      {% endfor %}
-                    </div>
-                  {% else %}
-                    <p class="text-muted text-center">No published fields.</p>
-                  {% endif %}
-                  {% if note.reviewed_tags %}
-                    <hr />
-                    <div>
-                      <div class="mb-2">
-                        <h4>Current Tags:</h4>
-                        {% if note.reviewed_tags|length > 3 %}
-                          <button
-                            class="btn mb-1 btn-flat btn-info btn-sm"
-                            onclick="toggleTags(this)"
-                          >
-                              +{{note.reviewed_tags|length - 3}} more
-                          </button>
-                        {% endif %}
-                      </div>
-                      <div class="note_tags_container mb-3">
-                        {% for tag in note.reviewed_tags|slice(end=3) %}
-                        <span class="badge badge-light mr-1 mb-1">{{tag.content}}</span>
-                        {% endfor %} {% if note.reviewed_tags|length > 3 %}
-                        <div id="collapsedTags" style="display: none">
-                          {% for tag in note.reviewed_tags|slice(start=3) %}
-                          <span class="badge badge-light mr-1 mb-1">{{tag.content}}</span>
-                          {% endfor %}
-                        </div>
-                        {% endif %}
-                      </div>
-                    </div>
-                  {% else %}
-                    <p class="text-muted">No published tags.</p>
-                  {% endif %}
-                </div>
-
-                <div class="col-md-6 suggestion-side">
-                  <h4 class="text-center text-info mb-3">Pending Suggestions</h4>
-                  <hr>
-                  {% if note.note_move_decks %}
-                    <div class="mb-4">
-                        <h5 class="mb-2">Deck Move Suggestions:</h5>
-                        {% for req in note.note_move_decks %}
-                        <div class="note_tag_container suggestion-box">
-                            <button class="btn mb-1 btn-flat w-100" disabled>{{req.path}}</button>
-                            {% if access %}
-                            <div class="tag_actions">
-                                <button class="tag_accept_button" role="button" title="Accept Move" data-action="accept-move" data-move-id="{{req.id}}">
-                                    <i class="fa fa-check"></i>
-                                </button>
-                                <button class="tag_deny_button" role="button" title="Deny Move" data-action="deny-move" data-move-id="{{req.id}}">
-                                    <i class="fa fa-times"></i>
-                                </button>
+            {% endif %}
+            
+            <div class="page-header">
+                <div class="header-content">
+                    <div class="header-grid">
+                        <div class="header-primary">
+                            <div class="header-top">
+                                <h1 class="header-title">Review Note</h1>
+                                <span class="status-badge {% if note.reviewed and not note.delete_req %}status-published{% elif note.delete_req %}status-removal{% else %}status-pending{% endif %}">
+                                    {% if note.reviewed and not note.delete_req %}
+                                        <i class="fa fa-check-circle"></i>
+                                        <span>Published</span>
+                                    {% elif note.delete_req %}
+                                        <i class="fa fa-exclamation-triangle"></i>
+                                        <span>Removal Requested</span>
+                                    {% else %}
+                                        <i class="fa fa-clock-o"></i>
+                                        <span>New Card (Unpublished)</span>
+                                    {% endif %}
+                                </span>
                             </div>
+                            <p class="header-subtitle">
+                                <strong>Deck:</strong> {{ note.deck }}<br><strong>Last Update:</strong> {{ note.last_update }}
+                            </p>
+                        </div>
+                        <div class="header-actions action-buttons">
+                            <a href="/note_history/{{note.id}}" class="modern-action-btn btn-history" title="View full history">
+                                <i class="fa fa-history"></i>
+                                History
+                            </a>
+                            
+                            {% if access and note.reviewed == false %}
+                            <a href="/AcceptNote/{{note.id}}" class="modern-action-btn btn-publish" title="Publish New Note" onclick="this.classList.add('disabled'); this.style.pointerEvents='none'; this.innerHTML='<i class=\'fa fa-spinner fa-spin\'></i> Publishing...';">
+                                <i class="fa fa-check"></i>
+                                Publish Note
+                            </a>
+                            <a href="/DeleteNote/{{note.id}}" class="modern-action-btn btn-delete" title="Delete Unpublished Note" onclick="this.classList.add('disabled'); this.style.pointerEvents='none'; this.innerHTML='<i class=\'fa fa-spinner fa-spin\'></i> Deleting...';">
+                                <i class="fa fa-trash"></i>
+                                Delete Note
+                            </a>
+                            
+                            {% elif access and note.delete_req %}
+                            <a href="/AcceptNoteRemoval/{{note.id}}" class="modern-action-btn btn-delete" title="Confirm Note Deletion" onclick="this.classList.add('disabled'); this.style.pointerEvents='none'; this.innerHTML='<i class=\'fa fa-spinner fa-spin\'></i> Confirming...';">
+                                <i class="fa fa-trash"></i>
+                                Confirm Deletion
+                            </a>
+                            <a href="/DenyNoteRemoval/{{note.id}}" class="modern-action-btn btn-keep" title="Cancel Removal Request" onclick="this.classList.add('disabled'); this.style.pointerEvents='none'; this.innerHTML='<i class=\'fa fa-spinner fa-spin\'></i> Keeping...';">
+                                <i class="fa fa-undo"></i>
+                                Keep Note
+                            </a>
                             {% endif %}
                         </div>
-                        {% endfor %}
                     </div>
-                  {% endif %}
-                  {% if note.unconfirmed_fields %}
-                        <h5 class="mb-2">Field Change Suggestions:</h5>
-                        {% for field_suggestion in note.unconfirmed_fields %}
-                        <div class="media media-reply mb-4 suggestion-box">
-                            <div class="media-body">
-                                <div class="d-sm-flex justify-content-between align-items-center mb-2">
-                                    <div>
-                                        <h5 class="mb-sm-0 d-inline-block">{{note.note_model_fields[field_suggestion.position]}}</h5>
-                                        <a href="/commit/{{ field_suggestion.commit_id }}" class="small text-muted ml-2" title="View Source Commit">
-                                            <i class="fa fa-link"></i> Commit #{{ field_suggestion.commit_id }}
-                                        </a>
-                                    </div>
-                                    {% if access and note.reviewed %}
-                                    <div class="media-reply__link small-badge field-actions">
-                                        <span class="badge badge-pill badge-success mr-1">
-                                            <button data-action="accept-field" data-field-id="{{field_suggestion.id}}" class="btn btn-xs btn-approve" title="Accept Change">
-                                                <span class="fa fa-check"></span> Accept
-                                            </button>
-                                        </span>
-                                        <span class="badge badge-pill badge-danger">
-                                            <button data-action="deny-field" data-field-id="{{field_suggestion.id}}" class="btn btn-xs btn-deny" title="Deny Change">
-                                                <span class="fa fa-close"></span> Deny
-                                            </button>
-                                        </span>
-                                    </div>
+                </div>
+            </div>
+            <div class="content-comparison note-context" id="{{ note.id }}" data-context-type="note">
+                <div class="content-side published-side">
+                    <div class="side-header">
+                        <h2 class="side-title">📚 Published Content</h2>
+                        <p class="side-subtitle">Current live version</p>
+                    </div>
+                    {% if note.reviewed_fields %}
+                        {% for field in note.reviewed_fields %}
+                        <div class="field-item">
+                            <div class="field-header">
+                                <div>
+                                    <div class="field-name">{{ note.note_model_fields[field.position] }}</div>
+                                    {% if field.inherited %}
+                                    <span class="inherited-badge" title="Inherited from base note">
+                                        <i class="fa fa-link"></i>
+                                        Inherited
+                                    </span>
                                     {% endif %}
                                 </div>
-                                <div class="note-content-display diff-content"
-                                    data-field-id="{{ field_suggestion.id }}"
-                                    data-original="{{ note.reviewed_fields[field_suggestion.position].content | escape }}"
-                                    data-new-content="{{ field_suggestion.content | escape }}">
-                                    {{ field_suggestion.diff | safe }}
-                                </div>
+                            </div>
+                            <div class="note-content-display current-content"
+                                 data-field-id="{{field.id}}"
+                                 data-content="{{ field.content | escape }}">
+                                <!-- Content populated by JS -->
                             </div>
                         </div>
                         {% endfor %}
-                  {% endif %}
-                  {% if note.new_tags or note.removed_tags %}
-                        <h5 class="mb-2">Tag Change Suggestions:</h5>
+                    {% else %}
+                        <div class="empty-state">
+                            <i class="fa fa-file-o"></i>
+                            <p>No published fields yet.</p>
+                        </div>
+                    {% endif %}
+                    {% if note.reviewed_tags %}
+                    <div class="field-item">
+                        <div class="field-header">
+                            <div class="field-name">
+                                🏷️ Current Tags
+                                {% if note.reviewed_tags|length > 6 %}
+                                <button class="modern-action-btn btn-history" style="font-size: 0.8rem; padding: 4px 12px; margin-left: 12px;" onclick="toggleTags(this)">
+                                    +{{note.reviewed_tags|length - 6}} more
+                                </button>
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div class="tag-container" id="mainTags">
+                            {% for tag in note.reviewed_tags|slice(end=6) %}
+                            <span class="tag-chip {% if tag.inherited %}inherited{% endif %}">
+                                {% if tag.inherited %}<i class="fa fa-link" style="font-size: 0.7rem;"></i>{% endif %}
+                                {{tag.content}}
+                            </span>
+                            {% endfor %}
+                        </div>
+                        {% if note.reviewed_tags|length > 6 %}
+                        <div class="tag-container" id="collapsedTags" style="display: none;">
+                            {% for tag in note.reviewed_tags|slice(start=6) %}
+                            <span class="tag-chip {% if tag.inherited %}inherited{% endif %}">
+                                {% if tag.inherited %}<i class="fa fa-link" style="font-size: 0.7rem;"></i>{% endif %}
+                                {{tag.content}}
+                            </span>
+                            {% endfor %}
+                        </div>
+                        {% endif %}
+                    </div>
+                    {% else %}
+                        <div class="empty-state">
+                            <i class="fa fa-tags"></i>
+                            <p>No published tags yet.</p>
+                        </div>
+                    {% endif %}
+                </div>
+
+                <div class="content-side suggestions-side">
+                    <div class="side-header">
+                        <h2 class="side-title">💡 Pending Suggestions</h2>
+                        <p class="side-subtitle">Awaiting your review</p>
+                    </div>
+                    {% if note.note_move_decks %}
+                        {% for req in note.note_move_decks %}
+                        <div class="suggestion-box">
+                            <div class="tag-suggestion">
+                                <div class="tag-content">
+                                    <i class="fa fa-folder" style="margin-right: 8px; color: #0ea5e9;"></i>
+                                    <strong>Move to:</strong> {{req.path}}
+                                </div>
+                                {% if access %}
+                                <div class="tag-actions">
+                                    <button class="tag_accept_button" role="button" title="Accept Move" data-action="accept-move" data-move-id="{{req.id}}">
+                                        <i class="fa fa-check"></i>
+                                    </button>
+                                    <button class="tag_deny_button" role="button" title="Deny Move" data-action="deny-move" data-move-id="{{req.id}}">
+                                        <i class="fa fa-times"></i>
+                                    </button>
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        {% endfor %}
+                    {% endif %}
+                    {% if note.unconfirmed_fields %}
+                        {% for field_suggestion in note.unconfirmed_fields %}
+                        <div class="suggestion-box">
+                            <div class="field-header">
+                                <div>
+                                    <div class="field-name">{{note.note_model_fields[field_suggestion.position]}}</div>
+                                    <a href="/commit/{{ field_suggestion.commit_id }}" class="inherited-badge" style="text-decoration: none; margin-top: 8px; display: inline-block;" title="View Source Commit">
+                                        <i class="fa fa-link"></i> Commit #{{ field_suggestion.commit_id }}
+                                    </a>
+                                </div>
+                                {% if access and note.reviewed %}
+                                <div class="field-actions">
+                                    <button data-action="accept-field" data-field-id="{{field_suggestion.id}}" class="action-btn btn-approve" title="Accept Change">
+                                        <i class="fa fa-check"></i> Accept
+                                    </button>
+                                    <button data-action="deny-field" data-field-id="{{field_suggestion.id}}" class="action-btn btn-deny" title="Deny Change">
+                                        <i class="fa fa-times"></i> Deny
+                                    </button>
+                                </div>
+                                {% endif %}
+                            </div>
+                            <div class="note-content-display diff-content"
+                                data-field-id="{{ field_suggestion.id }}"
+                                data-original="{{ note.reviewed_fields[field_suggestion.position].content | escape }}"
+                                data-new-content="{{ field_suggestion.content | escape }}">
+                                {{ field_suggestion.diff | safe }}
+                            </div>
+                        </div>
+                        {% endfor %}
+                    {% endif %}
+                    {% if note.new_tags or note.removed_tags %}
                         {# New Tags #}
                         {% for tag in note.new_tags %}
-                        <div class="note_tag_container suggestion-box new-tag-suggestion">
-                            <button class="btn mb-1 btn-flat btn-new-tag w-100" disabled>{{tag.content}}</button>
-                            {% if access and note.reviewed %}
-                            <div class="tag_actions">
-                                <button class="tag_accept_button" role="button" title="Accept Tag Addition" data-action="accept-tag" data-tag-id="{{tag.id}}">
-                                    <i class="fa fa-check"></i>
-                                </button>
-                                <button class="tag_deny_button" role="button" title="Deny Tag Addition" data-action="deny-tag" data-tag-id="{{tag.id}}">
-                                    <i class="fa fa-times"></i>
-                                </button>
+                        <div class="suggestion-box" data-commit-id="{{ tag.commit_id }}">
+                            <div class="tag-suggestion">
+                                <div class="tag-content">
+                                    <span class="tag-chip add">
+                                        <i class="fa fa-plus-circle"></i>
+                                        {{tag.content}}
+                                    </span>
+                                </div>
+                                {% if access and note.reviewed %}
+                                <div class="tag-actions">
+                                    <button class="tag_accept_button" role="button" title="Accept Tag Addition" data-action="accept-tag" data-tag-id="{{tag.id}}">
+                                        <i class="fa fa-check"></i>
+                                    </button>
+                                    <button class="tag_deny_button" role="button" title="Deny Tag Addition" data-action="deny-tag" data-tag-id="{{tag.id}}">
+                                        <i class="fa fa-times"></i>
+                                    </button>
+                                </div>
+                                {% endif %}
                             </div>
-                            {% endif %}
                         </div>
                         {% endfor %}
+                        
                         {# Removed Tags #}
                         {% for tag in note.removed_tags %}
-                        <div class="note_tag_container suggestion-box removed-tag-suggestion">
-                            <button class="btn mb-1 btn-flat btn-rmd-tag w-100" disabled>{{tag.content}}</button>
-                            {% if access and note.reviewed %}
-                            <div class="tag_actions">
-                                <button class="tag_accept_button" role="button" title="Accept Tag Removal" data-action="accept-tag" data-tag-id="{{tag.id}}">
-                                    <i class="fa fa-check"></i>
-                                </button>
-                                <button class="tag_deny_button" role="button" title="Deny Tag Removal" data-action="deny-tag" data-tag-id="{{tag.id}}">
-                                    <i class="fa fa-times"></i>
-                                </button>
+                        <div class="suggestion-box" data-commit-id="{{ tag.commit_id }}">
+                            <div class="tag-suggestion">
+                                <div class="tag-content">
+                                    <span class="tag-chip remove">
+                                        <i class="fa fa-minus-circle"></i>
+                                        {{tag.content}}
+                                    </span>
+                                </div>
+                                {% if access and note.reviewed %}
+                                <div class="tag-actions">
+                                    <button class="tag_accept_button" role="button" title="Accept Tag Removal" data-action="accept-tag" data-tag-id="{{tag.id}}">
+                                        <i class="fa fa-check"></i>
+                                    </button>
+                                    <button class="tag_deny_button" role="button" title="Deny Tag Removal" data-action="deny-tag" data-tag-id="{{tag.id}}">
+                                        <i class="fa fa-times"></i>
+                                    </button>
+                                </div>
+                                {% endif %}
                             </div>
-                            {% endif %}
                         </div>
                         {% endfor %}
-                  {% endif %}
+                    {% endif %}
 
-                  {# Handle case where there are no suggestions at all #}
-                  {% if not note.note_move_decks and not note.unconfirmed_fields and not note.new_tags and not note.removed_tags %}
-                    <p class="text-muted text-center mt-4">No pending suggestions for this note.</p>
-                  {% endif %}
+                    {# Handle case where there are no suggestions at all #}
+                    {% if not note.note_move_decks and not note.unconfirmed_fields and not note.new_tags and not note.removed_tags %}
+                        <div class="empty-state">
+                            <i class="fa fa-lightbulb-o"></i>
+                            <p>No pending suggestions for this note.</p>
+                        </div>
+                    {% endif %}
                 </div>
-                <!-- end col -->
-              </div>
-              <!-- end row -->
             </div>
-            <!-- end card-body -->
-          </div>
-          <!-- end card -->
         </div>
-        <!-- end container-fluid -->
-      </div>
-      <!--**********************************
-            Content body end
-        ***********************************-->
-        {% include "layout_footer.html" %}
+    </div>
 
-        <script>
-          function toggleTags(button) {
+    {% include "layout_footer.html" %}
+
+    <script>
+        function toggleTags(button) {
             var collapsedTags = document.getElementById("collapsedTags");
             if (collapsedTags.style.display === "none") {
-              collapsedTags.style.display = "block";
-              button.innerHTML = "Show less";
+                collapsedTags.style.display = "flex";
+                button.innerHTML = "Show less";
             } else {
-              collapsedTags.style.display = "none";
-              button.innerHTML = "+{{note.reviewed_tags|length - 3}} more";
+                collapsedTags.style.display = "none";
+                button.innerHTML = "+{{note.reviewed_tags|length - 6}} more";
             }
-          }
+        }
 
-          // Initialize the shared UI components after the page loads
-          $(document).ready(function() {
-              SharedUI.initializePage();
-          });
-        </script>
-  </body>
+        function groupSuggestionsByCommit() {
+            const suggestionsContainer = $('.suggestions-side');
+            const suggestions = $('.suggestion-box').toArray();
+            
+            // Skip if no suggestions to group
+            if (suggestions.length === 0) return;
+            
+            // Group suggestions by commit ID
+            const commitGroups = {};
+            
+            suggestions.forEach(suggestion => {
+                const $suggestion = $(suggestion);
+                let commitId = null;
+                
+                // Try to find commit ID from field suggestions
+                const commitLink = $suggestion.find('a[href*="/commit/"]');
+                if (commitLink.length > 0) {
+                    const href = commitLink.attr('href');
+                    const match = href.match(/\/commit\/(\d+)/);
+                    if (match) {
+                        commitId = match[1];
+                    }
+                }
+                
+                // For tags, we need to extract from data attributes (we'll add these)
+                if (!commitId) {
+                    commitId = $suggestion.attr('data-commit-id');
+                }
+                
+                // Default group for items without commit ID
+                if (!commitId) {
+                    commitId = 'other';
+                }
+                
+                if (!commitGroups[commitId]) {
+                    commitGroups[commitId] = [];
+                }
+                
+                commitGroups[commitId].push($suggestion.detach());
+            });
+            
+            // Create grouped HTML structure
+            Object.keys(commitGroups).forEach(commitId => {
+                const items = commitGroups[commitId];
+                if (items.length === 0) return;
+                
+                let groupHtml;
+                if (commitId === 'other') {
+                    // Keep individual styling for non-commit items
+                    items.forEach(item => {
+                        suggestionsContainer.append(item);
+                    });
+                } else {
+                    // Create commit group container
+                    groupHtml = $(`
+                        <div class="commit-group">
+                            <div class="commit-header">
+                                <a href="/commit/${commitId}" class="commit-badge" title="View Source Commit">
+                                    <i class="fa fa-code-fork"></i> Commit #${commitId}
+                                </a>
+                                <span style="color: #6b7280; font-size: 0.9rem;">
+                                    ${items.length} ${items.length === 1 ? 'change' : 'changes'}
+                                </span>
+                            </div>
+                            <div class="commit-suggestions"></div>
+                        </div>
+                    `);
+                    
+                    const suggestionsList = groupHtml.find('.commit-suggestions');
+                    items.forEach(item => {
+                        // Convert suggestion-box to suggestion-item
+                        item.removeClass('suggestion-box').addClass('suggestion-item');
+                        // Remove individual commit links since they're now in the group header
+                        item.find('a[href*="/commit/"]').parent().remove();
+                        suggestionsList.append(item);
+                    });
+                    
+                    suggestionsContainer.append(groupHtml);
+                }
+            });
+            
+        }
+
+        // Initialize the shared UI components after the page loads
+        $(document).ready(function() {
+            SharedUI.initializePage();
+            
+            initiButtonFeatures();
+            
+            // Group suggestions by commit
+            groupSuggestionsByCommit();
+            
+            // Enhanced spam-click protection
+            $(document).on('click.protection', '.action-btn:not(.tag_accept_button):not(.tag_deny_button), [data-action="accept-field"], [data-action="deny-field"]', function(e) {
+                const $btn = $(this);
+                
+                // If button is already disabled from previous click, prevent this click
+                if ($btn.hasClass('disabled') || $btn.prop('disabled')) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    return false;
+                }
+                
+                // Allow the original click to proceed, then apply protection with a small delay
+                setTimeout(() => {
+                    // Check again - if button was already processed by original handler, don't interfere
+                    if ($btn.hasClass('disabled')) {
+                        return; // Already handled by existing protection
+                    }
+                    
+                    const action = $btn.data('action') || 'processing';
+                    const originalText = $btn.html();
+                    
+                    // Apply protection
+                    $btn.addClass('disabled loading')
+                        .prop('disabled', true)
+                        .css('pointer-events', 'none');
+                    
+                    // Update button text based on action
+                    const actionTexts = {
+                        'accept-field': '✓ Accepting...',
+                        'deny-field': '✗ Denying...',
+                        'accept-tag': '✓ Accepting...',
+                        'deny-tag': '✗ Denying...',
+                        'accept-move': '✓ Moving...',
+                        'deny-move': '✗ Denying...'
+                    };
+                    
+                    const processingText = actionTexts[action] || '⏳ Processing...';
+                    
+                    // For buttons with only icons, don't change text
+                    if (!originalText.includes('fa-') && originalText.trim().length > 2) {
+                        $btn.html(processingText);
+                    }
+                    
+                    // Store original state for potential restoration
+                    $btn.data('original-text', originalText);
+                    $btn.data('click-timestamp', Date.now());
+                    
+                }, 10); // Small delay to let original handlers run first
+                
+                // Set up failsafe restore
+                setTimeout(() => {
+                    if ($btn.hasClass('disabled')) {
+                        window.restoreButton($btn);
+                    }
+                }, 5000); // 5 second failsafe
+            });
+        });
+
+        function initiButtonFeatures() {
+            // Function to restore button state
+            window.restoreButton = function($btn) {
+                if ($btn && $btn.length) {
+                    // Don't restore editor buttons - let them manage their own state
+                    const action = $btn.data('action');
+                    if (action === 'toggle-edit' || action === 'cancel-edit') {
+                        return;
+                    }
+                    
+                    $btn.removeClass('disabled loading')
+                        .prop('disabled', false)
+                        .css('pointer-events', '');
+                    
+                    const originalText = $btn.data('original-text');
+                    if (originalText) {
+                        $btn.html(originalText);
+                    }
+                    
+                }
+            };
+            
+            // Global function to restore all buttons
+            window.restoreAllButtons = function() {
+                $('.disabled').each(function() {
+                    const $btn = $(this);
+                    const action = $btn.data('action');
+                    // Skip editor buttons
+                    if (action !== 'toggle-edit' && action !== 'cancel-edit') {
+                        window.restoreButton($btn);
+                    }
+                });
+                console.log('🔄 All buttons restored (except editor buttons)');
+            };
+                        
+            // Page visibility change - restore buttons when page becomes visible
+            document.addEventListener('visibilitychange', function() {
+                if (!document.hidden) {
+                    // Check for buttons disabled longer than 10 seconds
+                    $('.disabled').each(function() {
+                        const $btn = $(this);
+                        const action = $btn.data('action');
+                        const timestamp = $btn.data('click-timestamp');
+                        
+                        // Skip editor buttons - they manage their own state
+                        if (action === 'toggle-edit' || action === 'cancel-edit') {
+                            return;
+                        }
+                        
+                        if (timestamp && (Date.now() - timestamp > 10000)) {
+                            window.restoreButton($btn);
+                        }
+                    });
+                }
+            });
+            
+            // Visual feedback for successful actions
+            $(document).on('field:accepted field:denied tag:accepted tag:denied', function(e, itemId) {
+                const isAccepted = e.type.includes('accepted');
+                const $item = $(`[data-field-id="${itemId}"], [data-tag-id="${itemId}"], [data-move-id="${itemId}"]`).closest('.suggestion-box, .field-item');
+                
+                $item.addClass(isAccepted ? 'field-success' : 'field-error');
+                
+                // Show brief success/error state then fade out
+                setTimeout(() => {
+                    $item.fadeOut(300, function() {
+                        $(this).remove();
+                    });
+                }, 1000);
+            });
+            
+            // Performance monitoring
+            if (window.performance && window.performance.mark) {
+                window.performance.mark('review-page-interactive');
+            }
+            
+        }
+    </script>
+</body>
 </html>

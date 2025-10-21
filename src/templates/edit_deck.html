@@ -4,8 +4,14 @@
 <head>
     {% include "header_template.html" %}
     <!-- Custom Stylesheet -->
-    <link href="/static/plugins/summernote/dist/summernote.css" rel="stylesheet">
+    <link href="/static/plugins/trumbowyg/ui/trumbowyg.css" rel="stylesheet">
+    <link href="/static/plugins/trumbowyg/plugins/colors/ui/trumbowyg.colors.css" rel="stylesheet">
     <link href="/static/plugins/sweetalert/css/sweetalert.css" rel="stylesheet">
+    <script>
+        // Global namespace for our app
+        window.ApiService = {};
+    </script>
+    <script src="/static/js/api_service.js"></script>
    
 </head>
 {% include "layout_header.html" %}
@@ -74,12 +80,31 @@
                             </a>                            
                         </div>
                     </div>
+                    {% if base_links|length > 0 %}
+                    <div class="col-lg-4 col-sm-6">
+                        <div class="card gradient-3">
+                            <div class="card-body" style="color: inherit;">
+                                <h3 class="card-title text-white">Subscription Policy</h3>
+                                <div class="d-inline-block">
+                                    <p class="text-white mb-0">Configure inherited fields by notetype</p>
+                                </div>
+                                <div class="mt-2">
+                                    {% for base in base_links %}
+                                    <a class="btn btn-light btn-sm m-1" href="/DeckSubscriptionPolicy/{{hash}}/{{base.human_hash}}" title="{{base.name}}">
+                                        <i class="fa fa-link"></i> {{base.name}}
+                                    </a>
+                                    {% endfor %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
                 </div>
                 <div class="card">
                     <div class="card-body">
                         <h1 class="card-title m-b-40">Edit your Deck Description:</h1>
                         <p>You can select content and edit inline</p><hr>
-                        <div id="summernote" class="summernote"></div>
+                        <div id="desc-editor" class="trumbowyg-editor"></div>
                     </div>
                 </div>
                 <div class="card">
@@ -113,7 +138,7 @@
                     <div class="card-body">
                         <h4 class="card-title">Add a new changelog message</h4>
                         <p>You cannot use text styling. Only plain text for now. Sorry!</p><br />
-                        <div id="changelogeditor" class="summernote"></div>
+                        <div id="changelog-editor" class="trumbowyg-editor"></div>
                         {% if changelogs|length > 0 %}
                         <h4 class="card-title mt-5">Previous Changelogs</h4>
                         <p class="text-muted"><code></code>
@@ -165,36 +190,69 @@
     
     <script src="/static/plugins/sweetalert/js/sweetalert.min.js"></script>
 
-    <script src="/static/plugins/summernote/dist/summernote.min.js"></script>
-    <script src="/static/plugins/summernote/dist/summernote-init.js"></script>
+    <script src="/static/plugins/trumbowyg/trumbowyg.min.js"></script>
+    <script src="/static/plugins/trumbowyg/plugins/colors/trumbowyg.colors.js"></script>
+    
+    {% if description %} 
+        <script id="desc-data" type="application/json">
+            {{ description | json_encode() | safe }}
+        </script>
+    {% endif %}
     <script>
-        {% if description %} 
-        $('#summernote').summernote('editor.pasteHTML', '{{description | spaceless | linebreaksbr | safe}}');
-        {% endif %}
-        $("#changelogeditor").summernote({
-            height: 150,
-            minHeight: null,
-            maxHeight: null,
-            focus: !1,
-          })
+        jQuery(document).ready(function() {
+            if (jQuery.fn.trumbowyg) {
+                $("#desc-editor").trumbowyg({
+                    btns: [
+                        ['viewHTML'],
+                        ['formatting'],
+                        ['strong', 'em', 'del'],
+                        ['unorderedList', 'orderedList'],
+                        ['removeformat'],
+                        ['fullscreen']
+                    ],
+                    autogrow: true,
+                    tagsToRemove: ['script'], // Basic security
+                    removeformatPasted: true, // Clean pasted content
+                    resetCss: true, // Helps in isolating editor styling
+                    changeActiveDropdownIcon: true,
+                    autogrow: true,
 
+                });
+
+                {% if description %} 
+                    const descHtml = JSON.parse(document.getElementById('desc-data').textContent);
+                    $('#desc-editor').trumbowyg('html', descHtml);
+                {% endif %}
+
+                $("#changelog-editor").trumbowyg({
+                    btns: [
+                        ['fullscreen']
+                    ],
+                    tagsToRemove: ['script', 'link'], // Basic security
+                    removeformatPasted: true, // Clean pasted content
+                    resetCss: true, // Helps in isolating editor styling
+                    changeActiveDropdownIcon: true,
+                    autogrow: true,
+                });
+            }
+        });
+    </script>
+    <script>      
         const form = document.querySelector('form');
 
         form.addEventListener('submit', event => {
             event.preventDefault();
 
-            const description = $('#summernote').summernote('code').replace(/<p><br><\/p>/g, '').trim();
+            const description = $('#desc-editor').trumbowyg('html').replace(/<p><br><\/p>/g, '').trim();
             const isPrivate = document.querySelector('input[name="private"]').checked;
             const preventSubdecks = document.querySelector('input[name="prevent_subdecks"]').checked;
             const restrictNotetypes = document.querySelector('input[name="restrict_notetypes"]').checked;
-            let changelog = $('#changelogeditor').summernote('code').trim();
+            let changelog = $('#changelog-editor').trumbowyg('html').trim();
             changelog = changelog.replace(/<\/p>/g, '\n'); // Replace <br> with \r\n
             changelog = changelog.replace(/<[^>]*>/g, ''); // Remove all other HTML tags
             if (changelog === '\n') { // If the changelog is empty, set it to an empty string to avod accidental submits
                 changelog = '';
             }
-            console.log(changelog);
-            console.log(description);
 
             const data = {
             description: description,
@@ -205,15 +263,10 @@
             changelog: changelog
             };
 
-            fetch('/EditDeck', {
-            method: 'POST',
-            body: JSON.stringify(data),
-            headers: {
-                'Content-Type': 'application/json'
-            }
-            });  
+            window.ApiService.apiCall(`/EditDeck`, 'POST', data);
+
             // Reset to empty string to prevent accidental double submits
-            $('#changelogeditor').summernote('reset');
+            $('#changelog-editor').trumbowyg('empty');
             swal("Success!", "All changes have been saved!", "success");
         });
 

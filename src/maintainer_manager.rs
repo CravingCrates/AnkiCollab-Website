@@ -3,7 +3,10 @@ use std::sync::Arc;
 use crate::error::Error::{UserIsAlreadyMaintainer, UserNotFound};
 use crate::{database, Return};
 
-pub async fn get_maintainers(db_state: &Arc<database::AppState>, deck: i64) -> Result<Vec<String>, Box<dyn std::error::Error>> {
+pub async fn get_maintainers(
+    db_state: &Arc<database::AppState>,
+    deck: i64,
+) -> Result<Vec<String>, Box<dyn std::error::Error>> {
     let query =
         "SELECT username from users WHERE id IN (SELECT user_id FROM maintainers WHERE deck = $1)";
     let client = database::client(db_state).await?;
@@ -17,11 +20,18 @@ pub async fn get_maintainers(db_state: &Arc<database::AppState>, deck: i64) -> R
     Ok(users)
 }
 
-pub async fn add_maintainer(db_state: &Arc<database::AppState>, deck: i64, username: String) -> Return<String> {
+pub async fn add_maintainer(
+    db_state: &Arc<database::AppState>,
+    deck: i64,
+    username: String,
+) -> Return<String> {
     let normalized_username = username.to_lowercase();
     let client = database::client(db_state).await?;
     let user = match client
-        .query_one("SELECT id FROM users WHERE username = $1", &[&normalized_username])
+        .query_one(
+            "SELECT id FROM users WHERE username = $1",
+            &[&normalized_username],
+        )
         .await
     {
         Ok(user) => user,
@@ -49,11 +59,18 @@ pub async fn add_maintainer(db_state: &Arc<database::AppState>, deck: i64, usern
     Ok("added".to_string())
 }
 
-pub async fn remove_maintainer(db_state: &Arc<database::AppState>, deck: i64, username: String) -> Return<String> {
+pub async fn remove_maintainer(
+    db_state: &Arc<database::AppState>,
+    deck: i64,
+    username: String,
+) -> Return<String> {
     let normalized_username = username.to_lowercase();
     let client = database::client(db_state).await?;
     let user = match client
-        .query_one("SELECT id FROM users WHERE username = $1", &[&normalized_username])
+        .query_one(
+            "SELECT id FROM users WHERE username = $1",
+            &[&normalized_username],
+        )
         .await
     {
         Ok(user) => user,

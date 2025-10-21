@@ -45,34 +45,32 @@
                 </div>
                 <div class="card">
                     <div class="card-body">
-                        <h4 class="card-title">Edit the Card Template</h4>
-                        <div class="default-tab">
-                            <ul class="nav nav-tabs mb-3" role="tablist">
-                                <li class="nav-item"><a class="nav-link active" data-toggle="tab" href="#front">Front</a>
-                                </li>
-                                <li class="nav-item"><a class="nav-link" data-toggle="tab" href="#back">Back</a>
-                                </li>
-                                <li class="nav-item"><a class="nav-link" data-toggle="tab" href="#styling">Styling</a>
-                                </li>
-                            </ul>
-                            <div class="tab-content">
-                                <div class="tab-pane fade show active" id="front" role="tabpanel">
-                                    <div class="p-t-15">
-                                        <textarea rows="15" cols="60" name="front_textarea">{{front}}</textarea>
+                        <h4 class="card-title">Edit Card Templates</h4>
+                        <h5>Styling</h5>
+                        <div class="p-t-15">
+                            <textarea rows="15" cols="60" name="styling_textarea">{{styling}}</textarea>
+                        </div>
+                        {% for template in templates %}
+                            <h6>{{ template.name }}</h6>
+                            <div class="default-tab">
+                                <ul class="nav nav-tabs mb-3" role="tablist">
+                                    <li class="nav-item"><a class="nav-link active" data-toggle="tab" href="#front-{{ template.template_id }}">Front</a></li>
+                                    <li class="nav-item"><a class="nav-link" data-toggle="tab" href="#back-{{ template.template_id }}">Back</a></li>
+                                </ul>
+                                <div class="tab-content">
+                                    <div id="front-{{ template.template_id }}" class="tab-pane fade show active" role="tabpanel">
+                                        <div class="p-t-15">
+                                            <textarea rows="15" cols="60" id="{{ template.template_id }}-front" data-template-id="{{ template.template_id }}" data-side="front">{{ template.front }}</textarea>
+                                        </div>
                                     </div>
-                                </div>
-                                <div class="tab-pane fade" id="back">
-                                    <div class="p-t-15">
-                                        <textarea rows="15" cols="60" name="back_textarea">{{back}}</textarea>
-                                    </div>
-                                </div>
-                                <div class="tab-pane fade" id="styling">
-                                    <div class="p-t-15">
-                                        <textarea rows="15" cols="60" name="styling_textarea">{{styling}}</textarea>
+                                    <div id="back-{{ template.template_id }}" class="tab-pane fade" role="tabpanel">
+                                        <div class="p-t-15">
+                                            <textarea rows="15" cols="60" id="{{ template.template_id }}-back" data-template-id="{{ template.template_id }}" data-side="back">{{ template.back }}</textarea>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
-                        </div>                        
+                        {% endfor %}
                     </div>
                 </div>
                 <div class="card">
@@ -93,40 +91,62 @@
         ***********************************-->
         {% include "layout_footer.html" %}
         
-    <script>    
+    <!-- Embed server-side data as real JSON for safe JS consumption -->
+    <script type="application/json" id="templates-data">{{ templates | json_encode() }}</script>
+    <script>
+        // Parse JSON from script tag to properly handle escaped content
+        const templatesScript = document.getElementById('templates-data');
+        
+        // Create a temporary element to decode HTML entities
+        const tempDiv = document.createElement('div');
+        tempDiv.innerHTML = templatesScript.innerHTML;
+        const decodedJSON = tempDiv.textContent || tempDiv.innerText;
+        
+        const TEMPLATES = JSON.parse(decodedJSON);
+        const NOTETYPE_ID = {{ notetype_id }};
+
         const form = document.querySelector('#submitForm');
-    
         form.addEventListener('submit', event => {
             event.preventDefault();
-        
-            const formData = {};    
-            const checkboxes = document.querySelectorAll('input[type="checkbox"]');
-            const front_content = document.querySelector('textarea[name="front_textarea"]').value;
-            const back_content = document.querySelector('textarea[name="back_textarea"]').value;
-            const styling_content = document.querySelector('textarea[name="styling_textarea"]').value;
-        
-            checkboxes.forEach(checkbox => {
-                const key = parseInt(checkbox.name, 10);
-                formData[key] = checkbox.checked;
-            });
-        
-            const data = {
-                items: formData,      
-                front: front_content,
-                back: back_content,
-                styling: styling_content,
-                notetype_id: {{notetype_id}},
-                template_id: {{template_id}}
-            };
-        
-            fetch('/EditNotetype', {
-                method: 'POST',
-                body: JSON.stringify(data),
-                headers: {
-                'Content-Type': 'application/json'
+
+            // Collect protected field checkbox states
+            const protectedMap = {};
+            document.querySelectorAll('input[type="checkbox"]').forEach(cb => {
+                const key = parseInt(cb.name, 10);
+                if (!Number.isNaN(key)) {
+                    protectedMap[key] = cb.checked;
                 }
             });
-            document.getElementById('confirmation').style.display = 'block';
+
+            // Collect updated template front/back content
+            const templateData = TEMPLATES.map(t => ({
+                template_id: t.template_id,
+                name: t.name,
+                front: document.getElementById(`${t.template_id}-front`)?.value || '',
+                back: document.getElementById(`${t.template_id}-back`)?.value || '',
+            }));
+
+            const payload = {
+                items: protectedMap,
+                styling: document.querySelector('textarea[name="styling_textarea"]')?.value || '',
+                notetype_id: NOTETYPE_ID,
+                templates: templateData,
+            };
+
+            fetch('/EditNotetype', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            }).then(r => {
+                if (!r.ok) throw new Error(`Save failed with status: ${r.status}`);
+                const confirmation = document.getElementById('confirmation');
+                if (confirmation) {
+                    confirmation.style.display = 'block';
+                }
+            }).catch(err => {
+                console.error('Save error:', err);
+                alert('Saving failed. See console for details.');
+            });
         });
     </script>
 </body>

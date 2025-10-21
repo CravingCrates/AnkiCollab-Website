@@ -36,6 +36,33 @@ pub struct ReviewOverview {
     pub fields: String,
 }
 
+#[derive(Clone, Serialize)]
+pub struct NoteHistoryEvent {
+    pub id: i64,
+    pub version: i64,
+    pub event_type: String,
+    pub actor_user_id: Option<i32>,
+    pub actor_username: Option<String>,
+    pub commit_id: Option<i32>,
+    pub approved: Option<bool>,
+    pub old_value: Option<serde_json::Value>,
+    pub new_value: Option<serde_json::Value>,
+    pub created_at: String,
+    pub old_human: Option<String>,
+    pub new_human: Option<String>,
+    pub snapshot_field_count: Option<usize>,
+    pub snapshot_tags: Option<Vec<String>>,
+    pub diff_html: Option<String>,
+}
+
+#[derive(Clone, Serialize, Default)]
+pub struct NoteHistoryGroup {
+    pub commit_id: Option<i32>,
+    pub approved: bool,
+    pub denied: bool,
+    pub events: Vec<NoteHistoryEvent>,
+}
+
 #[derive(Serialize)]
 pub struct CommitsOverview {
     pub id: i32,
@@ -78,12 +105,15 @@ pub struct FieldsInfo {
     pub id: i64,
     pub position: u32,
     pub content: String,
+    pub inherited: bool,
 }
 
 #[derive(Serialize)]
 pub struct TagsInfo {
     pub id: i64,
     pub content: String,
+    pub inherited: bool,
+    pub commit_id: i32,
 }
 
 #[derive(Serialize)]
@@ -95,13 +125,42 @@ pub struct NoteData {
     pub last_update: String,
     pub reviewed: bool,
     pub delete_req: bool,
+    pub is_inherited: bool,
     pub reviewed_fields: Vec<FieldsInfo>,
     pub reviewed_tags: Vec<TagsInfo>,
     pub unconfirmed_fields: Vec<FieldSuggestionInfo>,
     pub new_tags: Vec<TagsInfo>,
     pub removed_tags: Vec<TagsInfo>,
     pub note_model_fields: Vec<String>,
-    pub note_move_decks: Vec<NoteMoveReq>
+    pub note_move_decks: Vec<NoteMoveReq>,
+}
+
+#[derive(Clone, Serialize)]
+pub struct CommitHistoryEvent {
+    pub id: i64,
+    pub version: i64,
+    pub event_type: String,
+    pub actor_username: Option<String>,
+    pub created_at: String,
+    pub old_human: Option<String>,
+    pub new_human: Option<String>,
+    pub diff_html: Option<String>,
+}
+
+#[derive(Clone, Serialize)]
+pub struct CommitHistoryNote {
+    pub note_id: i64,
+    pub min_version: i64,
+    pub max_version: i64,
+    pub event_types: Vec<String>,
+    pub events: Vec<CommitHistoryEvent>,
+    pub field_added: usize,
+    pub field_updated: usize,
+    pub field_removed: usize,
+    pub tag_added: usize,
+    pub tag_removed: usize,
+    pub moved: bool,
+    pub deleted: bool,
 }
 
 #[derive(Serialize)]
@@ -200,11 +259,17 @@ pub struct UpdateFieldSuggestion {
 #[derive(Deserialize, Serialize)]
 pub struct UpdateNotetype {
     pub items: HashMap<i64, bool>,
-    pub front: String,
-    pub back: String,
     pub styling: String,
     pub notetype_id: i64,
+    pub templates: Vec<UpdateNotetypeTemplate>,
+}
+
+#[derive(Deserialize, Serialize)]
+pub struct UpdateNotetypeTemplate {
+    pub front: String,
+    pub back: String,
     pub template_id: i64,
+    pub name: String,
 }
 
 #[derive(Deserialize, Serialize)]
@@ -264,11 +329,30 @@ pub struct DeckBaseStatsInfo {
 pub struct PresignedURLRequest {
     pub filename: String,
     pub context_type: String,
-    pub context_id: String, // Note id 
+    pub context_id: String, // Note id
 }
 
 #[derive(Serialize, Deserialize)]
 pub struct PresignedURLResponse {
     pub success: bool,
     pub presigned_url: String,
+}
+
+// Subscription policy API
+#[derive(Serialize, Deserialize, Clone)]
+pub struct SubscriptionPolicyItem {
+    pub notetype_id: i64,
+    pub subscribed_fields: Option<Vec<i32>>, // None = subscribe all; Some(vec) = only these positions; no row = local-only
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct SubscriptionPolicyGetResponse {
+    pub policies: Vec<SubscriptionPolicyItem>,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct SubscriptionPolicyPostRequest {
+    pub subscriber_deck_hash: String,
+    pub base_deck_hash: String,
+    pub policies: Vec<SubscriptionPolicyItem>,
 }

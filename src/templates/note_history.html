@@ -1,0 +1,423 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  {% include "header_template.html" %}
+  <title>Note History</title>
+  <link href="/static/css/commit_styling.css" rel="stylesheet">  
+  <style>
+    .actor-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      margin-left: 8px;
+      padding: 2px 8px;
+      border-radius: 999px;
+      background: #e0f2fe;
+      color: #0369a1;
+      font-weight: 600;
+      font-size: 12px;
+    }
+
+    .actor-chip i {
+      font-size: 10px;
+    }
+  </style>
+  
+  <script>
+    function toggleFilter() {
+      const button = event.target.closest('.filter-button');
+      const menu = document.getElementById('filterMenu');
+      
+      if (menu.classList.contains('show')) {
+        menu.classList.remove('show');
+      } else {
+        // Position the menu relative to the button
+        const buttonRect = button.getBoundingClientRect();
+        const menuTop = buttonRect.bottom + 8;
+        const menuRight = window.innerWidth - buttonRect.right;
+        
+        // Ensure menu doesn't go off screen
+        menu.style.top = Math.max(8, menuTop) + 'px';
+        menu.style.right = Math.max(8, Math.min(menuRight, window.innerWidth - 340)) + 'px';
+        
+        // On small screens, center the menu
+        if (window.innerWidth < 768) {
+          menu.style.right = '8px';
+          menu.style.left = '8px';
+          menu.style.minWidth = 'auto';
+        }
+        
+        menu.classList.add('show');
+      }
+    }
+    
+    function toggleFieldDiff(element) {
+      element.classList.toggle('expanded');
+    }
+    
+    function toggleSnapshot(id) {
+      const content = document.getElementById(`snapshot-${id}`);
+      content.classList.toggle('show');
+    }
+    
+    function applyFilters() {
+      const typeCheckboxes = document.querySelectorAll('input[name="eventType"]:checked');
+      const actorCheckboxes = document.querySelectorAll('input[name="actor"]:checked');
+      
+      const selectedTypes = Array.from(typeCheckboxes).map(cb => cb.value);
+      const selectedActors = Array.from(actorCheckboxes).map(cb => cb.value);
+      
+      // Hide all groups initially
+      document.querySelectorAll('[data-group]').forEach(group => {
+        group.classList.add('hidden');
+      });
+      
+      // Show groups and events that match filters
+      document.querySelectorAll('[data-event-type]').forEach(event => {
+        const eventType = event.getAttribute('data-event-type');
+        const eventActor = event.getAttribute('data-event-actor') || 'Anonymous';
+        
+        const typeMatch = selectedTypes.length === 0 || selectedTypes.includes(eventType);
+        const actorMatch = selectedActors.length === 0 || selectedActors.includes(eventActor);
+        
+        if (typeMatch && actorMatch) {
+          event.classList.remove('hidden');
+          // Show the parent group
+          const group = event.closest('[data-group]');
+          if (group) group.classList.remove('hidden');
+        } else {
+          event.classList.add('hidden');
+        }
+      });
+      
+      // Hide groups with no visible events
+      document.querySelectorAll('[data-group]').forEach(group => {
+        const visibleEvents = group.querySelectorAll('[data-event-type]:not(.hidden)');
+        if (visibleEvents.length === 0) {
+          group.classList.add('hidden');
+        }
+      });
+      
+      toggleFilter();
+    }
+    
+    function clearFilters() {
+      document.querySelectorAll('input[type="checkbox"]').forEach(cb => cb.checked = false);
+      document.querySelectorAll('[data-group], [data-event-type]').forEach(el => {
+        el.classList.remove('hidden');
+      });
+      toggleFilter();
+    }
+    
+    // Close filter menu when clicking outside
+    document.addEventListener('click', function(event) {
+      const filterDropdown = document.querySelector('.filter-dropdown');
+      const filterMenu = document.getElementById('filterMenu');
+      
+      if (!filterDropdown.contains(event.target)) {
+        filterMenu.classList.remove('show');
+      }
+    });
+  </script>
+</head>
+
+{% include "layout_header.html" %}
+
+<div class="main-container">
+  <div class="container-fluid">
+    <div class="page-header">
+      <div class="header-content" style="display: flex; justify-content: space-between; align-items: center;">
+        <div>
+          <h1 class="page-title">Note History #{{ note_id }}</h1>
+          <p class="page-subtitle">Complete timeline • {{ groups|length }} commit{% if groups|length != 1 %}s{% endif %}</p>
+        </div>
+        <div class="header-actions">
+          <div class="filter-dropdown">
+            <button onclick="toggleFilter()" class="filter-button">
+              <i class="fa fa-filter"></i>
+              Filters
+              <i class="fa fa-chevron-down" style="font-size: 10px;"></i>
+            </button>
+            <div id="filterMenu" class="filter-menu">
+              <div class="filter-section">
+                <div class="filter-title">Event Types</div>
+                <div class="filter-options">
+                  <label class="filter-option">
+                    <input type="checkbox" name="eventType" value="note_created">
+                    <span>Note Created</span>
+                  </label>
+                  <label class="filter-option">
+                    <input type="checkbox" name="eventType" value="field_added">
+                    <span>Field Added</span>
+                  </label>
+                  <label class="filter-option">
+                    <input type="checkbox" name="eventType" value="field_updated">
+                    <span>Field Updated</span>
+                  </label>
+                  <label class="filter-option">
+                    <input type="checkbox" name="eventType" value="field_removed">
+                    <span>Field Removed</span>
+                  </label>
+                  <label class="filter-option">
+                    <input type="checkbox" name="eventType" value="tag_added">
+                    <span>Tag Added</span>
+                  </label>
+                  <label class="filter-option">
+                    <input type="checkbox" name="eventType" value="tag_removed">
+                    <span>Tag Removed</span>
+                  </label>
+                  <label class="filter-option">
+                    <input type="checkbox" name="eventType" value="note_moved">
+                    <span>Note Moved</span>
+                  </label>
+                  <label class="filter-option">
+                    <input type="checkbox" name="eventType" value="note_deleted">
+                    <span>Note Deleted</span>
+                  </label>
+                  <label class="filter-option">
+                    <input type="checkbox" name="eventType" value="field_change_denied">
+                    <span>Field Change Denied</span>
+                  </label>
+                  <label class="filter-option">
+                    <input type="checkbox" name="eventType" value="tag_change_denied">
+                    <span>Tag Change Denied</span>
+                  </label>
+                </div>
+              </div>
+              
+              {% if actors and actors|length > 0 %}
+              <div class="filter-section">
+                <div class="filter-title">Contributors</div>
+                <div class="filter-options">
+                  {% for actor in actors %}
+                  <label class="filter-option">
+                    <input type="checkbox" name="actor" value="{{ actor }}">
+                    <span>@{{ actor }}</span>
+                  </label>
+                  {% endfor %}
+                </div>
+              </div>
+              {% endif %}
+              
+              <div class="filter-actions">
+                <button onclick="clearFilters()" class="filter-btn">Clear All</button>
+                <button onclick="applyFilters()" class="filter-btn primary">Apply Filters</button>
+              </div>
+            </div>
+          </div>
+          <a href="/review/{{ note_id }}" class="back-button">
+            <i class="fa fa-arrow-left"></i>
+            Back to Review
+          </a>
+        </div>
+      </div>
+    </div>
+
+    {% if groups|length == 0 %}
+      <div class="empty-state">
+        <div class="empty-icon">📚</div>
+        <h3 class="empty-title">No History Yet</h3>
+        <p class="empty-description">This note doesn't have any recorded changes.</p>
+      </div>
+    {% else %}
+      <div class="timeline">
+        {% for group in groups %}
+          <div class="timeline-group" data-group>
+            <div class="timeline-marker"></div>
+            <div class="group-card">
+              {% if group.commit_id %}
+                <div class="group-header">
+                  <div class="commit-info">
+                    <a href="/commit_history/{{ group.commit_id }}" class="commit-badge {% if group.approved %}approved{% elif group.denied %}denied{% else %}{% endif %}">
+                      Commit #{{ group.commit_id }}
+                      {% if group.approved %}✓{% elif group.denied %}✗{% else %}{% endif %}
+                    </a>
+                  </div>
+                </div>
+              {% else %}
+                <div class="group-header">
+                  <div class="commit-info">
+                    <span class="standalone-badge">Standalone Changes</span>
+                    <span style="color: #6b7280; font-size: 13px; margin-left: 12px;">
+                      {{ group.events|length }} change{% if group.events|length != 1 %}s{% endif %}
+                    </span>
+                  </div>
+                </div>
+              {% endif %}
+              
+              <ul class="events-list">
+                {% for event in group.events %}
+                  {% if event.event_type != 'commit_approved_effect' and event.event_type != 'commit_denied_effect' %}
+                  <li class="event-item" data-event-type="{{ event.event_type }}" data-event-actor="{{ event.actor_username | default(value='Anonymous') }}">
+                    <div class="event-header">
+                      <span class="version-badge">v{{ event.version }}</span>
+                      
+                      {% if event.event_type == 'note_created' %}
+                        <span class="event-type">{% if not group.commit_id %}Created note{% else %}Created{% endif %}</span>
+                        <span class="event-actor">
+                          {% if not group.commit_id %}with {% endif %}{{ event.snapshot_field_count | default(value=0) }} fields
+                          {% if event.snapshot_tags and event.snapshot_tags|length > 0 %}
+                            {% if not group.commit_id %}and {% endif %}{{ event.snapshot_tags|length }} tags
+                          {% endif %}
+                        </span>
+                      {% elif event.event_type == 'field_added' %}
+                        <span class="event-type">{% if not group.commit_id %}Added field{% else %}Added field{% endif %}</span>
+                      {% elif event.event_type == 'field_updated' %}
+                        <span class="event-type">{% if not group.commit_id %}Updated field{% else %}Updated field{% endif %}</span>
+                      {% elif event.event_type == 'field_removed' %}
+                        <span class="event-type">{% if not group.commit_id %}Removed field{% else %}Removed field{% endif %}</span>
+                      {% elif event.event_type == 'tag_added' %}
+                        <span class="event-type">{% if not group.commit_id %}Added tag{% else %}Added tag{% endif %}</span>
+                      {% elif event.event_type == 'tag_removed' %}
+                        <span class="event-type">{% if not group.commit_id %}Removed tag{% else %}Removed tag{% endif %}</span>
+                      {% elif event.event_type == 'note_moved' %}
+                        <span class="event-type">{% if not group.commit_id %}Moved note{% else %}Moved{% endif %}</span>
+                      {% elif event.event_type == 'note_deleted' %}
+                        <span class="event-type">{% if not group.commit_id %}Deleted note{% else %}Deleted{% endif %}</span>
+                      {% elif event.event_type == 'field_change_denied' %}
+                        <span class="event-type">❌ Denied field change</span>
+                      {% elif event.event_type == 'tag_change_denied' %}
+                        <span class="event-type">❌ Denied tag change</span>
+                      {% endif %}
+                      
+                      {% if event.actor_username %}
+                        <span class="actor-chip"><i class="fa fa-user"></i> @{{ event.actor_username }}</span>
+                      {% endif %}
+                      
+                      <span class="event-time">{{ event.created_at }}</span>
+                    </div>
+
+                    {% if event.event_type == 'field_updated' %}
+                      <div class="field-update-comparison">
+                        <div class="comparison-container">
+                          <div class="comparison-side previous">
+                            <div class="comparison-label">Previous</div>
+                            <div class="comparison-content">
+                              {{ event.old_human | default(value='(empty)') }}
+                            </div>
+                          </div>
+                          <div class="comparison-divider">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                              <path d="M5 12h14M12 5l7 7-7 7"/>
+                            </svg>
+                          </div>
+                          <div class="comparison-side updated">
+                            <div class="comparison-label">Updated</div>
+                            <div class="comparison-content">
+                              {{ event.new_human | default(value='(empty)') }}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    {% elif event.event_type == 'field_added' %}
+                      <div class="field-added-display">
+                        <div class="added-content-preview">
+                          {{ event.new_human | default(value='(empty)') }}
+                        </div>
+                      </div>
+                    {% elif event.event_type == 'field_removed' %}
+                      <div class="field-removed-display">
+                        <div class="removed-content-preview">
+                          {{ event.old_human | default(value='(unknown)') }}
+                        </div>
+                      </div>
+                    {% elif event.event_type == 'tag_added' %}
+                      <div class="tag-added-display">
+                        <div class="tag-preview added">
+                          {{ event.new_human }}
+                        </div>
+                      </div>
+                    {% elif event.event_type == 'tag_removed' %}
+                      <div class="tag-removed-display">
+                        <div class="tag-preview removed">
+                          {{ event.new_human | default(value=event.old_human) }}
+                        </div>
+                      </div>
+                    {% elif event.event_type == 'note_moved' %}
+                      <div class="note-move-display">
+                        <div class="move-comparison">
+                          <div class="move-from">{{ event.old_human | default(value='') }}</div>
+                          <div class="move-arrow">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                              <path d="M5 12h14M12 5l7 7-7 7"/>
+                            </svg>
+                          </div>
+                          <div class="move-to">{{ event.new_human | default(value='') }}</div>
+                        </div>
+                      </div>
+                    {% elif event.event_type == 'field_change_denied' %}
+                      <div class="denied-field-change">
+                        {% if event.old_value and event.old_value.had_current %}
+                          <div class="comparison-container">
+                            <div class="comparison-side current">
+                              <div class="comparison-label">Current</div>
+                              <div class="comparison-content">
+                                {{ event.old_value.current_content | default(value='(empty)') }}
+                              </div>
+                            </div>
+                            <div class="comparison-divider">
+                              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M5 12h14M12 5l7 7-7 7"/>
+                              </svg>
+                            </div>
+                            <div class="comparison-side denied">
+                              <div class="comparison-label">Suggested</div>
+                              <div class="comparison-content">
+                                {{ event.old_value.denied_content | default(value='(empty)') }}
+                              </div>
+                            </div>
+                          </div>
+                        {% else %}
+                          <div class="new-field-denied">
+                            <div class="denied-content-preview">
+                              {{ event.old_value.denied_content | default(value='(empty)') }}
+                            </div>
+                          </div>
+                        {% endif %}
+                      </div>
+                    {% elif event.event_type == 'tag_change_denied' %}
+                      <div class="denied-tag-change">
+                        {{ event.old_human | default(value='Tag change') }}
+                      </div>
+                    {% elif event.event_type == 'note_created' %}
+                      <div class="snapshot-container">
+                        <div class="snapshot-header" onclick="toggleSnapshot('{{ event.id }}')">
+                          <span>View initial content</span>
+                          <span class="diff-toggle">▼</span>
+                        </div>
+                        <div id="snapshot-{{ event.id }}" class="snapshot-content">
+                          {% if event.new_value and event.new_value.fields %}
+                            <ol class="snapshot-fields">
+                              {% for field in event.new_value.fields %}
+                                <li class="snapshot-field">{{ field.content | default(value='(empty)') }}</li>
+                              {% endfor %}
+                            </ol>
+                          {% endif %}
+                          {% if event.snapshot_tags and event.snapshot_tags|length > 0 %}
+                            <div class="tag-list">
+                              {% for tag in event.snapshot_tags %}
+                                <span class="tag">{{ tag }}</span>
+                              {% endfor %}
+                            </div>
+                          {% endif %}
+                        </div>
+                      </div>
+                    {% endif %}
+                  </li>
+                  {% endif %}
+                {% endfor %}
+              </ul>
+            </div>
+          </div>
+        {% endfor %}
+      </div>
+    {% endif %}
+  </div>
+</div>
+
+</div>
+<div>
+{% include "layout_footer.html" %}
+
+</body>
+</html>

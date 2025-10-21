@@ -1,5 +1,5 @@
 /**
- * Shared UI initialization, event handling, and update logic
+ * Shared UI initializa        initializeAllNoteCards();on, event handling, and update logic
  * for commit and review pages.
  */
 window.SharedUI = (function() {
@@ -26,10 +26,8 @@ window.SharedUI = (function() {
      * Initializes the entire page (commit or review).
      */
     function initializePage() {
-        console.log("Initializing page...");
         initializeAllNoteCards();
         setupEventHandlers();
-        console.log("Page initialization complete.");
     }
 
     /**
@@ -48,7 +46,6 @@ window.SharedUI = (function() {
     function initializeNoteCard(noteCardElement) {
         const $noteCard = $(noteCardElement);
         const noteId = $noteCard.attr('id');
-        console.log(`Initializing note card: ${noteId}`);
 
         // 1. Render Original/Current Content (Left/Top Side) & Prepare Images
         $noteCard.find(`${ORIGINAL_CONTENT_SELECTOR}, ${CURRENT_CONTENT_SELECTOR}`).each(function() {
@@ -271,10 +268,82 @@ window.SharedUI = (function() {
     // --- Action Handlers (Called by Event Delegator) ---
 
     async function handleTagAction(apiMethod, tagId, $button) {
-        const $container = $button.closest(TAG_CONTAINER_SELECTOR);
+        // Look for container - try multiple approaches for robustness
+        let $container = $button.closest('.note_tag_container, .suggestion-box');
+        
+        // If not found, try traversing up manually for review page structure
+        if ($container.length === 0) {
+            $container = $button.closest('.tag-suggestion').parent();
+        }
+        
+        const isAcceptAction = apiMethod === ApiService.acceptTag;
+        
         $container.css('opacity', 0.5);
         try {
             await apiMethod(tagId); // No content expected
+            
+            if (isAcceptAction) {
+                // For accept: extract tag content and add to published tags
+                const $tagChip = $container.find('.tag-chip');
+                const tagText = $tagChip.text().trim();
+                const isAddAction = $tagChip.hasClass('add');
+                const isRemoveAction = $tagChip.hasClass('remove');
+                
+                // Add to or remove from the published tags container
+                let $publishedTagsContainer = $('#mainTags');
+                
+                // If no published tags container exists, create it (replace empty state)
+                if ($publishedTagsContainer.length === 0) {
+                    const $emptyState = $('.published-side .empty-state');
+                    if ($emptyState.length > 0) {
+                        const $tagsSection = $(`
+                            <div class="field-item">
+                                <div class="field-header">
+                                    <div class="field-name">🏷️ Current Tags</div>
+                                </div>
+                                <div class="tag-container" id="mainTags"></div>
+                            </div>
+                        `);
+                        $emptyState.replaceWith($tagsSection);
+                        $publishedTagsContainer = $('#mainTags');
+                    }
+                }
+                if ($publishedTagsContainer.length) {
+                    if (isAddAction) {
+                        // Add new tag to published tags
+                        // Extract just the tag text, removing the plus icon
+                        const cleanTagText = tagText.replace(/^[\+\s]*/, '').trim();
+                        const $newTag = $('<span class="tag-chip">' + cleanTagText + '</span>');
+                        $publishedTagsContainer.append($newTag);
+                        
+                        // Add a small animation to highlight the new tag
+                        $newTag.css({
+                            'background': '#10b981',
+                            'color': 'white',
+                            'transform': 'scale(1.1)'
+                        });
+                        setTimeout(() => {
+                            $newTag.css({
+                                'background': '',
+                                'color': '',
+                                'transform': ''
+                            });
+                        }, 1000);
+                    } else if (isRemoveAction) {
+                        // Remove tag from published tags
+                        // Extract just the tag text, removing the minus icon
+                        const cleanTagText = tagText.replace(/^[\-\s]*/, '').trim();
+                        $publishedTagsContainer.find('.tag-chip').each(function() {
+                            if ($(this).text().trim() === cleanTagText) {
+                                $(this).fadeOut(300, function() { $(this).remove(); });
+                                return false; // Break out of loop
+                            }
+                        });
+                    }
+                }
+            }
+            
+            // Remove the suggestion container
             $container.fadeOut(300, function() { $(this).remove(); });
         } catch (error) {
             console.error(`Tag action failed for ID ${tagId}:`, error);
@@ -381,7 +450,6 @@ window.SharedUI = (function() {
             // Start async editor initialization
             EditorControls.initializeEditorsForNote(noteId)
                 .then(() => {
-                    console.log(`Editors initialized for note ${noteId}`);
                     $button.prop('disabled', false); // Re-enable button after init
                 })
                 .catch(error => {
@@ -396,7 +464,6 @@ window.SharedUI = (function() {
             // Button remains disabled until save completes (success or fail)
             EditorControls.saveEditorsForNote(noteId)
                 .then(allSuccess => {
-                    console.log(`Save finished for note ${noteId}. All successful: ${allSuccess}`);
                     if (!allSuccess) {
                         alert("One or more fields failed to update. Please check field highlights and console.");
                     }
@@ -431,7 +498,6 @@ window.SharedUI = (function() {
 
     function handleCancelEdit(noteId, $button) {
         const $noteCard = $(`#${noteId}`);
-        console.log(`Cancelling edit for note ${noteId}`);
 
         EditorControls.destroyEditorsForNote(noteId); // Destroy editors first
 

@@ -1,14 +1,16 @@
 use axum::{
-    extract::Request, http::StatusCode, response::{IntoResponse, Response}
+    extract::Request,
+    http::StatusCode,
+    response::{IntoResponse, Response},
 };
 use sentry::ClientInitGuard;
 use serde::Serialize;
-use thiserror::Error;
 use tera::Context;
+use thiserror::Error;
 
 use tokio_postgres::Error as PgError;
 
-use crate::{AppState, Html, Next, NoteId, State, format, option_env, str, usize};
+use crate::{format, option_env, str, usize, AppState, Html, Next, NoteId, State};
 
 use std::sync::Arc;
 
@@ -172,7 +174,9 @@ impl IntoResponse for Error {
         let error_message = self.to_string();
         let mut response = Response::new(axum::body::Body::empty());
         *response.status_mut() = status_code;
-        response.extensions_mut().insert(ErrorResponse::new(error_message));
+        response
+            .extensions_mut()
+            .insert(ErrorResponse::new(error_message));
         response
     }
 }
@@ -185,7 +189,6 @@ impl From<AuthError> for Error {
         }
     }
 }
-
 
 #[derive(Debug, Error)]
 pub enum AuthError {
@@ -210,9 +213,8 @@ pub enum AuthError {
     #[error("Invalid token")]
     InvalidToken,
     #[error("User not found")]
-    UserNotFound
+    UserNotFound,
 }
-
 
 impl Clone for AuthError {
     fn clone(&self) -> Self {
@@ -227,8 +229,10 @@ impl Clone for AuthError {
             Self::InternalError => Self::InternalError,
             Self::InvalidToken => Self::InvalidToken,
             Self::UserNotFound => Self::UserNotFound,
-            Self::Database(_error) => Self::PasswordHash("Database Error".to_string()) // tokio_posgres::Error doesn't implement clone() so i'm kinda fucked and its 2am so i'm just gonna do this for now
-            ,
+            Self::Database(_error) => {
+                // tokio_postgres::Error doesn't implement Clone, so we degrade gracefully.
+                Self::PasswordHash("Database Error".to_string())
+            }
         }
     }
 }
@@ -248,35 +252,17 @@ impl AuthError {
                 StatusCode::UNAUTHORIZED,
                 "Your session has expired. Please log in again",
             ),
-            Self::UserNotFound => (
-                StatusCode::NOT_FOUND,
-                "User not found",
-            ),
-            Self::InvalidCredentials => (
-                StatusCode::UNAUTHORIZED,
-                "Invalid username or password",
-            ),
-            Self::Database(_) => (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                "Internal Error 23110",
-            ),
+            Self::UserNotFound => (StatusCode::NOT_FOUND, "User not found"),
+            Self::InvalidCredentials => (StatusCode::UNAUTHORIZED, "Invalid username or password"),
+            Self::Database(_) => (StatusCode::INTERNAL_SERVER_ERROR, "Internal Error 23110"),
             Self::PasswordHash(_) => (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 "An error occurred while hashing the password",
             ),
-            Self::Jwt(_) => (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                "Internal Error 23810",
-            ),
+            Self::Jwt(_) => (StatusCode::INTERNAL_SERVER_ERROR, "Internal Error 23810"),
             Self::Redirect(_) => (StatusCode::FOUND, ""),
-            Self::UsernameAlreadyExists => (
-                StatusCode::BAD_REQUEST,
-                "Username already in use",
-            ),
-            Self::PasswordWeak => (
-                StatusCode::BAD_REQUEST,
-                "Password is too weak",
-            ),
+            Self::UsernameAlreadyExists => (StatusCode::BAD_REQUEST, "Username already in use"),
+            Self::PasswordWeak => (StatusCode::BAD_REQUEST, "Password is too weak"),
         }
     }
 }
@@ -303,13 +289,14 @@ impl ErrorTemplate for AuthError {
         let (status_code, error_msg) = self.get_status_and_message();
         let mut context = Context::new();
         context.insert("message", error_msg);
-        
+
         match app_state.tera.render("error.html", &context) {
             Ok(html) => (status_code, Html(html)).into_response(),
             Err(_) => (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 "Failed to render error template",
-            ).into_response(),
+            )
+                .into_response(),
         }
     }
 }
@@ -326,7 +313,8 @@ impl ErrorTemplate for ErrorResponse {
             Err(_) => (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 "Failed to render error template",
-            ).into_response(),
+            )
+                .into_response(),
         }
     }
 }
@@ -342,7 +330,8 @@ impl ErrorTemplate for NoteNotFoundContext {
             Err(_) => (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 "Failed to render error template",
-            ).into_response(),
+            )
+                .into_response(),
         }
     }
 }
@@ -355,12 +344,12 @@ pub async fn pretty_error_middleware(
 ) -> Response {
     // Process the request
     let response = next.run(request).await;
-    
+
     // Handle AuthError
     if let Some(auth_error) = response.extensions().get::<AuthError>() {
         return auth_error.render_error_template(&app_state);
     }
-    
+
     // Handle Error enum
     if let Some(error_respoonse) = response.extensions().get::<ErrorResponse>() {
         return error_respoonse.render_error_template(&app_state);
@@ -379,6 +368,6 @@ pub async fn pretty_error_middleware(
             return (axum::http::StatusCode::NOT_FOUND, Html(html)).into_response();
         }
     }
-    
+
     response
 }
