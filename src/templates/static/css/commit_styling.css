@@ -416,6 +416,95 @@ body {
   min-height: 50px; /* Ensure visibility */
 }
 
+/* Collapsible reviewed sections */
+.collapsible-panel {
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  background: #fff;
+  margin-top: 16px;
+  overflow: hidden;
+  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.06);
+}
+
+.collapsible-panel summary {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  cursor: pointer;
+  list-style: none;
+  padding: 14px 18px;
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.collapsible-panel summary::-webkit-details-marker {
+  display: none;
+}
+
+.collapsible-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 14px;
+}
+
+.collapsible-title .pill {
+  margin-left: 8px;
+}
+
+.collapsible-body {
+  border-top: 1px solid #e2e8f0;
+  padding: 16px;
+  max-height: 420px;
+  overflow-y: auto;
+  background: #f8fafc;
+}
+
+.field-item.compact {
+  padding: 12px;
+  margin-bottom: 12px;
+  border: 1px dashed #cbd5f5;
+  background: #fff;
+}
+
+.field-item.compact.field-has-change {
+  border-color: #fbbf24;
+  background: #fffbeb;
+}
+
+.pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 28px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  background: #e2e8f0;
+  color: #475569;
+}
+
+.pill-success {
+  background: rgba(16, 185, 129, 0.15);
+  color: #047857;
+}
+
+.pill-warning {
+  background: rgba(251, 191, 36, 0.2);
+  color: #92400e;
+}
+
+.reviewed-tags-panel .collapsible-body {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.reviewed-tag-chip {
+  margin: 0;
+}
+
 /* Style for summernote editor during edits */
 .note-editor.note-frame {
   border: 1px solid #007bff; /* Highlight editor */
@@ -954,6 +1043,30 @@ body {
   }
 }
 
+/* Save highlight animation for note cards after successful save */
+@keyframes save-highlight-pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.4);
+  }
+  50% {
+    box-shadow: 0 0 0 8px rgba(16, 185, 129, 0.1);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0);
+  }
+}
+
+.note-card.save-highlight {
+  animation: save-highlight-pulse 1s ease-out;
+  border-color: #10b981;
+  transition: border-color 0.3s ease;
+}
+
+.note-card.save-highlight::before {
+  opacity: 1;
+  background: linear-gradient(90deg, #10b981, #059669);
+}
+
 /* Success/error states */
 .field-success {
   border-left: 4px solid #10b981;
@@ -1245,6 +1358,15 @@ body {
   align-items: flex-start;
 }
 
+/* Remove min-height and height when content-comparison is hidden (e.g., Edit All Fields panel is open) */
+.content-comparison[style*="display: none"],
+.content-comparison[style*="display:none"] {
+  min-height: 0 !important;
+  height: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
 .content-side {
   background: white;
   border-radius: 20px;
@@ -1385,7 +1507,7 @@ body {
 }
 
 .tag-chip.inherited {
-  background: linear-gradient(135deg, #fef3c7, #fcd34d);
+  background: linear-gradient(135deg, #fef3c7, #fcd34d) !important; 
   border-color: #f59e0b;
   color: #92400e;
 }
@@ -2486,5 +2608,343 @@ body {
   .move-from,
   .move-to {
     text-align: center;
+  }
+}
+
+/* ============================================ */
+/* Edit All Fields Panel Styles               */
+/* ============================================ */
+
+.edit-all-fields-panel {
+  background: #fafbfc;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  margin: 16px 0;
+  overflow: hidden;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.05);
+}
+
+.edit-panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 20px;
+  background: linear-gradient(135deg, #006699 0%, #324cdd 100%);
+  color: white;
+}
+
+.edit-panel-title {
+  font-size: 16px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.edit-panel-title i {
+  font-size: 18px;
+  opacity: 0.9;
+}
+
+.edit-panel-hint {
+  font-size: 13px;
+  opacity: 0.85;
+  font-weight: 400;
+}
+
+.edit-fields-container {
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  max-height: 70vh;
+  overflow-y: auto;
+}
+
+/* Individual field items */
+.edit-field-item {
+  background: white;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  overflow: visible;
+  transition: all 0.2s ease;
+}
+
+.edit-field-item:hover:not(.readonly) {
+  border-color: #006699;
+  box-shadow: 0 2px 8px rgba(0, 102, 153, 0.1);
+}
+
+.edit-field-item.inherited {
+  background: #f8f9fa;
+  border-color: #d1d5db;
+  opacity: 0.85;
+}
+
+.edit-field-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  background: #f8fafc;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.edit-field-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: #1a1a1a;
+}
+
+/* Status badges */
+.field-status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.field-status-badge.inherited {
+  background: #e5e7eb;
+  color: #6b7280;
+}
+
+.field-status-badge.has-suggestion {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+
+.field-status-badge.other-suggestion {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.field-status-badge.empty {
+  background: #f3f4f6;
+  color: #9ca3af;
+}
+
+.field-status-badge.unchanged {
+  background: #d1fae5;
+  color: #047857;
+}
+
+/* Editor styling */
+.edit-field-editor {
+  min-height: 100px;
+}
+
+.edit-field-item.readonly .edit-field-editor {
+  background: #f8f9fa;
+  cursor: not-allowed;
+  color: #6b7280;
+}
+
+/* Trumbowyg customization for panel */
+.edit-field-item .trumbowyg-box {
+  border: none;
+  border-radius: 0;
+  margin: 0;
+  min-height: 150px !important;
+}
+
+.edit-field-item .trumbowyg-editor-box {
+  min-height: 100px !important;
+}
+
+.edit-field-item .trumbowyg-editor {
+  min-height: 80px !important;
+  padding: 14px 16px;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+/* CSS Isolation for editor content - prevent website styles from affecting content */
+.edit-field-item .trumbowyg-editor table {
+  border-collapse: collapse;
+  border-spacing: 0;
+  width: auto;
+  margin: 0;
+  background: transparent;
+}
+
+.edit-field-item .trumbowyg-editor table,
+.edit-field-item .trumbowyg-editor th,
+.edit-field-item .trumbowyg-editor td {
+  border: 1px solid #ccc;
+  padding: 4px 8px;
+  text-align: left;
+  vertical-align: top;
+  font-size: inherit;
+  font-weight: normal;
+  background: transparent;
+}
+
+.edit-field-item .trumbowyg-editor th {
+  font-weight: bold;
+  background: #f5f5f5;
+}
+
+.edit-field-item .trumbowyg-editor tr:nth-child(even) {
+  background: transparent;
+}
+
+.edit-field-item .trumbowyg-editor tr:hover {
+  background: transparent;
+}
+
+/* Reset other potentially inherited styles */
+.edit-field-item .trumbowyg-editor ul,
+.edit-field-item .trumbowyg-editor ol {
+  padding-left: 20px;
+  margin: 0.5em 0;
+}
+
+.edit-field-item .trumbowyg-editor li {
+  margin: 0;
+  padding: 0;
+}
+
+.edit-field-item .trumbowyg-editor p {
+  margin: 0 0 0.5em 0;
+}
+
+.edit-field-item .trumbowyg-editor a {
+  color: #0066cc;
+  text-decoration: underline;
+}
+
+.edit-field-item .trumbowyg-editor img {
+  max-width: 100%;
+  height: auto;
+}
+
+.edit-field-item .trumbowyg-button-pane {
+  background: #f8fafc;
+  border-bottom: 1px solid #e2e8f0;
+  display: flex !important;
+  min-height: 36px;
+}
+
+.edit-field-item.inherited .trumbowyg-box,
+.edit-field-item.inherited .trumbowyg-editor {
+  background: #f3f4f6;
+}
+
+/* Panel footer */
+.edit-panel-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 14px 20px;
+  background: #f8fafc;
+  border-top: 1px solid #e2e8f0;
+}
+
+.edit-panel-status {
+  font-size: 13px;
+  min-height: 20px;
+}
+
+.edit-panel-status .text-success { color: #16a34a; }
+.edit-panel-status .text-danger { color: #dc2626; }
+.edit-panel-status .text-info { color: #0ea5e9; }
+.edit-panel-status .text-muted { color: #9ca3af; }
+
+.edit-panel-actions {
+  display: flex;
+  gap: 10px;
+}
+
+/* Modern button styles for panel */
+.edit-all-fields-panel .modern-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 18px;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 500;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.edit-all-fields-panel .btn-secondary {
+  background: #e5e7eb;
+  color: #374151;
+}
+
+.edit-all-fields-panel .btn-secondary:hover {
+  background: #d1d5db;
+}
+
+.edit-all-fields-panel .btn-success {
+  background: linear-gradient(135deg, #16a34a 0%, #15803d 100%);
+  color: white;
+  box-shadow: 0 2px 8px rgba(22, 163, 74, 0.25);
+}
+
+.edit-all-fields-panel .btn-success:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(22, 163, 74, 0.35);
+}
+
+.edit-all-fields-panel .modern-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none !important;
+}
+
+.edit-all-fields-panel .modern-btn.loading {
+  pointer-events: none;
+}
+
+/* Error display */
+.edit-panel-error {
+  margin: 16px;
+  padding: 12px 16px;
+  border-radius: 8px;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .edit-panel-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+  
+  .edit-panel-hint {
+    font-size: 12px;
+  }
+  
+  .edit-panel-footer {
+    flex-direction: column;
+    gap: 12px;
+  }
+  
+  .edit-panel-status {
+    text-align: center;
+    width: 100%;
+  }
+  
+  .edit-panel-actions {
+    width: 100%;
+    justify-content: center;
+  }
+  
+  .edit-all-fields-panel .modern-btn {
+    flex: 1;
+    justify-content: center;
   }
 }

@@ -153,7 +153,7 @@ pub async fn update_media_references_note_state(
     let mut client: SharedConn = match state.db_pool.get_owned().await {
         Ok(pool) => pool,
         Err(err) => {
-            println!("Error getting pool: {err}");
+            tracing::error!(error = %err, note_id = note_id, "Failed to get database pool for media reference update");
             return Err("Internal Error".into());
         }
     };
@@ -169,7 +169,7 @@ pub async fn update_media_references_for_approved_note(
     let mut client: SharedConn = match state.db_pool.get_owned().await {
         Ok(pool) => pool,
         Err(err) => {
-            println!("Error getting pool: {err}");
+            tracing::error!(error = %err, note_id = note_id, "Failed to get database pool for approved note");
             return Err("Internal Error".into());
         }
     };
@@ -212,7 +212,7 @@ pub async fn update_media_references_for_commit(
     let mut client: SharedConn = match state.db_pool.get_owned().await {
         Ok(pool) => pool,
         Err(err) => {
-            println!("Error getting pool: {err}");
+            tracing::error!(error = %err, "Failed to get database pool for commit media references");
             return Err("Internal Error".into());
         }
     };
@@ -234,7 +234,7 @@ pub async fn get_presigned_url(
     let client: SharedConn = match state.db_pool.get_owned().await {
         Ok(pool) => pool,
         Err(err) => {
-            println!("Error getting pool: {err}");
+            tracing::error!(error = %err, note_id = note_id, "Failed to get database pool for presigned URL");
             return Err("Internal Error".into());
         }
     };

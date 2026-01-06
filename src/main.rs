@@ -34,7 +34,7 @@ use tower_http::trace::TraceLayer;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 use axum::{
-    extract::{Path, State},
+    extract::{Path, Query, State},
     http::{header, HeaderValue},
     middleware::{self, Next},
     response::{Html, IntoResponse, Redirect, Response},
@@ -49,14 +49,18 @@ use structs::{
 use structs::{
     SubscriptionPolicyGetResponse, SubscriptionPolicyItem, SubscriptionPolicyPostRequest,
 };
+use structs::{
+    BulkNoteActionRequest, BulkNoteActionResponse, BulkNoteActionFailure,
+};
 use tera::Tera;
 
 use aws_sdk_s3::Client as S3Client;
 use std::result::Result;
 use std::{
-    cfg, env, eprintln, format, i32, i64, net, option_env, panic, println, str, sync, u32,
+    cfg, env, eprintln, format, i32, i64, net, option_env, panic, str, sync, u32,
     unreachable, usize, vec,
 };
+use serde::{Deserialize, Serialize};
 
 type SharedConn = bb8_postgres::bb8::PooledConnection<'static, bb8_postgres::PostgresConnectionManager<tokio_postgres::NoTls>>;
 
@@ -175,7 +179,7 @@ async fn render_optional_tags(
     let tags = match optional_tags_manager::get_tags(appstate, deck_id).await {
         Ok(tags) => tags,
         Err(e) => {
-            println!("Error retrieving opt tags: {e}");
+            tracing::warn!(error = %e, deck_id = deck_id, "Failed to retrieve optional tags");
             return Ok(Html(
                 "Error retrieving optional tags. Please notify us.".to_string(),
             ));
@@ -232,7 +236,7 @@ async fn render_maintainers(
     let maintainers = match maintainer_manager::get_maintainers(appstate, deck_id).await {
         Ok(maintainers) => maintainers,
         Err(e) => {
-            println!("Error getting maintainers: {e}");
+            tracing::warn!(error = %e, deck_id = deck_id, "Failed to get maintainers");
             return Html("Error getting maintainers.".to_string());
         }
     };
@@ -499,8 +503,8 @@ async fn delete_deck(
     let client: SharedConn = match db_state_clone.db_pool.get_owned().await {
             Ok(pool) => pool,
             Err(err) => {
-                println!("Error getting pool: {err}");
-                return Ok(Redirect::permanent("/"));
+                tracing::error!(error = %err, "Failed to get database connection pool");
+                return Err(error::Error::DatabaseConnection);
             }
         };
     let _ = owned_deck_id(&appstate, &deck_hash, user.id()).await?; // only for checking if user owns the deck
@@ -513,13 +517,13 @@ async fn delete_deck(
     // Run on the Tokio runtime
     tokio::spawn(async move {
         if let Err(e) = purge_s3_deck_assets(&db_state_clone, &deck_hash).await {
-            eprintln!("Error purging S3 assets for deck {deck_hash}: {e}");
+            tracing::warn!(error = %e, deck_hash = %deck_hash, "Failed to purge S3 assets for deck");
         }
 
         let client: SharedConn = match db_state_clone.db_pool.get_owned().await {
             Ok(pool) => pool,
             Err(err) => {
-                println!("Error getting pool: {err}");
+                tracing::error!(error = %err, "Failed to get database pool in background task");
                 return;
             }
         };
@@ -532,8 +536,10 @@ async fn delete_deck(
             .await.unwrap();
 
         if let Err(err) = purge_s3_deck_assets(&appstate, &deck_hash).await {
-            println!(
-                "Failed to delete S3 assets for deck {deck_hash}: {err}",
+            tracing::warn!(
+                error = %err,
+                deck_hash = %deck_hash,
+                "Failed to delete S3 assets for deck"
             );
         }
     });
@@ -630,20 +636,124 @@ async fn deny_commit(
             }
         }
         Err(error) => {
-            println!("Error: {error}");
-            Ok(Redirect::to("/"))
+            tracing::warn!(error = %error, commit_id = commit_id, "Failed to deny commit");
+            Err(error)
         }
     }
+}
+
+/// Bulk approve or deny selected notes within a commit
+async fn bulk_note_action(
+    State(appstate): State<Arc<AppState>>,
+    user: User,
+    Path(commit_id): Path<i32>,
+    Json(payload): Json<BulkNoteActionRequest>,
+) -> Result<impl IntoResponse, Error> {
+    // Validate action
+    let approve = match payload.action.as_str() {
+        "approve" => true,
+        "deny" => false,
+        _ => {
+            return Ok(Json(BulkNoteActionResponse {
+                succeeded: vec![],
+                failed: vec![BulkNoteActionFailure {
+                    id: 0,
+                    reason: format!("Invalid action '{}'. Expected 'approve' or 'deny'.", payload.action),
+                }],
+            }));
+        }
+    };
+
+    // Validate note_ids is not empty
+    if payload.note_ids.is_empty() {
+        return Ok(Json(BulkNoteActionResponse {
+            succeeded: vec![],
+            failed: vec![BulkNoteActionFailure {
+                id: 0,
+                reason: "No note IDs provided".to_string(),
+            }],
+        }));
+    }
+
+    // Call the merge function
+    let results = suggestion_manager::merge_by_note_ids(
+        &appstate,
+        commit_id,
+        &payload.note_ids,
+        approve,
+        &user,
+    )
+    .await?;
+
+    // Convert results to response format
+    let succeeded: Vec<i64> = results
+        .iter()
+        .filter(|r| r.success)
+        .map(|r| r.note_id)
+        .collect();
+
+    let failed: Vec<BulkNoteActionFailure> = results
+        .iter()
+        .filter(|r| !r.success)
+        .map(|r| BulkNoteActionFailure {
+            id: r.note_id,
+            reason: r.reason.clone().unwrap_or_else(|| "Unknown error".to_string()),
+        })
+        .collect();
+
+    Ok(Json(BulkNoteActionResponse { succeeded, failed }))
+}
+
+#[derive(Default, Deserialize)]
+struct ReviewCommitQuery {
+    offset: Option<i64>,
+    limit: Option<i64>,
+    format: Option<String>,
+}
+
+#[derive(Serialize)]
+struct NotesPageResponse {
+    html: String,
+    total: i64,
+    offset: i64,
+    limit: i64,
+    loaded: usize,
+    next_offset: Option<i64>,
 }
 
 async fn review_commit(
     State(appstate): State<Arc<AppState>>,
     user: User,
     Path(commit_id): Path<i32>,
-) -> Result<impl IntoResponse, Error> {
-    let mut context = tera::Context::new();
+    Query(params): Query<ReviewCommitQuery>,
+) -> Result<Response, Error> {
+    const PAGE_INCREMENT: i64 = 50;
 
-    let notes = commit_manager::notes_by_commit(&appstate, commit_id).await?;
+    let wants_json = params
+        .format
+        .as_deref()
+        .map(|f| f.eq_ignore_ascii_case("json"))
+        .unwrap_or(false);
+
+    let raw_offset = params.offset.unwrap_or(0).max(0);
+    let sanitized_offset = raw_offset - (raw_offset % PAGE_INCREMENT);
+
+    let default_limit = if wants_json { PAGE_INCREMENT } else { 100 };
+    let requested_limit = params.limit.unwrap_or(default_limit);
+    let sanitized_limit = match requested_limit {
+        100 if !wants_json => 100,
+        50 => PAGE_INCREMENT,
+        _ => default_limit,
+    };
+
+    let notes_page = commit_manager::notes_by_commit(
+        &appstate,
+        commit_id,
+        sanitized_offset,
+        sanitized_limit,
+    )
+    .await?;
+    let notes_loaded = notes_page.notes.len();
 
     let commit = commit_manager::get_commit_info(&appstate, commit_id).await?;
 
@@ -655,14 +765,47 @@ async fn review_commit(
         )
         .await?;
     if q_guid.is_empty() {
-        return error_page(&appstate, error::Error::CommitNotFound.to_string()).await;
+        return error_page(&appstate, error::Error::CommitNotFound.to_string())
+            .await
+            .map(IntoResponse::into_response);
     }
     let deck_id: i64 = q_guid[0].get(0);
 
     let access = suggestion_manager::is_authorized(&appstate, &user, deck_id).await?;
     let notemodels = notetype_manager::notetypes_by_commit(&appstate, commit_id).await?;
 
-    context.insert("notes", &notes);
+    if wants_json {
+        let mut fragment_context = tera::Context::new();
+        fragment_context.insert("notes", &notes_page.notes);
+        fragment_context.insert("user", &user);
+        fragment_context.insert("owned", &access);
+        fragment_context.insert("notemodels", &notemodels);
+        fragment_context.insert("commit", &commit);
+
+        let notes_html = appstate
+            .tera
+            .render("partials/commit_notes.html", &fragment_context)
+            .expect("Failed to render notes fragment");
+
+        let response = NotesPageResponse {
+            html: notes_html,
+            total: notes_page.total,
+            offset: notes_page.offset,
+            limit: notes_page.limit,
+            loaded: notes_loaded,
+            next_offset: notes_page.next_offset,
+        };
+
+        return Ok(Json(response).into_response());
+    }
+
+    let mut context = tera::Context::new();
+    context.insert("notes", &notes_page.notes);
+    context.insert("notes_total", &notes_page.total);
+    context.insert("notes_loaded", &notes_loaded);
+    context.insert("notes_next_offset", &notes_page.next_offset);
+    context.insert("notes_offset", &notes_page.offset);
+    context.insert("notes_limit", &notes_page.limit);
     context.insert("commit", &commit);
     context.insert("user", &user);
     context.insert("owned", &access);
@@ -673,8 +816,7 @@ async fn review_commit(
         .render("commit.html", &context)
         .expect("Failed to render template");
 
-    // Return the rendered HTML as the response
-    Ok(Html(rendered_template))
+    Ok(Html(rendered_template).into_response())
 }
 
 async fn review_note(
@@ -851,13 +993,13 @@ async fn deny_tag(
     let deck_id = match get_deck_by_tag_id(&appstate, tag_id).await {
         Ok(deck_id) => deck_id,
         Err(error) => {
-            println!("Error: {error}");
-            return Ok(Redirect::to("/"));
+            tracing::warn!(error = %error, tag_id = tag_id, "Failed to get deck by tag ID");
+            return Err(error);
         }
     };
 
     if !access_check(&appstate, deck_id, &user).await? {
-        return Ok(Redirect::to("/"));
+        return Err(error::Error::Unauthorized);
     }
 
     let mut client = database::client(&appstate).await?; // needs mutable for transaction
@@ -868,9 +1010,9 @@ async fn deny_tag(
             Ok(Redirect::to(&format!("/review/{res}")))
         }
         Err(error) => {
-            println!("Error: {error}");
+            tracing::warn!(error = %error, tag_id = tag_id, "Failed to deny tag change");
             let _ = tx.rollback().await;
-            Ok(Redirect::to("/"))
+            Err(error)
         }
     }
 }
@@ -883,13 +1025,13 @@ async fn deny_note_move(
     let deck_id = match get_deck_by_move_id(&appstate, move_id).await {
         Ok(deck_id) => deck_id,
         Err(error) => {
-            println!("Error: {error}");
-            return Ok(Redirect::to("/"));
+            tracing::warn!(error = %error, move_id = move_id, "Failed to get deck by move ID");
+            return Err(error);
         }
     };
 
     if !access_check(&appstate, deck_id, &user).await? {
-        return Ok(Redirect::to("/"));
+        return Err(error::Error::Unauthorized);
     }
 
     let mut client = database::client(&appstate).await?;
@@ -900,9 +1042,9 @@ async fn deny_note_move(
             Ok(Redirect::to(&format!("/review/{res}")))
         }
         Err(error) => {
-            println!("Error: {error}");
+            tracing::warn!(error = %error, move_id = move_id, "Failed to deny note move request");
             let _ = tx.rollback().await;
-            Ok(Redirect::to("/"))
+            Err(error)
         }
     }
 }
@@ -915,13 +1057,13 @@ async fn accept_note_move(
     let deck_id = match get_deck_by_move_id(&appstate, move_id).await {
         Ok(deck_id) => deck_id,
         Err(error) => {
-            println!("Error: {error}");
-            return Ok(Redirect::to("/"));
+            tracing::warn!(error = %error, move_id = move_id, "Failed to get deck by move ID");
+            return Err(error);
         }
     };
 
     if !access_check(&appstate, deck_id, &user).await? {
-        return Ok(Redirect::to("/"));
+        return Err(error::Error::Unauthorized);
     }
 
     let mut client = database::client(&appstate).await?;
@@ -932,9 +1074,9 @@ async fn accept_note_move(
             Ok(Redirect::to(&format!("/review/{res}")))
         }
         Err(error) => {
-            println!("Error: {error}");
+            tracing::warn!(error = %error, move_id = move_id, "Failed to accept note move request");
             let _ = tx.rollback().await;
-            Ok(Redirect::to("/"))
+            Err(error)
         }
     }
 }
@@ -947,13 +1089,13 @@ async fn accept_tag(
     let deck_id = match get_deck_by_tag_id(&appstate, tag_id).await {
         Ok(deck_id) => deck_id,
         Err(error) => {
-            println!("Error: {error}");
-            return Ok(Redirect::to("/"));
+            tracing::warn!(error = %error, tag_id = tag_id, "Failed to get deck by tag ID");
+            return Err(error);
         }
     };
 
     if !access_check(&appstate, deck_id, &user).await? {
-        return Ok(Redirect::to("/"));
+        return Err(error::Error::Unauthorized);
     }
 
     let mut client = database::client(&appstate).await?;
@@ -964,9 +1106,9 @@ async fn accept_tag(
             Ok(Redirect::to(&format!("/review/{res}")))
         }
         Err(error) => {
-            println!("Error: {error}");
+            tracing::warn!(error = %error, tag_id = tag_id, "Failed to approve tag change");
             let _ = tx.rollback().await;
-            Ok(Redirect::to("/"))
+            Err(error)
         }
     }
 }
@@ -979,13 +1121,13 @@ async fn deny_field(
     let deck_id = match get_deck_by_field_id(&appstate, field_id).await {
         Ok(deck_id) => deck_id,
         Err(error) => {
-            println!("Error: {error}");
-            return Ok(Redirect::to("/"));
+            tracing::warn!(error = %error, field_id = field_id, "Failed to get deck by field ID");
+            return Err(error);
         }
     };
 
     if !access_check(&appstate, deck_id, &user).await? {
-        return Ok(Redirect::to("/"));
+        return Err(error::Error::Unauthorized);
     }
 
     let mut client = database::client(&appstate).await?;
@@ -996,9 +1138,9 @@ async fn deny_field(
             Ok(Redirect::to(&format!("/review/{res}")))
         }
         Err(error) => {
-            println!("Error: {error}");
+            tracing::warn!(error = %error, field_id = field_id, "Failed to deny field change");
             let _ = tx.rollback().await;
-            Ok(Redirect::to("/"))
+            Err(error)
         }
     }
 }
@@ -1011,13 +1153,13 @@ async fn accept_field(
     let deck_id = match get_deck_by_field_id(&appstate, field_id).await {
         Ok(deck_id) => deck_id,
         Err(error) => {
-            println!("Error: {error}");
-            return Ok(Redirect::to("/"));
+            tracing::warn!(error = %error, field_id = field_id, "Failed to get deck by field ID");
+            return Err(error);
         }
     };
 
     if !access_check(&appstate, deck_id, &user).await? {
-        return Ok(Redirect::to("/"));
+        return Err(error::Error::Unauthorized);
     }
 
     let mut client = database::client(&appstate).await?;
@@ -1036,55 +1178,250 @@ async fn accept_field(
                         )
                         .await
                     {
-                        println!("Error updating media references: {e:?}");
+                        tracing::warn!(error = ?e, note_id = nid, "Failed to update media references");
                     }
                 });
             }
             Ok(Redirect::to(&format!("/review/{res}")))
         }
         Err(error) => {
-            println!("Error: {error}");
+            tracing::warn!(error = %error, field_id = field_id, "Failed to approve field change");
             let _ = tx.rollback().await;
-            Ok(Redirect::to("/"))
+            Err(error)
         }
     }
 }
 
-async fn update_field(
+// async fn update_field(
+//     State(appstate): State<Arc<AppState>>,
+//     user: User,
+//     Json(edit_optional_tag): Json<structs::UpdateFieldSuggestion>,
+// ) -> Result<impl IntoResponse, Error> {
+//     let data = edit_optional_tag;
+//     let deck_id = match get_deck_by_field_id(&appstate, data.field_id).await {
+//         Ok(deck_id) => deck_id,
+//         Err(error) => {
+//             println!("Error: {error}");
+//             return Ok(String::new());
+//         }
+//     };
+
+//     if !access_check(&appstate, deck_id, &user).await? {
+//         return Ok(String::new());
+//     }
+
+//     let mut client = database::client(&appstate).await?;
+//     let tx = client.transaction().await?;
+//     match suggestion_manager::update_field_suggestion(&tx, data.field_id, &data.content).await {
+//         Ok(_res) => {
+//             tx.commit().await?;
+//             match commit_manager::get_field_diff(&appstate, data.field_id).await {
+//                 Ok(diff) => Ok(diff),
+//                 Err(error) => {
+//                     println!("Error: {error}");
+//                     Ok(String::new())
+//                 }
+//             }
+//         }
+//         Err(error) => {
+//             println!("Error: {error}");
+//             let _ = tx.rollback().await;
+//             Ok(String::new())
+//         }
+//     }
+// }
+
+/// Get all fields for a note, for the "Edit All Fields" panel
+async fn get_all_fields_for_edit(
     State(appstate): State<Arc<AppState>>,
+    Path((note_id, commit_id)): Path<(i64, i32)>,
     user: User,
-    Json(edit_optional_tag): Json<structs::UpdateFieldSuggestion>,
 ) -> Result<impl IntoResponse, Error> {
-    let data = edit_optional_tag;
-    let deck_id = match get_deck_by_field_id(&appstate, data.field_id).await {
-        Ok(deck_id) => deck_id,
-        Err(error) => {
-            println!("Error: {error}");
-            return Ok(String::new());
+    // Get the deck ID for this note to check authorization
+    let client = database::client(&appstate).await?;
+    let deck_row = client
+        .query_opt(
+            "SELECT deck FROM notes WHERE id = $1 AND deleted = false",
+            &[&note_id],
+        )
+        .await?;
+    
+    let deck_id: i64 = match deck_row {
+        Some(row) => row.get(0),
+        None => {
+            return Ok(Json(serde_json::json!({
+                "error": "Note not found"
+            })));
         }
     };
-
+    
+    // Check user has access to this deck
     if !access_check(&appstate, deck_id, &user).await? {
-        return Ok(String::new());
+        return Ok(Json(serde_json::json!({
+            "error": "Unauthorized"
+        })));
+    }
+    
+    // Verify the commit exists and is associated with a deck the user can access
+    let commit_deck_row = client
+        .query_opt(
+            "SELECT deck FROM commits WHERE commit_id = $1",
+            &[&commit_id],
+        )
+        .await?;
+    
+    if commit_deck_row.is_none() {
+        return Ok(Json(serde_json::json!({
+            "error": "Commit not found"
+        })));
     }
 
-    let mut client = database::client(&appstate).await?;
-    let tx = client.transaction().await?;
-    match suggestion_manager::update_field_suggestion(&tx, data.field_id, &data.content).await {
-        Ok(_res) => {
-            tx.commit().await?;
-            match commit_manager::get_field_diff(&appstate, data.field_id).await {
-                Ok(diff) => Ok(diff),
-                Err(error) => {
-                    println!("Error: {error}");
-                    Ok(String::new())
+    let commit_deck_id: i64 = commit_deck_row.unwrap().get(0);
+
+    if !access_check(&appstate, commit_deck_id, &user).await? {
+        return Ok(Json(serde_json::json!({
+            "error": "Unauthorized"
+        })));
+    }
+    
+    match suggestion_manager::get_all_fields_for_edit(&appstate, note_id, commit_id).await {
+        Ok(response) => Ok(Json(serde_json::json!(response))),
+        Err(error) => {
+            tracing::warn!(error = %error, note_id = note_id, commit_id = commit_id, "Failed to get all fields for edit");
+            Ok(Json(serde_json::json!({
+                "error": format!("{}", error)
+            })))
+        }
+    }
+}
+
+/// Batch create or update field suggestions
+async fn batch_update_field_suggestions(
+    State(appstate): State<Arc<AppState>>,
+    ClientIp(client_ip): ClientIp,
+    user: User,
+    Json(payload): Json<structs::BatchFieldSuggestionRequest>,
+) -> Result<impl IntoResponse, Error> {
+    // Get the deck ID for this note to check authorization
+    let client = database::client(&appstate).await?;
+    let deck_row = client
+        .query_opt(
+            "SELECT deck FROM notes WHERE id = $1 AND deleted = false",
+            &[&payload.note_id],
+        )
+        .await?;
+    
+    let deck_id: i64 = match deck_row {
+        Some(row) => row.get(0),
+        None => {
+            return Ok(Json(structs::BatchFieldSuggestionResponse {
+                success: false,
+                updated_count: 0,
+                created_count: 0,
+                fields: vec![],
+            }));
+        }
+    };
+    
+    // Check user has access to this deck
+    if !access_check(&appstate, deck_id, &user).await? {
+        return Ok(Json(structs::BatchFieldSuggestionResponse {
+            success: false,
+            updated_count: 0,
+            created_count: 0,
+            fields: vec![],
+        }));
+    }
+    
+    // Verify the commit exists
+    let commit_exists = client
+        .query_opt(
+            "SELECT 1 FROM commits WHERE commit_id = $1",
+            &[&payload.commit_id],
+        )
+        .await?
+        .is_some();
+    
+    if !commit_exists {
+        return Ok(Json(structs::BatchFieldSuggestionResponse {
+            success: false,
+            updated_count: 0,
+            created_count: 0,
+            fields: vec![],
+        }));
+    }
+    
+    let ip_str = client_ip.to_string();
+    let mut db_client = database::client(&appstate).await?;
+    let tx = db_client.transaction().await?;
+    
+    match suggestion_manager::batch_create_or_update_field_suggestions(
+        &tx,
+        payload.note_id,
+        payload.commit_id,
+        &payload.fields,
+        user.id(),
+        &ip_str,
+    )
+    .await
+    {
+        Ok(results) => {
+            // Calculate diffs for each modified field
+            let mut field_results: Vec<structs::FieldUpdateResult> = Vec::with_capacity(results.len());
+            let mut updated_count = 0;
+            let mut created_count = 0;
+            
+            for result in results {
+                match result.action.as_str() {
+                    "updated" => updated_count += 1,
+                    "created" => created_count += 1,
+                    _ => {}
                 }
+                
+                // Get the reviewed content for diff calculation
+                let reviewed_content = result.old_content.clone().unwrap_or_default();
+                let diff_html = htmldiff::htmldiff(&reviewed_content, &result.new_content);
+                
+                field_results.push(structs::FieldUpdateResult {
+                    position: result.position,
+                    field_id: result.field_id,
+                    action: result.action,
+                    diff_html,
+                });
             }
+            
+            tx.commit().await?;
+            
+            // Update media references asynchronously
+            let note_id = payload.note_id;
+            let state_clone = appstate.clone();
+            tokio::spawn(async move {
+                if let Err(e) = media_reference_manager::update_media_references_note_state(
+                    &state_clone,
+                    note_id,
+                )
+                .await
+                {
+                    tracing::warn!(error = ?e, note_id = note_id, "Failed to update media references for note");
+                }
+            });
+            
+            Ok(Json(structs::BatchFieldSuggestionResponse {
+                success: true,
+                updated_count,
+                created_count,
+                fields: field_results,
+            }))
         }
         Err(error) => {
-            println!("Error: {error}");
+            tracing::warn!(error = %error, note_id = payload.note_id, "Failed to batch update field suggestions");
             let _ = tx.rollback().await;
-            Ok(String::new())
+            Ok(Json(structs::BatchFieldSuggestionResponse {
+                success: false,
+                updated_count: 0,
+                created_count: 0,
+                fields: vec![],
+            }))
         }
     }
 }
@@ -1110,16 +1447,16 @@ async fn accept_note(
                         )
                         .await
                     {
-                        println!("Error updating media references: {e:?}");
+                        tracing::warn!(error = ?e, note_id = nid, "Failed to update media references");
                     }
                 });
             }
             Ok(Redirect::to(&format!("/review/{res}")))
         }
         Err(error) => {
-            println!("Error: {error}");
+            tracing::warn!(error = %error, note_id = note_id, "Failed to approve note");
             let _ = tx.rollback().await;
-            Ok(Redirect::to("/"))
+            Err(error)
         }
     }
 }
@@ -1133,8 +1470,8 @@ async fn deny_note(
     match suggestion_manager::delete_card(&appstate, note_id, user).await {
         Ok(res) => Ok(Redirect::to(&format!("/notes/{res}"))),
         Err(error) => {
-            println!("Error: {error}");
-            Ok(Redirect::to("/"))
+            tracing::warn!(error = %error, note_id = note_id, "Failed to delete note");
+            Err(error)
         }
     }
 }
@@ -1158,16 +1495,16 @@ async fn remove_note_from_deck(
                         media_reference_manager::cleanup_media_for_denied_note(&state_clone, nid)
                             .await
                     {
-                        println!("Error updating media references: {e:?}");
+                        tracing::warn!(error = ?e, note_id = nid, "Failed to cleanup media references");
                     }
                 });
             }
             Ok(Redirect::to(&format!("/notes/{res}")))
         }
         Err(error) => {
-            println!("Error: {error}");
+            tracing::warn!(error = %error, note_id = note_id, "Failed to mark note as deleted");
             let _ = tx.rollback().await;
-            Ok(Redirect::to("/"))
+            Err(error)
         }
     }
 }
@@ -1180,8 +1517,9 @@ async fn deny_note_removal(
     match note_manager::deny_note_removal_request(&appstate, note_id, user).await {
         Ok(res) => Ok(Redirect::to(&format!("/review/{res}"))),
         Err(error) => {
-            println!("Error: {error}");
-            Ok(Redirect::to("/"))
+            tracing::warn!(error = %error, note_id = note_id, "Failed to deny note removal request");
+            // Convert Box<dyn Error> to our Error type
+            Err(error::Error::Unknown)
         }
     }
 }
@@ -1261,7 +1599,7 @@ async fn show_statistics(
     let deck_base_info = match stats_manager::get_base_deck_info(&appstate, &deck_hash).await {
         Ok(deck_base_info) => deck_base_info,
         Err(error) => {
-            println!("Error get_base_deck_info: {error}");
+            tracing::warn!(error = %error, "Failed to get base deck info for statistics");
             return Ok(Html("Error showing the statistics.".to_string()));
         }
     };
@@ -1277,7 +1615,7 @@ async fn show_statistics(
     let deck_info = match stats_manager::get_deck_stat_info(&appstate, &deck_hash).await {
         Ok(deck_info) => deck_info,
         Err(error) => {
-            println!("Error get_deck_stat_info: {error}");
+            tracing::warn!(error = %error, "Failed to get deck stat info");
             return Ok(Html("Error showing the statistics.".to_string()));
         }
     };
@@ -1285,7 +1623,7 @@ async fn show_statistics(
     let notes_info = match stats_manager::get_worst_notes_info(&appstate, &deck_hash).await {
         Ok(notes_info) => notes_info,
         Err(error) => {
-            println!("Error get_worst_notes_info: {error}");
+            tracing::warn!(error = %error, "Failed to get worst notes info");
             return Ok(Html("Error showing the statistics.".to_string()));
         }
     };
@@ -1380,7 +1718,7 @@ async fn all_reviews(
     let commits = match commit_manager::commits_review(&appstate, user.id()).await {
         Ok(commits) => commits,
         Err(error) => {
-            println!("Error commits_review: {error}");
+            tracing::warn!(error = %error, "Failed to get commits for review");
             return Ok(Html("Error getting the reviews.".to_string()));
         }
     };
@@ -1745,7 +2083,7 @@ async fn manage_decks(
     let notetypes = match notetype_manager::get_notetype_overview(&appstate, &user).await {
         Ok(cl) => cl,
         Err(error) => {
-            println!("Error get_notetype_overview: {error}");
+            tracing::warn!(error = %error, "Failed to get notetype overview");
             return Ok(Html("Error managing your decks.".to_string()));
         }
     };
@@ -1804,6 +2142,7 @@ async fn set_static_cache_control(request: axum::extract::Request, next: Next) -
 }
 
 use crate::error::Reporter;
+use sentry::integrations::tracing::EventFilter;
 
 #[tokio::main]
 async fn main() {
@@ -1812,20 +2151,10 @@ async fn main() {
     );
     let _reporter = Reporter::new();
 
-    // Sentry setup
-    let _guard = sentry::init((
-        env::var("SENTRY_URL").expect("SENTRY_URL must be set"),
-        sentry::ClientOptions {
-            release: sentry::release_name!(),
-            traces_sample_rate: 0.2,
-            ..Default::default()
-        },
-    ));
-
     let mut tera = match Tera::new("src/templates/**/*.html") {
         Ok(t) => t,
         Err(e) => {
-            println!("Parsing error(s): {e}");
+            eprintln!("FATAL: Template parsing error(s): {e}");
             ::std::process::exit(1);
         }
     };
@@ -1902,8 +2231,22 @@ async fn main() {
         })
     };
 
+    // Configure sentry tracing layer to only capture breadcrumbs, not events.
+    // We use explicit sentry::capture_message() for real errors in error.rs,
+    // so auto-capturing ERROR level would cause double-capture.
+    // Breadcrumbs still provide useful context for when real errors occur.
+    let sentry_layer = sentry::integrations::tracing::layer().event_filter(|metadata| {
+        match *metadata.level() {
+            // Only capture breadcrumbs for context, not events
+            // Real errors are captured explicitly via sentry::capture_message in error.rs
+            tracing::Level::ERROR | tracing::Level::WARN => EventFilter::Breadcrumb,
+            _ => EventFilter::Ignore,
+        }
+    });
+
     tracing_subscriber::registry()
         .with(env_filter)
+        .with(sentry_layer)
         .with(tracing_subscriber::fmt::layer().without_time())
         .init();
 
@@ -1933,7 +2276,7 @@ async fn main() {
     // Spawn connection handling
     tokio::spawn(async move {
         if let Err(e) = connection.await {
-            eprintln!("connection error: {e}");
+            tracing::error!(error = %e, "Database connection error");
         }
     });
     let db = Arc::new(client);
@@ -1994,9 +2337,12 @@ async fn main() {
         .route("/AcceptNoteMove/{move_id}", get(accept_note_move))
         .route("/DenyField/{field_id}", get(deny_field))
         .route("/AcceptField/{field_id}", get(accept_field))
-        .route("/UpdateFieldSuggestion", post(update_field))
+        //.route("/UpdateFieldSuggestion", post(update_field))
+        .route("/GetAllFieldsForEdit/{note_id}/{commit_id}", get(get_all_fields_for_edit))
+        .route("/BatchUpdateFieldSuggestions", post(batch_update_field_suggestions))
         .route("/DenyCommit/{commit_id}", get(deny_commit))
         .route("/ApproveCommit/{commit_id}", get(approve_commit))
+        .route("/BulkNoteAction/{commit_id}", post(bulk_note_action))
         .route("/commit/{commit_id}", get(review_commit))
         .route("/note_history/{note_id}", get(note_history_page))
         .route("/commit_history/{commit_id}", get(commit_history_page))
@@ -2036,7 +2382,7 @@ async fn main() {
     let listener = tokio::net::TcpListener::bind("localhost:1337")
         .await
         .unwrap();
-    println!("listening on {}", listener.local_addr().unwrap());
+    tracing::info!("Server listening on {}", listener.local_addr().unwrap());
     axum::serve(
         listener,
         app.into_make_service_with_connect_info::<SocketAddr>(),

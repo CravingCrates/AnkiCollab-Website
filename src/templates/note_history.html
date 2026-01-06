@@ -21,6 +21,15 @@
     .actor-chip i {
       font-size: 10px;
     }
+
+    .field-name-label {
+      font-size: 12px;
+      font-weight: 600;
+      color: #6b7280;
+      margin-bottom: 6px;
+      text-transform: uppercase;
+      letter-spacing: 0.025em;
+    }
   </style>
   
   <script>
@@ -289,6 +298,9 @@
 
                     {% if event.event_type == 'field_updated' %}
                       <div class="field-update-comparison">
+                        {% if event.field_name %}
+                          <div class="field-name-label">{{ event.field_name }}</div>
+                        {% endif %}
                         <div class="comparison-container">
                           <div class="comparison-side previous">
                             <div class="comparison-label">Previous</div>
@@ -311,12 +323,18 @@
                       </div>
                     {% elif event.event_type == 'field_added' %}
                       <div class="field-added-display">
+                        {% if event.field_name %}
+                          <div class="field-name-label">{{ event.field_name }}</div>
+                        {% endif %}
                         <div class="added-content-preview">
                           {{ event.new_human | default(value='(empty)') }}
                         </div>
                       </div>
                     {% elif event.event_type == 'field_removed' %}
                       <div class="field-removed-display">
+                        {% if event.field_name %}
+                          <div class="field-name-label">{{ event.field_name }}</div>
+                        {% endif %}
                         <div class="removed-content-preview">
                           {{ event.old_human | default(value='(unknown)') }}
                         </div>

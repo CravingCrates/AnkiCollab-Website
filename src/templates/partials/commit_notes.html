@@ -1,0 +1,253 @@
+{% for note in notes %}
+<div id="{{note.id}}" class="note-card note-context" data-context-type="note" data-note-id="{{note.id}}" {% if commit %}data-commit-id="{{commit.id}}"{% endif %}>
+    <div class="note-header">
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 16px;">
+            <div style="display: flex; align-items: flex-start; gap: 12px;">
+                {% if user and owned == true and commit %}
+                <label class="bulk-select-checkbox" title="Select this note for bulk action">
+                    <input type="checkbox" 
+                           class="note-select-checkbox" 
+                           data-note-id="{{note.id}}"
+                           aria-label="Select note #{{note.id}} for bulk action">
+                    <span class="checkbox-custom"></span>
+                </label>
+                {% endif %}
+                <div>
+                    <h2 class="note-title">Review Note #{{note.id}}</h2>
+                    <div class="note-meta">
+                        Last Updated: {{ note.last_update }}<br>
+                        Deck: {{ note.deck }}
+                    </div>
+                </div>
+            </div>
+            
+            <div class="status-badge {% if note.reviewed and not note.delete_req %}badge-suggestion{% elif note.delete_req %}badge-removal{% else %}badge-new{% endif %}">
+                {% if note.reviewed and not note.delete_req %}Changes Suggested
+                {% elif note.delete_req %}Removal Requested
+                {% else %}New Card
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="note-actions-row">
+            <div class="action-group">
+                <a href="/review/{{note.id}}" class="modern-btn btn-primary">
+                    <i class="fa fa-search"></i>
+                    Review Suggestions
+                </a>
+                {% if user and owned == true and note.reviewed == false %}
+                    <a href="/AcceptNote/{{note.id}}" class="modern-btn btn-success" data-action="accept-note" data-note-id="{{note.id}}">
+                        <i class="fa fa-check"></i>
+                        Publish Note
+                    </a>
+                    <a href="/DeleteNote/{{note.id}}" class="modern-btn btn-danger" data-action="delete-note" data-note-id="{{note.id}}">
+                        <i class="fa fa-trash"></i>
+                        Delete Note
+                    </a>
+                {% elif user and owned == true and note.delete_req %}
+                    <a href="/AcceptNoteRemoval/{{note.id}}" class="modern-btn btn-danger" data-action="accept-note-removal" data-note-id="{{note.id}}">
+                        <i class="fa fa-trash"></i>
+                        Delete Note
+                    </a>
+                    <a href="/DenyNoteRemoval/{{note.id}}" class="modern-btn btn-warning" data-action="deny-note-removal" data-note-id="{{note.id}}">
+                        <i class="fa fa-shield"></i>
+                        Keep Note
+                    </a>
+                {% endif %}
+            </div>
+
+            {% if user and owned == true and commit %}
+            <div class="action-group">
+                <button class="modern-btn btn-light edit-all-fields-btn" data-action="edit-all-fields" data-note-id="{{note.id}}" data-commit-id="{{commit.id}}">
+                    <i class="fa fa-edit"></i>
+                    <span>Edit Suggestion</span>
+                </button>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    <div class="content-comparison {% if note.delete_req %}deletion-request{% endif %}">
+        {% if not note.delete_req %}
+        <div class="original-side">
+            <h3 class="content-header">Original Content</h3>
+            {% for field in note.fields %}
+            <div class="field-item">
+                <div class="field-header">
+                    <div class="field-name">{{notemodels[note.note_model][field.position]}}</div>
+                </div>
+                <div class="field-content note-content-display original-content"
+                     data-field-id='{{field.id}}'
+                     data-content='{{ field.reviewed_content | escape }}'>
+                     <!-- Content will be populated by JS -->
+                </div>
+            </div>
+            {% endfor %}
+
+            {% if note.reviewed_fields %}
+            <details class="collapsible-panel reviewed-fields-panel">
+                <summary>
+                    <div class="collapsible-title">
+                        <i class="fa fa-layer-group" aria-hidden="true"></i>
+                        <span>Reviewed Fields</span>
+                        <span class="pill">{{ note.reviewed_fields | length }}</span>
+                    </div>
+                    <i class="fa fa-chevron-down" aria-hidden="true"></i>
+                </summary>
+                <div class="collapsible-body">
+                    {% for field in note.reviewed_fields %}
+                    {% set related_changes = note.fields | filter(attribute="position", value=field.position) %}
+                    <div class="field-item compact {% if related_changes %}field-has-change{% endif %}">
+                        <div class="field-header">
+                            <div class="field-name">
+                                {{notemodels[note.note_model][field.position]}}
+                                {% if field.inherited %}
+                                <span class="inherited-badge" title="Inherited from base note">
+                                    <i class="fa fa-link"></i>
+                                    Inherited
+                                </span>
+                                {% endif %}
+                                {% if related_changes %}
+                                <span class="pill pill-warning">Has suggestion</span>
+                                {% else %}
+                                <span class="pill pill-success">Unchanged</span>
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div class="field-content note-content-display original-content"
+                             data-field-id='{{field.id}}'
+                             data-content='{{ field.content | escape }}'>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </details>
+            {% endif %}
+
+            {% if note.reviewed_tags %}
+            <details class="collapsible-panel reviewed-tags-panel">
+                <summary>
+                    <div class="collapsible-title">
+                        <i class="fa fa-tags" aria-hidden="true"></i>
+                        <span>Reviewed Tags</span>
+                        <span class="pill">{{ note.reviewed_tags | length }}</span>
+                    </div>
+                    <i class="fa fa-chevron-down" aria-hidden="true"></i>
+                </summary>
+                <div class="collapsible-body tag-list">
+                    {% for tag in note.reviewed_tags %}
+                    <span class="tag-chip {% if tag.inherited %}inherited{% endif %} reviewed-tag-chip">
+                        {% if tag.inherited %}<i class="fa fa-link" style="font-size: 0.7rem;"></i>{% endif %}
+                        {{ tag.content }}
+                    </span>
+                    {% endfor %}
+                </div>
+            </details>
+            {% endif %}
+        </div>
+        
+        <div class="suggestion-side">
+            <h3 class="content-header">Suggested Changes</h3>
+            
+            {% if note.move_req %}
+            <div class="section-title">Deck Change Request</div>
+            <div class="note_tag_container suggestion-box tag-move">
+                <div class="tag-content">
+                    <span class="tag-icon">📁</span>
+                    <span>Move to: <strong>{{note.move_req.path}}</strong></span>
+                </div>
+                {% if user and owned == true %}
+                <div class="tag_actions">
+                    <button class="tag_accept_button" role="button" data-action="accept-move" data-move-id="{{note.move_req.id}}">
+                        <i class="fa fa-check"></i>
+                    </button>
+                    <button class="tag_deny_button" role="button" data-action="deny-move" data-move-id="{{note.move_req.id}}">
+                        <i class="fa fa-times"></i>
+                    </button>
+                </div>
+                {% endif %}
+            </div>
+            {% endif %}
+
+            {% if note.fields %}
+            <div class="section-title">Field Changes</div>
+            {% for field in note.fields %}
+            <div class="field-item suggestion-box">
+                <div class="field-header">
+                    <div class="field-name">{{notemodels[note.note_model][field.position]}}</div>
+                    {% if user and owned == true and note.reviewed %}
+                    <div class="field-actions">
+                        <button data-action="accept-field" data-field-id="{{field.id}}" class="action-btn btn-approve" title="Accept Change">
+                            <i class="fa fa-check"></i>
+                            Accept
+                        </button>
+                        <button data-action="deny-field" data-field-id="{{field.id}}" class="action-btn btn-deny" title="Deny Change">
+                            <i class="fa fa-times"></i>
+                            Deny
+                        </button>
+                    </div>
+                    {% endif %}
+                </div>
+                <div class="field-content note-content-display diff-content"
+                     data-field-id='{{field.id}}'
+                     data-original='{{ field.reviewed_content | escape }}'
+                     data-new-content='{{ field.content | escape }}'>
+                     {{ field.diff | safe }}
+                </div>
+            </div>
+            {% endfor %}
+            {% endif %}
+
+            {% if note.new_tags or note.removed_tags %}
+            <hr class="section-divider">
+            <div class="section-title">Tag Changes</div>
+            {% for tag in note.removed_tags %}
+            <div class="note_tag_container suggestion-box tag-remove">
+                <div class="tag-content">
+                    <span class="tag-icon">−</span>
+                    <span><strong>{{tag.content}}</strong></span>
+                </div>
+                {% if user and owned == true %}
+                <div class="tag_actions">
+                    {% if note.reviewed %}
+                    <button class="tag_accept_button" role="button" data-action="accept-tag" data-tag-id="{{tag.id}}">
+                        <i class="fa fa-check"></i>
+                    </button>
+                    {% endif %}
+                    <button class="tag_deny_button" role="button" data-action="deny-tag" data-tag-id="{{tag.id}}">
+                        <i class="fa fa-times"></i>
+                    </button>
+                </div>
+                {% endif %}
+            </div>
+            {% endfor %}
+            {% for tag in note.new_tags %}
+            <div class="note_tag_container suggestion-box tag-add">
+                <div class="tag-content">
+                    <span class="tag-icon">+</span>
+                    <span><strong>{{tag.content}}</strong></span>
+                </div>
+                {% if user and owned == true %}
+                <div class="tag_actions">
+                    {% if note.reviewed %}
+                    <button class="tag_accept_button" role="button" data-action="accept-tag" data-tag-id="{{tag.id}}">
+                        <i class="fa fa-check"></i>
+                    </button>
+                    {% endif %}
+                    <button class="tag_deny_button" role="button" data-action="deny-tag" data-tag-id="{{tag.id}}">
+                        <i class="fa fa-times"></i>
+                    </button>
+                </div>
+                {% endif %}
+            </div>
+            {% endfor %}
+            {% endif %}
+        </div>
+        {% else %}
+        <div class="deletion-message">
+            <i class="fa fa-trash" style="font-size: 48px; color: #dc2626; margin-bottom: 16px;"></i>
+            <div>This note has been requested for deletion.</div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endfor %}

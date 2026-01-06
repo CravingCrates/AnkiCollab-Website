@@ -13,29 +13,29 @@
         .main-container {
             max-width: 1400px;
             margin: 0 auto;
-            padding: 24px;
+            padding: 18px;
         }
         
         .page-title {
-            font-size: 24px;
+            font-size: 22px;
             font-weight: 700;
-            margin: 0 0 12px 0;
+            margin: 0 0 10px 0;
             color: white;
             letter-spacing: -0.5px;
         }
                 
         .note-card {
             background: white;
-            border-radius: 20px;
-            margin-bottom: 32px;
+            border-radius: 18px;
+            margin-bottom: 24px;
             overflow: hidden;
-            box-shadow: 0 4px 32px rgba(0, 0, 0, 0.06);
+            box-shadow: 0 3px 26px rgba(0, 0, 0, 0.06);
             border: 1px solid rgba(0, 0, 0, 0.04);
         }
         
         .note-header {
             background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
-            padding: 24px 32px;
+            padding: 20px 28px;
             border-bottom: 1px solid #e2e8f0;
         }
         
@@ -49,27 +49,80 @@
             letter-spacing: 0.5px;
             margin-left: 1em;
         }
+
+        .commit-summary {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: 18px;
+            color: white;
+        }
+
+        .commit-summary-count {
+            font-size: 14px;
+            font-weight: 600;
+        }
+
+        .commit-summary-hint {
+            font-size: 12px;
+            opacity: 0.85;
+        }
+
+        .load-more-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 10px;
+            margin: 28px 0 40px;
+        }
+
+        .load-more-container.hidden {
+            display: none;
+        }
+
+        .load-more-status {
+            font-size: 13px;
+            color: #cbd5f5;
+            min-height: 18px;
+        }
+
+        .load-more-btn-spinner {
+            border: 2px solid rgba(255, 255, 255, 0.35);
+            border-top-color: #ffffff;
+            border-radius: 50%;
+            width: 16px;
+            height: 16px;
+            animation: spin 0.8s linear infinite;
+            margin-left: 8px;
+            display: none;
+        }
+
+        .modern-btn.loading .load-more-btn-spinner {
+            display: inline-block;
+        }
         
         .field-item {
             background: white;
-            border-radius: 12px;
-            padding: 20px;
-            margin-bottom: 20px;
+            border-radius: 10px;
+            padding: 16px;
+            margin-bottom: 16px;
             border: 1px solid rgba(0, 0, 0, 0.05);
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+            box-shadow: 0 2px 7px rgba(0, 0, 0, 0.04);
         }
         
         .field-header {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 16px;
+            margin-bottom: 12px;
         }
         
         .field-name {
             font-weight: 600;
             color: #374151;
-            font-size: 16px;
+            font-size: 15px;
         }
         
         .field-actions {
@@ -91,7 +144,7 @@
         }
         
         .field-content {
-            line-height: 1.6;
+            line-height: 1.5;
             color: #374151;
         }
         
@@ -99,24 +152,24 @@
             display: flex;
             align-items: center;
             justify-content: space-between;
-            padding: 12px 16px;
-            border-radius: 12px;
-            margin-bottom: 8px;
+            padding: 10px 14px;
+            border-radius: 10px;
+            margin-bottom: 6px;
             font-weight: 500;
-            font-size: 14px;
+            font-size: 13px;
             border: none;
         }
 
         .tag_accept_button, .tag_deny_button {
-            width: 24px;
-            height: 24px;
+            width: 22px;
+            height: 22px;
             border-radius: 6px;
             border: none;
             cursor: pointer;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 10px;
+            font-size: 9px;
             font-weight: bold;
             transition: all 0.2s ease;
         }
@@ -172,6 +225,171 @@
             .modern-btn {
                 flex: 1;
                 min-width: 120px;
+            }
+
+            .commit-summary {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+        }
+
+        /* Bulk Selection Styles */
+        .bulk-actions-section {
+            margin-top: 16px;
+            padding: 16px;
+            background: rgba(255, 255, 255, 0.08);
+            border-radius: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.15);
+        }
+
+        .bulk-actions-info {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 12px;
+            flex-wrap: wrap;
+        }
+
+        .selection-count {
+            font-size: 14px;
+            color: white;
+        }
+
+        .bulk-hint {
+            font-size: 12px;
+            color: rgba(255, 255, 255, 0.7);
+            font-style: italic;
+        }
+
+        .bulk-actions-buttons {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .bulk-actions-buttons .modern-btn {
+            font-size: 13px;
+            padding: 8px 14px;
+        }
+
+        .bulk-actions-buttons .modern-btn.btn-sm {
+            padding: 6px 12px;
+        }
+
+        .bulk-btn-spinner {
+            border: 2px solid rgba(255, 255, 255, 0.35);
+            border-top-color: #ffffff;
+            border-radius: 50%;
+            width: 14px;
+            height: 14px;
+            animation: spin 0.8s linear infinite;
+            margin-left: 6px;
+            display: none;
+        }
+
+        .modern-btn.loading .bulk-btn-spinner {
+            display: inline-block;
+        }
+
+        /* Checkbox Styles */
+        .bulk-select-checkbox {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            position: relative;
+            min-width: 24px;
+            min-height: 24px;
+        }
+
+        .bulk-select-checkbox input[type="checkbox"] {
+            position: absolute;
+            opacity: 0;
+            cursor: pointer;
+            height: 0;
+            width: 0;
+        }
+
+        .checkbox-custom {
+            width: 22px;
+            height: 22px;
+            background: white;
+            border: 2px solid #cbd5e1;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s ease;
+        }
+
+        .bulk-select-checkbox:hover .checkbox-custom {
+            border-color: #006699;
+            box-shadow: 0 0 0 3px rgba(0, 102, 153, 0.15);
+        }
+
+        .bulk-select-checkbox input[type="checkbox"]:checked + .checkbox-custom {
+            background: #006699;
+            border-color: #006699;
+        }
+
+        .bulk-select-checkbox input[type="checkbox"]:checked + .checkbox-custom::after {
+            content: '';
+            width: 6px;
+            height: 10px;
+            border: solid white;
+            border-width: 0 2px 2px 0;
+            transform: rotate(45deg);
+            margin-bottom: 2px;
+        }
+
+        .bulk-select-checkbox input[type="checkbox"]:focus + .checkbox-custom {
+            outline: 2px solid #006699;
+            outline-offset: 2px;
+        }
+
+        /* Selected Note Card State */
+        .note-card.selected {
+            border: 2px solid #006699;
+            box-shadow: 0 0 0 4px rgba(0, 102, 153, 0.15), 0 3px 26px rgba(0, 0, 0, 0.06);
+        }
+
+        .note-card.selected .note-header {
+            background: linear-gradient(135deg, #eef6fc 0%, #e1eff9 100%);
+        }
+
+        /* Bulk action success/processing states */
+        .note-card.bulk-processing {
+            opacity: 0.6;
+            pointer-events: none;
+        }
+
+        .note-card.bulk-success {
+            border-left: 4px solid #10b981;
+        }
+
+        .note-card.bulk-error {
+            border-left: 4px solid #ef4444;
+        }
+
+        @media (max-width: 768px) {
+            .bulk-actions-section {
+                padding: 12px;
+            }
+
+            .bulk-actions-info {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 6px;
+            }
+
+            .bulk-actions-buttons {
+                width: 100%;
+            }
+
+            .bulk-actions-buttons .modern-btn {
+                flex: 1;
+                min-width: 120px;
+                justify-content: center;
             }
         }
         
@@ -244,6 +462,11 @@
         @keyframes loading-shimmer {
             0% { left: -100%; }
             100% { left: 100%; }
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
         }
         
         /* Micro-interactions for better UX */
@@ -324,25 +547,168 @@
             }
         }
         
-        /* Print styles */
-        @media print {
-            .page-header {
-                background: #006699 !important;
-                color: white !important;
-                -webkit-print-color-adjust: exact;
+        /* New Toolbar Styles */
+        .actions-toolbar {
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 16px;
+            padding: 16px 20px;
+            margin-top: 24px;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+        }
+
+        .actions-primary-row {
+            display: flex;
+            align-items: center;
+            gap: 24px;
+            flex-wrap: wrap;
+        }
+
+        .action-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .group-label {
+            font-size: 11px;
+            font-weight: 700;
+            color: rgba(255, 255, 255, 0.6);
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            margin-left: 4px;
+        }
+
+        .btn-group {
+            display: flex;
+            gap: 8px;
+        }
+
+        .action-divider {
+            width: 1px;
+            height: 40px;
+            background: rgba(255, 255, 255, 0.15);
+            margin: 0 8px;
+            align-self: center;
+        }
+
+        .actions-secondary-row {
+            margin-top: 12px;
+            padding-top: 12px;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            display: flex;
+            gap: 16px;
+        }
+
+        .text-action-btn {
+            background: none;
+            border: none;
+            color: rgba(255, 255, 255, 0.6);
+            font-size: 12px;
+            font-weight: 500;
+            cursor: pointer;
+            padding: 4px 8px;
+            border-radius: 6px;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .text-action-btn:hover {
+            color: white;
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        .text-action-btn.hidden {
+            display: none;
+        }
+
+        /* Button Variants */
+        .modern-btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            padding: 10px 20px;
+            border-radius: 10px;
+            font-weight: 600;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            border: 1px solid transparent;
+            text-decoration: none;
+            line-height: 1.2;
+        }
+
+        .btn-success {
+            background: #10b981;
+            color: white;
+            border-color: #059669;
+            box-shadow: 0 2px 4px rgba(16, 185, 129, 0.2);
+        }
+        .btn-success:hover { background: #059669; transform: translateY(-1px); }
+
+        .btn-danger {
+            background: #ef4444;
+            color: white;
+            border-color: #dc2626;
+            box-shadow: 0 2px 4px rgba(239, 68, 68, 0.2);
+        }
+        .btn-danger:hover { background: #dc2626; transform: translateY(-1px); }
+
+        .btn-success-outline {
+            background: rgba(16, 185, 129, 0.1);
+            color: #6ee7b7;
+            border-color: rgba(16, 185, 129, 0.3);
+        }
+        .btn-success-outline:hover:not(:disabled) {
+            background: rgba(16, 185, 129, 0.2);
+            color: white;
+            border-color: #10b981;
+        }
+        .btn-success-outline:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            background: rgba(255, 255, 255, 0.05);
+            color: rgba(255, 255, 255, 0.3);
+            border-color: rgba(255, 255, 255, 0.1);
+        }
+
+        .btn-danger-outline {
+            background: rgba(239, 68, 68, 0.1);
+            color: #fca5a5;
+            border-color: rgba(239, 68, 68, 0.3);
+        }
+        .btn-danger-outline:hover:not(:disabled) {
+            background: rgba(239, 68, 68, 0.2);
+            color: white;
+            border-color: #ef4444;
+        }
+        .btn-danger-outline:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            background: rgba(255, 255, 255, 0.05);
+            color: rgba(255, 255, 255, 0.3);
+            border-color: rgba(255, 255, 255, 0.1);
+        }
+
+        @media (max-width: 768px) {
+            .actions-primary-row {
+                flex-direction: column;
+                align-items: stretch;
+                gap: 16px;
             }
-            
-            .modern-btn,
-            .action-btn,
-            .commit-actions,
-            .note-actions-row {
-                display: none !important;
+            .action-divider {
+                display: none;
             }
-            
-            .suggestion-box {
-                border: 1px solid #ccc !important;
-                box-shadow: none !important;
-                break-inside: avoid;
+            .btn-group {
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+            }
+            .action-group {
+                width: 100%;
             }
         }
 
@@ -354,15 +720,14 @@
         // Global namespace for our app
         window.HtmlDiffUtils = {};
         window.ImageHandler = {};
-        window.EditorControls = {};
         window.ApiService = {};
         // Don't overwrite SharedUI - let shared_ui.js handle it
     </script>
 
     <script src="/static/js/html_diff_utils.js"></script>
     <script src="/static/js/image_handling.js"></script>
-    <script src="/static/js/editor_controls.js"></script>
     <script src="/static/js/api_service.js"></script>
+    <script src="/static/js/field_edit_panel.js"></script>
     <script src="/static/js/shared_ui.js"></script>
 
 </head>
@@ -406,202 +771,80 @@
                 {{ commit.commit_info | striptags }}
             </div>
             {% endif %}
+
+            <div class="commit-summary">
+                <div class="commit-summary-count">
+                    Showing <strong id="notes-loaded-count">{{ notes_loaded }}</strong> of <strong id="notes-total-count">{{ notes_total }}</strong> notes
+                </div>
+            </div>
             
             {% if user and owned == true %}
-            <div class="commit-actions">
-                <a href="/ApproveCommit/{{commit.id}}" class="primary-action" onclick="this.classList.add('disabled','loading'); this.style.pointerEvents='none'; this.setAttribute('aria-busy','true');">
-                    <i class="fa fa-check"></i>
-                    Accept All Changes
-                </a>
-                <a href="/DenyCommit/{{commit.id}}" class="danger-action" onclick="this.classList.add('disabled','loading'); this.style.pointerEvents='none'; this.setAttribute('aria-busy','true');">
-                    <i class="fa fa-times"></i>
-                    Deny All Changes
-                </a>
-            </div>
-            {% endif %}
-        </div>
-    </div>
-    {% for note in notes %}
-    <div id="{{note.id}}" class="note-card note-context" data-context-type="note">
-        <div class="note-header">
-            <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 16px;">
-                <div>
-                    <h2 class="note-title">Review Note #{{note.id}}</h2>
-                    <div class="note-meta">
-                        Last Updated: {{ note.last_update }}<br>
-                        Deck: {{ note.deck }}
+            <div class="actions-toolbar" id="bulk-actions-section" data-commit-id="{{commit.id}}">
+                <div class="actions-primary-row">
+                    <!-- Global Actions -->
+                    <div class="action-group global-group">
+                        <span class="group-label">All Changes</span>
+                        <div class="btn-group">
+                            <a href="/ApproveCommit/{{commit.id}}" class="modern-btn btn-success" onclick="this.classList.add('disabled','loading'); this.style.pointerEvents='none'; this.setAttribute('aria-busy','true');" title="Merges ALL notes in this commit, including notes not yet loaded">
+                                <i class="fa fa-check-circle"></i>
+                                Accept All
+                            </a>
+                            <a href="/DenyCommit/{{commit.id}}" class="modern-btn btn-danger" onclick="this.classList.add('disabled','loading'); this.style.pointerEvents='none'; this.setAttribute('aria-busy','true');" title="Denies ALL notes in this commit, including notes not yet loaded">
+                                <i class="fa fa-times-circle"></i>
+                                Deny All
+                            </a>
+                        </div>
                     </div>
-                </div>
-                
-                <div class="status-badge {% if note.reviewed and not note.delete_req %}badge-suggestion{% elif note.delete_req %}badge-removal{% else %}badge-new{% endif %}">
-                    {% if note.reviewed and not note.delete_req %}Changes Suggested
-                    {% elif note.delete_req %}Removal Requested
-                    {% else %}New Card
-                    {% endif %}
-                </div>
-            </div>
 
-            <div class="note-actions-row">
-                <div class="action-group">
-                    <a href="/review/{{note.id}}" class="modern-btn btn-primary">
-                        <i class="fa fa-search"></i>
-                        Review Suggestions
-                    </a>
-                    {% if user and owned == true and note.reviewed == false %}
-                        <a href="/AcceptNote/{{note.id}}" class="modern-btn btn-success">
-                            <i class="fa fa-check"></i>
-                            Publish Note
-                        </a>
-                        <a href="/DeleteNote/{{note.id}}" class="modern-btn btn-danger">
-                            <i class="fa fa-trash"></i>
-                            Delete Note
-                        </a>
-                    {% elif user and owned == true and note.delete_req %}
-                        <a href="/AcceptNoteRemoval/{{note.id}}" class="modern-btn btn-danger">
-                            <i class="fa fa-trash"></i>
-                            Delete Note
-                        </a>
-                        <a href="/DenyNoteRemoval/{{note.id}}" class="modern-btn btn-warning">
-                            <i class="fa fa-shield"></i>
-                            Keep Note
-                        </a>
-                    {% endif %}
-                </div>
+                    <div class="action-divider"></div>
 
-                {% if user and owned == true %}
-                <div class="action-group">
-                    <button class="modern-btn btn-light edit-suggestion-btn" data-action="toggle-edit" data-note-id="{{note.id}}">
-                        <i class="fa fa-edit"></i>
-                        <span>Edit Suggestion</span>
-                    </button>
-                    <button class="modern-btn btn-danger abort-edit-btn" data-action="cancel-edit" data-note-id="{{note.id}}" style="display:none;">
-                        <i class="fa fa-times"></i>
-                        <span>Cancel Edit</span>
-                    </button>
-                </div>
-                {% endif %}
-            </div>
-        </div>
-        <div class="content-comparison {% if note.delete_req %}deletion-request{% endif %}">
-            {% if not note.delete_req %}
-            <div class="original-side">
-                <h3 class="content-header">Original Content</h3>
-                {% for field in note.fields %}
-                <div class="field-item">
-                    <div class="field-header">
-                        <div class="field-name">{{notemodels[note.note_model][field.position]}}</div>
-                    </div>
-                    <div class="field-content note-content-display original-content"
-                         data-field-id='{{field.id}}'
-                         data-content='{{ field.reviewed_content | escape }}'>
-                         <!-- Content will be populated by JS -->
-                    </div>
-                </div>
-                {% endfor %}
-            </div>
-            
-            <div class="suggestion-side">
-                <h3 class="content-header">Suggested Changes</h3>
-                
-                {% if note.move_req %}
-                <div class="section-title">Deck Change Request</div>
-                <div class="note_tag_container suggestion-box tag-move">
-                    <div class="tag-content">
-                        <span class="tag-icon">📁</span>
-                        <span>Move to: <strong>{{note.move_req.path}}</strong></span>
-                    </div>
-                    {% if user and owned == true %}
-                    <div class="tag_actions">
-                        <button class="tag_accept_button" role="button" data-action="accept-move" data-move-id="{{note.move_req.id}}">
-                            <i class="fa fa-check"></i>
-                        </button>
-                        <button class="tag_deny_button" role="button" data-action="deny-move" data-move-id="{{note.move_req.id}}">
-                            <i class="fa fa-times"></i>
-                        </button>
-                    </div>
-                    {% endif %}
-                </div>
-                {% endif %}
-
-                {% if note.fields %}
-                <div class="section-title">Field Changes</div>
-                {% for field in note.fields %}
-                <div class="field-item suggestion-box">
-                    <div class="field-header">
-                        <div class="field-name">{{notemodels[note.note_model][field.position]}}</div>
-                        {% if user and owned == true and note.reviewed %}
-                        <div class="field-actions">
-                            <button data-action="accept-field" data-field-id="{{field.id}}" class="action-btn btn-approve" title="Accept Change">
+                    <!-- Selection Actions -->
+                    <div class="action-group selection-group">
+                        <span class="group-label">Selected (<span id="selection-count">0</span>)</span>
+                        <div class="btn-group">
+                            <button type="button" class="modern-btn btn-success-outline" id="bulk-approve-btn" disabled title="Approve only selected notes">
                                 <i class="fa fa-check"></i>
                                 Accept
+                                <span class="bulk-btn-spinner" aria-hidden="true"></span>
                             </button>
-                            <button data-action="deny-field" data-field-id="{{field.id}}" class="action-btn btn-deny" title="Deny Change">
+                            <button type="button" class="modern-btn btn-danger-outline" id="bulk-deny-btn" disabled title="Deny only selected notes">
                                 <i class="fa fa-times"></i>
                                 Deny
+                                <span class="bulk-btn-spinner" aria-hidden="true"></span>
                             </button>
                         </div>
-                        {% endif %}
-                    </div>
-                    <div class="field-content note-content-display diff-content"
-                         data-field-id='{{field.id}}'
-                         data-original='{{ field.reviewed_content | escape }}'
-                         data-new-content='{{ field.content | escape }}'>
-                         {{ field.diff | safe }}
                     </div>
                 </div>
-                {% endfor %}
-                {% endif %}
-
-                {% if note.new_tags or note.removed_tags %}
-                <hr class="section-divider">
-                <div class="section-title">Tag Changes</div>
-                {% for tag in note.removed_tags %}
-                <div class="note_tag_container suggestion-box tag-remove">
-                    <div class="tag-content">
-                        <span class="tag-icon">−</span>
-                        <span><strong>{{tag.content}}</strong></span>
-                    </div>
-                    {% if user and owned == true and note.reviewed %}
-                    <div class="tag_actions">
-                        <button class="tag_accept_button" role="button" data-action="accept-tag" data-tag-id="{{tag.id}}">
-                            <i class="fa fa-check"></i>
-                        </button>
-                        <button class="tag_deny_button" role="button" data-action="deny-tag" data-tag-id="{{tag.id}}">
-                            <i class="fa fa-times"></i>
-                        </button>
-                    </div>
-                    {% endif %}
+                
+                <div class="actions-secondary-row">
+                    <button type="button" class="text-action-btn" id="select-all-visible-btn">
+                        <i class="fa fa-check-square-o"></i> Select All Visible
+                    </button>
+                    <button type="button" class="text-action-btn hidden" id="deselect-all-btn">
+                        <i class="fa fa-square-o"></i> Deselect All
+                    </button>
                 </div>
-                {% endfor %}
-                {% for tag in note.new_tags %}
-                <div class="note_tag_container suggestion-box tag-add">
-                    <div class="tag-content">
-                        <span class="tag-icon">+</span>
-                        <span><strong>{{tag.content}}</strong></span>
-                    </div>
-                    {% if user and owned == true and note.reviewed %}
-                    <div class="tag_actions">
-                        <button class="tag_accept_button" role="button" data-action="accept-tag" data-tag-id="{{tag.id}}">
-                            <i class="fa fa-check"></i>
-                        </button>
-                        <button class="tag_deny_button" role="button" data-action="deny-tag" data-tag-id="{{tag.id}}">
-                            <i class="fa fa-times"></i>
-                        </button>
-                    </div>
-                    {% endif %}
-                </div>
-                {% endfor %}
-                {% endif %}
-            </div>
-            {% else %}
-            <div class="deletion-message">
-                <i class="fa fa-trash" style="font-size: 48px; color: #dc2626; margin-bottom: 16px;"></i>
-                <div>This note has been requested for deletion.</div>
             </div>
             {% endif %}
         </div>
     </div>
-    {% endfor %}
+    <div id="notes-container"
+         class="notes-container"
+         data-total="{{ notes_total }}"
+         data-loaded="{{ notes_loaded }}"
+         data-next-offset="{% if notes_next_offset %}{{ notes_next_offset }}{% endif %}"
+         data-page-limit="{{ notes_limit }}"
+         data-commit-id="{{commit.id}}">
+        {% include "partials/commit_notes.html" %}
+    </div>
+
+    <div id="load-more-container" class="load-more-container {% if not notes_next_offset %}hidden{% endif %}">
+        <button id="load-more-btn" class="modern-btn btn-light">
+            <span class="btn-label">Load more</span>
+            <span class="load-more-btn-spinner" aria-hidden="true"></span>
+        </button>
+        <div id="load-more-status" class="load-more-status" role="status" aria-live="polite"></div>
+    </div>
     </div>
 </div>
 
@@ -610,11 +853,202 @@
     <script src="/static/plugins/trumbowyg/trumbowyg.min.js"></script>
     <script src="/static/plugins/trumbowyg/plugins/colors/trumbowyg.colors.js"></script>
     <script>
+        // Mark that this page handles its own state restoration
+        window.commitPageRestoreHandled = true;
+        
         // Initialize the shared UI components after the page loads
         $(document).ready(function() {
             SharedUI.initializePage();
             initButtonFeatures();
+            initPaginationControls();
+            initBulkSelectionControls();
+            initStateRestoration(); // Must come after pagination controls
             
+            /**
+             * State Restoration - Restores scroll position and pagination state
+             * after editing a note suggestion causes a page reload.
+             */
+            function initStateRestoration() {
+                const savedState = sessionStorage.getItem('fieldEditPanel_restoreState');
+                if (!savedState) {
+                    return;
+                }
+                
+                let state;
+                try {
+                    state = JSON.parse(savedState);
+                } catch (e) {
+                    sessionStorage.removeItem('fieldEditPanel_restoreState');
+                    return;
+                }
+                
+                // Validate required properties exist
+                if (!state || typeof state.timestamp !== 'number' || !state.noteId) {
+                    sessionStorage.removeItem('fieldEditPanel_restoreState');
+                    return;
+                }
+                
+                // Check if state is not too old (5 minutes)
+                const STATE_EXPIRY_MS = 5 * 60 * 1000;
+                if (Date.now() - state.timestamp > STATE_EXPIRY_MS) {
+                    sessionStorage.removeItem('fieldEditPanel_restoreState');
+                    return;
+                }
+                
+                // Clear the stored state immediately to prevent re-triggering
+                sessionStorage.removeItem('fieldEditPanel_restoreState');
+                
+                // Sanitize noteId for use in selector (should be numeric, but escape for safety)
+                const targetNoteId = String(state.noteId).replace(/[^\w-]/g, '');
+                if (!targetNoteId) {
+                    return;
+                }
+                
+                const targetLoaded = Number(state.loaded) || 0;
+                const commitId = {{ commit.id }};
+                
+                const $notesContainer = $('#notes-container');
+                const currentLoaded = Number($notesContainer.data('loaded')) || 0;
+                
+                // Check if target note is already visible (use getElementById for safety)
+                const targetElement = document.getElementById(targetNoteId);
+                if (targetElement) {
+                    // Note is already on page, just scroll to it
+                    scrollToNoteAndHighlight($(targetElement));
+                    return;
+                }
+                
+                // Need to load more notes to reach the target
+                if (targetLoaded > currentLoaded) {
+                    loadNotesUntilTarget(commitId, targetNoteId, targetLoaded, currentLoaded);
+                } else {
+                    // Target should be on page but isn't - scroll to approximate position
+                    const scrollPos = Number(state.scrollPosition) || 0;
+                    if (scrollPos > 0) {
+                        window.scrollTo({ top: scrollPos, behavior: 'instant' });
+                    }
+                }
+            }
+            
+            /**
+             * Loads notes in batches until the target note is found.
+             */
+            async function loadNotesUntilTarget(commitId, targetNoteId, targetLoaded, currentLoaded) {
+                const $notesContainer = $('#notes-container');
+                const $loadMoreContainer = $('#load-more-container');
+                const $loadMoreBtn = $('#load-more-btn');
+                const $loadMoreStatus = $('#load-more-status');
+                const $loadedCount = $('#notes-loaded-count');
+                
+                // Show loading indicator
+                $loadMoreStatus.html('<i class="fa fa-spinner fa-spin"></i> Restoring your position...');
+                $loadMoreBtn.addClass('loading');
+                
+                let nextOffset = $notesContainer.data('nextOffset');
+                // If no nextOffset, there's nothing more to load
+                if (nextOffset === undefined || nextOffset === null || nextOffset === '') {
+                    $loadMoreStatus.text('');
+                    $loadMoreBtn.removeClass('loading');
+                    return;
+                }
+                
+                let loaded = currentLoaded;
+                const limit = 50;
+                const maxIterations = Math.ceil((targetLoaded - currentLoaded) / limit) + 2; // Safety limit
+                
+                for (let i = 0; i < maxIterations && nextOffset !== null && nextOffset !== ''; i++) {
+                    try {
+                        const response = await fetch(`/commit/${commitId}?offset=${nextOffset}&limit=${limit}&format=json`, {
+                            headers: { 'Accept': 'application/json' }
+                        });
+                        
+                        if (!response.ok) {
+                            throw new Error(`Request failed with status ${response.status}`);
+                        }
+                        
+                        const payload = await response.json();
+                        
+                        if (payload.html) {
+                            const temp = document.createElement('div');
+                            temp.innerHTML = payload.html;
+                            while (temp.firstChild) {
+                                $notesContainer[0].appendChild(temp.firstChild);
+                            }
+                            SharedUI.initializePage();
+                        }
+                        
+                        loaded += payload.loaded || 0;
+                        nextOffset = payload.next_offset;
+                        
+                        // Update pagination state
+                        $notesContainer.data('loaded', loaded);
+                        $notesContainer.data('nextOffset', nextOffset ?? '');
+                        $loadedCount.text(loaded);
+                        
+                        // Check if target note is now visible (use getElementById for safety)
+                        const targetElement = document.getElementById(targetNoteId);
+                        if (targetElement) {
+                            // Found the note - finish up
+                            $loadMoreStatus.text('');
+                            $loadMoreBtn.removeClass('loading');
+                            
+                            // Update load more button visibility
+                            if (nextOffset === null || nextOffset === '') {
+                                $loadMoreContainer.addClass('hidden');
+                            }
+                            
+                            // Small delay to ensure DOM is settled
+                            requestAnimationFrame(() => {
+                                scrollToNoteAndHighlight($(targetElement));
+                            });
+                            return;
+                        }
+                        
+                        // Stop if we've loaded enough or no more to load
+                        if (loaded >= targetLoaded || !payload.loaded) {
+                            break;
+                        }
+                        
+                    } catch (error) {
+                        console.error('Failed to load notes during state restoration:', error);
+                        $loadMoreStatus.text('Failed to restore position. Please scroll manually.');
+                        break;
+                    }
+                }
+                
+                // Cleanup loading state
+                $loadMoreStatus.text('');
+                $loadMoreBtn.removeClass('loading');
+                
+                // Update load more button visibility
+                if (nextOffset === null || nextOffset === '') {
+                    $loadMoreContainer.addClass('hidden');
+                }
+                
+                // Even if we didn't find the exact note, scroll to approximate position
+                // This handles cases where the note was deleted or moved
+                const finalTargetElement = document.getElementById(targetNoteId);
+                if (finalTargetElement) {
+                    scrollToNoteAndHighlight($(finalTargetElement));
+                }
+            }
+            
+            /**
+             * Scrolls to a note card and highlights it briefly.
+             */
+            function scrollToNoteAndHighlight($noteCard) {
+                if (!$noteCard.length) return;
+                
+                // Scroll to the note, centering it in the viewport
+                $noteCard[0].scrollIntoView({ behavior: 'instant', block: 'center' });
+                
+                // Add a highlight effect to help user find their place
+                $noteCard.addClass('save-highlight');
+                setTimeout(() => {
+                    $noteCard.removeClass('save-highlight');
+                }, 2500);
+            }
+
             function initButtonFeatures() {
                 // Comprehensive spam-click protection for all interactive buttons (EXCEPT editor buttons and editor content)
                 // Use event delegation with a delay to allow original handlers to run first
@@ -800,6 +1234,442 @@
                     document.head.appendChild(link);
                 });
                 
+            }
+
+            function initPaginationControls() {
+                const $notesContainer = $('#notes-container');
+                if (!$notesContainer.length) {
+                    return;
+                }
+
+                const commitId = {{ commit.id }};
+                const $loadMoreContainer = $('#load-more-container');
+                const $loadMoreBtn = $('#load-more-btn');
+                const $loadMoreStatus = $('#load-more-status');
+                const $loadedCount = $('#notes-loaded-count');
+                const $totalCount = $('#notes-total-count');
+
+                const paginationState = {
+                    commitId,
+                    total: Number($notesContainer.data('total')) || 0,
+                    loaded: Number($notesContainer.data('loaded')) || 0,
+                    nextOffset: parseOptionalNumber($notesContainer.data('nextOffset')),
+                };
+
+                updateControls();
+
+                $(document).off('note:resolved.commitPagination');
+                $(document).on('note:resolved.commitPagination', function(_event, detail) {
+                    paginationState.total = Math.max(0, paginationState.total - 1);
+                    paginationState.loaded = Math.max(0, paginationState.loaded - 1);
+
+                    $notesContainer.data('total', paginationState.total);
+                    $notesContainer.data('loaded', paginationState.loaded);
+
+                    $totalCount.text(paginationState.total);
+                    $loadedCount.text(paginationState.loaded);
+
+                    updateControls();
+                });
+
+                $loadMoreBtn.on('click', async function(event) {
+                    event.preventDefault();
+
+                    if ($loadMoreBtn.hasClass('disabled') || paginationState.nextOffset === null) {
+                        return;
+                    }
+
+                    setLoading(true);
+
+                    try {
+                        const response = await fetch(`/commit/${paginationState.commitId}?offset=${paginationState.nextOffset}&limit=50&format=json`, {
+                            headers: { 'Accept': 'application/json' }
+                        });
+
+                        if (!response.ok) {
+                            throw new Error(`Request failed with status ${response.status}`);
+                        }
+
+                        const payload = await response.json();
+
+                        if (payload.html) {
+                            const temp = document.createElement('div');
+                            temp.innerHTML = payload.html;
+                            while (temp.firstChild) {
+                                $notesContainer[0].appendChild(temp.firstChild);
+                            }
+                            SharedUI.initializePage();
+                        }
+
+                        paginationState.loaded += payload.loaded || 0;
+                        if (payload.total !== undefined && payload.total !== null) {
+                            paginationState.total = Number(payload.total);
+                        }
+                        paginationState.nextOffset = parseOptionalNumber(payload.next_offset);
+
+                        $notesContainer.data('loaded', paginationState.loaded);
+                        $notesContainer.data('nextOffset', paginationState.nextOffset ?? '');
+
+                        $loadedCount.text(paginationState.loaded);
+                        $totalCount.text(paginationState.total);
+
+                        if (payload.loaded) {
+                            //$loadMoreStatus.text(`Loaded ${payload.loaded} more note${payload.loaded === 1 ? '' : 's'}.`);
+                        } else {
+                            $loadMoreStatus.text('No additional notes available.');
+                        }
+                    } catch (error) {
+                        console.error('Failed to load more notes:', error);
+                        $loadMoreStatus.text('Failed to load more notes. Please try again.');
+                    } finally {
+                        setLoading(false);
+                        updateControls();
+                    }
+                });
+
+                function parseOptionalNumber(value) {
+                    if (value === undefined || value === null || value === '') {
+                        return null;
+                    }
+                    const numeric = Number(value);
+                    return Number.isFinite(numeric) ? numeric : null;
+                }
+
+                function setLoading(isLoading) {
+                    if (isLoading) {
+                        $loadMoreBtn.addClass('disabled loading').attr('aria-busy', 'true');
+                        $loadMoreStatus.text('Loading...');
+                    } else {
+                        $loadMoreBtn.removeClass('disabled loading').removeAttr('aria-busy');
+                        $loadMoreStatus.text('');
+                    }
+                }
+
+                function updateControls() {
+                    if (paginationState.nextOffset === null) {
+                        $loadMoreContainer.addClass('hidden');
+                    } else {
+                        $loadMoreContainer.removeClass('hidden');
+                    }
+                }
+            }
+
+            /**
+             * Bulk Selection Controls
+             * Manages selection state in localStorage per commit
+             * and handles bulk approve/deny actions
+             */
+            function initBulkSelectionControls() {
+                const $bulkSection = $('#bulk-actions-section');
+                if (!$bulkSection.length) return; // Not shown for non-owners
+
+                const commitId = $bulkSection.data('commit-id');
+                if (!commitId) return;
+
+                const storageKey = `commit_select::${commitId}`;
+                const $notesContainer = $('#notes-container');
+                const $selectionCount = $('#selection-count');
+                const $selectAllBtn = $('#select-all-visible-btn');
+                const $deselectAllBtn = $('#deselect-all-btn');
+                const $bulkApproveBtn = $('#bulk-approve-btn');
+                const $bulkDenyBtn = $('#bulk-deny-btn');
+
+                // Load selection from localStorage
+                function getSelection() {
+                    try {
+                        const stored = localStorage.getItem(storageKey);
+                        return stored ? JSON.parse(stored) : [];
+                    } catch (e) {
+                        console.warn('Failed to parse selection from localStorage:', e);
+                        return [];
+                    }
+                }
+
+                // Save selection to localStorage
+                function saveSelection(noteIds) {
+                    try {
+                        localStorage.setItem(storageKey, JSON.stringify(noteIds));
+                    } catch (e) {
+                        console.warn('Failed to save selection to localStorage:', e);
+                    }
+                }
+
+                // Update the selection count display
+                function updateSelectionCount() {
+                    const selection = getSelection();
+                    const count = selection.length;
+                    $selectionCount.text(count);
+
+                    // Enable/disable bulk action buttons based on selection
+                    const hasSelection = count > 0;
+                    $bulkApproveBtn.prop('disabled', !hasSelection);
+                    $bulkDenyBtn.prop('disabled', !hasSelection);
+                    
+                    // Toggle visibility of deselect button
+                    if (hasSelection) {
+                        $deselectAllBtn.removeClass('hidden');
+                    } else {
+                        $deselectAllBtn.addClass('hidden');
+                    }
+                }
+
+                // Apply selection state to a checkbox
+                function applySelectionToCheckbox($checkbox) {
+                    const noteId = String($checkbox.data('note-id'));
+                    const selection = getSelection();
+                    const isSelected = selection.includes(noteId);
+                    $checkbox.prop('checked', isSelected);
+                    
+                    const $noteCard = $checkbox.closest('.note-card');
+                    if (isSelected) {
+                        $noteCard.addClass('selected');
+                    } else {
+                        $noteCard.removeClass('selected');
+                    }
+                }
+
+                // Apply selection state to all visible checkboxes
+                function applySelectionToAllCheckboxes() {
+                    $notesContainer.find('.note-select-checkbox').each(function() {
+                        applySelectionToCheckbox($(this));
+                    });
+                    updateSelectionCount();
+                }
+
+                // Toggle selection for a single note
+                function toggleNoteSelection(noteId, isSelected) {
+                    const selection = getSelection();
+                    const noteIdStr = String(noteId);
+                    const index = selection.indexOf(noteIdStr);
+
+                    if (isSelected && index === -1) {
+                        selection.push(noteIdStr);
+                    } else if (!isSelected && index !== -1) {
+                        selection.splice(index, 1);
+                    }
+
+                    saveSelection(selection);
+                    updateSelectionCount();
+                }
+
+                // Event: Checkbox change
+                $notesContainer.on('change', '.note-select-checkbox', function() {
+                    const $checkbox = $(this);
+                    const noteId = $checkbox.data('note-id');
+                    const isSelected = $checkbox.prop('checked');
+
+                    toggleNoteSelection(noteId, isSelected);
+
+                    const $noteCard = $checkbox.closest('.note-card');
+                    if (isSelected) {
+                        $noteCard.addClass('selected');
+                    } else {
+                        $noteCard.removeClass('selected');
+                    }
+                });
+
+                // Event: Select All Visible
+                $selectAllBtn.on('click', function() {
+                    const selection = getSelection();
+                    $notesContainer.find('.note-select-checkbox').each(function() {
+                        const $checkbox = $(this);
+                        const noteId = String($checkbox.data('note-id'));
+                        
+                        if (!selection.includes(noteId)) {
+                            selection.push(noteId);
+                        }
+                        $checkbox.prop('checked', true);
+                        $checkbox.closest('.note-card').addClass('selected');
+                    });
+                    saveSelection(selection);
+                    updateSelectionCount();
+                });
+
+                // Event: Deselect All (clears only visible notes from selection)
+                $deselectAllBtn.on('click', function() {
+                    const selection = getSelection();
+                    const visibleNoteIds = [];
+                    
+                    $notesContainer.find('.note-select-checkbox').each(function() {
+                        const noteId = String($(this).data('note-id'));
+                        visibleNoteIds.push(noteId);
+                        $(this).prop('checked', false);
+                        $(this).closest('.note-card').removeClass('selected');
+                    });
+
+                    // Remove only visible notes from selection
+                    const newSelection = selection.filter(id => !visibleNoteIds.includes(id));
+                    saveSelection(newSelection);
+                    updateSelectionCount();
+                });
+
+                // Bulk action: Approve or Deny selected notes
+                async function performBulkAction(action) {
+                    const selection = getSelection();
+                    if (selection.length === 0) {
+                        return;
+                    }
+
+                    const isApprove = action === 'approve';
+                    const $btn = isApprove ? $bulkApproveBtn : $bulkDenyBtn;
+
+                    // Disable all bulk buttons
+                    $bulkApproveBtn.prop('disabled', true).addClass('loading');
+                    $bulkDenyBtn.prop('disabled', true).addClass('loading');
+                    $selectAllBtn.prop('disabled', true);
+                    $deselectAllBtn.prop('disabled', true);
+
+                    // Mark selected notes as processing
+                    selection.forEach(noteId => {
+                        $(`#${noteId}`).addClass('bulk-processing');
+                    });
+
+                    try {
+                        const response = await fetch(`/BulkNoteAction/${commitId}`, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                            },
+                            body: JSON.stringify({
+                                note_ids: selection.map(id => parseInt(id, 10)),
+                                action: action
+                            })
+                        });
+
+                        if (!response.ok) {
+                            const errorData = await response.json().catch(() => ({}));
+                            throw new Error(errorData.error || `HTTP error! Status: ${response.status}`);
+                        }
+
+                        const result = await response.json();
+
+                        // Process successful notes
+                        result.succeeded.forEach(noteId => {
+                            const $noteCard = $(`#${noteId}`);
+                            $noteCard.removeClass('bulk-processing selected')
+                                     .addClass('bulk-success');
+                            
+                            // Fade out and remove the card
+                            setTimeout(() => {
+                                $noteCard.fadeOut(300, function() {
+                                    $(this).remove();
+                                    // Trigger note:resolved for pagination count update
+                                    $(document).trigger('note:resolved', { action: `bulk-${action}` });
+                                });
+                            }, 500);
+                        });
+
+                        // Process failed notes
+                        result.failed.forEach(failure => {
+                            const $noteCard = $(`#${failure.id}`);
+                            $noteCard.removeClass('bulk-processing')
+                                     .addClass('bulk-error');
+                            
+                            // Show error tooltip/message
+                            console.error(`Failed to ${action} note ${failure.id}: ${failure.reason}`);
+                            
+                            // Remove error state after a moment
+                            setTimeout(() => {
+                                $noteCard.removeClass('bulk-error');
+                            }, 3000);
+                        });
+
+                        // Update selection - remove succeeded notes, keep failed ones
+                        const failedIds = result.failed.map(f => String(f.id));
+                        const newSelection = selection.filter(id => failedIds.includes(id));
+                        saveSelection(newSelection);
+
+                        // Show summary message if there were failures
+                        if (result.failed.length > 0) {
+                            const successCount = result.succeeded.length;
+                            const failCount = result.failed.length;
+                            alert(`${isApprove ? 'Approved' : 'Denied'} ${successCount} note(s). ${failCount} note(s) failed. Check the console for details.`);
+                        }
+
+                    } catch (error) {
+                        console.error(`Bulk ${action} failed:`, error);
+                        alert(`Failed to ${action} selected notes: ${error.message}`);
+
+                        // Remove processing state from all selected notes
+                        selection.forEach(noteId => {
+                            $(`#${noteId}`).removeClass('bulk-processing');
+                        });
+                    } finally {
+                        // Re-enable buttons
+                        $bulkApproveBtn.removeClass('loading');
+                        $bulkDenyBtn.removeClass('loading');
+                        $selectAllBtn.prop('disabled', false);
+                        $deselectAllBtn.prop('disabled', false);
+                        
+                        // Update selection state and re-apply to checkboxes
+                        applySelectionToAllCheckboxes();
+                    }
+                }
+
+                // Event: Bulk Approve
+                $bulkApproveBtn.on('click', function() {
+                    if ($(this).prop('disabled')) return;
+                    
+                    const selection = getSelection();
+                    if (selection.length > 50) {
+                        if (!confirm(`You are about to approve ${selection.length} notes. This may take a moment. Continue?`)) {
+                            return;
+                        }
+                    }
+                    performBulkAction('approve');
+                });
+
+                // Event: Bulk Deny
+                $bulkDenyBtn.on('click', function() {
+                    if ($(this).prop('disabled')) return;
+                    
+                    const selection = getSelection();
+                    if (!confirm(`Are you sure you want to deny ${selection.length} selected note(s)?`)) {
+                        return;
+                    }
+                    performBulkAction('deny');
+                });
+
+                // Listen for new notes being loaded (pagination)
+                // Re-apply selection state when new notes are appended
+                const observer = new MutationObserver(function(mutations) {
+                    mutations.forEach(function(mutation) {
+                        if (mutation.addedNodes.length > 0) {
+                            mutation.addedNodes.forEach(function(node) {
+                                if (node.nodeType === 1 && $(node).hasClass('note-card')) {
+                                    const $checkbox = $(node).find('.note-select-checkbox');
+                                    if ($checkbox.length) {
+                                        applySelectionToCheckbox($checkbox);
+                                    }
+                                }
+                            });
+                            updateSelectionCount();
+                        }
+                    });
+                });
+
+                observer.observe($notesContainer[0], { childList: true });
+
+                // Listen for individual note resolutions to update selection
+                $(document).on('note:resolved', function(event, detail) {
+                    // Get the note ID from the event if possible
+                    // For individual actions, the card is removed - clean up selection
+                    const selection = getSelection();
+                    const existingNoteIds = [];
+                    $notesContainer.find('.note-card').each(function() {
+                        existingNoteIds.push(String($(this).attr('id')));
+                    });
+                    
+                    // Remove any selected notes that no longer exist in the DOM
+                    const cleanedSelection = selection.filter(id => existingNoteIds.includes(id));
+                    if (cleanedSelection.length !== selection.length) {
+                        saveSelection(cleanedSelection);
+                        updateSelectionCount();
+                    }
+                });
+
+                // Initialize: Apply saved selection state
+                applySelectionToAllCheckboxes();
             }
         });
     </script>

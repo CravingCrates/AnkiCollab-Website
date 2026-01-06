@@ -17,12 +17,10 @@
     <script>
         window.HtmlDiffUtils = {};
         window.ImageHandler = {};
-        window.EditorControls = {};
         window.ApiService = {};
     </script>
     <script src="/static/js/html_diff_utils.js"></script>
     <script src="/static/js/image_handling.js"></script>
-    <script src="/static/js/editor_controls.js"></script>
     <script src="/static/js/api_service.js"></script>
     <script src="/static/js/shared_ui.js"></script>
 </head>
@@ -36,7 +34,7 @@
             <div class="inherited-alert">
                 <i class="fa fa-link" aria-hidden="true"></i>
                 <div>
-                    <strong>Inherited Content:</strong> This note inherits content from a base note. Protected fields remain local. Tag removals are tracked per-subscriber.
+                    <strong>Inherited Content:</strong> This note inherits content from a base note. Protected fields remain local. Tags are managed locally.
                 </div>
             </div>
             {% endif %}
@@ -453,12 +451,6 @@
             // Function to restore button state
             window.restoreButton = function($btn) {
                 if ($btn && $btn.length) {
-                    // Don't restore editor buttons - let them manage their own state
-                    const action = $btn.data('action');
-                    if (action === 'toggle-edit' || action === 'cancel-edit') {
-                        return;
-                    }
-                    
                     $btn.removeClass('disabled loading')
                         .prop('disabled', false)
                         .css('pointer-events', '');
@@ -474,14 +466,8 @@
             // Global function to restore all buttons
             window.restoreAllButtons = function() {
                 $('.disabled').each(function() {
-                    const $btn = $(this);
-                    const action = $btn.data('action');
-                    // Skip editor buttons
-                    if (action !== 'toggle-edit' && action !== 'cancel-edit') {
-                        window.restoreButton($btn);
-                    }
+                    window.restoreButton($(this));
                 });
-                console.log('🔄 All buttons restored (except editor buttons)');
             };
                         
             // Page visibility change - restore buttons when page becomes visible
@@ -490,13 +476,7 @@
                     // Check for buttons disabled longer than 10 seconds
                     $('.disabled').each(function() {
                         const $btn = $(this);
-                        const action = $btn.data('action');
                         const timestamp = $btn.data('click-timestamp');
-                        
-                        // Skip editor buttons - they manage their own state
-                        if (action === 'toggle-edit' || action === 'cancel-edit') {
-                            return;
-                        }
                         
                         if (timestamp && (Date.now() - timestamp > 10000)) {
                             window.restoreButton($btn);

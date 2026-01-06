@@ -1,13 +1,14 @@
 use serde::{Deserialize, Serialize};
 use serde_json::Value as JsonValue;
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::{BTreeMap, BTreeSet, HashMap};
 use tokio_postgres::Client;
 
 use crate::{
-    cleanser,
-    structs::{CommitHistoryEvent, CommitHistoryNote, NoteHistoryEvent, NoteHistoryGroup, NoteId},
-    Return,
+    Return, cleanser, structs::{CommitHistoryEvent, CommitHistoryNote, NoteHistoryEvent, NoteHistoryGroup, NoteId}
 };
+
+use crate::Error::NoteNotFound;
+use crate::NoteNotFoundContext;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum EventType {
@@ -83,11 +84,46 @@ pub async fn fetch_note_history(client: &Client, note_id: NoteId) -> Return<Note
         )
         .await?;
 
+    let notetype_row = client
+        .query_opt("SELECT notetype FROM notes WHERE id = $1", &[&note_id])
+        .await?;
+    let mut field_map: HashMap<u32, String> = HashMap::new();
+
+    if let Some(row) = notetype_row {
+        let notetype_id: i64 = row.get(0);
+        let fields = client
+            .query(
+                "SELECT position, name FROM notetype_field WHERE notetype = $1",
+                &[&notetype_id],
+            )
+            .await?;
+        for f in fields {
+            let pos: u32 = f.get(0);
+            let name: String = f.get(1);
+            field_map.insert(pos, name);
+        }
+    }
+
     let mut events: Vec<NoteHistoryEvent> = Vec::with_capacity(rows.len());
     for row in rows.iter() {
         let event_type: String = row.get(2);
         let old_value: Option<JsonValue> = row.get(7);
         let new_value: Option<JsonValue> = row.get(8);
+
+        let mut field_name = None;
+        if event_type.contains("field") {
+            let pos_val = new_value
+                .as_ref()
+                .and_then(|v| v.get("position"))
+                .or_else(|| old_value.as_ref().and_then(|v| v.get("position")));
+
+            if let Some(pos_v) = pos_val {
+                if let Some(pos_i64) = pos_v.as_i64() {
+                    field_name = field_map.get(&(pos_i64 as u32)).cloned();
+                }
+            }
+        }
+
         let (snapshot_field_count, snapshot_tags) = snapshot_meta(&event_type, &new_value);
         let old_human = summarize_event(&event_type, &old_value, "old");
         let new_human = summarize_event(&event_type, &new_value, "new");
@@ -108,6 +144,7 @@ pub async fn fetch_note_history(client: &Client, note_id: NoteId) -> Return<Note
             snapshot_field_count,
             snapshot_tags,
             diff_html,
+            field_name,
         });
     }
 
@@ -134,15 +171,19 @@ pub async fn log_event(
     approved: Option<bool>,
 ) -> Return<i64> {
     let row = tx
-        .query_one(
+        .query(
             "UPDATE notes SET version = version + 1 WHERE id = $1 RETURNING version",
             &[&note_id],
         )
         .await?;
-    let new_version: i64 = row.get(0);
+
+    if row.is_empty() {
+        return Err(NoteNotFound(NoteNotFoundContext::NoteLogEvent));
+    }
+    let new_version: i64 = row[0].get(0);
 
     let id_row = tx
-        .query_one(
+        .query(
             "INSERT INTO note_events (note_id, version, event_type, actor_user_id, commit_id, approved, old_value, new_value) VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING id",
             &[
                 &note_id,
@@ -156,7 +197,11 @@ pub async fn log_event(
             ],
         )
         .await?;
-    Ok(id_row.get(0))
+
+    if id_row.is_empty() {
+        return Err(NoteNotFound(NoteNotFoundContext::NoteLogEvent));
+    }
+    Ok(id_row[0].get(0))
 }
 
 pub async fn fetch_commit_history(
@@ -165,14 +210,39 @@ pub async fn fetch_commit_history(
 ) -> Return<Vec<CommitHistoryNote>> {
     let rows = client
         .query(
-            "SELECT e.note_id, e.id, e.version, e.event_type, e.old_value, e.new_value, e.actor_user_id, u.username, to_char(e.created_at,'YYYY-MM-DD HH24:MI:SS')
+            "SELECT e.note_id, e.id, e.version, e.event_type, e.old_value, e.new_value, e.actor_user_id, u.username, to_char(e.created_at,'YYYY-MM-DD HH24:MI:SS'), n.notetype
              FROM note_events e
              LEFT JOIN users u ON e.actor_user_id = u.id
+             LEFT JOIN notes n ON e.note_id = n.id
              WHERE e.commit_id = $1
              ORDER BY e.note_id, e.version",
             &[&commit_id],
         )
         .await?;
+
+    let mut notetypes = BTreeSet::new();
+    for row in &rows {
+        if let Some(nt) = row.get::<_, Option<i64>>(9) {
+            notetypes.insert(nt);
+        }
+    }
+
+    let mut field_map: HashMap<(i64, u32), String> = HashMap::new();
+    if !notetypes.is_empty() {
+        let nt_vec: Vec<i64> = notetypes.into_iter().collect();
+        let fields = client
+            .query(
+                "SELECT notetype, position, name FROM notetype_field WHERE notetype = ANY($1)",
+                &[&nt_vec],
+            )
+            .await?;
+        for f in fields {
+            let nt: i64 = f.get(0);
+            let pos: u32 = f.get(1);
+            let name: String = f.get(2);
+            field_map.insert((nt, pos), name);
+        }
+    }
 
     let mut notes: BTreeMap<NoteId, CommitHistoryNote> = BTreeMap::new();
     for row in rows.iter() {
@@ -181,6 +251,23 @@ pub async fn fetch_commit_history(
         let event_type: String = row.get(3);
         let old_value: Option<JsonValue> = row.get(4);
         let new_value: Option<JsonValue> = row.get(5);
+        let notetype_id: Option<i64> = row.get(9);
+
+        let mut field_name = None;
+        if let Some(nt) = notetype_id {
+            if event_type.contains("field") {
+                let pos_val = new_value
+                    .as_ref()
+                    .and_then(|v| v.get("position"))
+                    .or_else(|| old_value.as_ref().and_then(|v| v.get("position")));
+
+                if let Some(pos_v) = pos_val {
+                    if let Some(pos_i64) = pos_v.as_i64() {
+                        field_name = field_map.get(&(nt, pos_i64 as u32)).cloned();
+                    }
+                }
+            }
+        }
 
         let old_human = summarize_event(&event_type, &old_value, "old");
         let new_human = summarize_event(&event_type, &new_value, "new");
@@ -195,6 +282,7 @@ pub async fn fetch_commit_history(
             old_human,
             new_human,
             diff_html,
+            field_name,
         };
 
         let entry = notes.entry(note_id).or_insert_with(|| CommitHistoryNote {
@@ -281,11 +369,11 @@ fn summarize_event(event_type: &str, json: &Option<JsonValue>, side: &str) -> Op
         "field_added" | "field_removed" | "field_updated" => v
             .get("content")
             .and_then(|c| c.as_str())
-            .map(|s| truncate(s, 80))
+            .map(|s| s.to_string())
             .or_else(|| {
                 v.get("value")
                     .and_then(|c| c.as_str())
-                    .map(|s| truncate(s, 80))
+                    .map(|s| s.to_string())
             }),
         "tag_added" | "tag_removed" => v
             .get("content")
@@ -333,10 +421,28 @@ fn summarize_event(event_type: &str, json: &Option<JsonValue>, side: &str) -> Op
 }
 
 fn truncate(s: &str, max: usize) -> String {
-    if s.len() <= max {
-        s.to_string()
-    } else {
-        format!("{}…", &s[..max])
+    if max == 0 {
+        return if s.is_empty() {
+            String::new()
+        } else {
+            "…".to_string()
+        };
+    }
+
+    // Walk char boundaries so we never split a multi-byte codepoint mid-slice.
+    let mut end = None;
+    let mut count = 0;
+    for (idx, _) in s.char_indices() {
+        if count == max {
+            end = Some(idx);
+            break;
+        }
+        count += 1;
+    }
+
+    match end {
+        None => s.to_string(),
+        Some(idx) => format!("{}…", &s[..idx]),
     }
 }
 

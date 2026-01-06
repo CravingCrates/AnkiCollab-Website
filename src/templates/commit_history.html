@@ -4,6 +4,16 @@
   {% include "header_template.html" %}
   <title>Commit Impact</title>
   <link href="/static/css/commit_styling.css" rel="stylesheet">
+  <style>
+    .field-name-label {
+      font-size: 12px;
+      font-weight: 600;
+      color: #6b7280;
+      margin-bottom: 6px;
+      text-transform: uppercase;
+      letter-spacing: 0.025em;
+    }
+  </style>
   
   <script>
     function toggleEvents(noteId) {
@@ -159,7 +169,9 @@
                 <div class="event-item {{ event_class }}">
                   <div class="event-header">
                     <div style="display: flex; align-items: center; gap: 8px;">
-                      <span class="event-type">{{ e.event_type | replace(from='_', to=' ') | title }}</span>
+                      <span class="event-type">
+                        {{ e.event_type | replace(from='_', to=' ') | title }}
+                      </span>
                       {% if status_badge %}
                         <span class="commit-status {{ status_badge }}" style="margin-left: 0; padding: 3px 8px; font-size: 11px;">
                           {% if status_badge == 'approved' %}
@@ -186,6 +198,9 @@
 
                 {% if e.event_type == 'field_updated' %}
                   <div class="event-diff field-update-comparison">
+                    {% if e.field_name %}
+                      <div class="field-name-label">{{ e.field_name }}</div>
+                    {% endif %}
                     <div class="comparison-container">
                       <div class="comparison-side previous">
                         <div class="comparison-label">Previous</div>
@@ -208,12 +223,18 @@
                   </div>
                 {% elif e.event_type == 'field_added' %}
                   <div class="event-diff field-added-display">
+                    {% if e.field_name %}
+                      <div class="field-name-label">{{ e.field_name }}</div>
+                    {% endif %}
                     <div class="added-content-preview">
                       {{ e.new_human | default(value='(empty)') }}
                     </div>
                   </div>
                 {% elif e.event_type == 'field_removed' %}
                   <div class="event-diff field-removed-display">
+                    {% if e.field_name %}
+                      <div class="field-name-label">{{ e.field_name }}</div>
+                    {% endif %}
                     <div class="removed-content-preview">
                       {{ e.old_human | default(value='(unknown)') }}
                     </div>

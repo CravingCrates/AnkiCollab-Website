@@ -5,6 +5,7 @@ window.ApiService = (function() {
 
     // --- Constants ---
     const API_BASE = ''; // Adjust if you have a base path like /api/v1
+    let lastResponseMeta = null;
 
     // --- Private Helper Functions ---
 
@@ -43,8 +44,16 @@ window.ApiService = (function() {
             options.body = JSON.stringify(data);
         }
 
+        lastResponseMeta = null;
+
         try {
             const response = await fetch(url, options);
+
+            lastResponseMeta = {
+                status: response.status,
+                redirected: response.redirected,
+                url: response.url
+            };
 
             if (!response.ok) {
                 let errorMsg = `HTTP error! Status: ${response.status}`;
@@ -114,9 +123,66 @@ window.ApiService = (function() {
         return apiCall(`/DenyField/${fieldId}`, 'GET');
     }
 
+    // -- Note Actions --
+    function acceptNote(noteId) {
+        return apiCall(`/AcceptNote/${noteId}`, 'GET');
+    }
+
+    function deleteNote(noteId) {
+        return apiCall(`/DeleteNote/${noteId}`, 'GET');
+    }
+
+    function acceptNoteRemoval(noteId) {
+        return apiCall(`/AcceptNoteRemoval/${noteId}`, 'GET');
+    }
+
+    function denyNoteRemoval(noteId) {
+        return apiCall(`/DenyNoteRemoval/${noteId}`, 'GET');
+    }
+
     // -- Field Suggestion Update --
     function updateFieldSuggestion(fieldId, content) {
         return apiCall(`/UpdateFieldSuggestion`, 'POST', { field_id: fieldId, content: content });
+    }
+
+    // -- Edit All Fields API --
+    /**
+     * Gets all fields for a note to populate the edit panel.
+     * @param {number|string} noteId - The note ID
+     * @param {number|string} commitId - The commit ID to scope suggestions to
+     * @returns {Promise<object>} - Resolves with AllFieldsForEditResponse
+     */
+    function getAllFieldsForEdit(noteId, commitId) {
+        return apiCall(`/GetAllFieldsForEdit/${noteId}/${commitId}`, 'GET');
+    }
+
+    /**
+     * Batch creates or updates field suggestions for a note.
+     * @param {number|string} noteId - The note ID
+     * @param {number|string} commitId - The commit ID to associate with
+     * @param {Array<{position: number, content: string}>} fields - Array of field updates
+     * @returns {Promise<object>} - Resolves with BatchFieldSuggestionResponse
+     */
+    function batchUpdateFieldSuggestions(noteId, commitId, fields) {
+        return apiCall('/BatchUpdateFieldSuggestions', 'POST', {
+            note_id: parseInt(noteId, 10),
+            commit_id: parseInt(commitId, 10),
+            fields: fields
+        });
+    }
+
+    /**
+     * Bulk approve or deny selected notes within a commit.
+     * @param {number|string} commitId - The commit ID
+     * @param {Array<number>} noteIds - Array of note IDs to process
+     * @param {string} action - Either 'approve' or 'deny'
+     * @returns {Promise<object>} - Resolves with { succeeded: [...], failed: [...] }
+     */
+    function bulkNoteAction(commitId, noteIds, action) {
+        return apiCall(`/BulkNoteAction/${commitId}`, 'POST', {
+            note_ids: noteIds.map(id => parseInt(id, 10)),
+            action: action
+        });
     }
 
     // -- Image Loading --
@@ -148,11 +214,21 @@ window.ApiService = (function() {
         denyMove,
         acceptField,
         denyField,
+        acceptNote,
+        deleteNote,
+        acceptNoteRemoval,
+        denyNoteRemoval,
         updateFieldSuggestion,
+        // Edit All Fields
+        getAllFieldsForEdit,
+        batchUpdateFieldSuggestions,
+        // Bulk note actions
+        bulkNoteAction,
         // Image methods
         getPresignedImageUrl,
         // Utility methods
         getContext,
+        getLastResponseMeta: () => lastResponseMeta,
         // Expose apiCall if needed directly elsewhere, but generally prefer specific methods
         apiCall
     };

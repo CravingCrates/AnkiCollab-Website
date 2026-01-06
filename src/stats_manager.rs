@@ -21,6 +21,9 @@ pub async fn calculate_note_stats(
 ) -> Result<(), Box<dyn std::error::Error>> {
     let client = database::client(db_state).await?;
     let query = "
+        WITH non_deleted_notes AS (
+            SELECT id FROM notes WHERE NOT deleted
+        )
         INSERT INTO calculated_stats (note_id, sample_size, retention, lapses, reps)
         SELECT
             ns.note_id,
@@ -30,8 +33,8 @@ pub async fn calculate_note_stats(
             ROUND(AVG(ns.reps), 1) as reps
         FROM
             note_stats ns
-        INNER JOIN
-            notes n ON ns.note_id = n.id AND NOT n.deleted
+        JOIN
+            non_deleted_notes n ON ns.note_id = n.id
         GROUP BY
             ns.note_id
         ON CONFLICT (note_id) DO UPDATE

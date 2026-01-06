@@ -96,6 +96,10 @@ static ALLOWED_ONCLICK_REGEXES: Lazy<Vec<Regex>> = Lazy::new(|| {
     ]
 });
 
+static ALLOWED_IFRAME_SRC_REGEX: Lazy<Regex> = Lazy::new(|| {
+    Regex::new(r#"^https://(www\.)?youtube(-nocookie)?\.com/embed/"#).unwrap()
+});
+
 /// Sanitize inline style declarations by retaining only allowed CSS properties.
 fn sanitize_style(style: &str) -> String {
     style
@@ -173,31 +177,37 @@ static CLEANSER: Lazy<Builder<'static>> = Lazy::new(|| {
     builder.add_tag_attributes("font", &["color"]);
     // Allow a constrained subset of SVG needed for user accent pitch graphics.
     builder.add_tags(&[
-        "svg",
-        "text",
-        "path",
-        "circle",
+        "svg", "text", "path", "circle",
         // Add common HTML elements used by the addon Kanji Popup Dictionary with mobile support
-        "div",
-        "span",
-        "h2",
-        "button",
-        "table",
-        "tr",
-        "td",
-        "ul",
-        "li",
-        "small",
-        "hr",
-        "ruby",
-        "rt",
+        "div", "span", "h2", "button", "table", "tr", "td", "ul", "li", "small", "hr", "ruby", "rt",
+        "iframe",
     ]);
     builder.add_tag_attributes("svg", &["width", "height", "viewBox", "class"]);
     builder.add_tag_attributes("text", &["x", "y", "style"]);
     builder.add_tag_attributes("path", &["d", "style"]);
     builder.add_tag_attributes("circle", &["r", "cx", "cy", "style"]);
     builder.add_tag_attributes("kbd", &["onclick", "ondblclick"]); // https://ankiweb.net/shared/info/1170639320
+    builder.add_tag_attributes(
+        "iframe",
+        &[
+            "width",
+            "height",
+            "src",
+            "title",
+            "frameborder",
+            "allow",
+            "referrerpolicy",
+            "allowfullscreen",
+        ],
+    );
     builder.attribute_filter(|tag, attr, value| {
+        if tag == "iframe" && attr == "src" {
+            if ALLOWED_IFRAME_SRC_REGEX.is_match(value) {
+                return Some(value.into());
+            }
+            return None;
+        }
+
         // If this is an onclick attribute, only allow it when it matches
         // one of the approved patterns for the addon.
         if attr == "onclick" {

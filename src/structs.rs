@@ -53,6 +53,7 @@ pub struct NoteHistoryEvent {
     pub snapshot_field_count: Option<usize>,
     pub snapshot_tags: Option<Vec<String>>,
     pub diff_html: Option<String>,
+    pub field_name: Option<String>,
 }
 
 #[derive(Clone, Serialize, Default)]
@@ -98,6 +99,17 @@ pub struct CommitData {
     pub fields: Vec<FieldsReviewInfo>,
     pub new_tags: Vec<TagsInfo>,
     pub removed_tags: Vec<TagsInfo>,
+    pub reviewed_fields: Vec<FieldsInfo>,
+    pub reviewed_tags: Vec<TagsInfo>,
+}
+
+#[derive(Serialize)]
+pub struct CommitNotesPage {
+    pub total: i64,
+    pub offset: i64,
+    pub limit: i64,
+    pub next_offset: Option<i64>,
+    pub notes: Vec<CommitData>,
 }
 
 #[derive(Serialize)]
@@ -145,6 +157,7 @@ pub struct CommitHistoryEvent {
     pub old_human: Option<String>,
     pub new_human: Option<String>,
     pub diff_html: Option<String>,
+    pub field_name: Option<String>,
 }
 
 #[derive(Clone, Serialize)]
@@ -256,6 +269,60 @@ pub struct UpdateFieldSuggestion {
     pub content: String,
 }
 
+/// Request payload for batch creating/updating field suggestions
+#[derive(Deserialize, Serialize)]
+pub struct BatchFieldSuggestionRequest {
+    pub note_id: i64,
+    pub commit_id: i32,
+    pub fields: Vec<FieldSuggestionUpdate>,
+}
+
+/// A single field update within a batch request
+#[derive(Deserialize, Serialize)]
+pub struct FieldSuggestionUpdate {
+    pub position: u32,
+    pub content: String,
+}
+
+/// Response for batch field suggestion updates
+#[derive(Serialize)]
+pub struct BatchFieldSuggestionResponse {
+    pub success: bool,
+    pub updated_count: usize,
+    pub created_count: usize,
+    pub fields: Vec<FieldUpdateResult>,
+}
+
+/// Result for each field in the batch response
+#[derive(Serialize)]
+pub struct FieldUpdateResult {
+    pub position: u32,
+    pub field_id: i64,
+    pub action: String, // "created", "updated", "unchanged"
+    pub diff_html: String,
+}
+
+/// Response for getting all fields of a note for editing
+#[derive(Serialize)]
+pub struct AllFieldsForEditResponse {
+    pub note_id: i64,
+    pub commit_id: i32,
+    pub note_reviewed: bool,
+    pub fields: Vec<EditableFieldInfo>,
+}
+
+/// Information about a single editable field
+#[derive(Serialize)]
+pub struct EditableFieldInfo {
+    pub position: u32,
+    pub name: String,
+    pub reviewed_content: String,
+    pub suggestion_content: Option<String>,
+    pub suggestion_id: Option<i64>,
+    pub inherited: bool,
+    pub has_other_suggestions: bool,
+}
+
 #[derive(Deserialize, Serialize)]
 pub struct UpdateNotetype {
     pub items: HashMap<i64, bool>,
@@ -336,6 +403,25 @@ pub struct PresignedURLRequest {
 pub struct PresignedURLResponse {
     pub success: bool,
     pub presigned_url: String,
+}
+
+// Bulk note action (approve/deny selected notes)
+#[derive(Deserialize)]
+pub struct BulkNoteActionRequest {
+    pub note_ids: Vec<i64>,
+    pub action: String, // "approve" or "deny"
+}
+
+#[derive(Serialize)]
+pub struct BulkNoteActionFailure {
+    pub id: i64,
+    pub reason: String,
+}
+
+#[derive(Serialize)]
+pub struct BulkNoteActionResponse {
+    pub succeeded: Vec<i64>,
+    pub failed: Vec<BulkNoteActionFailure>,
 }
 
 // Subscription policy API

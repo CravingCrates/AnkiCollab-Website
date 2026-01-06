@@ -14,9 +14,7 @@ window.SharedUI = (function() {
     const FIELD_ACTIONS_SELECTOR = '.field-actions';
     const TAG_CONTAINER_SELECTOR = '.note_tag_container';
     const LAZY_IMG_SELECTOR = 'img.lazy-load-image';
-    const EDIT_BTN_SELECTOR = '.edit-suggestion-btn';
-    const ABORT_BTN_SELECTOR = '.abort-edit-btn';
-    const ACTION_BUTTON_SELECTOR = 'button[data-action]';
+    const ACTION_BUTTON_SELECTOR = '[data-action]';
     const PLACEHOLDER_IMG_SRC = '/static/images/click_to_show.webp';
     const ERROR_IMG_SRC = '/static/images/placeholder-error.png';
 
@@ -239,16 +237,37 @@ window.SharedUI = (function() {
                     handleFieldAction(ApiService.denyField, $button.data('field-id'), $button);
                      enableButtonOnError = false;
                     break;
-                case 'toggle-edit':
-                    handleToggleEdit(noteId, $button);
-                    // Button state managed internally by toggle/save logic
-                    enableButtonOnError = false; // Don't re-enable here
+                case 'accept-note':
+                    handleNoteAction(ApiService.acceptNote, noteId, $button, {
+                        action: 'accept-note',
+                        errorMessage: 'Failed to publish the note. Please try again.'
+                    });
+                    enableButtonOnError = false;
                     break;
-                case 'cancel-edit':
-                    handleCancelEdit(noteId, $button);
-                    // Re-enable immediately after cancel
-                    $button.prop('disabled', false);
-                    enableButtonOnError = false; // Already handled
+                case 'delete-note':
+                    handleNoteAction(ApiService.deleteNote, noteId, $button, {
+                        action: 'delete-note',
+                        errorMessage: 'Failed to delete the note. Please try again.'
+                    });
+                    enableButtonOnError = false;
+                    break;
+                case 'accept-note-removal':
+                    handleNoteAction(ApiService.acceptNoteRemoval, noteId, $button, {
+                        action: 'accept-note-removal',
+                        errorMessage: 'Failed to confirm the note deletion. Please try again.'
+                    });
+                    enableButtonOnError = false;
+                    break;
+                case 'deny-note-removal':
+                    handleNoteAction(ApiService.denyNoteRemoval, noteId, $button, {
+                        action: 'deny-note-removal',
+                        errorMessage: 'Failed to keep the note. Please try again.'
+                    });
+                    enableButtonOnError = false;
+                    break;
+                case 'edit-all-fields':
+                    handleEditAllFields(noteId, $button);
+                    enableButtonOnError = false; // Button state managed by FieldEditPanel
                     break;
                 default:
                     console.warn("Unhandled action:", action);
@@ -290,30 +309,39 @@ window.SharedUI = (function() {
                 const isRemoveAction = $tagChip.hasClass('remove');
                 
                 // Add to or remove from the published tags container
-                let $publishedTagsContainer = $('#mainTags');
-                
-                // If no published tags container exists, create it (replace empty state)
+                const $noteCard = $button.closest('.note-context');
+                let $publishedTagsContainer = $noteCard.find('.reviewed-tags-panel .collapsible-body');
+
                 if ($publishedTagsContainer.length === 0) {
-                    const $emptyState = $('.published-side .empty-state');
-                    if ($emptyState.length > 0) {
-                        const $tagsSection = $(`
-                            <div class="field-item">
-                                <div class="field-header">
-                                    <div class="field-name">🏷️ Current Tags</div>
+                    $publishedTagsContainer = $('#mainTags');
+
+                    // If no published tags container exists, create it (replace empty state)
+                    if ($publishedTagsContainer.length === 0) {
+                        const $emptyState = $('.published-side .empty-state');
+                        if ($emptyState.length > 0) {
+                            const $tagsSection = $(`
+                                <div class="field-item">
+                                    <div class="field-header">
+                                        <div class="field-name">🏷️ Current Tags</div>
+                                    </div>
+                                    <div class="tag-container" id="mainTags"></div>
                                 </div>
-                                <div class="tag-container" id="mainTags"></div>
-                            </div>
-                        `);
-                        $emptyState.replaceWith($tagsSection);
-                        $publishedTagsContainer = $('#mainTags');
+                            `);
+                            $emptyState.replaceWith($tagsSection);
+                            $publishedTagsContainer = $('#mainTags');
+                        }
                     }
                 }
                 if ($publishedTagsContainer.length) {
+                    const panelEl = $publishedTagsContainer.closest('details')[0];
+                    if (panelEl) {
+                        panelEl.open = true;
+                    }
                     if (isAddAction) {
                         // Add new tag to published tags
                         // Extract just the tag text, removing the plus icon
                         const cleanTagText = tagText.replace(/^[\+\s]*/, '').trim();
-                        const $newTag = $('<span class="tag-chip">' + cleanTagText + '</span>');
+                        const $newTag = $('<span class="tag-chip reviewed-tag-chip">' + cleanTagText + '</span>');
                         $publishedTagsContainer.append($newTag);
                         
                         // Add a small animation to highlight the new tag
@@ -431,107 +459,171 @@ window.SharedUI = (function() {
          // No finally block needed as success cases remove the buttons/box
      }
 
+     async function handleNoteAction(apiMethod, noteId, $trigger, options = {}) {
+         const normalizedId = normalizeNoteId(noteId);
 
-    // --- Edit Mode Handling ---
-    // (handleToggleEdit, handleCancelEdit, resetEditButtonState - No changes needed based on feedback)
-     function handleToggleEdit(noteId, $button) {
-        const $noteCard = $(`#${noteId}`);
-        const $textSpan = $button.find('span');
-        const $iconElement = $button.find('i');
+         if (!normalizedId) {
+             console.error('Note action is missing a valid note id.', {
+                 action: options.action,
+                 noteId
+             });
+             restoreInteractiveButton($trigger);
+             return;
+         }
 
-        if ($textSpan.text().trim() === 'Edit Suggestion') {
-            // --- Switch to Edit Mode ---
-            $textSpan.text('Update Suggestion');
-            $button.removeClass('btn-light').addClass('btn-primary');
-            $iconElement.removeClass('icon-pencil').addClass('icon-check');
-            $noteCard.find(ABORT_BTN_SELECTOR).show();
-            $noteCard.find(FIELD_ACTIONS_SELECTOR).hide(); // Hide accept/deny for fields
+         const $noteCard = findNoteCardElement(normalizedId, $trigger);
+         setNoteProcessingState($noteCard, true);
 
-            // Start async editor initialization
-            EditorControls.initializeEditorsForNote(noteId)
-                .then(() => {
-                    $button.prop('disabled', false); // Re-enable button after init
-                })
-                .catch(error => {
-                    console.error(`Failed to initialize editors for note ${noteId}:`, error);
-                    alert("Error initializing editor(s). Please check console.");
-                    handleCancelEdit(noteId, $noteCard.find(ABORT_BTN_SELECTOR)); // Attempt to cancel/revert
-                    $button.prop('disabled', false);
-                });
-        } else {
-            // --- Save Changes ---
-            $textSpan.text('Updating...');
-            // Button remains disabled until save completes (success or fail)
-            EditorControls.saveEditorsForNote(noteId)
-                .then(allSuccess => {
-                    if (!allSuccess) {
-                        alert("One or more fields failed to update. Please check field highlights and console.");
-                    }
-                    // Reset button state regardless of success/failure of individual fields
-                    resetEditButtonState(noteId);
-                    // Show field actions again (if any fields remain)
-                    $noteCard.find(FIELD_ACTIONS_SELECTOR).show();
-                    $noteCard.find(ABORT_BTN_SELECTOR).hide();
+        try {
+            await apiMethod(normalizedId);
 
-                    // Re-process diffs and images for updated fields
-                    $noteCard.find(`${DIFF_CONTENT_SELECTOR}.needs-reprocess`).each(function() {
-                        processDiffField(this); // This handles wrappers and lazy loading
-                        $(this).removeClass('needs-reprocess');
-                    });
-                })
-                .catch(error => {
-                    console.error(`Critical error saving changes for note ${noteId}:`, error);
-                    alert("A critical error occurred while saving. Please try again or refresh.");
-                     resetEditButtonState(noteId);
-                     $noteCard.find(FIELD_ACTIONS_SELECTOR).show();
-                     $noteCard.find(ABORT_BTN_SELECTOR).hide();
-                })
-                .finally(() => {
-                    // Ensure button is re-enabled in all cases after promise settles
-                    // Check button still exists before trying to enable
-                     if ($button.closest('body').length) {
-                        $button.prop('disabled', false);
-                     }
-                });
-        }
-    }
+            const meta = typeof ApiService.getLastResponseMeta === 'function'
+                ? ApiService.getLastResponseMeta()
+                : null;
 
-    function handleCancelEdit(noteId, $button) {
-        const $noteCard = $(`#${noteId}`);
+            if (meta && meta.redirected) {
+                let finalPath = '';
+                try {
+                    finalPath = new URL(meta.url, window.location.origin).pathname || '';
+                } catch (urlError) {
+                    finalPath = '';
+                }
 
-        EditorControls.destroyEditorsForNote(noteId); // Destroy editors first
-
-        // Restore pre-edit diff views
-        $noteCard.find(DIFF_CONTENT_SELECTOR).each(function() {
-            const $fieldDiv = $(this);
-            const preEditHtml = $fieldDiv.data('pre-edit-html');
-            if (preEditHtml !== undefined) {
-                $fieldDiv.html(preEditHtml).removeData('pre-edit-html');
-                // Re-apply image processing and lazy loading to restored HTML
-                processDiffField(this);
+                if (finalPath === '/' || finalPath === '') {
+                    throw new Error('Note action redirected to an unexpected location.');
+                }
             }
-             // Clean up any error states
-             $fieldDiv.css('border', '');
-        });
 
-        // Reset UI elements
-        $noteCard.find(FIELD_ACTIONS_SELECTOR).show(); // Show accept/deny again
-        $noteCard.find(ABORT_BTN_SELECTOR).hide();
-        resetEditButtonState(noteId); // Reset main edit button
-    }
+            removeNoteCard($noteCard, options.action);
+         } catch (error) {
+             console.error(`Note action failed for ID ${normalizedId}:`, error);
+             setNoteProcessingState($noteCard, false);
+             restoreInteractiveButton($trigger);
+             if (options.errorMessage) {
+                 alert(options.errorMessage);
+             }
+         }
+     }
 
-    function resetEditButtonState(noteId) {
-        const $editButton = $(`#${noteId}`).find(EDIT_BTN_SELECTOR);
-        // Check if button exists before manipulating
-        if (!$editButton.length) return;
+     function normalizeNoteId(noteId) {
+         if (noteId === undefined || noteId === null) {
+             return '';
+         }
 
-        const $textSpan = $editButton.find('span');
-        const $iconElement = $editButton.find('i');
+         if (typeof noteId === 'number') {
+             return Number.isFinite(noteId) ? String(noteId) : '';
+         }
 
-        $textSpan.text('Edit Suggestion');
-        $editButton.removeClass('btn-primary').addClass('btn-light');
-        $iconElement.removeClass('icon-check').addClass('icon-pencil');
-        $editButton.prop('disabled', false); // Ensure enabled
+         if (typeof noteId === 'string') {
+             return noteId.trim();
+         }
+
+         return String(noteId).trim();
+     }
+
+     function findNoteCardElement(noteId, $origin) {
+         if (noteId) {
+             const $byId = $(`#${noteId}`);
+             if ($byId.length) {
+                 if ($byId.hasClass('note-card')) {
+                     return $byId;
+                 }
+
+                 const $idCardParent = $byId.closest('.note-card');
+                 if ($idCardParent.length) {
+                     return $idCardParent;
+                 }
+
+                 return $byId;
+             }
+         }
+
+         if ($origin && $origin.length) {
+             const $card = $origin.closest('.note-card');
+             if ($card.length) {
+                 return $card;
+             }
+
+             const $context = $origin.closest(NOTE_CONTEXT_SELECTOR);
+             if ($context.length) {
+                 return $context;
+             }
+         }
+
+         return $();
+     }
+
+     function setNoteProcessingState($noteCard, isProcessing) {
+         if (!$noteCard || !$noteCard.length) {
+             return;
+         }
+
+         if (isProcessing) {
+             $noteCard.css('opacity', 0.55);
+         } else {
+             $noteCard.css('opacity', '');
+         }
+     }
+
+     function removeNoteCard($noteCard, action) {
+         if (!$noteCard || !$noteCard.length) {
+             $(document).trigger('note:resolved', { action });
+             return;
+         }
+
+         $noteCard.fadeOut(220, function() {
+             $(this).remove();
+             $(document).trigger('note:resolved', { action });
+         });
+     }
+
+     function restoreInteractiveButton($element) {
+         if (!$element || !$element.length) {
+             return;
+         }
+
+         if (typeof window.restoreButton === 'function') {
+             window.restoreButton($element);
+             return;
+         }
+
+         $element.removeClass('disabled loading')
+             .prop('disabled', false)
+             .css('pointer-events', '')
+             .removeAttr('aria-busy');
+     }
+
+
+    /**
+     * Handles the "Edit All Fields" button click.
+     * Opens the FieldEditPanel for editing all fields of a note.
+     * @param {string|number} noteId - The note ID
+     * @param {jQuery} $button - The clicked button element
+     */
+    function handleEditAllFields(noteId, $button) {
+        const commitId = $button.data('commit-id');
+        
+        if (!commitId) {
+            console.error('No commit ID available for Edit All Fields');
+            $button.prop('disabled', false);
+            return;
+        }
+
+        // Check if FieldEditPanel is available
+        if (typeof window.FieldEditPanel === 'undefined') {
+            console.error('FieldEditPanel module not loaded');
+            $button.prop('disabled', false);
+            return;
+        }
+
+        // Open the panel - it handles its own button state management
+        window.FieldEditPanel.open(noteId, commitId, $button[0])
+            .finally(() => {
+                // Re-enable button after panel operation completes
+                if ($button.closest('body').length) {
+                    $button.prop('disabled', false);
+                }
+            });
     }
 
 

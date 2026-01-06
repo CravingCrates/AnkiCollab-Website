@@ -40,7 +40,7 @@ pub async fn client(
     match db_state.db_pool.get().await {
         Ok(pool) => Ok(pool),
         Err(err) => {
-            println!("Error getting pool: {err}");
+            tracing::error!(error = %err, "Failed to get database connection from pool");
             Err(DatabaseConnection)
         }
     }

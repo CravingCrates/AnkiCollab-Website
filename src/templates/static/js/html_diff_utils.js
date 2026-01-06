@@ -9,10 +9,11 @@ window.HtmlDiffUtils = (function() {
      * @returns {string} - The unescaped HTML string.
      */
     function unescapeHtml(html) {
-        if (typeof html !== 'string') return '';
-        // Use DOMParser for robust unescaping
+        if (html === undefined || html === null) return '';
+        // jQuery's data() can coerce numbers/booleans; normalize to string before unescaping
+        const value = (typeof html === 'string') ? html : String(html);
         const temp = document.createElement('textarea');
-        temp.innerHTML = html;
+        temp.innerHTML = value;
         return temp.value;
     }
 
