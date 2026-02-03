@@ -605,7 +605,7 @@ pub async fn mark_note_deleted(
             // Replace subscriber reviewed fields for those positions
             if !positions.is_empty() {
                 tx.execute(
-                    "DELETE FROM fields WHERE reviewed = true AND note = $1 AND position = ANY($2)",
+                    "DELETE FROM fields WHERE reviewed = true AND note = $1 AND position::int = ANY($2)",
                     &[&sub_note_id, &positions],
                 )
                 .await?;
@@ -613,7 +613,7 @@ pub async fn mark_note_deleted(
                     if let Some(content) = base_fields_map.get(pos) {
                         tx.execute(
                             "INSERT INTO fields (note, position, content, reviewed) VALUES ($1, $2, $3, true)",
-                            &[&sub_note_id, pos, content]
+                            &[&sub_note_id, &(*pos as u32), content]
                         ).await?;
                     }
                 }

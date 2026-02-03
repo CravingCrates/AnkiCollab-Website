@@ -5,11 +5,16 @@
 function toggleTags(button) {
     var collapsedTags = document.getElementById("collapsedTags");
     var hiddenCount = button.dataset.hiddenCount || '0';
-    if (collapsedTags.style.display === "none") {
+    // Check for d-none class (Bootstrap) or inline display:none
+    var isHidden = collapsedTags.classList.contains('d-none') || 
+                   collapsedTags.style.display === "none";
+    if (isHidden) {
+        collapsedTags.classList.remove('d-none');
         collapsedTags.style.display = "flex";
         button.innerHTML = "Show less";
     } else {
-        collapsedTags.style.display = "none";
+        collapsedTags.classList.add('d-none');
+        collapsedTags.style.display = "";
         button.innerHTML = "+" + hiddenCount + " more";
     }
 }
