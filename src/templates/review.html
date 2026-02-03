@@ -8,17 +8,8 @@
     <link href="/static/plugins/trumbowyg/ui/trumbowyg.css" rel="stylesheet">
     <link href="/static/plugins/trumbowyg/plugins/colors/ui/trumbowyg.colors.css" rel="stylesheet">
     <link href="/static/css/commit_styling.css" rel="stylesheet">
+    <link href="/static/css/review.css" rel="stylesheet">
     <script src="/static/plugins/jquery/jquery.min.js"></script>
-    <style>
-        .content-comparison {
-            gap: 30px;
-        }
-    </style>
-    <script>
-        window.HtmlDiffUtils = {};
-        window.ImageHandler = {};
-        window.ApiService = {};
-    </script>
     <script src="/static/js/html_diff_utils.js"></script>
     <script src="/static/js/image_handling.js"></script>
     <script src="/static/js/api_service.js"></script>
@@ -69,21 +60,21 @@
                             </a>
                             
                             {% if access and note.reviewed == false %}
-                            <a href="/AcceptNote/{{note.id}}" class="modern-action-btn btn-publish" title="Publish New Note" onclick="this.classList.add('disabled'); this.style.pointerEvents='none'; this.innerHTML='<i class=\'fa fa-spinner fa-spin\'></i> Publishing...';">
+                            <a href="/AcceptNote/{{note.id}}" class="modern-action-btn btn-publish action-link" data-loading-text="<i class='fa fa-spinner fa-spin'></i> Publishing..." title="Publish New Note">
                                 <i class="fa fa-check"></i>
                                 Publish Note
                             </a>
-                            <a href="/DeleteNote/{{note.id}}" class="modern-action-btn btn-delete" title="Delete Unpublished Note" onclick="this.classList.add('disabled'); this.style.pointerEvents='none'; this.innerHTML='<i class=\'fa fa-spinner fa-spin\'></i> Deleting...';">
+                            <a href="/DeleteNote/{{note.id}}" class="modern-action-btn btn-delete action-link" data-loading-text="<i class='fa fa-spinner fa-spin'></i> Deleting..." title="Delete Unpublished Note">
                                 <i class="fa fa-trash"></i>
                                 Delete Note
                             </a>
                             
                             {% elif access and note.delete_req %}
-                            <a href="/AcceptNoteRemoval/{{note.id}}" class="modern-action-btn btn-delete" title="Confirm Note Deletion" onclick="this.classList.add('disabled'); this.style.pointerEvents='none'; this.innerHTML='<i class=\'fa fa-spinner fa-spin\'></i> Confirming...';">
+                            <a href="/AcceptNoteRemoval/{{note.id}}" class="modern-action-btn btn-delete action-link" data-loading-text="<i class='fa fa-spinner fa-spin'></i> Confirming..." title="Confirm Note Deletion">
                                 <i class="fa fa-trash"></i>
                                 Confirm Deletion
                             </a>
-                            <a href="/DenyNoteRemoval/{{note.id}}" class="modern-action-btn btn-keep" title="Cancel Removal Request" onclick="this.classList.add('disabled'); this.style.pointerEvents='none'; this.innerHTML='<i class=\'fa fa-spinner fa-spin\'></i> Keeping...';">
+                            <a href="/DenyNoteRemoval/{{note.id}}" class="modern-action-btn btn-keep action-link" data-loading-text="<i class='fa fa-spinner fa-spin'></i> Keeping..." title="Cancel Removal Request">
                                 <i class="fa fa-undo"></i>
                                 Keep Note
                             </a>
@@ -131,7 +122,7 @@
                             <div class="field-name">
                                 🏷️ Current Tags
                                 {% if note.reviewed_tags|length > 6 %}
-                                <button class="modern-action-btn btn-history" style="font-size: 0.8rem; padding: 4px 12px; margin-left: 12px;" onclick="toggleTags(this)">
+                                <button class="modern-action-btn btn-history review-action-btn-sm toggle-tags-btn" data-hidden-count="{{note.reviewed_tags|length - 6}}">
                                     +{{note.reviewed_tags|length - 6}} more
                                 </button>
                                 {% endif %}
@@ -140,16 +131,16 @@
                         <div class="tag-container" id="mainTags">
                             {% for tag in note.reviewed_tags|slice(end=6) %}
                             <span class="tag-chip {% if tag.inherited %}inherited{% endif %}">
-                                {% if tag.inherited %}<i class="fa fa-link" style="font-size: 0.7rem;"></i>{% endif %}
+                                {% if tag.inherited %}<i class="fa fa-link tag-icon-sm"></i>{% endif %}
                                 {{tag.content}}
                             </span>
                             {% endfor %}
                         </div>
                         {% if note.reviewed_tags|length > 6 %}
-                        <div class="tag-container" id="collapsedTags" style="display: none;">
+                        <div class="tag-container d-none" id="collapsedTags">
                             {% for tag in note.reviewed_tags|slice(start=6) %}
                             <span class="tag-chip {% if tag.inherited %}inherited{% endif %}">
-                                {% if tag.inherited %}<i class="fa fa-link" style="font-size: 0.7rem;"></i>{% endif %}
+                                {% if tag.inherited %}<i class="fa fa-link tag-icon-sm"></i>{% endif %}
                                 {{tag.content}}
                             </span>
                             {% endfor %}
@@ -174,7 +165,7 @@
                         <div class="suggestion-box">
                             <div class="tag-suggestion">
                                 <div class="tag-content">
-                                    <i class="fa fa-folder" style="margin-right: 8px; color: #0ea5e9;"></i>
+                                    <i class="fa fa-folder folder-icon-blue"></i></i>
                                     <strong>Move to:</strong> {{req.path}}
                                 </div>
                                 {% if access %}
@@ -197,7 +188,7 @@
                             <div class="field-header">
                                 <div>
                                     <div class="field-name">{{note.note_model_fields[field_suggestion.position]}}</div>
-                                    <a href="/commit/{{ field_suggestion.commit_id }}" class="inherited-badge" style="text-decoration: none; margin-top: 8px; display: inline-block;" title="View Source Commit">
+                                    <a href="/commit/{{ field_suggestion.commit_id }}" class="inherited-badge inherited-link" title="View Source Commit">
                                         <i class="fa fa-link"></i> Commit #{{ field_suggestion.commit_id }}
                                     </a>
                                 </div>
@@ -285,227 +276,6 @@
 
     {% include "layout_footer.html" %}
 
-    <script>
-        function toggleTags(button) {
-            var collapsedTags = document.getElementById("collapsedTags");
-            if (collapsedTags.style.display === "none") {
-                collapsedTags.style.display = "flex";
-                button.innerHTML = "Show less";
-            } else {
-                collapsedTags.style.display = "none";
-                button.innerHTML = "+{{note.reviewed_tags|length - 6}} more";
-            }
-        }
-
-        function groupSuggestionsByCommit() {
-            const suggestionsContainer = $('.suggestions-side');
-            const suggestions = $('.suggestion-box').toArray();
-            
-            // Skip if no suggestions to group
-            if (suggestions.length === 0) return;
-            
-            // Group suggestions by commit ID
-            const commitGroups = {};
-            
-            suggestions.forEach(suggestion => {
-                const $suggestion = $(suggestion);
-                let commitId = null;
-                
-                // Try to find commit ID from field suggestions
-                const commitLink = $suggestion.find('a[href*="/commit/"]');
-                if (commitLink.length > 0) {
-                    const href = commitLink.attr('href');
-                    const match = href.match(/\/commit\/(\d+)/);
-                    if (match) {
-                        commitId = match[1];
-                    }
-                }
-                
-                // For tags, we need to extract from data attributes (we'll add these)
-                if (!commitId) {
-                    commitId = $suggestion.attr('data-commit-id');
-                }
-                
-                // Default group for items without commit ID
-                if (!commitId) {
-                    commitId = 'other';
-                }
-                
-                if (!commitGroups[commitId]) {
-                    commitGroups[commitId] = [];
-                }
-                
-                commitGroups[commitId].push($suggestion.detach());
-            });
-            
-            // Create grouped HTML structure
-            Object.keys(commitGroups).forEach(commitId => {
-                const items = commitGroups[commitId];
-                if (items.length === 0) return;
-                
-                let groupHtml;
-                if (commitId === 'other') {
-                    // Keep individual styling for non-commit items
-                    items.forEach(item => {
-                        suggestionsContainer.append(item);
-                    });
-                } else {
-                    // Create commit group container
-                    groupHtml = $(`
-                        <div class="commit-group">
-                            <div class="commit-header">
-                                <a href="/commit/${commitId}" class="commit-badge" title="View Source Commit">
-                                    <i class="fa fa-code-fork"></i> Commit #${commitId}
-                                </a>
-                                <span style="color: #6b7280; font-size: 0.9rem;">
-                                    ${items.length} ${items.length === 1 ? 'change' : 'changes'}
-                                </span>
-                            </div>
-                            <div class="commit-suggestions"></div>
-                        </div>
-                    `);
-                    
-                    const suggestionsList = groupHtml.find('.commit-suggestions');
-                    items.forEach(item => {
-                        // Convert suggestion-box to suggestion-item
-                        item.removeClass('suggestion-box').addClass('suggestion-item');
-                        // Remove individual commit links since they're now in the group header
-                        item.find('a[href*="/commit/"]').parent().remove();
-                        suggestionsList.append(item);
-                    });
-                    
-                    suggestionsContainer.append(groupHtml);
-                }
-            });
-            
-        }
-
-        // Initialize the shared UI components after the page loads
-        $(document).ready(function() {
-            SharedUI.initializePage();
-            
-            initiButtonFeatures();
-            
-            // Group suggestions by commit
-            groupSuggestionsByCommit();
-            
-            // Enhanced spam-click protection
-            $(document).on('click.protection', '.action-btn:not(.tag_accept_button):not(.tag_deny_button), [data-action="accept-field"], [data-action="deny-field"]', function(e) {
-                const $btn = $(this);
-                
-                // If button is already disabled from previous click, prevent this click
-                if ($btn.hasClass('disabled') || $btn.prop('disabled')) {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    return false;
-                }
-                
-                // Allow the original click to proceed, then apply protection with a small delay
-                setTimeout(() => {
-                    // Check again - if button was already processed by original handler, don't interfere
-                    if ($btn.hasClass('disabled')) {
-                        return; // Already handled by existing protection
-                    }
-                    
-                    const action = $btn.data('action') || 'processing';
-                    const originalText = $btn.html();
-                    
-                    // Apply protection
-                    $btn.addClass('disabled loading')
-                        .prop('disabled', true)
-                        .css('pointer-events', 'none');
-                    
-                    // Update button text based on action
-                    const actionTexts = {
-                        'accept-field': '✓ Accepting...',
-                        'deny-field': '✗ Denying...',
-                        'accept-tag': '✓ Accepting...',
-                        'deny-tag': '✗ Denying...',
-                        'accept-move': '✓ Moving...',
-                        'deny-move': '✗ Denying...'
-                    };
-                    
-                    const processingText = actionTexts[action] || '⏳ Processing...';
-                    
-                    // For buttons with only icons, don't change text
-                    if (!originalText.includes('fa-') && originalText.trim().length > 2) {
-                        $btn.html(processingText);
-                    }
-                    
-                    // Store original state for potential restoration
-                    $btn.data('original-text', originalText);
-                    $btn.data('click-timestamp', Date.now());
-                    
-                }, 10); // Small delay to let original handlers run first
-                
-                // Set up failsafe restore
-                setTimeout(() => {
-                    if ($btn.hasClass('disabled')) {
-                        window.restoreButton($btn);
-                    }
-                }, 5000); // 5 second failsafe
-            });
-        });
-
-        function initiButtonFeatures() {
-            // Function to restore button state
-            window.restoreButton = function($btn) {
-                if ($btn && $btn.length) {
-                    $btn.removeClass('disabled loading')
-                        .prop('disabled', false)
-                        .css('pointer-events', '');
-                    
-                    const originalText = $btn.data('original-text');
-                    if (originalText) {
-                        $btn.html(originalText);
-                    }
-                    
-                }
-            };
-            
-            // Global function to restore all buttons
-            window.restoreAllButtons = function() {
-                $('.disabled').each(function() {
-                    window.restoreButton($(this));
-                });
-            };
-                        
-            // Page visibility change - restore buttons when page becomes visible
-            document.addEventListener('visibilitychange', function() {
-                if (!document.hidden) {
-                    // Check for buttons disabled longer than 10 seconds
-                    $('.disabled').each(function() {
-                        const $btn = $(this);
-                        const timestamp = $btn.data('click-timestamp');
-                        
-                        if (timestamp && (Date.now() - timestamp > 10000)) {
-                            window.restoreButton($btn);
-                        }
-                    });
-                }
-            });
-            
-            // Visual feedback for successful actions
-            $(document).on('field:accepted field:denied tag:accepted tag:denied', function(e, itemId) {
-                const isAccepted = e.type.includes('accepted');
-                const $item = $(`[data-field-id="${itemId}"], [data-tag-id="${itemId}"], [data-move-id="${itemId}"]`).closest('.suggestion-box, .field-item');
-                
-                $item.addClass(isAccepted ? 'field-success' : 'field-error');
-                
-                // Show brief success/error state then fade out
-                setTimeout(() => {
-                    $item.fadeOut(300, function() {
-                        $(this).remove();
-                    });
-                }, 1000);
-            });
-            
-            // Performance monitoring
-            if (window.performance && window.performance.mark) {
-                window.performance.mark('review-page-interactive');
-            }
-            
-        }
-    </script>
+    <script src="/static/js/review.js"></script>
 </body>
 </html>

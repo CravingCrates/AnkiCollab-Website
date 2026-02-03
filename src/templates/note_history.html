@@ -3,131 +3,8 @@
 <head>
   {% include "header_template.html" %}
   <title>Note History</title>
-  <link href="/static/css/commit_styling.css" rel="stylesheet">  
-  <style>
-    .actor-chip {
-      display: inline-flex;
-      align-items: center;
-      gap: 4px;
-      margin-left: 8px;
-      padding: 2px 8px;
-      border-radius: 999px;
-      background: #e0f2fe;
-      color: #0369a1;
-      font-weight: 600;
-      font-size: 12px;
-    }
-
-    .actor-chip i {
-      font-size: 10px;
-    }
-
-    .field-name-label {
-      font-size: 12px;
-      font-weight: 600;
-      color: #6b7280;
-      margin-bottom: 6px;
-      text-transform: uppercase;
-      letter-spacing: 0.025em;
-    }
-  </style>
-  
-  <script>
-    function toggleFilter() {
-      const button = event.target.closest('.filter-button');
-      const menu = document.getElementById('filterMenu');
-      
-      if (menu.classList.contains('show')) {
-        menu.classList.remove('show');
-      } else {
-        // Position the menu relative to the button
-        const buttonRect = button.getBoundingClientRect();
-        const menuTop = buttonRect.bottom + 8;
-        const menuRight = window.innerWidth - buttonRect.right;
-        
-        // Ensure menu doesn't go off screen
-        menu.style.top = Math.max(8, menuTop) + 'px';
-        menu.style.right = Math.max(8, Math.min(menuRight, window.innerWidth - 340)) + 'px';
-        
-        // On small screens, center the menu
-        if (window.innerWidth < 768) {
-          menu.style.right = '8px';
-          menu.style.left = '8px';
-          menu.style.minWidth = 'auto';
-        }
-        
-        menu.classList.add('show');
-      }
-    }
-    
-    function toggleFieldDiff(element) {
-      element.classList.toggle('expanded');
-    }
-    
-    function toggleSnapshot(id) {
-      const content = document.getElementById(`snapshot-${id}`);
-      content.classList.toggle('show');
-    }
-    
-    function applyFilters() {
-      const typeCheckboxes = document.querySelectorAll('input[name="eventType"]:checked');
-      const actorCheckboxes = document.querySelectorAll('input[name="actor"]:checked');
-      
-      const selectedTypes = Array.from(typeCheckboxes).map(cb => cb.value);
-      const selectedActors = Array.from(actorCheckboxes).map(cb => cb.value);
-      
-      // Hide all groups initially
-      document.querySelectorAll('[data-group]').forEach(group => {
-        group.classList.add('hidden');
-      });
-      
-      // Show groups and events that match filters
-      document.querySelectorAll('[data-event-type]').forEach(event => {
-        const eventType = event.getAttribute('data-event-type');
-        const eventActor = event.getAttribute('data-event-actor') || 'Anonymous';
-        
-        const typeMatch = selectedTypes.length === 0 || selectedTypes.includes(eventType);
-        const actorMatch = selectedActors.length === 0 || selectedActors.includes(eventActor);
-        
-        if (typeMatch && actorMatch) {
-          event.classList.remove('hidden');
-          // Show the parent group
-          const group = event.closest('[data-group]');
-          if (group) group.classList.remove('hidden');
-        } else {
-          event.classList.add('hidden');
-        }
-      });
-      
-      // Hide groups with no visible events
-      document.querySelectorAll('[data-group]').forEach(group => {
-        const visibleEvents = group.querySelectorAll('[data-event-type]:not(.hidden)');
-        if (visibleEvents.length === 0) {
-          group.classList.add('hidden');
-        }
-      });
-      
-      toggleFilter();
-    }
-    
-    function clearFilters() {
-      document.querySelectorAll('input[type="checkbox"]').forEach(cb => cb.checked = false);
-      document.querySelectorAll('[data-group], [data-event-type]').forEach(el => {
-        el.classList.remove('hidden');
-      });
-      toggleFilter();
-    }
-    
-    // Close filter menu when clicking outside
-    document.addEventListener('click', function(event) {
-      const filterDropdown = document.querySelector('.filter-dropdown');
-      const filterMenu = document.getElementById('filterMenu');
-      
-      if (!filterDropdown.contains(event.target)) {
-        filterMenu.classList.remove('show');
-      }
-    });
-  </script>
+  <link href="/static/css/commit_styling.css" rel="stylesheet">
+  <script src="/static/js/note_history.js"></script>
 </head>
 
 {% include "layout_header.html" %}
@@ -135,17 +12,17 @@
 <div class="main-container">
   <div class="container-fluid">
     <div class="page-header">
-      <div class="header-content" style="display: flex; justify-content: space-between; align-items: center;">
+      <div class="header-content d-flex justify-between align-center">
         <div>
           <h1 class="page-title">Note History #{{ note_id }}</h1>
           <p class="page-subtitle">Complete timeline • {{ groups|length }} commit{% if groups|length != 1 %}s{% endif %}</p>
         </div>
         <div class="header-actions">
           <div class="filter-dropdown">
-            <button onclick="toggleFilter()" class="filter-button">
+            <button id="toggleFilterBtn" class="filter-button">
               <i class="fa fa-filter"></i>
               Filters
-              <i class="fa fa-chevron-down" style="font-size: 10px;"></i>
+              <i class="fa fa-chevron-down chevron-icon-sm"></i>
             </button>
             <div id="filterMenu" class="filter-menu">
               <div class="filter-section">
@@ -209,8 +86,8 @@
               {% endif %}
               
               <div class="filter-actions">
-                <button onclick="clearFilters()" class="filter-btn">Clear All</button>
-                <button onclick="applyFilters()" class="filter-btn primary">Apply Filters</button>
+                <button id="clearFiltersBtn" class="filter-btn">Clear All</button>
+                <button id="applyFiltersBtn" class="filter-btn primary">Apply Filters</button>
               </div>
             </div>
           </div>
@@ -247,7 +124,7 @@
                 <div class="group-header">
                   <div class="commit-info">
                     <span class="standalone-badge">Standalone Changes</span>
-                    <span style="color: #6b7280; font-size: 13px; margin-left: 12px;">
+                    <span class="note-count-text">
                       {{ group.events|length }} change{% if group.events|length != 1 %}s{% endif %}
                     </span>
                   </div>
@@ -399,7 +276,7 @@
                       </div>
                     {% elif event.event_type == 'note_created' %}
                       <div class="snapshot-container">
-                        <div class="snapshot-header" onclick="toggleSnapshot('{{ event.id }}')">
+                        <div class="snapshot-header" data-snapshot-id="{{ event.id }}">
                           <span>View initial content</span>
                           <span class="diff-toggle">▼</span>
                         </div>

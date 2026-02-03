@@ -7,10 +7,6 @@
     <link href="/static/plugins/trumbowyg/ui/trumbowyg.css" rel="stylesheet">
     <link href="/static/plugins/trumbowyg/plugins/colors/ui/trumbowyg.colors.css" rel="stylesheet">
     <link href="/static/plugins/sweetalert/css/sweetalert.css" rel="stylesheet">
-    <script>
-        // Global namespace for our app
-        window.ApiService = {};
-    </script>
     <script src="/static/js/api_service.js"></script>
    
 </head>
@@ -26,9 +22,8 @@
                           <div class="text-center">
                             <p>Share this Key with your Subscribers</p>
                             <button
-                              onclick="CopyToClipboard(this)"
                               type="button"
-                              class="btn btn-primary"
+                              class="btn btn-primary copy-to-clipboard-btn"
                               data-toggle="tooltip"
                               data-placement="bottom"
                               title="Copy to clipboard"
@@ -38,6 +33,7 @@
                             <a
                               href="https://github.com/CravingCrates/AnkiCollab-Plugin/blob/main/getting_started_subscriber.md#adding-the-key-to-anki"
                               target="_blank"
+                              rel="noopener noreferrer"
                             >
                               <i class="fa fa-question-circle" aria-hidden="true"></i>
                             </a>
@@ -49,7 +45,7 @@
                 <div class="row">
                     <div class="col-lg-4 col-sm-6">
                         <div class="card gradient-1">
-                            <a class="card-body" href="/Maintainers/{{hash}}" style="color: inherit;">
+                            <a class="card-body text-inherit" href="/Maintainers/{{hash}}">
                                 <h3 class="card-title text-white">Maintainers</h3>
                                 <div class="d-inline-block">
                                     <p class="text-white mb-0">Give others Maintainer privileges</p>
@@ -60,7 +56,7 @@
                     </div>
                     <div class="col-lg-4 col-sm-6">
                         <div class="card gradient-2">
-                            <a class="card-body" href="/OptionalTags/{{hash}}" style="color: inherit;">
+                            <a class="card-body text-inherit" href="/OptionalTags/{{hash}}">
                                 <h3 class="card-title text-white">Optional Tags</h3>
                                 <div class="d-inline-block">
                                     <p class="text-white mb-0">Manage your optional tags</p>
@@ -71,7 +67,7 @@
                     </div>                    
                     <div class="col-lg-4 col-sm-6">
                         <div class="card gradient-4">
-                            <a class="card-body" href="/Statistics/{{hash}}" style="color: inherit;">
+                            <a class="card-body text-inherit" href="/Statistics/{{hash}}">
                                 <h3 class="card-title text-white">Statistics</h3>
                                 <div class="d-inline-block">
                                     <p class="text-white mb-0">Explore Your Deck's Performance Metrics</p>
@@ -83,7 +79,7 @@
                     {% if base_links|length > 0 %}
                     <div class="col-lg-4 col-sm-6">
                         <div class="card gradient-3">
-                            <div class="card-body" style="color: inherit;">
+                            <div class="card-body text-inherit">
                                 <h3 class="card-title text-white">Subscription Policy</h3>
                                 <div class="d-inline-block">
                                     <p class="text-white mb-0">Configure inherited fields by notetype</p>
@@ -151,7 +147,7 @@
                                 </div>
                                 <div id="collapseOne{{changelog.id}}" class="collapse show" data-parent="#accordion-three">
                                     <div class="card-body">
-                                        <a style="float:right; margin: 5px" href="/DeleteChangelog/{{changelog.id}}"><i class="fa fa-trash"></i></a>
+                                        <a class="changelog-delete-btn" href="/DeleteChangelog/{{changelog.id}}"><i class="fa fa-trash"></i></a>
                                         {{changelog.message | linebreaksbr | safe }}
                                     </div>
                                 </div>
@@ -164,7 +160,7 @@
                 <div class="card">
                     <div class="card-body">
                         <div class="sweetalert m-t-30">
-                            <form>
+                            <form data-deck-hash="{{hash}}">
                                 <button type="submit" class="btn mb-1 btn-success sweet-success">Save all Changes <span class="btn-icon-right"><i class="fa fa-check"></i></span>
                                 </button>
                             </form>                            
@@ -198,111 +194,8 @@
             {{ description | json_encode() | safe }}
         </script>
     {% endif %}
-    <script>
-        jQuery(document).ready(function() {
-            if (jQuery.fn.trumbowyg) {
-                $("#desc-editor").trumbowyg({
-                    btns: [
-                        ['viewHTML'],
-                        ['formatting'],
-                        ['strong', 'em', 'del'],
-                        ['unorderedList', 'orderedList'],
-                        ['removeformat'],
-                        ['fullscreen']
-                    ],
-                    autogrow: true,
-                    tagsToRemove: ['script'], // Basic security
-                    removeformatPasted: true, // Clean pasted content
-                    resetCss: true, // Helps in isolating editor styling
-                    changeActiveDropdownIcon: true,
-                    autogrow: true,
-
-                });
-
-                {% if description %} 
-                    const descHtml = JSON.parse(document.getElementById('desc-data').textContent);
-                    $('#desc-editor').trumbowyg('html', descHtml);
-                {% endif %}
-
-                $("#changelog-editor").trumbowyg({
-                    btns: [
-                        ['fullscreen']
-                    ],
-                    tagsToRemove: ['script', 'link'], // Basic security
-                    removeformatPasted: true, // Clean pasted content
-                    resetCss: true, // Helps in isolating editor styling
-                    changeActiveDropdownIcon: true,
-                    autogrow: true,
-                });
-            }
-        });
-    </script>
-    <script>      
-        const form = document.querySelector('form');
-
-        form.addEventListener('submit', event => {
-            event.preventDefault();
-
-            const description = $('#desc-editor').trumbowyg('html').replace(/<p><br><\/p>/g, '').trim();
-            const isPrivate = document.querySelector('input[name="private"]').checked;
-            const preventSubdecks = document.querySelector('input[name="prevent_subdecks"]').checked;
-            const restrictNotetypes = document.querySelector('input[name="restrict_notetypes"]').checked;
-            let changelog = $('#changelog-editor').trumbowyg('html').trim();
-            changelog = changelog.replace(/<\/p>/g, '\n'); // Replace <br> with \r\n
-            changelog = changelog.replace(/<[^>]*>/g, ''); // Remove all other HTML tags
-            if (changelog === '\n') { // If the changelog is empty, set it to an empty string to avod accidental submits
-                changelog = '';
-            }
-
-            const data = {
-            description: description,
-            hash: '{{hash}}',
-            is_private: isPrivate,
-            prevent_subdecks: preventSubdecks,
-            restrict_notetypes: restrictNotetypes,
-            changelog: changelog
-            };
-
-            window.ApiService.apiCall(`/EditDeck`, 'POST', data);
-
-            // Reset to empty string to prevent accidental double submits
-            $('#changelog-editor').trumbowyg('empty');
-            swal("Success!", "All changes have been saved!", "success");
-        });
-
-        (document.querySelector(".sweet-success-cancel").onclick = function () {
-        const deckName = '{{hash}}';
-        swal(
-            {
-            title: "Are you sure you want to delete this deck?",
-            text: "This action cannot be undone.",
-            type: "warning",
-            showCancelButton: !0,
-            confirmButtonColor: "#DD6B55",
-            confirmButtonText: "Yes, delete it",
-            cancelButtonText: "No, abort",
-            closeOnConfirm: !1,
-            closeOnCancel: !1,
-            },
-            function (e) {
-            if (e) {
-                window.location.href = `/DeleteDeck/${deckName}`;
-            } else {
-                swal("Cancelled", "This action has been cancelled.", "error");
-            }                
-            }
-        );
-        });
-        
-        function CopyToClipboard(button) {
-            var text = button.innerText;
-            navigator.clipboard.writeText(text).then(function() {
-                console.log('Copying to clipboard was successful!');
-            }, function(err) {
-                console.error('Could not copy text: ', err);
-            });
-        }
-    </script>
+    <script src="/static/js/clipboard.js"></script>
+    <script src="/static/js/edit_deck.js"></script>
 </body>
 
 </html>

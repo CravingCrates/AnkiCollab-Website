@@ -200,10 +200,14 @@ window.SharedUI = (function() {
 
         // General Action Buttons (Accept/Deny Tag/Field/Move, Edit, Cancel)
         $container.on('click.sharedUI', ACTION_BUTTON_SELECTOR, function(event) {
-            event.preventDefault();
             const $button = $(this);
             const action = $button.data('action');
-            const noteId = $button.data('note-id') || ApiService.getContext(this).id;
+            
+            event.preventDefault();
+            
+            // Get noteId: first try explicit data attribute, then fall back to context
+            // Use silent option to avoid console warnings for elements that might not have context
+            const noteId = $button.data('note-id') || ApiService.getContext(this, { silent: true }).id;
 
             if ($button.prop('disabled')) return;
             $button.prop('disabled', true); // Disable button immediately

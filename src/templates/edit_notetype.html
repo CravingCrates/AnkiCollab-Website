@@ -75,11 +75,11 @@
                 </div>
                 <div class="card">
                     <div class="card-body">
-                        <form id="submitForm">
+                        <form id="submitForm" data-notetype-id="{{ notetype_id }}">
                             <div class="button-icon">                            
                                 <button type="submit" class="btn mb-1 btn-success">Save all changes <span class="btn-icon-right"><i class="fa fa-check"></i></span>
                                 </button>
-                                <p id="confirmation" style="color:green; display:none">Changes saved!</p>
+                                <p id="confirmation" class="confirmation-message">Changes saved!</p>
                             </div>
                         </form>
                     </div>
@@ -93,62 +93,7 @@
         
     <!-- Embed server-side data as real JSON for safe JS consumption -->
     <script type="application/json" id="templates-data">{{ templates | json_encode() }}</script>
-    <script>
-        // Parse JSON from script tag to properly handle escaped content
-        const templatesScript = document.getElementById('templates-data');
-        
-        // Create a temporary element to decode HTML entities
-        const tempDiv = document.createElement('div');
-        tempDiv.innerHTML = templatesScript.innerHTML;
-        const decodedJSON = tempDiv.textContent || tempDiv.innerText;
-        
-        const TEMPLATES = JSON.parse(decodedJSON);
-        const NOTETYPE_ID = {{ notetype_id }};
-
-        const form = document.querySelector('#submitForm');
-        form.addEventListener('submit', event => {
-            event.preventDefault();
-
-            // Collect protected field checkbox states
-            const protectedMap = {};
-            document.querySelectorAll('input[type="checkbox"]').forEach(cb => {
-                const key = parseInt(cb.name, 10);
-                if (!Number.isNaN(key)) {
-                    protectedMap[key] = cb.checked;
-                }
-            });
-
-            // Collect updated template front/back content
-            const templateData = TEMPLATES.map(t => ({
-                template_id: t.template_id,
-                name: t.name,
-                front: document.getElementById(`${t.template_id}-front`)?.value || '',
-                back: document.getElementById(`${t.template_id}-back`)?.value || '',
-            }));
-
-            const payload = {
-                items: protectedMap,
-                styling: document.querySelector('textarea[name="styling_textarea"]')?.value || '',
-                notetype_id: NOTETYPE_ID,
-                templates: templateData,
-            };
-
-            fetch('/EditNotetype', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
-            }).then(r => {
-                if (!r.ok) throw new Error(`Save failed with status: ${r.status}`);
-                const confirmation = document.getElementById('confirmation');
-                if (confirmation) {
-                    confirmation.style.display = 'block';
-                }
-            }).catch(err => {
-                console.error('Save error:', err);
-                alert('Saving failed. See console for details.');
-            });
-        });
-    </script>
+    <script src="/static/js/edit_notetype.js"></script>
 </body>
 
 </html>

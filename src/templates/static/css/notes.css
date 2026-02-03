@@ -1,0 +1,31 @@
+.underline-links a {
+    text-decoration: underline;
+}
+
+.custom-scrollbar {
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+/* This will change the scrollbar for Chrome, Safari and Opera */
+.custom-scrollbar::-webkit-scrollbar {
+    width: 10px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+    background: #f1f1f1; 
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+    background: #888; 
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: #555; 
+}
+
+/* This will change the scrollbar for Firefox */
+.custom-scrollbar {
+    scrollbar-width: thin;
+    scrollbar-color: #888 #f1f1f1;
+}

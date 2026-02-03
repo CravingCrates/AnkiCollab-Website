@@ -26,7 +26,7 @@ use net::SocketAddr;
 use sync::Arc;
 use tokio::signal;
 use tower::ServiceBuilder;
-use user::{Auth, Credentials, User};
+use user::{Auth, ChangePasswordRequest, Credentials, User};
 
 use axum_client_ip::{ClientIp, ClientIpSource};
 use tower_http::services::ServeDir;
@@ -161,6 +161,72 @@ async fn logout(Extension(auth): Extension<Arc<Auth>>) -> Result<impl IntoRespon
         header::HeaderValue::from_str(&exp_cookie).unwrap(),
     );
     // add a Clear-Site-Data header for complete cleanup
+    response.headers_mut().insert(
+        header::HeaderName::from_static("clear-site-data"),
+        header::HeaderValue::from_static("\"cookies\""),
+    );
+
+    Ok(response)
+}
+
+async fn get_profile(
+    State(appstate): State<Arc<AppState>>,
+    user: Option<User>,
+) -> Result<impl IntoResponse, Error> {
+    let user = check_login(user)?;
+    let mut context = tera::Context::new();
+    context.insert("user", &user);
+    let rendered_template = appstate.tera.render("profile.html", &context)?;
+    Ok(Html(rendered_template))
+}
+
+async fn post_change_password(
+    Extension(auth): Extension<Arc<Auth>>,
+    user: Option<User>,
+    axum::Form(form): axum::Form<ChangePasswordRequest>,
+) -> Result<impl IntoResponse, Error> {
+    let user = check_login(user)?;
+
+    // Verify passwords match
+    if form.new_password != form.confirm_password {
+        return Err(Error::BadRequest("Passwords do not match".to_string()));
+    }
+
+    // Change password (this validates the current password and new password strength)
+    auth.change_password(user.id, &form.current_password, &form.new_password)
+        .await?;
+
+    // Log the user out so they need to re-authenticate with new password
+    let exp_cookie = auth.logout().await;
+    let mut response = axum::response::Redirect::to("/login").into_response();
+    response.headers_mut().insert(
+        header::SET_COOKIE,
+        header::HeaderValue::from_str(&exp_cookie).unwrap(),
+    );
+    response.headers_mut().insert(
+        header::HeaderName::from_static("clear-site-data"),
+        header::HeaderValue::from_static("\"cookies\""),
+    );
+
+    Ok(response)
+}
+
+async fn delete_account(
+    Extension(auth): Extension<Arc<Auth>>,
+    user: Option<User>,
+) -> Result<impl IntoResponse, Error> {
+    let user = check_login(user)?;
+
+    // Delete the account
+    auth.delete_account(user.id).await?;
+
+    // Log the user out
+    let exp_cookie = auth.logout().await;
+    let mut response = axum::response::Redirect::to("/").into_response();
+    response.headers_mut().insert(
+        header::SET_COOKIE,
+        header::HeaderValue::from_str(&exp_cookie).unwrap(),
+    );
     response.headers_mut().insert(
         header::HeaderName::from_static("clear-site-data"),
         header::HeaderValue::from_static("\"cookies\""),
@@ -2297,6 +2363,9 @@ async fn main() {
         .route("/imprint", get(imprint))
         .route("/datenschutz", get(datenschutz))
         .route("/logout", get(logout))
+        .route("/profile", get(get_profile))
+        .route("/profile/change-password", post(post_change_password))
+        .route("/profile/delete-account", get(delete_account))
         .route("/OptionalTags", post(post_optional_tags))
         .route("/OptionalTags/{deck_hash}", get(show_optional_tags))
         .route("/Maintainers/{deck_hash}", get(show_maintainers))

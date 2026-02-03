@@ -4,41 +4,15 @@
   {% include "header_template.html" %}
   <title>Commit Impact</title>
   <link href="/static/css/commit_styling.css" rel="stylesheet">
-  <style>
-    .field-name-label {
-      font-size: 12px;
-      font-weight: 600;
-      color: #6b7280;
-      margin-bottom: 6px;
-      text-transform: uppercase;
-      letter-spacing: 0.025em;
-    }
-  </style>
-  
-  <script>
-    function toggleEvents(noteId) {
-      const container = document.getElementById(`events-${noteId}`);
-      const button = document.querySelector(`[onclick="toggleEvents(${noteId})"]`);
-      
-      if (container.classList.contains('events-hidden')) {
-        container.classList.remove('events-hidden');
-        container.classList.add('events-visible');
-        button.textContent = 'Hide Details';
-      } else {
-        container.classList.remove('events-visible');
-        container.classList.add('events-hidden');
-        button.textContent = 'Show Details';
-      }
-    }
-  </script>
+  <script src="/static/js/commit_history.js"></script>
 </head>
 
 {% include "layout_header.html" %}
 
 <div class="main-container">
   <div class="page-header">
-    <div style="display: flex; justify-content: space-between; align-items: center;">
-      <div style="display: flex; align-items: center;">
+    <div class="d-flex justify-between align-center">
+      <div class="d-flex align-center">
         <div>
           <h1 class="page-title">Commit Impact #{{ commit_id }}</h1>
           <p class="page-subtitle">Changes made across {{ notes|length }} note{% if notes|length != 1 %}s{% endif %} in this commit</p>
@@ -141,7 +115,7 @@
                 <i class="fa fa-history"></i>
                 History
               </a>
-              <button onclick="toggleEvents({{ n.note_id }})" class="toggle-button">
+              <button class="toggle-button toggle-events-btn" data-note-id="{{ n.note_id }}">
                 Hide Details
               </button>
             </div>
@@ -168,12 +142,12 @@
 
                 <div class="event-item {{ event_class }}">
                   <div class="event-header">
-                    <div style="display: flex; align-items: center; gap: 8px;">
+                    <div class="d-flex align-center gap-8">
                       <span class="event-type">
                         {{ e.event_type | replace(from='_', to=' ') | title }}
                       </span>
                       {% if status_badge %}
-                        <span class="commit-status {{ status_badge }}" style="margin-left: 0; padding: 3px 8px; font-size: 11px;">
+                        <span class="commit-status {{ status_badge }} commit-status-inline">
                           {% if status_badge == 'approved' %}
                             <i class="fa fa-check"></i> Approved
                           {% else %}
@@ -191,7 +165,7 @@
                   </div>
                 
                 {% if e.rationale %}
-                  <div class="event-meta" style="margin-bottom: 8px; font-style: italic;">
+                  <div class="event-meta event-meta-styled">
                     "{{ e.rationale }}"
                   </div>
                 {% endif %}

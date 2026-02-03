@@ -11,6 +11,7 @@ use axum_extra::extract::cookie::CookieJar;
 use cookie::{Cookie as CookieBuilder, SameSite};
 use jsonwebtoken::{decode, encode, DecodingKey, EncodingKey, Header, Validation};
 use serde::{Deserialize, Serialize};
+use sha2::{Sha256, Digest};
 use std::net::IpAddr;
 use std::sync::Arc;
 use time::{Duration, OffsetDateTime};
@@ -330,4 +331,117 @@ where
 
 pub fn require_auth(user: Option<User>) -> Result<User, AuthError> {
     user.ok_or(AuthError::Redirect("/login".to_string()))
+}
+
+#[derive(Debug, Deserialize)]
+pub struct ChangePasswordRequest {
+    pub current_password: String,
+    pub new_password: String,
+    pub confirm_password: String,
+}
+
+impl Auth {
+    pub async fn change_password(
+        &self,
+        user_id: i32,
+        current_password: &str,
+        new_password: &str,
+    ) -> Result<(), AuthError> {
+        // Get current password hash
+        let row = self
+            .db
+            .query_opt(
+                "SELECT password FROM users WHERE id = $1",
+                &[&user_id],
+            )
+            .await?
+            .ok_or(AuthError::UserNotFound)?;
+
+        let password_hash: String = row.get(0);
+
+        // Verify current password
+        let parsed_hash = PasswordHash::new(&password_hash)
+            .map_err(|e| AuthError::PasswordHash(e.to_string()))?;
+        if argon2::Argon2::default()
+            .verify_password(current_password.as_bytes(), &parsed_hash)
+            .is_err()
+        {
+            return Err(AuthError::InvalidCredentials);
+        }
+
+        // Validate new password strength
+        self.validate_password(new_password)?;
+
+        // Hash new password
+        let salt = SaltString::generate(&mut OsRng);
+        let argon2 = Argon2::default();
+        let new_password_hash = argon2
+            .hash_password(new_password.as_bytes(), &salt)
+            .map_err(|e| AuthError::PasswordHash(e.to_string()))?
+            .to_string();
+
+        // Update password in database
+        self.db
+            .execute(
+                "UPDATE users SET password = $1 WHERE id = $2",
+                &[&new_password_hash, &user_id],
+            )
+            .await?;
+
+        // Invalidate all auth tokens for third-party apps
+        self.db
+            .execute(
+                "DELETE FROM auth_tokens WHERE user_id = $1",
+                &[&user_id],
+            )
+            .await?;
+
+        Ok(())
+    }
+
+    pub async fn delete_account(&self, user_id: i32) -> Result<(), AuthError> {
+        // Get username to calculate hash for note_stats cleanup
+        let row = self
+            .db
+            .query_opt(
+                "SELECT username FROM users WHERE id = $1",
+                &[&user_id],
+            )
+            .await?
+            .ok_or(AuthError::UserNotFound)?;
+
+        let username: String = row.get(0);
+
+        // Calculate SHA256 hash of username (matching the user_hash format in note_stats)
+        let mut hasher = Sha256::new();
+        hasher.update(username.as_bytes());
+        let user_hash = format!("{:x}", hasher.finalize());
+
+        // Delete user's statistics and subscriptions by user_hash
+        self.db
+            .execute(
+                "DELETE FROM note_stats WHERE user_hash = $1",
+                &[&user_hash],
+            )
+            .await?;
+
+        self.db
+            .execute(
+                "DELETE FROM subscriptions WHERE user_hash = $1",
+                &[&user_hash],
+            )
+            .await?;
+
+        // Delete user from database (cascading deletes should handle related data)
+        let rows_affected = self
+            .db
+            .execute("DELETE FROM users WHERE id = $1", &[&user_id])
+            .await?;
+
+        if rows_affected == 0 {
+            return Err(AuthError::UserNotFound);
+        }
+
+        Ok(())
+    }
 }

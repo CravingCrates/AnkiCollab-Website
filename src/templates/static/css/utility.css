@@ -1,0 +1,167 @@
+/**
+ * utility.css - Common utility classes for CSP-compliant styling
+ */
+
+/* Text Alignment */
+.text-left { text-align: left; }
+.text-center { text-align: center; }
+.text-right { text-align: right; }
+
+/* Legal/Policy content container - applies left-alignment to all children */
+.legal-content {
+    text-align: left;
+}
+.legal-content h1,
+.legal-content h2,
+.legal-content h3,
+.legal-content p,
+.legal-content ul,
+.legal-content li {
+    text-align: left;
+}
+
+/* Display */
+.d-none { display: none; }
+.d-block { display: block; }
+.d-inline { display: inline; }
+.d-inline-block { display: inline-block; }
+.d-flex { display: flex; }
+.d-grid { display: grid; }
+
+/* Flexbox */
+.flex-row { flex-direction: row; }
+.flex-column { flex-direction: column; }
+.flex-wrap { flex-wrap: wrap; }
+.flex-nowrap { flex-wrap: nowrap; }
+.justify-start { justify-content: flex-start; }
+.justify-end { justify-content: flex-end; }
+.justify-center { justify-content: center; }
+.justify-between { justify-content: space-between; }
+.justify-around { justify-content: space-around; }
+.align-start { align-items: flex-start; }
+.align-end { align-items: flex-end; }
+.align-center { align-items: center; }
+.align-baseline { align-items: baseline; }
+.align-stretch { align-items: stretch; }
+
+/* Gap utilities */
+.gap-4 { gap: 4px; }
+.gap-8 { gap: 8px; }
+.gap-12 { gap: 12px; }
+.gap-16 { gap: 16px; }
+.gap-24 { gap: 24px; }
+
+/* Margin utilities */
+.mt-8 { margin-top: 8px; }
+.mb-8 { margin-bottom: 8px; }
+.ml-8 { margin-left: 8px; }
+.mr-8 { margin-right: 8px; }
+.ml-12 { margin-left: 12px; }
+.mr-12 { margin-right: 12px; }
+.mt-2em { margin-top: 2em; }
+
+/* Padding utilities */
+.p-4 { padding: 4px; }
+.p-8 { padding: 8px; }
+.p-12 { padding: 12px; }
+.p-16 { padding: 16px; }
+
+/* Font sizes */
+.fs-xs { font-size: 0.7rem; }
+.fs-sm { font-size: 0.8rem; }
+.fs-10 { font-size: 10px; }
+.fs-11 { font-size: 11px; }
+.fs-13 { font-size: 13px; }
+
+/* Font style */
+.font-italic { font-style: italic; }
+
+/* Colors */
+.text-gray { color: #6b7280; }
+.text-green { color: green; }
+.text-muted-link { color: #898989; }
+.text-inherit { color: inherit; }
+.color-blue { color: #0ea5e9; }
+
+/* Positioning */
+.float-right { float: right; }
+.float-left { float: left; }
+
+/* Line height */
+.lh-14 { line-height: 1.4; }
+
+/* Common component styles */
+.confirmation-message {
+    color: green;
+    display: none;
+}
+
+.changelog-delete-btn {
+    float: right;
+    margin: 5px;
+}
+
+/* Review page specific */
+.review-action-btn-sm {
+    font-size: 0.8rem;
+    padding: 4px 12px;
+    margin-left: 12px;
+}
+
+.tag-icon-sm {
+    font-size: 0.7rem;
+}
+
+.folder-icon-blue {
+    margin-right: 8px;
+    color: #0ea5e9;
+}
+
+.inherited-link {
+    text-decoration: none;
+    margin-top: 8px;
+    display: inline-block;
+}
+
+/* Commit history specific */
+.commit-status-inline {
+    margin-left: 0;
+    padding: 3px 8px;
+    font-size: 11px;
+}
+
+.event-meta-styled {
+    margin-bottom: 8px;
+    font-style: italic;
+}
+
+/* Note history specific */
+.note-count-text {
+    color: #6b7280;
+    font-size: 13px;
+    margin-left: 12px;
+}
+
+.chevron-icon-sm {
+    font-size: 10px;
+}
+
+/* Commit notes partials */
+.note-header-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 16px;
+}
+
+.note-header-left {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+}
+
+.deletion-icon {
+    font-size: 48px;
+    color: #dc2626;
+    margin-bottom: 16px;
+}

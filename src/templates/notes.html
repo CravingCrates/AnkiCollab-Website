@@ -7,40 +7,7 @@
       href="/static/plugins/tables/css/datatable/dataTables.bootstrap4.min.css"
       rel="stylesheet"
     />
-    
-    <style>
-      .underline-links a {
-          text-decoration: underline;
-      }
-      
-      .custom-scrollbar {
-          max-height: 300px;
-          overflow-y: auto;
-      }
-      
-      /* This will change the scrollbar for Chrome, Safari and Opera */
-      .custom-scrollbar::-webkit-scrollbar {
-          width: 10px;
-      }
-      
-      .custom-scrollbar::-webkit-scrollbar-track {
-          background: #f1f1f1; 
-      }
-      
-      .custom-scrollbar::-webkit-scrollbar-thumb {
-          background: #888; 
-      }
-      
-      .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-          background: #555; 
-      }
-      
-      /* This will change the scrollbar for Firefox */
-      .custom-scrollbar {
-          scrollbar-width: thin;
-          scrollbar-color: #888 #f1f1f1;
-      }
-    </style>
+    <link href="/static/css/notes.css" rel="stylesheet" />
   </head>
   {% include "layout_header.html" %}
         <!-- End Top layout-->
@@ -57,9 +24,8 @@
                     </h1>
                     <p>To Subscribe, use this Key</p>
                     <button
-                      onclick="CopyToClipboard(this)"
                       type="button"
-                      class="btn btn-primary"
+                      class="btn btn-primary copy-to-clipboard-btn"
                       data-toggle="tooltip"
                       data-placement="bottom"
                       title="Copy to clipboard"
@@ -69,6 +35,7 @@
                     <a
                       href="https://github.com/CravingCrates/AnkiCollab-Plugin/blob/main/getting_started_subscriber.md#adding-the-key-to-anki"
                       target="_blank"
+                      rel="noopener noreferrer"
                     >
                       <i class="fa fa-question-circle" aria-hidden="true"></i>
                     </a>
@@ -174,15 +141,6 @@
 
     <script src="/static/plugins/tables/js/datatable/dataTables.bootstrap4.min.js"></script>
     <script src="/static/plugins/tables/js/datatable-init/datatable-basic.min.js"></script>
-    <script>
-        function CopyToClipboard(button) {
-            var text = button.innerText;
-            navigator.clipboard.writeText(text).then(function() {
-                console.log('Copying to clipboard was successful!');
-            }, function(err) {
-                console.error('Could not copy text: ', err);
-            });
-        }
-    </script>
+    <script src="/static/js/clipboard.js"></script>
   </body>
 </html>

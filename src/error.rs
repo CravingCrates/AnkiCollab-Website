@@ -359,6 +359,8 @@ pub enum Error {
     Unknown,
     #[error("Database connection error")]
     DatabaseConnection,
+    #[error("Bad request: {0}")]
+    BadRequest(String),
 }
 
 impl Error {
@@ -373,7 +375,8 @@ impl Error {
             | Self::NoteNotFound(_) | Self::DeckNotFound | Self::NoNotesAffected
             | Self::NoNoteTypesAffected => ErrorCategory::NotFound,
             Self::TagAlreadyExists | Self::UserIsAlreadyMaintainer | Self::FolderIdTooLong
-            | Self::InvalidNote | Self::AmbiguousFields(_) | Self::Serialization(_) => {
+            | Self::InvalidNote | Self::AmbiguousFields(_) | Self::Serialization(_)
+            | Self::BadRequest(_) => {
                 ErrorCategory::Validation
             }
             Self::Template(_) => ErrorCategory::Internal,
@@ -399,6 +402,7 @@ impl IntoResponse for Error {
             Self::AmbiguousFields(_) => StatusCode::BAD_REQUEST,
             Self::InvalidNote => StatusCode::BAD_REQUEST,
             Self::NoNoteTypesAffected => StatusCode::BAD_REQUEST,
+            Self::BadRequest(_) => StatusCode::BAD_REQUEST,
             // Database and BB8 errors should return 503 Service Unavailable, not 500
             Self::DB(_) | Self::BB8(_) | Self::Database(_) | Self::DatabaseConnection => {
                 StatusCode::SERVICE_UNAVAILABLE

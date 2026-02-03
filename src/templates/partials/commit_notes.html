@@ -1,8 +1,8 @@
 {% for note in notes %}
 <div id="{{note.id}}" class="note-card note-context" data-context-type="note" data-note-id="{{note.id}}" {% if commit %}data-commit-id="{{commit.id}}"{% endif %}>
     <div class="note-header">
-        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 16px;">
-            <div style="display: flex; align-items: flex-start; gap: 12px;">
+        <div class="note-header-row">
+            <div class="note-header-left">
                 {% if user and owned == true and commit %}
                 <label class="bulk-select-checkbox" title="Select this note for bulk action">
                     <input type="checkbox" 
@@ -136,7 +136,7 @@
                 <div class="collapsible-body tag-list">
                     {% for tag in note.reviewed_tags %}
                     <span class="tag-chip {% if tag.inherited %}inherited{% endif %} reviewed-tag-chip">
-                        {% if tag.inherited %}<i class="fa fa-link" style="font-size: 0.7rem;"></i>{% endif %}
+                        {% if tag.inherited %}<i class="fa fa-link tag-icon-sm"></i>{% endif %}
                         {{ tag.content }}
                     </span>
                     {% endfor %}
@@ -244,7 +244,7 @@
         </div>
         {% else %}
         <div class="deletion-message">
-            <i class="fa fa-trash" style="font-size: 48px; color: #dc2626; margin-bottom: 16px;"></i>
+            <i class="fa fa-trash deletion-icon"></i>
             <div>This note has been requested for deletion.</div>
         </div>
         {% endif %}

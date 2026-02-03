@@ -10,19 +10,63 @@ window.ApiService = (function() {
     // --- Private Helper Functions ---
 
     /**
-     * Gets context (type and ID) from a DOM element or its ancestors.
+     * Gets commit context from a DOM element or its ancestors.
+     * Looks for data-commit-id attribute on the element or ancestors.
      * @param {HTMLElement} element - The starting element.
+     * @returns {{type: string, id: string|null}} - The context type ('commit') and ID.
+     */
+    function getCommitContext(element) {
+        const $el = $(element);
+        // Check the element itself first, then ancestors
+        let commitId = $el.data('commit-id') || $el.attr('data-commit-id');
+        if (!commitId) {
+            const $commitElement = $el.closest('[data-commit-id]');
+            if ($commitElement.length) {
+                commitId = $commitElement.data('commit-id') || $commitElement.attr('data-commit-id');
+            }
+        }
+        if (!commitId) {
+            // Fallback: try known containers
+            const $container = $('#notes-container, #bulk-actions-section').first();
+            if ($container.length) {
+                commitId = $container.data('commit-id') || $container.attr('data-commit-id');
+            }
+        }
+        return { type: 'commit', id: commitId || null };
+    }
+
+    /**
+     * Gets context (type and ID) from a DOM element or its ancestors.
+     * First looks for note-level context (data-context-type), then falls back to commit context.
+     * @param {HTMLElement} element - The starting element.
+     * @param {object} [options] - Optional settings.
+     * @param {boolean} [options.requireNoteContext=false] - If true, won't fall back to commit context.
+     * @param {boolean} [options.silent=false] - If true, won't log warnings when context is not found.
      * @returns {{type: string|null, id: string|null}} - The context type and ID.
      */
-    function getContext(element) {
+    function getContext(element, options = {}) {
+        const { requireNoteContext = false, silent = false } = options;
+        
         const $contextElement = $(element).closest('[data-context-type]');
-        if (!$contextElement.length) {
-            console.error("Could not find context element for:", element);
-            return { type: null, id: null };
+        if ($contextElement.length) {
+            const contextType = $contextElement.data('context-type'); // 'note'
+            const contextId = $contextElement.attr('id'); // The note ID
+            return { type: contextType, id: contextId };
         }
-        const contextType = $contextElement.data('context-type'); // 'note'
-        const contextId = $contextElement.attr('id'); // The note ID
-        return { type: contextType, id: contextId };
+        
+        // No note-level context found, try commit context as fallback
+        if (!requireNoteContext) {
+            const commitContext = getCommitContext(element);
+            if (commitContext.id) {
+                return commitContext;
+            }
+        }
+        
+        // Only log if not silent and we truly couldn't find any context
+        if (!silent) {
+            console.warn("Could not find context element for:", element);
+        }
+        return { type: null, id: null };
     }
 
     /**
@@ -228,6 +272,7 @@ window.ApiService = (function() {
         getPresignedImageUrl,
         // Utility methods
         getContext,
+        getCommitContext,
         getLastResponseMeta: () => lastResponseMeta,
         // Expose apiCall if needed directly elsewhere, but generally prefer specific methods
         apiCall

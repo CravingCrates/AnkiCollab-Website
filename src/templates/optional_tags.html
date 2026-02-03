@@ -8,7 +8,7 @@
         <!-- End Top layout-->
 
         <!-- row -->
-        <div class="container-fluid mt-3">
+        <div id="optional-tags-page" data-deck-hash="{{hash}}" class="container-fluid mt-3">
           <div class="card">
             <div class="card-body">
               <h1 class="card-title m-b-40">Manage your Optional Tags</h1>
@@ -51,120 +51,6 @@
         ***********************************-->
         {% include "layout_footer.html" %}
         <script src="/static/plugins/toastr/js/toastr.min.js"></script>
-
-    <script>
-      $(document).ready(function () {
-
-        function toast_error(msg) {
-          toastr.error(msg, "Oh no!", {
-            positionClass: "toast-top-right",
-            timeOut: 5e3,
-            closeButton: !0,
-            debug: !1,
-            newestOnTop: !0,
-            progressBar: !0,
-            preventDuplicates: !0,
-            onclick: null,
-            showDuration: "300",
-            hideDuration: "1000",
-            extendedTimeOut: "1000",
-            showEasing: "swing",
-            hideEasing: "linear",
-            showMethod: "fadeIn",
-            hideMethod: "fadeOut",
-            tapToDismiss: !1,
-          });
-        }
-      
-        function toast_success(msg) {
-          toastr.success(msg, "Success!", {
-            timeOut: 5e3,
-            closeButton: !0,
-            debug: !1,
-            newestOnTop: !0,
-            progressBar: !0,
-            positionClass: "toast-top-right",
-            preventDuplicates: !0,
-            onclick: null,
-            showDuration: "300",
-            hideDuration: "1000",
-            extendedTimeOut: "1000",
-            showEasing: "swing",
-            hideEasing: "linear",
-            showMethod: "fadeIn",
-            hideMethod: "fadeOut",
-            tapToDismiss: !1,
-          });
-        }
-
-        const ACTION_ADD = 1;
-        const ACTION_REMOVE = 0;
-
-        function sendData(action, taggroup) {
-        const data = {
-          deck: '{{hash}}',      
-          taggroup: taggroup,
-          action: action,
-        };
-
-        fetch("/OptionalTags", {
-            method: "POST",
-            body: JSON.stringify(data),
-            headers: {
-            "Content-Type": "application/json",
-            },
-        })
-            .then((response) => response.text())
-            .then((text) => {
-              if (text === 'added') {
-                $('.tdl-content2 ul').append(
-                  `<li>
-                    <label>
-                      <span>${taggroup}</span>
-                      <a href="#" class="ti-trash"></a>
-                    </label>
-                  </li>`
-                );
-                toast_success('Optional Tag added');
-              }
-              else if(text === 'removed') {
-                toast_success('Optional Tag removed');
-              } else {
-                console.error(text);
-                toast_error('Failed to add Optional Tag. Please try again.');
-              }
-            })
-            .catch((error) => {
-              console.error(error);
-              toast_error('An error occurred. Please try again.');
-            });
-        }
-
-        function removeOptionalTag(taggroup) {
-          sendData(ACTION_REMOVE, taggroup);
-        }
-
-        // addOptionalTag
-        $('.tdl-new2').on('keypress', function (e) {
-            var code = (e.keyCode ? e.keyCode : e.which);
-            if (code == 13) { // Enter key
-              e.preventDefault();
-              var taggroup = $(this).val();
-              sendData(ACTION_ADD, taggroup);
-              $(this).val(''); // Clear the input field
-            }
-          });
-
-        $(document).on("click", ".ti-trash", function () {
-          var taggroup = $(this).siblings("span").text();
-          removeOptionalTag(taggroup);
-          var _li = $(this).parent().parent("li");
-          _li.addClass("remove").stop().delay(100).slideUp("fast", function() {
-              _li.remove();
-          });
-          return false;
-        });
-      });
-    </script>
+        <script src="/static/js/optional_tags.js"></script>
   </body>
 </html>

@@ -79,7 +79,7 @@
                 <h4>Decks</h4>
               </div>
               <div class="table-responsive">
-                <table id="deckOverview" class="table table-striped zero-configuration">
+                <table id="deckOverview" class="table table-striped">
                   <thead>
                     <tr>
                       <th>Full Path</th>
@@ -120,7 +120,7 @@
                 <p>Based on average retention and average lapses.</p>
               </div>
               <div class="table-responsive">
-                <table id="notesOverview" class="table table-striped zero-configuration">
+                <table id="notesOverview" class="table table-striped">
                   <thead>
                     <tr>
                       <th>Note ID</th>
@@ -147,7 +147,6 @@
               </div>
             </div>
           </div>            
-
         </div>
         <!-- end container flud -->
       </div>
@@ -156,17 +155,8 @@
         ***********************************-->
         {% include "layout_footer.html" %}
         <script src="/static/plugins/jquery/jquery.min.js"></script>
-        <script>
-            $(document).ready(function() {
-              $('#deckOverview').DataTable({
-                  "pageLength": 10
-              });
-              $('#notesOverview').DataTable({
-                  "pageLength": 25
-              });
-            });
-          </script>
         <script src="/static/plugins/tables/js/datatable/dataTables.bootstrap4.min.js"></script>
         <script src="/static/plugins/tables/js/datatable-init/datatable-basic.min.js"></script>
+        <script src="/static/js/statistics.js"></script>
   </body>
 </html>

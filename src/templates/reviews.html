@@ -87,28 +87,8 @@
         ***********************************-->
         {% include "layout_footer.html" %}
         <script src="/static/plugins/jquery/jquery.min.js"></script>
-        <script>
-            $(document).ready(function() {                
-                // Initialize DataTable with the custom sorting
-                $('#deckOverview').DataTable({
-                    destroy: true, // Destroy existing DataTable instance
-                    columnDefs: [
-                    {
-                        "targets": 4,
-                        "render": function ( data, type, row ) {
-                            if (type === 'sort' || type === 'type') {
-                                return moment(data, 'MM/DD/YYYY').format('YYYYMMDD');
-                            }
-                            return data;
-                        }
-                    }],
-                    stripeClasses: ['odd', 'even'],
-                    order: [[4, 'desc']],
-                    "pageLength": 25,
-                });
-            });
-            </script>
         <script src="/static/plugins/tables/js/datatable/dataTables.bootstrap4.min.js"></script>
         <script src="/static/plugins/tables/js/datatable-init/datatable-basic.min.js"></script>
+        <script src="/static/js/reviews.js"></script>
   </body>
 </html>
