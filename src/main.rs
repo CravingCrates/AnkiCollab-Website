@@ -26,7 +26,7 @@ use net::SocketAddr;
 use sync::Arc;
 use tokio::signal;
 use tower::ServiceBuilder;
-use user::{Auth, ChangePasswordRequest, Credentials, User};
+use user::{Auth, ChangePasswordRequest, Credentials, User, purge_deleted_account_data};
 
 use axum_client_ip::{ClientIp, ClientIpSource};
 use tower_http::services::ServeDir;
@@ -212,15 +212,30 @@ async fn post_change_password(
 }
 
 async fn delete_account(
+    State(appstate): State<Arc<AppState>>,
     Extension(auth): Extension<Arc<Auth>>,
     user: Option<User>,
 ) -> Result<impl IntoResponse, Error> {
     let user = check_login(user)?;
 
-    // Delete the account
-    auth.delete_account(user.id).await?;
+    // Fast soft-delete: invalidates password + sets deleted_at (instant)
+    let username = auth.soft_delete_account(user.id).await?;
 
-    // Log the user out
+    // Spawn the heavy cleanup work in the background so the user isn't waiting
+    let pool = appstate.db_pool.clone();
+    let user_id = user.id;
+    tokio::spawn(async move {
+        match pool.get().await {
+            Ok(conn) => {
+                purge_deleted_account_data(&conn, user_id, &username).await;
+            }
+            Err(e) => {
+                tracing::error!(user_id, error = %e, "Failed to get DB connection for account purge");
+            }
+        }
+    });
+
+    // Log the user out immediately
     let exp_cookie = auth.logout().await;
     let mut response = axum::response::Redirect::to("/").into_response();
     response.headers_mut().insert(

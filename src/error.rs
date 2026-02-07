@@ -70,6 +70,7 @@ fn is_expected_client_error(message: &str) -> bool {
         || lower.contains("folder id is too long")
         || lower.contains("not found") // 404s are client errors
         || lower.contains("ambiguous fields")
+        || lower.contains("account has been deleted")
 }
 
 impl Reporter {
@@ -461,6 +462,8 @@ pub enum AuthError {
     InvalidToken,
     #[error("User not found")]
     UserNotFound,
+    #[error("Account has been deleted")]
+    AccountDeleted,
 }
 
 impl Clone for AuthError {
@@ -476,6 +479,7 @@ impl Clone for AuthError {
             Self::InternalError => Self::InternalError,
             Self::InvalidToken => Self::InvalidToken,
             Self::UserNotFound => Self::UserNotFound,
+            Self::AccountDeleted => Self::AccountDeleted,
             Self::Database(_error) => {
                 // tokio_postgres::Error doesn't implement Clone, so we degrade gracefully.
                 Self::PasswordHash("Database Error".to_string())
@@ -510,6 +514,7 @@ impl AuthError {
             Self::Redirect(_) => (StatusCode::FOUND, ""),
             Self::UsernameAlreadyExists => (StatusCode::BAD_REQUEST, "Username already in use"),
             Self::PasswordWeak => (StatusCode::BAD_REQUEST, "Password is too weak"),
+            Self::AccountDeleted => (StatusCode::FORBIDDEN, "This account has been deleted"),
         }
     }
 }

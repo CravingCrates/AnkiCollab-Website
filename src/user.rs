@@ -89,7 +89,7 @@ impl Auth {
             .query_one(
                 "SELECT id, username, is_admin
                  FROM users
-                 WHERE id = $1",
+                 WHERE id = $1 AND deleted_at IS NULL",
                 &[&user_id],
             )
             .await?;
@@ -177,13 +177,13 @@ impl Auth {
 
     pub async fn login(&self, creds: Credentials, ip: IpAddr) -> Result<String, AuthError> {
         let normalized_username = creds.username.to_lowercase();
-        // Find user
+        // Find user (exclude soft-deleted accounts)
         let row = self
             .db
             .query_opt(
                 "SELECT id, password 
                  FROM users 
-                 WHERE username = $1",
+                 WHERE username = $1 AND deleted_at IS NULL",
                 &[&normalized_username],
             )
             .await?
@@ -399,8 +399,11 @@ impl Auth {
         Ok(())
     }
 
-    pub async fn delete_account(&self, user_id: i32) -> Result<(), AuthError> {
-        // Get username to calculate hash for note_stats cleanup
+    /// Fast soft-delete: invalidates the password so the user can no longer log in,
+    /// sets `deleted_at = NOW()`, and clears auth tokens.  Returns the username
+    /// so the caller can hand it to the background purge task.
+    pub async fn soft_delete_account(&self, user_id: i32) -> Result<String, AuthError> {
+        // Fetch username before we touch anything
         let row = self
             .db
             .query_opt(
@@ -412,36 +415,68 @@ impl Auth {
 
         let username: String = row.get(0);
 
-        // Calculate SHA256 hash of username (matching the user_hash format in note_stats)
-        let mut hasher = Sha256::new();
-        hasher.update(username.as_bytes());
-        let user_hash = format!("{:x}", hasher.finalize());
-
-        // Delete user's statistics and subscriptions by user_hash
+        // Invalidate the password so the account cannot be logged into anymore.
+        // We also record the deletion timestamp for the background purge.
         self.db
             .execute(
-                "DELETE FROM note_stats WHERE user_hash = $1",
-                &[&user_hash],
+                "UPDATE users SET password = '', deleted_at = NOW() WHERE id = $1",
+                &[&user_id],
             )
             .await?;
 
-        self.db
-            .execute(
-                "DELETE FROM subscriptions WHERE user_hash = $1",
-                &[&user_hash],
-            )
-            .await?;
-
-        // Delete user from database (cascading deletes should handle related data)
-        let rows_affected = self
+        // Invalidate third-party auth tokens immediately
+        let _ = self
             .db
-            .execute("DELETE FROM users WHERE id = $1", &[&user_id])
-            .await?;
+            .execute(
+                "DELETE FROM auth_tokens WHERE user_id = $1",
+                &[&user_id],
+            )
+            .await;
 
-        if rows_affected == 0 {
-            return Err(AuthError::UserNotFound);
-        }
-
-        Ok(())
+        Ok(username)
     }
+}
+
+/// Heavy account data cleanup that can safely run in a background task.
+/// Takes a pooled DB connection so it does not block the request.
+pub async fn purge_deleted_account_data<C: std::ops::Deref<Target = tokio_postgres::Client>>(
+    db: &C,
+    user_id: i32,
+    username: &str,
+) {
+    // Calculate SHA256 hash of username (matching the user_hash format in note_stats)
+    let mut hasher = Sha256::new();
+    hasher.update(username.as_bytes());
+    let user_hash = format!("{:x}", hasher.finalize());
+
+    // Delete user's statistics by user_hash
+    if let Err(e) = db
+        .execute(
+            "DELETE FROM note_stats WHERE user_hash = $1",
+            &[&user_hash],
+        )
+        .await
+    {
+        tracing::error!(user_id, error = %e, "Failed to purge note_stats for deleted account");
+    }
+
+    // Delete user's subscriptions by user_hash
+    if let Err(e) = db
+        .execute(
+            "DELETE FROM subscriptions WHERE user_hash = $1",
+            &[&user_hash],
+        )
+        .await
+    {
+        tracing::error!(user_id, error = %e, "Failed to purge subscriptions for deleted account");
+    }
+
+    // Finally remove the user row (cascading deletes handle the rest)
+    if let Err(e) = db
+        .execute("DELETE FROM users WHERE id = $1", &[&user_id])
+        .await
+    {
+        tracing::error!(user_id, error = %e, "Failed to delete user row for deleted account");
+    }
+
 }

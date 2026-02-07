@@ -67,10 +67,25 @@ document.addEventListener('DOMContentLoaded', function() {
                 confirmButtonClass: "btn-danger",
                 confirmButtonText: "Yes, delete my account",
                 cancelButtonText: "Cancel",
-                closeOnConfirm: false
+                closeOnConfirm: false,
+                showLoaderOnConfirm: true
             }, function(isConfirm) {
                 if (isConfirm) {
-                    window.location.href = "/profile/delete-account";
+                    // Fire the request via fetch so we can show a success message
+                    fetch("/profile/delete-account", { credentials: "same-origin" })
+                        .then(function() {
+                            swal({
+                                title: "Account Deleted",
+                                text: "Your account has been scheduled for deletion. Farewell!",
+                                type: "success",
+                                confirmButtonText: "OK"
+                            }, function() {
+                                window.location.href = "/";
+                            });
+                        })
+                        .catch(function() {
+                            swal("Error", "Something went wrong. Please try again.", "error");
+                        });
                 }
             });
         });
