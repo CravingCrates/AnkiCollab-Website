@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use crate::cleanser;
 use crate::error::Error::{
-    AmbiguousFields, CommitDeckNotFound, InvalidNote, NoteNotFound, Unauthorized,
+    AmbiguousFields, CommitDeckNotFound, FirstFieldEmpty, InvalidNote, NoteNotFound, Unauthorized,
 };
 use crate::error::NoteNotFoundContext;
 use crate::media_reference_manager;
@@ -224,7 +224,7 @@ pub async fn approve_card(
         .await?
         .get::<_, bool>(0);
     if !has_valid_field_zero {
-        return Err(InvalidNote);
+        return Err(FirstFieldEmpty);
     }
 
     // Always mark all fields and tags as reviewed when approving a card
@@ -449,7 +449,7 @@ pub async fn deny_field_change(
     if reviewed && position == 0 {
         // Keep invariants: field 0 must remain non-empty and present
         // Rollback implicit by dropping tx on error
-        return Err(InvalidNote);
+        return Err(FirstFieldEmpty);
     }
 
     // VALIDATE BEFORE DELETION: Check if deletion would violate invariants
@@ -465,7 +465,7 @@ pub async fn deny_field_change(
                 .await?
                 .get::<_, bool>(0);
             if !exists_other_pos0 {
-                return Err(InvalidNote);
+                return Err(FirstFieldEmpty);
             }
         }
     } else {
@@ -1276,7 +1276,7 @@ pub async fn approve_field_change_with_commit(
 
     if is_empty && field_position == 0 {
         // Cannot approve an empty first field
-        return Err(InvalidNote);
+        return Err(FirstFieldEmpty);
     }
 
     // Determine note review state to tailor invariants for new vs reviewed notes
@@ -1313,7 +1313,7 @@ pub async fn approve_field_change_with_commit(
                 .await?
                 .get::<_, bool>(0);
             if !exists_pos0 {
-                return Err(InvalidNote);
+                return Err(FirstFieldEmpty);
             }
         } else {
             // For unreviewed notes: count how many fields will remain after deletion
@@ -1380,7 +1380,7 @@ pub async fn approve_field_change_with_commit(
             .get::<_, bool>(0);
 
         if !pos0_ok {
-            return Err(InvalidNote);
+            return Err(FirstFieldEmpty);
         }
     }
 

@@ -70,6 +70,7 @@ fn is_expected_client_error(message: &str) -> bool {
         || lower.contains("folder id is too long")
         || lower.contains("not found") // 404s are client errors
         || lower.contains("ambiguous fields")
+        || lower.contains("first field of a note cannot be empty")
         || lower.contains("account has been deleted")
 }
 
@@ -342,6 +343,8 @@ pub enum Error {
     NoteNotFound(NoteNotFoundContext),
     #[error("Note is invalid")]
     InvalidNote,
+    #[error("The first field of a note cannot be empty. This is a requirement in Anki.")]
+    FirstFieldEmpty,
     #[error("Fields are ambiguous. Please handle manually. Note: {0}")]
     AmbiguousFields(NoteId),
     #[error("No notes affected by this commit")]
@@ -376,7 +379,7 @@ impl Error {
             | Self::NoteNotFound(_) | Self::DeckNotFound | Self::NoNotesAffected
             | Self::NoNoteTypesAffected => ErrorCategory::NotFound,
             Self::TagAlreadyExists | Self::UserIsAlreadyMaintainer | Self::FolderIdTooLong
-            | Self::InvalidNote | Self::AmbiguousFields(_) | Self::Serialization(_)
+            | Self::InvalidNote | Self::FirstFieldEmpty | Self::AmbiguousFields(_) | Self::Serialization(_)
             | Self::BadRequest(_) => {
                 ErrorCategory::Validation
             }
@@ -402,6 +405,7 @@ impl IntoResponse for Error {
             Self::DeckNotFound => StatusCode::NOT_FOUND,
             Self::AmbiguousFields(_) => StatusCode::BAD_REQUEST,
             Self::InvalidNote => StatusCode::BAD_REQUEST,
+            Self::FirstFieldEmpty => StatusCode::BAD_REQUEST,
             Self::NoNoteTypesAffected => StatusCode::BAD_REQUEST,
             Self::BadRequest(_) => StatusCode::BAD_REQUEST,
             // Database and BB8 errors should return 503 Service Unavailable, not 500
