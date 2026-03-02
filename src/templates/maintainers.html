@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
   <head>
+    {% set page_title = "Manage Maintainers" %}
     {% include "header_template.html" %}
     <link href="/static/plugins/toastr/css/toastr.min.css" rel="stylesheet">
   </head>
@@ -28,15 +29,17 @@
                       <li>
                         <label
                           ><span>{{ username }}</span
-                          ><a href="#" class="ti-close"></a>
+                          ><a href="#" class="ti-close" aria-label="Remove maintainer {{ username }}" role="button"></a>
                         </label>
                       </li>
                       {% endfor %}
                     </ul>
                   </div>
+                  <label for="new-maintainer-input" class="visually-hidden">New maintainer username</label>
                   <input
                     type="text"
                     class="tdl-new2 form-control"
+                    id="new-maintainer-input"
                     placeholder="Enter new username and hit 'Enter'..."
                     required
                   />

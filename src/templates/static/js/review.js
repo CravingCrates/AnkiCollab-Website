@@ -145,6 +145,11 @@ function initiButtonFeatures() {
         
         $item.addClass(isAccepted ? 'field-success' : 'field-error');
         
+        // Announce to screen readers
+        if (window.a11yAnnounce) {
+            window.a11yAnnounce(isAccepted ? 'Suggestion accepted' : 'Suggestion denied', 'polite');
+        }
+        
         // Show brief success/error state then fade out
         setTimeout(function() {
             $item.fadeOut(300, function() {

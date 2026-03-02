@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
   <head>
+    {% set page_title = "Statistics" %}
     {% include "header_template.html" %}
     <link
     href="/static/plugins/tables/css/datatable/dataTables.bootstrap4.min.css"
@@ -76,14 +77,15 @@
           <div class="card">
             <div class="card-body">
               <div class="card-title">
-                <h4>Decks</h4>
+                <h1>Decks</h1>
               </div>
               <div class="table-responsive">
                 <table id="deckOverview" class="table table-striped">
+                  <caption class="visually-hidden">Deck retention statistics</caption>
                   <thead>
                     <tr>
-                      <th>Full Path</th>
-                      <th>Average Retention</th>
+                      <th scope="col">Full Path</th>
+                      <th scope="col">Average Retention</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -116,19 +118,20 @@
           <div class="card">
             <div class="card-body">
               <div class="card-title">
-                <h4>Worst Notes</h4>
+                <h2>Worst Notes</h2>
                 <p>Based on average retention and average lapses.</p>
               </div>
               <div class="table-responsive">
                 <table id="notesOverview" class="table table-striped">
+                  <caption class="visually-hidden">Notes with lowest performance metrics</caption>
                   <thead>
                     <tr>
-                      <th>Note ID</th>
-                      <th>Fields</th>
-                      <th>Lapses</th>
-                      <th>Reps</th>
-                      <th>Retention</th>
-                      <th>Sample Size</th>
+                      <th scope="col">Note ID</th>
+                      <th scope="col">Fields</th>
+                      <th scope="col">Lapses</th>
+                      <th scope="col">Reps</th>
+                      <th scope="col">Retention</th>
+                      <th scope="col">Sample Size</th>
                     </tr>
                   </thead>
                   <tbody>

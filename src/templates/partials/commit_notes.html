@@ -157,11 +157,11 @@
                 </div>
                 {% if user and owned == true %}
                 <div class="tag_actions">
-                    <button class="tag_accept_button" role="button" data-action="accept-move" data-move-id="{{note.move_req.id}}">
-                        <i class="fa fa-check"></i>
+                    <button class="tag_accept_button" title="Accept Move" data-action="accept-move" data-move-id="{{note.move_req.id}}">
+                        <i class="fa fa-check" aria-hidden="true"></i>
                     </button>
-                    <button class="tag_deny_button" role="button" data-action="deny-move" data-move-id="{{note.move_req.id}}">
-                        <i class="fa fa-times"></i>
+                    <button class="tag_deny_button" title="Deny Move" data-action="deny-move" data-move-id="{{note.move_req.id}}">
+                        <i class="fa fa-times" aria-hidden="true"></i>
                     </button>
                 </div>
                 {% endif %}
@@ -209,12 +209,12 @@
                 {% if user and owned == true %}
                 <div class="tag_actions">
                     {% if note.reviewed %}
-                    <button class="tag_accept_button" role="button" data-action="accept-tag" data-tag-id="{{tag.id}}">
-                        <i class="fa fa-check"></i>
+                    <button class="tag_accept_button" title="Accept Tag Removal" data-action="accept-tag" data-tag-id="{{tag.id}}">
+                        <i class="fa fa-check" aria-hidden="true"></i>
                     </button>
                     {% endif %}
-                    <button class="tag_deny_button" role="button" data-action="deny-tag" data-tag-id="{{tag.id}}">
-                        <i class="fa fa-times"></i>
+                    <button class="tag_deny_button" title="Deny Tag Removal" data-action="deny-tag" data-tag-id="{{tag.id}}">
+                        <i class="fa fa-times" aria-hidden="true"></i>
                     </button>
                 </div>
                 {% endif %}
@@ -229,12 +229,12 @@
                 {% if user and owned == true %}
                 <div class="tag_actions">
                     {% if note.reviewed %}
-                    <button class="tag_accept_button" role="button" data-action="accept-tag" data-tag-id="{{tag.id}}">
-                        <i class="fa fa-check"></i>
+                    <button class="tag_accept_button" title="Accept Tag Addition" data-action="accept-tag" data-tag-id="{{tag.id}}">
+                        <i class="fa fa-check" aria-hidden="true"></i>
                     </button>
                     {% endif %}
-                    <button class="tag_deny_button" role="button" data-action="deny-tag" data-tag-id="{{tag.id}}">
-                        <i class="fa fa-times"></i>
+                    <button class="tag_deny_button" title="Deny Tag Addition" data-action="deny-tag" data-tag-id="{{tag.id}}">
+                        <i class="fa fa-times" aria-hidden="true"></i>
                     </button>
                 </div>
                 {% endif %}

@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    {% set page_title = "Accessibility" %}
+    {% include "header_template.html" %}
+  </head>
+  {% include "layout_header.html" %}
+        <!-- End Top layout-->
+
+        <!-- row -->
+        <div class="container-fluid">
+          <div class="row">
+            <div class="col-12">
+              <div class="card">
+                <div class="card-body legal-content">
+                  <h1 class="card-title text-center">Accessibility Statement</h1>
+
+                  <p>
+                    AnkiCollab is committed to ensuring digital accessibility for
+                    people with disabilities. We continually improve the user
+                    experience for everyone and apply the relevant accessibility
+                    standards.
+                  </p>
+
+                  <h2>Conformance Status</h2>
+                  <p>
+                    The <a href="https://www.w3.org/WAI/standards-guidelines/wcag/">Web Content Accessibility Guidelines (WCAG)</a>
+                    define requirements for designers and developers to improve
+                    accessibility for people with disabilities. It defines three
+                    levels of conformance: Level A, Level AA, and Level AAA.
+                  </p>
+                  <p>
+                    AnkiCollab is partially conformant with
+                    <strong>WCAG 2.1 Level AA</strong>. Partially conformant
+                    means that some parts of the content do not fully conform to
+                    the accessibility standard.
+                  </p>
+
+                  <h2>Measures Taken</h2>
+                  <p>
+                    AnkiCollab takes the following measures to ensure
+                    accessibility:
+                  </p>
+                  <ul>
+                    <li>
+                      Sufficient colour contrast ratios for text and interactive
+                      elements (WCAG 1.4.3 &amp; 1.4.11).
+                    </li>
+                    <li>
+                      Descriptive page titles for every page (WCAG 2.4.2).
+                    </li>
+                    <li>
+                      Keyboard-accessible navigation including visible focus
+                      indicators and a skip-to-content link (WCAG 2.1.1 &amp;
+                      2.4.1 &amp; 2.4.7).
+                    </li>
+                    <li>
+                      Appropriate form labels, autocomplete attributes, and
+                      error identification (WCAG 1.3.5 &amp; 3.3.1 &amp;
+                      3.3.2).
+                    </li>
+                    <li>
+                      ARIA landmarks, roles, and live regions for dynamic
+                      content (WCAG 4.1.2 &amp; 4.1.3).
+                    </li>
+                    <li>
+                      Minimum touch/click target sizes of 24 &times; 24 CSS
+                      pixels (WCAG 2.5.8).
+                    </li>
+                    <li>
+                      Respecting user preferences for reduced motion
+                      (WCAG 2.3.3).
+                    </li>
+                    <li>
+                      Text alternatives for informative images (WCAG 1.1.1).
+                    </li>
+                    <li>
+                      Data table headers with proper scope attributes
+                      (WCAG 1.3.1).
+                    </li>
+                    <li>
+                      Support for Windows High Contrast Mode via
+                      <code>forced-colors</code> media query.
+                    </li>
+                  </ul>
+
+                  <h2>Known Limitations</h2>
+                  <p>
+                    Despite our best efforts, some areas may have limited
+                    accessibility:
+                  </p>
+                  <ul>
+                    <li>
+                      <strong>Third-party rich text editor:</strong> The
+                      Trumbowyg WYSIWYG editor used for field editing may not be
+                      fully accessible to all assistive technologies. We have
+                      added ARIA labels to its toolbar buttons and are monitoring
+                      upstream improvements.
+                    </li>
+                    <li>
+                      <strong>User-generated content:</strong> Content submitted
+                      by users (e.g., Anki card fields) may not always meet
+                      accessibility requirements as it is outside our direct
+                      control.
+                    </li>
+                    <li>
+                      <strong>Complex data visualisations:</strong> Some
+                      statistics charts may not be fully perceivable by screen
+                      reader users. We aim to provide text alternatives where
+                      possible.
+                    </li>
+                  </ul>
+
+                  <h2>Compatibility</h2>
+                  <p>
+                    AnkiCollab is designed to be compatible with the following
+                    assistive technologies:
+                  </p>
+                  <ul>
+                    <li>Screen readers (NVDA, JAWS, VoiceOver).</li>
+                    <li>Screen magnification software.</li>
+                    <li>Speech recognition software.</li>
+                    <li>
+                      Operating system accessibility features including High
+                      Contrast Mode.
+                    </li>
+                  </ul>
+                  <p>
+                    AnkiCollab is not compatible with browsers older than three
+                    major versions or with Internet Explorer.
+                  </p>
+
+                  <h2>European Accessibility Act (EAA)</h2>
+                  <p>
+                    This accessibility statement is provided in line with the
+                    requirements of the
+                    <strong>European Accessibility Act (EAA)</strong> &mdash;
+                    Directive (EU) 2019/882 &mdash; to demonstrate our commitment
+                    to making our digital services accessible to all users,
+                    including persons with disabilities, across the European
+                    Union.
+                  </p>
+
+                  <h2>Feedback &amp; Contact</h2>
+                  <p>
+                    We welcome your feedback on the accessibility of AnkiCollab.
+                    If you encounter accessibility barriers or have suggestions,
+                    please contact us:
+                  </p>
+                  <ul>
+                    <li>
+                      <strong>Discord:</strong>
+                      <a href="https://discord.gg/9x4DRxzqwM" rel="noopener noreferrer">discord.gg/9x4DRxzqwM</a>
+                    </li>
+                    <li>
+                      <strong>GitHub:</strong>
+                      <a href="https://github.com/CravingCrates" rel="noopener noreferrer">github.com/CravingCrates</a>
+                    </li>
+                    <li>
+                      <strong>Email:</strong>
+                      <a href="mailto:ankicollab@proton.me" rel="noopener noreferrer">ankicollab@proton.me</a>
+                    </li>
+                  </ul>
+                  <p>
+                    We aim to respond to accessibility feedback within five
+                    business days.
+                  </p>
+
+                  <h2>Assessment &amp; Review</h2>
+                  <p>
+                    This statement was last reviewed on
+                    <strong><time datetime="2026-03-02">02 March 2026</time></strong>.
+                    The assessment was carried out through a combination of
+                    automated tools, and manual testing against
+                    WCAG 2.1 Level AA success criteria.
+                  </p>
+
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <!--**********************************
+            Content body end
+        ***********************************-->
+        {% include "layout_footer.html" %}
+  </body>
+</html>

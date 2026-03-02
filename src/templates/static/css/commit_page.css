@@ -92,7 +92,7 @@
 
 .load-more-status {
     font-size: 13px;
-    color: #cbd5f5;
+    color: #595959;
     min-height: 18px;
 }
 
@@ -208,7 +208,7 @@
 
 .bulk-hint {
     font-size: 12px;
-    color: rgba(255, 255, 255, 0.7);
+    color: rgba(255, 255, 255, 0.87);
     font-style: italic;
 }
 
@@ -315,7 +315,7 @@
 }
 
 .note-card.bulk-success {
-    border-left: 4px solid #10b981;
+    border-left: 4px solid #047857;
 }
 
 .note-card.bulk-error {
@@ -431,8 +431,8 @@
 
 /* Success/error states */
 .field-success {
-    border-left: 4px solid #10b981;
-    background: linear-gradient(135deg, rgba(16, 185, 129, 0.05), rgba(16, 185, 129, 0.02));
+    border-left: 4px solid #047857;
+    background: linear-gradient(135deg, rgba(4, 120, 87, 0.05), rgba(4, 120, 87, 0.02));
 }
 
 .field-error {
@@ -485,7 +485,7 @@
 .group-label {
     font-size: 11px;
     font-weight: 700;
-    color: rgba(255, 255, 255, 0.6);
+    color: rgba(255, 255, 255, 0.87);
     text-transform: uppercase;
     letter-spacing: 0.8px;
     margin-left: 4px;
@@ -515,7 +515,7 @@
 .text-action-btn {
     background: none;
     border: none;
-    color: rgba(255, 255, 255, 0.6);
+    color: rgba(255, 255, 255, 0.87);
     font-size: 12px;
     font-weight: 500;
     cursor: pointer;
@@ -554,24 +554,24 @@
 }
 
 .btn-success {
-    background: #10b981;
+    background: #047857;
     color: white;
-    border-color: #059669;
-    box-shadow: 0 2px 4px rgba(16, 185, 129, 0.2);
+    border-color: #065f46;
+    box-shadow: 0 2px 4px rgba(4, 120, 87, 0.2);
 }
-.btn-success:hover { background: #059669; transform: translateY(-1px); }
+.btn-success:hover { background: #065f46; transform: translateY(-1px); }
 
 .btn-danger {
-    background: #ef4444;
+    background: #c62828;
     color: white;
-    border-color: #dc2626;
-    box-shadow: 0 2px 4px rgba(239, 68, 68, 0.2);
+    border-color: #a51d1d;
+    box-shadow: 0 2px 4px rgba(198, 40, 40, 0.2);
 }
-.btn-danger:hover { background: #dc2626; transform: translateY(-1px); }
+.btn-danger:hover { background: #a51d1d; transform: translateY(-1px); }
 
 .btn-success-outline {
     background: rgba(16, 185, 129, 0.1);
-    color: #6ee7b7;
+    color: #ffffff;
     border-color: rgba(16, 185, 129, 0.3);
 }
 .btn-success-outline:hover:not(:disabled) {
@@ -589,7 +589,7 @@
 
 .btn-danger-outline {
     background: rgba(239, 68, 68, 0.1);
-    color: #fca5a5;
+    color: #ffffff;
     border-color: rgba(239, 68, 68, 0.3);
 }
 .btn-danger-outline:hover:not(:disabled) {

@@ -2,6 +2,7 @@
 <html class="h-100" lang="en">
 
 <head>
+    {% set page_title = "Statistics" %}
     {% include "header_template.html" %}
 
 </head>
@@ -11,9 +12,9 @@
     <!--*******************
         Preloader start
     ********************-->
-    <div id="preloader">
+    <div id="preloader" role="status" aria-label="Loading">
         <div class="loader">
-            <svg class="circular" viewBox="25 25 50 50">
+            <svg class="circular" viewBox="25 25 50 50" aria-hidden="true" focusable="false">
                 <circle class="path" cx="50" cy="50" r="20" fill="none" stroke-width="3" stroke-miterlimit="10" />
             </svg>
         </div>
@@ -31,9 +32,9 @@
                     <div class="error-content">
                         <div class="card mb-0">
                             <div class="card-body text-center pt-5">
-                                <h3 class="text-primary">No Stats Available!</h3>
+                                <h1 class="text-primary">No Stats Available!</h1>
                                 <br>
-                                <h4 class="mt-4">Seems like there aren't any stats available for this deck yet. Please ask your subscribers to submit more data or wait 24 hours to see them.</h4>
+                                <p class="mt-4">Seems like there aren't any stats available for this deck yet. Please ask your subscribers to submit more data or wait 24 hours to see them.</p>
                                 <form class="mt-5 mb-5">
                                     
                                     <div class="text-center mb-4 mt-4"><a href="/" class="btn btn-primary">Go to Homepage</a>

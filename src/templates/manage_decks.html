@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
   <head>
+    {% set page_title = "Manage Decks" %}
     {% include "header_template.html" %}
     <link
     href="/static/plugins/tables/css/datatable/dataTables.bootstrap4.min.css"
@@ -15,19 +16,19 @@
           <div class="card">
             <div class="card-body">
               <div class="card-title">
-                <h4>Decks</h4>
+                <h1>Decks</h1>
               </div>
               <div class="table-responsive">
                 <table class="table">
                   <thead>
                     <tr>
-                      <th>Last Update</th>
-                      <th>Name</th>
-                      <th>Description</th>
-                      <th>Notes</th>
-                      <th>Subscribers</th>
-                      <th>Statistics</th>
-                      <th>Enable Stats</th>
+                      <th scope="col">Last Update</th>
+                      <th scope="col">Name</th>
+                      <th scope="col">Description</th>
+                      <th scope="col">Notes</th>
+                      <th scope="col">Subscribers</th>
+                      <th scope="col">Statistics</th>
+                      <th scope="col">Enable Stats</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -74,14 +75,14 @@
           <div class="card">
             <div class="card-body">
               <div class="card-title">
-                <h4>Notetypes</h4>
+                <h2>Notetypes</h2>
               </div>
               <div class="table-responsive">
                 <table class="table zero-configuration">
                   <thead>
                     <tr>
-                      <th>Name</th>
-                      <th>Notes</th>
+                      <th scope="col">Name</th>
+                      <th scope="col">Notes</th>
                     </tr>
                   </thead>
                   <tbody>

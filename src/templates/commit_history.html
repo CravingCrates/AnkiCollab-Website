@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+  {% set page_title = "Commit History" %}
   {% include "header_template.html" %}
   <title>Commit Impact</title>
   <link href="/static/css/commit_styling.css" rel="stylesheet">
@@ -183,7 +184,7 @@
                         </div>
                       </div>
                       <div class="comparison-divider">
-                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true" focusable="false">
                           <path d="M5 12h14M12 5l7 7-7 7"/>
                         </svg>
                       </div>
@@ -230,7 +231,7 @@
                     <div class="move-comparison">
                       <div class="move-from">{{ e.old_human | default(value='') }}</div>
                       <div class="move-arrow">
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true" focusable="false">
                           <path d="M5 12h14M12 5l7 7-7 7"/>
                         </svg>
                       </div>
@@ -248,7 +249,7 @@
                           </div>
                         </div>
                         <div class="comparison-divider">
-                          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true" focusable="false">
                             <path d="M5 12h14M12 5l7 7-7 7"/>
                           </svg>
                         </div>

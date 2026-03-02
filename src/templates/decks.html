@@ -2,6 +2,7 @@
 <html lang="en">
 
 <head>
+    {% set page_title = "Explore Decks" %}
     {% include "header_template.html" %}
     <!-- Custom Stylesheet -->
     <link href="/static/plugins/tables/css/datatable/dataTables.bootstrap4.min.css" rel="stylesheet">
@@ -16,16 +17,17 @@
                     <div class="col-12">
                         <div class="card">
                             <div class="card-body">
-                                <h4 class="card-title">Explore All Decks</h4>
+                                <h1 class="card-title">Explore All Decks</h1>
                                 <div class="table-responsive">
                                     <table id="deckOverview" class="table table-striped zero-configuration">
+                                        <caption class="visually-hidden">List of all available decks with update date, name, description, note count, and subscriber count</caption>
                                         <thead>
                                             <tr>
-                                                <th>Last Update</th>
-                                                <th>Name</th>
-                                                <th>Description</th>
-                                                <th>Notes</th>
-                                                <th>Subscribers</th>
+                                                <th scope="col">Last Update</th>
+                                                <th scope="col">Name</th>
+                                                <th scope="col">Description</th>
+                                                <th scope="col">Notes</th>
+                                                <th scope="col">Subscribers</th>
                                             </tr>
                                         </thead>
                                         <tbody>

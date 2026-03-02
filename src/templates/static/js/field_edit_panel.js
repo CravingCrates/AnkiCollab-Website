@@ -471,6 +471,12 @@ window.FieldEditPanel = (function() {
                 $editor.trumbowyg(TRUMBOWYG_OPTIONS).on('tbwinit', () => {
                     installEnterKeyHandler($editor);
                     installParagraphCleanup($editor);
+                    // Accessibility: add ARIA attributes to contenteditable area
+                    var fieldName = $editor.attr('data-field-name') || $editor.attr('id') || 'Field';
+                    $editor.closest('.trumbowyg-box').find('.trumbowyg-editor')
+                        .attr('role', 'textbox')
+                        .attr('aria-multiline', 'true')
+                        .attr('aria-label', fieldName + ' editor');
                     resolve();
                 });
             } catch (error) {

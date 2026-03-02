@@ -2,6 +2,7 @@
 <html lang="en">
 
 <head>
+    {% set page_title = "Edit Deck" %}
     {% include "header_template.html" %}
     <!-- Custom Stylesheet -->
     <link href="/static/plugins/trumbowyg/ui/trumbowyg.css" rel="stylesheet">
@@ -34,6 +35,7 @@
                               href="https://github.com/CravingCrates/AnkiCollab-Plugin/blob/main/getting_started_subscriber.md#adding-the-key-to-anki"
                               target="_blank"
                               rel="noopener noreferrer"
+                              aria-label="How to subscribe - help documentation"
                             >
                               <i class="fa fa-question-circle" aria-hidden="true"></i>
                             </a>
@@ -143,11 +145,11 @@
                             {% for changelog in changelogs %}
                             <div class="card">
                                 <div class="card-header">
-                                    <h5 class="mb-0" data-toggle="collapse" data-target="#collapseOne{{changelog.id}}" aria-expanded="true" aria-controls="collapseOne{{changelog.id}}"><i class="fa" aria-hidden="true"></i> {{changelog.timestamp}}</h5>
+                                    <h5 class="mb-0"><button type="button" class="btn btn-link" data-toggle="collapse" data-target="#collapseOne{{changelog.id}}" aria-expanded="true" aria-controls="collapseOne{{changelog.id}}"><i class="fa" aria-hidden="true"></i> {{changelog.timestamp}}</button></h5>
                                 </div>
                                 <div id="collapseOne{{changelog.id}}" class="collapse show" data-parent="#accordion-three">
                                     <div class="card-body">
-                                        <a class="changelog-delete-btn" href="/DeleteChangelog/{{changelog.id}}"><i class="fa fa-trash"></i></a>
+                                        <a class="changelog-delete-btn" href="/DeleteChangelog/{{changelog.id}}" aria-label="Delete changelog from {{changelog.timestamp}}"><i class="fa fa-trash" aria-hidden="true"></i></a>
                                         {{changelog.message | linebreaksbr | safe }}
                                     </div>
                                 </div>

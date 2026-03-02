@@ -2,6 +2,7 @@
 <html lang="en">
 
 <head>
+    {% set page_title = "Edit Note Type" %}
     {% include "header_template.html" %}
    
 </head>
@@ -23,7 +24,7 @@
                         <div id="accordion-three" class="accordion">
                             <div class="card">
                                 <div class="card-header">
-                                    <h5 class="mb-0" data-toggle="collapse" data-target="#collapseOne1" aria-expanded="true" aria-controls="collapseOne1">Select the protected fields</h5>
+                                    <h5 class="mb-0"><button type="button" class="btn btn-link" data-toggle="collapse" data-target="#collapseOne1" aria-expanded="true" aria-controls="collapseOne1">Select the protected fields</button></h5>
                                 </div>
                                 <div id="collapseOne1" class="collapse show" data-parent="#accordion-three">
                                     <div class="card-body">
@@ -46,25 +47,28 @@
                 <div class="card">
                     <div class="card-body">
                         <h4 class="card-title">Edit Card Templates</h4>
-                        <h5>Styling</h5>
+                        <h2>Styling</h2>
                         <div class="p-t-15">
-                            <textarea rows="15" cols="60" name="styling_textarea">{{styling}}</textarea>
+                            <label for="styling-textarea" class="visually-hidden">Card Styling (CSS)</label>
+                            <textarea rows="15" cols="60" name="styling_textarea" id="styling-textarea">{{styling}}</textarea>
                         </div>
                         {% for template in templates %}
                             <h6>{{ template.name }}</h6>
                             <div class="default-tab">
                                 <ul class="nav nav-tabs mb-3" role="tablist">
-                                    <li class="nav-item"><a class="nav-link active" data-toggle="tab" href="#front-{{ template.template_id }}">Front</a></li>
-                                    <li class="nav-item"><a class="nav-link" data-toggle="tab" href="#back-{{ template.template_id }}">Back</a></li>
+                                    <li class="nav-item" role="presentation"><a class="nav-link active" data-toggle="tab" href="#front-{{ template.template_id }}" role="tab" aria-selected="true" aria-controls="front-{{ template.template_id }}">Front</a></li>
+                                    <li class="nav-item" role="presentation"><a class="nav-link" data-toggle="tab" href="#back-{{ template.template_id }}" role="tab" aria-selected="false" aria-controls="back-{{ template.template_id }}">Back</a></li>
                                 </ul>
                                 <div class="tab-content">
                                     <div id="front-{{ template.template_id }}" class="tab-pane fade show active" role="tabpanel">
                                         <div class="p-t-15">
+                                            <label for="{{ template.template_id }}-front" class="visually-hidden">{{ template.name }} - Front template</label>
                                             <textarea rows="15" cols="60" id="{{ template.template_id }}-front" data-template-id="{{ template.template_id }}" data-side="front">{{ template.front }}</textarea>
                                         </div>
                                     </div>
                                     <div id="back-{{ template.template_id }}" class="tab-pane fade" role="tabpanel">
                                         <div class="p-t-15">
+                                            <label for="{{ template.template_id }}-back" class="visually-hidden">{{ template.name }} - Back template</label>
                                             <textarea rows="15" cols="60" id="{{ template.template_id }}-back" data-template-id="{{ template.template_id }}" data-side="back">{{ template.back }}</textarea>
                                         </div>
                                     </div>

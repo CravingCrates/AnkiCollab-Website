@@ -2,6 +2,7 @@
 <html class="h-100" lang="en">
 
 <head>
+    {% set page_title = "Error" %}
     {% include "header_template.html" %}
 
 </head>
@@ -11,9 +12,9 @@
     <!--*******************
         Preloader start
     ********************-->
-    <div id="preloader">
+    <div id="preloader" role="status" aria-label="Loading">
         <div class="loader">
-            <svg class="circular" viewBox="25 25 50 50">
+            <svg class="circular" viewBox="25 25 50 50" aria-hidden="true" focusable="false">
                 <circle class="path" cx="50" cy="50" r="20" fill="none" stroke-width="3" stroke-miterlimit="10" />
             </svg>
         </div>
@@ -32,7 +33,7 @@
                         <div class="card mb-0">
                             <div class="card-body text-center pt-5">
                                 <h1 class="error-text text-primary">Oh no!</h1>
-                                <h4 class="mt-4"><i class="fa fa-thumbs-down text-danger"></i> That's an error.</h4>
+                                <h2 class="mt-4"><i class="fa fa-thumbs-down text-danger" aria-hidden="true"></i> That's an error.</h2>
                                 <p>{{message | escape}}</p>
                                 <form class="mt-5 mb-5">
                                     

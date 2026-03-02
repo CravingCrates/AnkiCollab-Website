@@ -153,6 +153,12 @@ async fn datenschutz(State(appstate): State<Arc<AppState>>) -> Result<impl IntoR
     Ok(Html(rendered_template))
 }
 
+async fn accessibility_page(State(appstate): State<Arc<AppState>>) -> Result<impl IntoResponse, Error> {
+    let context = tera::Context::new();
+    let rendered_template = appstate.tera.render("accessibility_statement.html", &context)?;
+    Ok(Html(rendered_template))
+}
+
 async fn logout(Extension(auth): Extension<Arc<Auth>>) -> Result<impl IntoResponse, Error> {
     let exp_cookie = auth.logout().await;
     let mut response = axum::response::Redirect::to("/").into_response();
@@ -2377,6 +2383,7 @@ async fn main() {
         .route("/privacy", get(privacy))
         .route("/imprint", get(imprint))
         .route("/datenschutz", get(datenschutz))
+        .route("/accessibility", get(accessibility_page))
         .route("/logout", get(logout))
         .route("/profile", get(get_profile))
         .route("/profile/change-password", post(post_change_password))

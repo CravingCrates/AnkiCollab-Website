@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+    {% set page_title = "Review Suggestions" %}
     {% include "header_template.html" %}
     <title>Review Note</title>
     
@@ -165,16 +166,16 @@
                         <div class="suggestion-box">
                             <div class="tag-suggestion">
                                 <div class="tag-content">
-                                    <i class="fa fa-folder folder-icon-blue"></i></i>
+                                    <i class="fa fa-folder folder-icon-blue" aria-hidden="true"></i>
                                     <strong>Move to:</strong> {{req.path}}
                                 </div>
                                 {% if access %}
                                 <div class="tag-actions">
-                                    <button class="tag_accept_button" role="button" title="Accept Move" data-action="accept-move" data-move-id="{{req.id}}">
-                                        <i class="fa fa-check"></i>
+                                    <button class="tag_accept_button" title="Accept Move" data-action="accept-move" data-move-id="{{req.id}}">
+                                        <i class="fa fa-check" aria-hidden="true"></i>
                                     </button>
-                                    <button class="tag_deny_button" role="button" title="Deny Move" data-action="deny-move" data-move-id="{{req.id}}">
-                                        <i class="fa fa-times"></i>
+                                    <button class="tag_deny_button" title="Deny Move" data-action="deny-move" data-move-id="{{req.id}}">
+                                        <i class="fa fa-times" aria-hidden="true"></i>
                                     </button>
                                 </div>
                                 {% endif %}
@@ -225,11 +226,11 @@
                                 </div>
                                 {% if access and note.reviewed %}
                                 <div class="tag-actions">
-                                    <button class="tag_accept_button" role="button" title="Accept Tag Addition" data-action="accept-tag" data-tag-id="{{tag.id}}">
-                                        <i class="fa fa-check"></i>
+                                    <button class="tag_accept_button" title="Accept Tag Addition" data-action="accept-tag" data-tag-id="{{tag.id}}">
+                                        <i class="fa fa-check" aria-hidden="true"></i>
                                     </button>
-                                    <button class="tag_deny_button" role="button" title="Deny Tag Addition" data-action="deny-tag" data-tag-id="{{tag.id}}">
-                                        <i class="fa fa-times"></i>
+                                    <button class="tag_deny_button" title="Deny Tag Addition" data-action="deny-tag" data-tag-id="{{tag.id}}">
+                                        <i class="fa fa-times" aria-hidden="true"></i>
                                     </button>
                                 </div>
                                 {% endif %}
@@ -243,17 +244,17 @@
                             <div class="tag-suggestion">
                                 <div class="tag-content">
                                     <span class="tag-chip remove">
-                                        <i class="fa fa-minus-circle"></i>
+                                        <i class="fa fa-minus-circle" aria-hidden="true"></i>
                                         {{tag.content}}
                                     </span>
                                 </div>
                                 {% if access and note.reviewed %}
                                 <div class="tag-actions">
-                                    <button class="tag_accept_button" role="button" title="Accept Tag Removal" data-action="accept-tag" data-tag-id="{{tag.id}}">
-                                        <i class="fa fa-check"></i>
+                                    <button class="tag_accept_button" title="Accept Tag Removal" data-action="accept-tag" data-tag-id="{{tag.id}}">
+                                        <i class="fa fa-check" aria-hidden="true"></i>
                                     </button>
-                                    <button class="tag_deny_button" role="button" title="Deny Tag Removal" data-action="deny-tag" data-tag-id="{{tag.id}}">
-                                        <i class="fa fa-times"></i>
+                                    <button class="tag_deny_button" title="Deny Tag Removal" data-action="deny-tag" data-tag-id="{{tag.id}}">
+                                        <i class="fa fa-times" aria-hidden="true"></i>
                                     </button>
                                 </div>
                                 {% endif %}

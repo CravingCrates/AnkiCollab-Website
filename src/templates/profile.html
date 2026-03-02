@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
   <head>
+    {% set page_title = "Profile" %}
     {% include "header_template.html" %}
     <link rel="stylesheet" href="/static/plugins/fontawesome/all.css">
     <link rel="stylesheet" href="/static/plugins/sweetalert/css/sweetalert.css">
@@ -14,7 +15,7 @@
           <div class="card">
             <div class="card-body">
               <div class="card-title">
-                <h4>Change Password</h4>
+                <h1>Change Password</h1>
               </div>
               <p class="text-muted">Update your password. Make sure it contains at least 8 characters with uppercase, lowercase letters, and a number.</p>
               
@@ -50,7 +51,7 @@
           <div class="card">
             <div class="card-body">
               <div class="card-title">
-                <h4 class="text-danger">Delete Account</h4>
+                <h2 class="text-danger">Delete Account</h2>
               </div>
               <p class="text-muted">Permanently delete your account. This action cannot be undone. All your data, decks, and settings will be removed.</p>
               

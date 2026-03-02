@@ -21,6 +21,12 @@ jQuery(document).ready(function() {
             changeActiveDropdownIcon: true,
         });
 
+        // Accessibility: add ARIA attributes to desc editor
+        $("#desc-editor").closest('.trumbowyg-box').find('.trumbowyg-editor')
+            .attr('role', 'textbox')
+            .attr('aria-multiline', 'true')
+            .attr('aria-label', 'Deck description');
+
         // Load description from JSON data if present
         var descDataElement = document.getElementById('desc-data');
         if (descDataElement) {
@@ -38,6 +44,12 @@ jQuery(document).ready(function() {
             changeActiveDropdownIcon: true,
             autogrow: true,
         });
+
+        // Accessibility: add ARIA attributes to changelog editor
+        $("#changelog-editor").closest('.trumbowyg-box').find('.trumbowyg-editor')
+            .attr('role', 'textbox')
+            .attr('aria-multiline', 'true')
+            .attr('aria-label', 'Changelog entry');
     }
 });
 

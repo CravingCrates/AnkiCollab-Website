@@ -73,8 +73,8 @@ body {
   font-weight: 500;
 }
 
-.stat-added { color: #16a34a; }
-.stat-updated { color: #ea580c; }
+.stat-added { color: #0d7a3a; }
+.stat-updated { color: #c2410c; }
 .stat-removed { color: #dc2626; }
 .stat-moved { color: #7c3aed; }
 .stat-deleted { color: #dc2626; }
@@ -217,18 +217,18 @@ body {
 }
 
 .commit-status.approved {
-  background: linear-gradient(135deg, #10B981, #059669);
+  background: linear-gradient(135deg, #047857, #065f46);
   color: white;
 }
 
 .commit-status.denied {
-  background: linear-gradient(135deg, #EF4444, #DC2626);
+  background: linear-gradient(135deg, #c62828, #a51d1d);
   color: white;
 }
 
 .commit-status.pending {
   background: linear-gradient(135deg, #F59E0B, #D97706);
-  color: white;
+  color: #3d1a00;
 }
 
 .commit-status i {
@@ -529,7 +529,7 @@ body {
   left: 50%;
   transform: translate(-50%, -50%);
   font-size: 0.8em;
-  color: #888;
+  color: #595959;
   padding: 2px 5px;
   background-color: rgba(255, 255, 255, 0.7);
   border-radius: 3px;
@@ -551,7 +551,7 @@ body {
 }
 .lazy-load-image.error::after {
   content: "⚠️ Error";
-  color: red;
+  color: #c62828;
   background-color: rgba(255, 200, 200, 0.7);
 }
 
@@ -625,7 +625,7 @@ body {
 }
 
 .primary-action {
-  background: rgba(16, 185, 129, 0.9);
+  background: rgba(4, 120, 87, 0.9);
   color: white;
   padding: 12px 24px;
   border: none;
@@ -640,14 +640,14 @@ body {
 }
 
 .primary-action:hover {
-  background: rgba(16, 185, 129, 1);
+  background: rgba(4, 120, 87, 1);
   transform: translateY(-2px);
   color: white;
   text-decoration: none;
 }
 
 .danger-action {
-  background: rgba(239, 68, 68, 0.9);
+  background: rgba(198, 40, 40, 0.9);
   color: white;
   padding: 12px 24px;
   border: none;
@@ -662,7 +662,7 @@ body {
 }
 
 .danger-action:hover {
-  background: rgba(239, 68, 68, 1);
+  background: rgba(198, 40, 40, 1);
   transform: translateY(-2px);
   color: white;
   text-decoration: none;
@@ -722,17 +722,17 @@ body {
 }
 
 .badge-new {
-  background: linear-gradient(135deg, #10b981, #059669);
+  background: linear-gradient(135deg, #047857, #065f46);
   color: white;
 }
 
 .badge-suggestion {
-  background: linear-gradient(135deg, #0ea5e9, #0284c7);
+  background: linear-gradient(135deg, #0077b6, #0369a1);
   color: white;
 }
 
 .badge-removal {
-  background: linear-gradient(135deg, #ef4444, #dc2626);
+  background: linear-gradient(135deg, #c62828, #a51d1d);
   color: white;
 }
 
@@ -781,7 +781,7 @@ body {
 .note_tag_container.tag-remove {
   background: linear-gradient(135deg, #fef2f2, #fee2e2);
   border: 1px solid #fecaca;
-  color: #dc2626;
+  color: #991b1b;
 }
 
 .note_tag_container.tag-move {
@@ -945,7 +945,7 @@ body {
 /* Improved diff content styling */
 .diff-content ins {
   background: rgba(16, 185, 129, 0.15);
-  color: #059669;
+  color: #047857;
   text-decoration: none;
   padding: 2px 4px;
   border-radius: 4px;
@@ -954,7 +954,7 @@ body {
 
 .diff-content del {
   background: rgba(239, 68, 68, 0.15);
-  color: #dc2626;
+  color: #b91c1c;
   text-decoration: line-through;
   padding: 2px 4px;
   border-radius: 4px;
@@ -1058,22 +1058,22 @@ body {
 
 .note-card.save-highlight {
   animation: save-highlight-pulse 1s ease-out;
-  border-color: #10b981;
+  border-color: #047857;
   transition: border-color 0.3s ease;
 }
 
 .note-card.save-highlight::before {
   opacity: 1;
-  background: linear-gradient(90deg, #10b981, #059669);
+  background: linear-gradient(90deg, #047857, #065f46);
 }
 
 /* Success/error states */
 .field-success {
-  border-left: 4px solid #10b981;
+  border-left: 4px solid #047857;
   background: linear-gradient(
     135deg,
-    rgba(16, 185, 129, 0.05),
-    rgba(16, 185, 129, 0.02)
+    rgba(4, 120, 87, 0.05),
+    rgba(4, 120, 87, 0.02)
   );
 }
 
@@ -1226,7 +1226,7 @@ body {
 
 .header-subtitle {
   font-size: 0.9rem;
-  color: rgba(255, 255, 255, 0.78);
+  color: rgba(255, 255, 255, 0.9);
   margin: 0;
   line-height: 1.5;
 }
@@ -1264,7 +1264,7 @@ body {
 .status-published {
   background: #dcfce7;
   color: #166534;
-  border: 2px solid #22c55e;
+  border: 2px solid #15803d;
 }
 .status-pending {
   background: #dbeafe;
@@ -1319,7 +1319,7 @@ body {
 .btn-publish {
   background: #dcfce7;
   color: #166534;
-  border: 1px solid #22c55e;
+  border: 1px solid #15803d;
 }
 .btn-delete {
   background: #fee2e2;
@@ -1329,7 +1329,7 @@ body {
 .btn-keep {
   background: #fef3c7;
   color: #92400e;
-  border: 1px solid #f59e0b;
+  border: 1px solid #d97706;
 }
 
 .modern-action-btn:hover {
@@ -1391,10 +1391,10 @@ body {
 }
 
 .published-side .side-title {
-  color: #059669;
+  color: #047857;
 }
 .suggestions-side .side-title {
-  color: #0ea5e9;
+  color: #0369a1;
 }
 
 .side-subtitle {
@@ -1436,7 +1436,7 @@ body {
   gap: 4px;
   padding: 4px 12px;
   background: linear-gradient(135deg, #f59e0b, #d97706);
-  color: white;
+  color: #3d1a00;
   border-radius: 20px;
   font-size: 0.75rem;
   font-weight: 600;
@@ -1462,15 +1462,15 @@ body {
 }
 
 .btn-approve {
-  background: linear-gradient(135deg, #10b981, #059669);
+  background: linear-gradient(135deg, #047857, #065f46);
   color: white;
-  box-shadow: 0 2px 8px rgba(16, 185, 129, 0.3);
+  box-shadow: 0 2px 8px rgba(4, 120, 87, 0.3);
 }
 
 .btn-deny {
-  background: linear-gradient(135deg, #ef4444, #dc2626);
+  background: linear-gradient(135deg, #c62828, #a51d1d);
   color: white;
-  box-shadow: 0 2px 8px rgba(239, 68, 68, 0.3);
+  box-shadow: 0 2px 8px rgba(198, 40, 40, 0.3);
 }
 
 .action-btn:hover {
@@ -1508,7 +1508,7 @@ body {
 
 .tag-chip.inherited {
   background: linear-gradient(135deg, #fef3c7, #fcd34d) !important; 
-  border-color: #f59e0b;
+  border-color: #d97706;
   color: #92400e;
 }
 
@@ -1538,7 +1538,7 @@ body {
 }
 
 .commit-group a:hover {
-  color: white;
+  color: inherit;
 }
 
 .commit-header {
@@ -1567,23 +1567,24 @@ body {
   text-decoration: none;
   transition: all 0.2s ease;
   border: 2px solid #1d4ed8;
-  background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+  background: linear-gradient(135deg, #2563eb, #1d4ed8);
   color: white;
 }
 
 .commit-badge.approved {
-  background: linear-gradient(135deg, #16a34a, #22c55e);
-  border-color: #16a34a;
+  background: linear-gradient(135deg, #047857, #065f46);
+  border-color: #047857;
 }
 
 .commit-badge.denied {
-  background: linear-gradient(135deg, #dc2626, #ef4444);
-  border-color: #dc2626;
+  background: linear-gradient(135deg, #c62828, #a51d1d);
+  border-color: #c62828;
 }
 
 .commit-badge.pending {
   background: linear-gradient(135deg, #f59e0b, #fbbf24);
   border-color: #f59e0b;
+  color: #3d1a00;
 }
 
 .commit-badge:hover {
@@ -1594,9 +1595,11 @@ body {
 }
 
 .commit-badge.approved:hover,
-.commit-badge.denied:hover,
-.commit-badge.pending:hover {
+.commit-badge.denied:hover {
   color: white;
+}
+.commit-badge.pending:hover {
+  color: #3d1a00;
 }
 
 /* Individual suggestions within commit groups */
@@ -1621,7 +1624,7 @@ body {
 
 /* Approved state styling */
 .suggestion-item.approved {
-  border-left: 4px solid #22c55e;
+  border-left: 4px solid #15803d;
   background: linear-gradient(135deg, #f0fdf4, #dcfce7);
   margin-bottom: 24px;
 }
@@ -1696,7 +1699,7 @@ body {
 
 .tag-chip.add {
   background: #ecfdf5;
-  border-color: #22c55e;
+  border-color: #15803d;
   color: #166534;
   max-width: 100%;
   overflow-wrap: anywhere;
@@ -1733,30 +1736,30 @@ body {
 }
 
 .tag_accept_button {
-  background: #22c55e;
+  background: #047857;
   color: white;
-  box-shadow: 0 1px 4px rgba(34, 197, 94, 0.3);
+  box-shadow: 0 1px 4px rgba(4, 120, 87, 0.3);
 }
 
 .tag_deny_button {
-  background: #ef4444;
+  background: #c62828;
   color: white;
-  box-shadow: 0 1px 4px rgba(239, 68, 68, 0.3);
+  box-shadow: 0 1px 4px rgba(198, 40, 40, 0.3);
 }
 
 .tag_accept_button:hover {
-  background: #16a34a;
+  background: #065f46;
   transform: scale(1.1);
 }
 
 .tag_deny_button:hover {
-  background: #dc2626;
+  background: #a51d1d;
   transform: scale(1.1);
 }
 
 .inherited-alert {
   background: linear-gradient(135deg, #fef3c7, #fde68a);
-  border: 2px solid #f59e0b;
+  border: 2px solid #d97706;
   border-radius: 16px;
   padding: 20px;
   margin-bottom: 24px;
@@ -1929,7 +1932,7 @@ body {
 }
 
 .event-time {
-  color: #9ca3af;
+  color: #6b7280;
   font-size: 12px;
   margin-left: auto;
 }
@@ -2267,7 +2270,7 @@ body {
   top: 0;
   bottom: 0;
   width: 3px;
-  background: linear-gradient(180deg, #10b981 0%, #6ee7b7 100%);
+  background: linear-gradient(180deg, #047857 0%, #0d7a3a 100%);
   border-radius: 2px;
 }
 
@@ -2288,7 +2291,7 @@ body {
   padding: 16px;
   font-size: 14px;
   line-height: 1.6;
-  color: #6b7280;
+  color: #4b5563;
   font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', sans-serif;
   position: relative;
   padding-left: 16px;
@@ -2391,23 +2394,22 @@ body {
   text-transform: uppercase;
   letter-spacing: 1px;
   margin-bottom: 12px;
-  opacity: 0.6;
 }
 
 .comparison-side.previous .comparison-label {
-  color: #6366f1;
-}
-
-.comparison-side.updated .comparison-label {
   color: #4f46e5;
 }
 
+.comparison-side.updated .comparison-label {
+  color: #4338ca;
+}
+
 .comparison-side.current .comparison-label {
-  color: #059669;
+  color: #047857;
 }
 
 .comparison-side.denied .comparison-label {
-  color: #dc2626;
+  color: #c62828;
 }
 
 .comparison-content {
@@ -2471,7 +2473,7 @@ body {
   top: 0;
   bottom: 0;
   width: 3px;
-  background: linear-gradient(180deg, #dc2626 0%, #fca5a5 100%);
+  background: linear-gradient(180deg, #c62828 0%, #e57373 100%);
   border-radius: 2px;
 }
 
@@ -2529,13 +2531,13 @@ body {
 }
 
 .tag-preview.added {
-  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  background: linear-gradient(135deg, #047857 0%, #065f46 100%);
   color: white;
 }
 
 .tag-preview.removed {
   background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
-  color: white;
+  color: #3d1a00;
   text-decoration: line-through;
   text-decoration-thickness: 1.5px;
   opacity: 0.9;
@@ -2567,7 +2569,7 @@ body {
 .move-from {
   background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
   color: #92400e;
-  opacity: 0.85;
+  opacity: 0.92;
 }
 
 .move-to {
@@ -2726,7 +2728,7 @@ body {
 
 .field-status-badge.empty {
   background: #f3f4f6;
-  color: #9ca3af;
+  color: #595959;
 }
 
 .field-status-badge.unchanged {
@@ -2851,10 +2853,10 @@ body {
   min-height: 20px;
 }
 
-.edit-panel-status .text-success { color: #16a34a; }
-.edit-panel-status .text-danger { color: #dc2626; }
-.edit-panel-status .text-info { color: #0ea5e9; }
-.edit-panel-status .text-muted { color: #9ca3af; }
+.edit-panel-status .text-success { color: #0d7a3a; }
+.edit-panel-status .text-danger { color: #c62828; }
+.edit-panel-status .text-info { color: #0369a1; }
+.edit-panel-status .text-muted { color: #595959; }
 
 .edit-panel-actions {
   display: flex;
@@ -2885,14 +2887,14 @@ body {
 }
 
 .edit-all-fields-panel .btn-success {
-  background: linear-gradient(135deg, #16a34a 0%, #15803d 100%);
+  background: linear-gradient(135deg, #047857 0%, #065f46 100%);
   color: white;
-  box-shadow: 0 2px 8px rgba(22, 163, 74, 0.25);
+  box-shadow: 0 2px 8px rgba(4, 120, 87, 0.25);
 }
 
 .edit-all-fields-panel .btn-success:hover {
   transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(22, 163, 74, 0.35);
+  box-shadow: 0 4px 12px rgba(4, 120, 87, 0.35);
 }
 
 .edit-all-fields-panel .modern-btn:disabled {

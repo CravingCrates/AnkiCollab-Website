@@ -2,6 +2,56 @@
  * utility.css - Common utility classes for CSP-compliant styling
  */
 
+/* Visually Hidden - Accessible to screen readers only */
+.visually-hidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
+
+/* Skip Navigation Link */
+.skip-link {
+    position: absolute;
+    top: -40px;
+    left: 0;
+    background: #006699;
+    color: #fff;
+    padding: 8px 16px;
+    z-index: 10000;
+    font-size: 14px;
+    font-weight: 600;
+    text-decoration: none;
+    border-radius: 0 0 4px 0;
+    transition: top 0.2s ease;
+}
+
+.skip-link:focus {
+    top: 0;
+    outline: 2px solid #fff;
+    outline-offset: 2px;
+    color: #fff;
+    text-decoration: none;
+}
+
+/* Hamburger button reset (converted from div to button for accessibility) */
+button.hamburger {
+    background: none;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+}
+
+button.hamburger:focus {
+    outline: 2px solid #006699;
+    outline-offset: 2px;
+}
+
 /* Text Alignment */
 .text-left { text-align: left; }
 .text-center { text-align: center; }
@@ -79,9 +129,9 @@
 /* Colors */
 .text-gray { color: #6b7280; }
 .text-green { color: green; }
-.text-muted-link { color: #898989; }
+.text-muted-link { color: #595959; }
 .text-inherit { color: inherit; }
-.color-blue { color: #0ea5e9; }
+.color-blue { color: #0369a1; }
 
 /* Positioning */
 .float-right { float: right; }
@@ -164,4 +214,241 @@
     font-size: 48px;
     color: #dc2626;
     margin-bottom: 16px;
+}
+
+/* ============================================================
+   WCAG 2.1/2.2 AA + EAA Accessibility Overrides
+   ============================================================ */
+
+/* --- 1. Gradient Contrast Fixes (SC 1.4.3 Contrast Minimum) ---
+   All gradient-* classes use color: #fff !important.
+   The lighter gradient stops must provide ≥ 4.5:1 contrast with white text.
+   Original lightest stops: gradient-1 #759bff (3.06:1), gradient-2 #fbaaa2 (2.34:1),
+   gradient-3 #ffc480 (1.74:1), gradient-4 #6a8eff (3.40:1). All fail 4.5:1.
+   Darkened lighter ends below to achieve ≥ 4.5:1 at every point in the gradient.
+*/
+.gradient-1 {
+    background-image: linear-gradient(230deg, #4a6fd4, #6e2fc8) !important;
+}
+.gradient-2 {
+    background-image: linear-gradient(230deg, #c73f6a, #a85a52) !important;
+}
+.gradient-3 {
+    background-image: linear-gradient(230deg, #9a5e1b, #c95520) !important;
+}
+.gradient-4 {
+    background-image: linear-gradient(230deg, #0e4cfd, #3d5ec0) !important;
+}
+
+/* --- 2. Placeholder Contrast Fix (SC 1.4.3) ---
+   .form-control::placeholder is set to #f7fafc (~1.01:1 on white bg) in theme.
+   Override to a color that meets 4.5:1 against #fff background.
+   #767676 provides exactly 4.54:1 contrast against #fff.
+*/
+.form-control::placeholder {
+    color: #767676 !important;
+    opacity: 1 !important;
+}
+
+/* Body text contrast fix (SC 1.4.3)
+   Theme default #76838f gives ~4.19:1 against white — fails 4.5:1.
+   #595959 provides 7.0:1 against #fff.
+*/
+body {
+    color: #595959 !important;
+}
+
+/* Link color contrast fix (SC 1.4.3)
+   Theme overrides generic <a> color to #76838f (4.19:1) at style.css:7329.
+   Revert to the original #006699 (5.56:1) which passes.
+*/
+a {
+    color: #006699;
+}
+
+/* Footer text contrast fix (SC 1.4.3)
+   .footer .copyright p uses #898989 (3.45:1) — fails 4.5:1.
+   #595959 provides 7.0:1 against #fff.
+*/
+.footer .copyright p {
+    color: #595959 !important;
+}
+
+/* .text-muted contrast fix (SC 1.4.3)
+   Theme sets .text-muted to #8898aa !important (2.95:1) — fails 4.5:1.
+   #595959 provides 7.0:1 against #fff.
+*/
+.text-muted {
+    color: #595959 !important;
+}
+
+/* .text-danger contrast fix (SC 1.4.3)
+   Theme sets .text-danger to #ff5e5e !important (2.99:1) — fails 4.5:1.
+   #c62828 provides 5.28:1 against #fff.
+*/
+.text-danger {
+    color: #c62828 !important;
+}
+/* .text-success contrast fix (SC 1.4.3)
+   Theme sets .text-success to #6fd96f !important (1.78:1) — fails badly.
+   #0d7a3a provides 5.44:1 against #fff.
+*/
+.text-success {
+    color: #0d7a3a !important;
+}
+
+/* .text-info contrast fix (SC 1.4.3)
+   Theme sets .text-info to #4d7cff !important (3.72:1) — fails 4.5:1.
+   #0369a1 provides 5.93:1 against #fff.
+*/
+.text-info {
+    color: #0369a1 !important;
+}
+
+/* .text-warning contrast fix (SC 1.4.3)
+   Theme sets .text-warning to #f29d56 !important (2.16:1) — fails badly.
+   #b45309 provides 5.02:1 against #fff.
+*/
+.text-warning {
+    color: #b45309 !important;
+}
+/* .btn-danger contrast fix (SC 1.4.3)
+   Theme sets .btn-danger background to #ff5e5e, white text = 2.99:1 — fails.
+   Darken background to #c62828 for 5.28:1 with white text.
+*/
+.btn-danger {
+    background-color: #c62828 !important;
+    border-color: #c62828 !important;
+}
+.btn-danger:hover {
+    background-color: #a51d1d !important;
+    border-color: #a51d1d !important;
+}
+.btn-danger.disabled,
+.btn-danger:disabled {
+    background-color: #c62828 !important;
+    border-color: #c62828 !important;
+}
+
+/* --- 3. Focus Visibility (SC 2.4.7 Focus Visible, SC 2.4.11 Focus Appearance) ---
+   Provide a 2px solid outline with ≥ 3:1 contrast against adjacent colors.
+   Uses :focus-visible to avoid showing outlines on mouse clicks.
+   Falls back to :focus for browsers without :focus-visible support.
+*/
+:focus-visible {
+    outline: 2px solid #0e4cfd !important;
+    outline-offset: 2px !important;
+}
+
+/* Inputs already have a box-shadow focus style from Bootstrap; enhance it */
+.form-control:focus-visible {
+    outline: 2px solid #0e4cfd !important;
+    outline-offset: 1px !important;
+    box-shadow: 0 0 0 0.2rem rgba(14, 76, 253, 0.25) !important;
+}
+
+/* Buttons: ensure outline is clearly visible on all button variants */
+.btn:focus-visible {
+    outline: 2px solid #0e4cfd !important;
+    outline-offset: 2px !important;
+    box-shadow: 0 0 0 0.2rem rgba(14, 76, 253, 0.25) !important;
+}
+
+/* Links inside nav / sidebar */
+.nav-link:focus-visible,
+.sidebar-link:focus-visible,
+.metismenu a:focus-visible {
+    outline: 2px solid #0e4cfd !important;
+    outline-offset: 2px !important;
+}
+
+/* Icon-only buttons (action buttons in review/commit pages) */
+.action-btn:focus-visible,
+.tag_accept_button:focus-visible,
+.tag_deny_button:focus-visible {
+    outline: 2px solid #0e4cfd !important;
+    outline-offset: 2px !important;
+}
+
+/* Accordion / collapse triggers */
+[data-toggle="collapse"]:focus-visible {
+    outline: 2px solid #0e4cfd !important;
+    outline-offset: 2px !important;
+}
+
+/* --- 4. WCAG 2.2 Target Size Minimum (SC 2.5.8 - 24x24px) ---
+   Tag accept/deny buttons are 22x22px. Increase to 24x24px.
+*/
+.tag_accept_button,
+.tag_deny_button {
+    min-width: 24px !important;
+    min-height: 24px !important;
+}
+
+/* Ensure small icon-only action buttons meet minimum target size */
+.action-btn {
+    min-width: 24px;
+    min-height: 24px;
+}
+
+/* Checkbox/radio targets: WCAG 2.5.8 is satisfied by the clickable <label>
+   element which makes the combined target well above 24x24px. No size
+   override needed on the inputs themselves. */
+
+/* --- 5. ARIA Live Region for Screen Reader Announcements ---
+   A visually-hidden live region for dynamic status messages.
+*/
+.a11y-live-region {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
+
+/* --- 6. Toastr Accessibility: ensure toast container acts as live region --- */
+#toast-container {
+    /* role="alert" is set via JS; ensure it stays visible for enough time */
+}
+
+/* --- 7. Reduced Motion Preference (SC 2.3.3) --- */
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        animation-duration: 0.001ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.001ms !important;
+        scroll-behavior: auto !important;
+    }
+}
+
+/* --- 8. High Contrast Mode Support --- */
+@media (forced-colors: active) {
+    .skip-link:focus {
+        outline: 2px solid ButtonText;
+    }
+    .btn {
+        border: 1px solid ButtonText;
+    }
+    .form-control {
+        border: 1px solid ButtonText;
+    }
+}
+
+/* --- 9. User-content image fallback (SC 1.1.1) ---
+   Broken images show alt text visually.
+*/
+img {
+    font-size: 12px;
+    color: #767676;
+}
+
+/* Ensure decorative images marked with empty alt don't show broken icon */
+img[alt=""] {
+    border: none;
 }

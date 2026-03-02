@@ -3,6 +3,7 @@
  * Reads deck hash from data-deck-hash attribute on #maintainers-page element
  */
 function toast_error(msg) {
+    if (window.a11yAnnounce) { window.a11yAnnounce('Error: ' + msg, 'assertive'); }
     toastr.error(msg, "Oh no!", {
         positionClass: "toast-top-right",
         timeOut: 5e3,
@@ -24,6 +25,7 @@ function toast_error(msg) {
 }
 
 function toast_success(msg) {
+    if (window.a11yAnnounce) { window.a11yAnnounce(msg, 'polite'); }
     toastr.success(msg, "Success!", {
         timeOut: 5e3,
         closeButton: !0,

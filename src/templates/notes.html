@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
   <head>
+    {% set page_title = "Browse Notes" %}
     {% include "header_template.html" %}
     <!-- Custom Stylesheet -->
     <link
@@ -36,6 +37,7 @@
                       href="https://github.com/CravingCrates/AnkiCollab-Plugin/blob/main/getting_started_subscriber.md#adding-the-key-to-anki"
                       target="_blank"
                       rel="noopener noreferrer"
+                      aria-label="How to subscribe - help documentation"
                     >
                       <i class="fa fa-question-circle" aria-hidden="true"></i>
                     </a>
@@ -56,7 +58,7 @@
                     <table class="table table-striped">
                       <thead>
                         <tr>
-                          <th>Name</th>
+                          <th scope="col">Name</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -89,9 +91,9 @@
                     >
                       <thead>
                         <tr>
-                          <th>Status</th>
-                          <th>Last Update</th>
-                          <th>Fields</th>
+                          <th scope="col">Status</th>
+                          <th scope="col">Last Update</th>
+                          <th scope="col">Fields</th>
                         </tr>
                       </thead>
                       <tbody>

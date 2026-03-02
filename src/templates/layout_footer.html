@@ -1,12 +1,16 @@
 <!--**********************************
     Footer start
 ***********************************-->
-<div class="footer">
+</main>
+<footer class="footer" role="contentinfo">
     <div class="copyright">
-        <p><a href="/terms">Terms of Service</a> | <a href="/privacy">Privacy Policy</a> | <a href="/imprint">Impressum (German)</a> | <a href="/datenschutz">Datenschutzerkl&auml;rung (German)</a></p>
+        <p><a href="/terms">Terms of Service</a> | <a href="/privacy">Privacy Policy</a> | <a href="/accessibility">Accessibility</a> | <a href="/imprint">Impressum (German)</a> | <a href="/datenschutz">Datenschutzerkl&auml;rung (German)</a></p>
         <p>Made in Germany. Website Template Designed & Developed by <a class="text-muted-link" href="https://themeforest.net/user/quixlab" rel="noopener noreferrer">Quixlab</a> 2018</p>
     </div>
-</div>
+</footer>
+<!-- ARIA live region for dynamic screen reader announcements -->
+<div id="a11y-status" class="a11y-live-region" role="status" aria-live="polite" aria-atomic="true"></div>
+<div id="a11y-alert" class="a11y-live-region" role="alert" aria-live="assertive" aria-atomic="true"></div>
 <!--**********************************
     Footer end
 ***********************************-->
@@ -24,3 +28,17 @@ Scripts
 <script src="/static/js/gleek.js"></script>
 <script src="/static/js/styleSwitcher.js"></script>
 <script src="/static/js/instantpages.js" type="module"></script>
+<script>
+/* Accessibility helper: announce messages to screen readers via live regions */
+window.a11yAnnounce = function(message, priority) {
+    var el = document.getElementById(priority === 'assertive' ? 'a11y-alert' : 'a11y-status');
+    if (el) {
+        el.textContent = '';
+        setTimeout(function() { el.textContent = message; }, 100);
+    }
+};
+/* Configure toastr accessibility if loaded */
+if (typeof toastr !== 'undefined') {
+    toastr.options.closeHtml = '<button type="button" aria-label="Close notification">&times;</button>';
+}
+</script>

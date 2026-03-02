@@ -1,12 +1,14 @@
 
 <body>
 
+    <a class="skip-link" href="#main-content">Skip to main content</a>
+
     <!--*******************
         Preloader start
     ********************-->
-    <div id="preloader">
+    <div id="preloader" role="status" aria-label="Loading">
         <div class="loader">
-            <svg class="circular" viewBox="25 25 50 50">
+            <svg class="circular" viewBox="25 25 50 50" aria-hidden="true" focusable="false">
                 <circle class="path" cx="50" cy="50" r="20" fill="none" stroke-width="3" stroke-miterlimit="10" />
             </svg>
         </div>
@@ -26,8 +28,8 @@
         ***********************************-->
         <div class="nav-header">
             <div class="brand-logo">
-                <a class="logo-text" href="/">
-                    <b class="logo-abbr">AC </b>
+                <a class="logo-text" href="/" aria-label="AnkiCollab - Home">
+                    <b class="logo-abbr" aria-hidden="true">AC </b>
                     <span class="logo-compact">AnkiCollab</span>
                     <span class="brand-title">
                         AnkiCollab
@@ -42,25 +44,25 @@
         <!--**********************************
             Header start
         ***********************************-->
-        <div class="header">    
+        <header class="header" role="banner">    
             <div class="header-content clearfix">
                 
                 <div class="nav-control">
-                    <div class="hamburger">
-                        <span class="toggle-icon"><i class="icon-menu"></i></span>
-                    </div>
+                    <button class="hamburger" aria-label="Toggle navigation menu" aria-expanded="false" type="button">
+                        <span class="toggle-icon"><i class="icon-menu" aria-hidden="true"></i></span>
+                    </button>
                 </div>                
                 <div class="header-right">
                     <div class="info">
                         {% if not user %}
-                        <a href="/login"><i class="icon-login"></i> <span>Sign in</span></a>
+                        <a href="/login"><i class="icon-login" aria-hidden="true"></i> <span>Sign in</span></a>
                         {% else %}
-                            <a href="/logout"><i class="icon-logout"></i> <span>Sign out</span></a>
+                            <a href="/logout"><i class="icon-logout" aria-hidden="true"></i> <span>Sign out</span></a>
                         {% endif %}
                     </div>
                 </div>
             </div>
-        </div>
+        </header>
         <!--**********************************
             Header end ti-comment-alt
         ***********************************-->
@@ -68,61 +70,61 @@
         <!--**********************************
             Sidebar start
         ***********************************-->
-        <div class="nk-sidebar">           
+        <nav class="nk-sidebar" aria-label="Main navigation">           
             <div class="nk-nav-scroll">
                 <ul class="metismenu" id="menu">
                     <li>
                         <a href="/decks" aria-expanded="false">
-                            <i class="icon-grid menu-icon"></i><span class="nav-text">Explore Decks</span>
+                            <i class="icon-grid menu-icon" aria-hidden="true"></i><span class="nav-text">Explore Decks</span>
                         </a>
                     </li>
                     {% if user %}
-                    <li class="nav-label">Member Area</li>
+                    <li class="nav-label" aria-hidden="true">Member Area</li>
                     <li>
                         <a href="/reviews" aria-expanded="false">
-                            <i class="icon-speech menu-icon"></i><span class="nav-text">Review Changes</span>
+                            <i class="icon-speech menu-icon" aria-hidden="true"></i><span class="nav-text">Review Changes</span>
                         </a>                        
                     </li>
                     <li>
                         <a href="/ManageDecks" aria-expanded="false">
-                            <i class="icon-screen-tablet menu-icon"></i><span class="nav-text">Manage Decks</span>
+                            <i class="icon-screen-tablet menu-icon" aria-hidden="true"></i><span class="nav-text">Manage Decks</span>
                         </a>                        
                     </li>
                     <li>
                         <a href="/profile" aria-expanded="false">
-                            <i class="icon-user menu-icon"></i><span class="nav-text">Manage Profile</span>
+                            <i class="icon-user menu-icon" aria-hidden="true"></i><span class="nav-text">Manage Profile</span>
                         </a>                        
                     </li>
                     {% endif %}
-                    <li class="nav-label">Helpful</li>
+                    <li class="nav-label" aria-hidden="true">Helpful</li>
                     <li>
-                        <a href="https://discord.gg/9x4DRxzqwM" aria-expanded="false" rel="noopener noreferrer">
-                            <i class="icon-magic-wand menu-icon"></i><span class="nav-text">Join Discord</span>
+                        <a href="https://discord.gg/9x4DRxzqwM" aria-expanded="false" rel="noopener noreferrer" target="_blank">
+                            <i class="icon-magic-wand menu-icon" aria-hidden="true"></i><span class="nav-text">Join Discord<span class="visually-hidden"> (opens in new tab)</span></span>
                         </a>                        
                     </li>
                     <li>
-                        <a href="https://ankiweb.net/shared/info/1957538407" aria-expanded="false" rel="noopener noreferrer">
-                            <i class="icon-cloud-download menu-icon"></i><span class="nav-text">Download Add-on</span>
+                        <a href="https://ankiweb.net/shared/info/1957538407" aria-expanded="false" rel="noopener noreferrer" target="_blank">
+                            <i class="icon-cloud-download menu-icon" aria-hidden="true"></i><span class="nav-text">Download Add-on<span class="visually-hidden"> (opens in new tab)</span></span>
                         </a>                        
                     </li>
                     <li>
-                        <a href="https://github.com/CravingCrates/AnkiCollab-Plugin/blob/main/README.md#ankicollab-plugin" aria-expanded="false" rel="noopener noreferrer">
-                            <i class="icon-book-open menu-icon"></i><span class="nav-text">Documentation</span>
+                        <a href="https://github.com/CravingCrates/AnkiCollab-Plugin/blob/main/README.md#ankicollab-plugin" aria-expanded="false" rel="noopener noreferrer" target="_blank">
+                            <i class="icon-book-open menu-icon" aria-hidden="true"></i><span class="nav-text">Documentation<span class="visually-hidden"> (opens in new tab)</span></span>
                         </a>                        
                     </li>
                     <li>
                         <a href="/leavereview" aria-expanded="false">
-                            <i class="icon-like menu-icon"></i><span class="nav-text">Leave a Review</span>
+                            <i class="icon-like menu-icon" aria-hidden="true"></i><span class="nav-text">Leave a Review</span>
                         </a>                        
                     </li>
                     <li>
-                        <a href="https://ko-fi.com/ankizin" aria-expanded="false" rel="noopener noreferrer">
-                            <i class="icon-cup menu-icon"></i><span class="nav-text">Support Us</span>
+                        <a href="https://ko-fi.com/ankizin" aria-expanded="false" rel="noopener noreferrer" target="_blank">
+                            <i class="icon-cup menu-icon" aria-hidden="true"></i><span class="nav-text">Support Us<span class="visually-hidden"> (opens in new tab)</span></span>
                         </a>
                     </li>
                 </ul>
             </div>
-        </div>
+        </nav>
         <!--**********************************
             Sidebar end
         ***********************************-->
@@ -130,4 +132,4 @@
         <!--**********************************
             Content body start
         ***********************************-->
-        <div class="content-body">
+        <main class="content-body" id="main-content">

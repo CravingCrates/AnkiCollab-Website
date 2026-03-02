@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
   <head>
+    {% set page_title = "Review Changes" %}
     {% include "header_template.html" %}
     <!-- Custom Stylesheet -->
     <link
@@ -17,9 +18,9 @@
             <div class="col-12">
               <div class="card">
                 <div class="card-body">
-                  <h4 class="card-title">
+                  <h1 class="card-title">
                     All Commits that require your attention
-                  </h4>
+                  </h1>
                   <div class="table-responsive">
                     <table
                       id="deckOverview"
@@ -27,11 +28,11 @@
                     >
                       <thead>
                         <tr>
-                          <th>Author</th>
-                          <th>Rationale</th>
-                          <th>User provided Information</th>
-                          <th>Deck</th>
-                          <th>Timestamp</th>
+                          <th scope="col">Author</th>
+                          <th scope="col">Rationale</th>
+                          <th scope="col">User provided Information</th>
+                          <th scope="col">Deck</th>
+                          <th scope="col">Timestamp</th>
                         </tr>
                       </thead>
                       <tbody>

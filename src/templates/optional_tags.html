@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
   <head>
+    {% set page_title = "Optional Tags" %}
     {% include "header_template.html" %}
     <link href="/static/plugins/toastr/css/toastr.min.css" rel="stylesheet">
   </head>
@@ -26,19 +27,21 @@
                       <li>
                         <label
                           ><span>{{ tag }}</span
-                          ><a href="#" class="ti-trash"></a>
+                          ><a href="#" class="ti-trash" aria-label="Remove optional tag {{ tag }}" role="button"></a>
                         </label>
                       </li>
                       {% endfor %}
                     </ul>
                   </div>
+                  <label for="new-optional-tag-input" class="visually-hidden">New optional tag group</label>
                   <input
                     type="text"
                     class="tdl-new2 form-control"
+                    id="new-optional-tag-input"
                     placeholder="Add a new optional tag group and hit 'Enter'..."
                     required
                   />
-                  <p id="status"></p>
+                  <p id="status" role="status"></p>
                 </div>
               </div>
             </div>

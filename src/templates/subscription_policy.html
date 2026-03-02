@@ -2,6 +2,7 @@
 <html lang="en">
 
 <head>
+    {% set page_title = "Subscription Policy" %}
     {% include "header_template.html" %}
     <link href="/static/css/subscription_policy.css" rel="stylesheet">
     <script src="/static/js/api_service.js"></script>
@@ -10,7 +11,7 @@
             <div class="container-fluid mt-3">
                 <div class="card">
                     <div class="card-body">
-                        <h3 class="card-title">Subscription Field Policy</h3>
+                        <h1 class="card-title">Subscription Field Policy</h1>
                         <p class="text-muted">Configure which fields to inherit from the base deck. Protected fields cannot be toggled and always remain local.</p>
                         <div id="policy-root" data-subscriber-hash="{{subscriber_hash}}" data-base-hash="{{base_hash}}"></div>
                         <button id="saveBtn" class="btn btn-success mt-3">Save</button>

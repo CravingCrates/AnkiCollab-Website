@@ -7,6 +7,7 @@ $(document).ready(function () {
     var deckHash = pageElement ? pageElement.dataset.deckHash : '';
 
     function toast_error(msg) {
+        if (window.a11yAnnounce) { window.a11yAnnounce('Error: ' + msg, 'assertive'); }
         toastr.error(msg, "Oh no!", {
             positionClass: "toast-top-right",
             timeOut: 5e3,
@@ -28,6 +29,7 @@ $(document).ready(function () {
     }
 
     function toast_success(msg) {
+        if (window.a11yAnnounce) { window.a11yAnnounce(msg, 'polite'); }
         toastr.success(msg, "Success!", {
             timeOut: 5e3,
             closeButton: !0,
