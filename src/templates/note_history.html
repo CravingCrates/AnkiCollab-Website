@@ -3,7 +3,6 @@
 <head>
   {% set page_title = "Note History" %}
   {% include "header_template.html" %}
-  <title>Note History</title>
   <link href="/static/css/commit_styling.css" rel="stylesheet">
   <script src="/static/js/note_history.js"></script>
 </head>
@@ -21,9 +20,9 @@
         <div class="header-actions">
           <div class="filter-dropdown">
             <button id="toggleFilterBtn" class="filter-button">
-              <i class="fa fa-filter"></i>
+              <i class="fa fa-filter" aria-hidden="true"></i>
               Filters
-              <i class="fa fa-chevron-down chevron-icon-sm"></i>
+              <i class="fa fa-chevron-down chevron-icon-sm" aria-hidden="true"></i>
             </button>
             <div id="filterMenu" class="filter-menu">
               <div class="filter-section">
@@ -93,7 +92,7 @@
             </div>
           </div>
           <a href="/review/{{ note_id }}" class="back-button">
-            <i class="fa fa-arrow-left"></i>
+            <i class="fa fa-arrow-left" aria-hidden="true"></i>
             Back to Review
           </a>
         </div>
@@ -168,7 +167,7 @@
                       {% endif %}
                       
                       {% if event.actor_username %}
-                        <span class="actor-chip"><i class="fa fa-user"></i> @{{ event.actor_username }}</span>
+                        <span class="actor-chip"><i class="fa fa-user" aria-hidden="true"></i> @{{ event.actor_username }}</span>
                       {% endif %}
                       
                       <span class="event-time">{{ event.created_at }}</span>
@@ -311,8 +310,6 @@
   </div>
 </div>
 
-</div>
-<div>
 {% include "layout_footer.html" %}
 
 </body>

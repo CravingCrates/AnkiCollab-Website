@@ -3,7 +3,6 @@
 <head>
     {% set page_title = "Review Suggestions" %}
     {% include "header_template.html" %}
-    <title>Review Note</title>
     
     <!-- Custom Stylesheet -->
     <link href="/static/plugins/trumbowyg/ui/trumbowyg.css" rel="stylesheet">
@@ -17,8 +16,6 @@
     <script src="/static/js/shared_ui.js"></script>
 </head>
 {% include "layout_header.html" %}
-
-<body>
     <div class="main-container">
         <div class="container-fluid">
             
@@ -39,13 +36,13 @@
                                 <h1 class="header-title">Review Note</h1>
                                 <span class="status-badge {% if note.reviewed and not note.delete_req %}status-published{% elif note.delete_req %}status-removal{% else %}status-pending{% endif %}">
                                     {% if note.reviewed and not note.delete_req %}
-                                        <i class="fa fa-check-circle"></i>
+                                        <i class="fa fa-check-circle" aria-hidden="true"></i>
                                         <span>Published</span>
                                     {% elif note.delete_req %}
-                                        <i class="fa fa-exclamation-triangle"></i>
+                                        <i class="fa fa-exclamation-triangle" aria-hidden="true"></i>
                                         <span>Removal Requested</span>
                                     {% else %}
-                                        <i class="fa fa-clock-o"></i>
+                                        <i class="fa fa-clock-o" aria-hidden="true"></i>
                                         <span>New Card (Unpublished)</span>
                                     {% endif %}
                                 </span>
@@ -56,27 +53,27 @@
                         </div>
                         <div class="header-actions action-buttons">
                             <a href="/note_history/{{note.id}}" class="modern-action-btn btn-history" title="View full history">
-                                <i class="fa fa-history"></i>
+                                <i class="fa fa-history" aria-hidden="true"></i>
                                 History
                             </a>
                             
                             {% if access and note.reviewed == false %}
                             <a href="/AcceptNote/{{note.id}}" class="modern-action-btn btn-publish action-link" data-loading-text="<i class='fa fa-spinner fa-spin'></i> Publishing..." title="Publish New Note">
-                                <i class="fa fa-check"></i>
+                                <i class="fa fa-check" aria-hidden="true"></i>
                                 Publish Note
                             </a>
                             <a href="/DeleteNote/{{note.id}}" class="modern-action-btn btn-delete action-link" data-loading-text="<i class='fa fa-spinner fa-spin'></i> Deleting..." title="Delete Unpublished Note">
-                                <i class="fa fa-trash"></i>
+                                <i class="fa fa-trash" aria-hidden="true"></i>
                                 Delete Note
                             </a>
                             
                             {% elif access and note.delete_req %}
                             <a href="/AcceptNoteRemoval/{{note.id}}" class="modern-action-btn btn-delete action-link" data-loading-text="<i class='fa fa-spinner fa-spin'></i> Confirming..." title="Confirm Note Deletion">
-                                <i class="fa fa-trash"></i>
+                                <i class="fa fa-trash" aria-hidden="true"></i>
                                 Confirm Deletion
                             </a>
                             <a href="/DenyNoteRemoval/{{note.id}}" class="modern-action-btn btn-keep action-link" data-loading-text="<i class='fa fa-spinner fa-spin'></i> Keeping..." title="Cancel Removal Request">
-                                <i class="fa fa-undo"></i>
+                                <i class="fa fa-undo" aria-hidden="true"></i>
                                 Keep Note
                             </a>
                             {% endif %}
@@ -98,7 +95,7 @@
                                     <div class="field-name">{{ note.note_model_fields[field.position] }}</div>
                                     {% if field.inherited %}
                                     <span class="inherited-badge" title="Inherited from base note">
-                                        <i class="fa fa-link"></i>
+                                        <i class="fa fa-link" aria-hidden="true"></i>
                                         Inherited
                                     </span>
                                     {% endif %}
@@ -113,7 +110,7 @@
                         {% endfor %}
                     {% else %}
                         <div class="empty-state">
-                            <i class="fa fa-file-o"></i>
+                            <i class="fa fa-file-o" aria-hidden="true"></i>
                             <p>No published fields yet.</p>
                         </div>
                     {% endif %}
@@ -132,7 +129,7 @@
                         <div class="tag-container" id="mainTags">
                             {% for tag in note.reviewed_tags|slice(end=6) %}
                             <span class="tag-chip {% if tag.inherited %}inherited{% endif %}">
-                                {% if tag.inherited %}<i class="fa fa-link tag-icon-sm"></i>{% endif %}
+                                {% if tag.inherited %}<i class="fa fa-link tag-icon-sm" aria-hidden="true"></i>{% endif %}
                                 {{tag.content}}
                             </span>
                             {% endfor %}
@@ -141,7 +138,7 @@
                         <div class="tag-container d-none" id="collapsedTags">
                             {% for tag in note.reviewed_tags|slice(start=6) %}
                             <span class="tag-chip {% if tag.inherited %}inherited{% endif %}">
-                                {% if tag.inherited %}<i class="fa fa-link tag-icon-sm"></i>{% endif %}
+                                {% if tag.inherited %}<i class="fa fa-link tag-icon-sm" aria-hidden="true"></i>{% endif %}
                                 {{tag.content}}
                             </span>
                             {% endfor %}
@@ -150,7 +147,7 @@
                     </div>
                     {% else %}
                         <div class="empty-state">
-                            <i class="fa fa-tags"></i>
+                            <i class="fa fa-tags" aria-hidden="true"></i>
                             <p>No published tags yet.</p>
                         </div>
                     {% endif %}
@@ -171,10 +168,10 @@
                                 </div>
                                 {% if access %}
                                 <div class="tag-actions">
-                                    <button class="tag_accept_button" title="Accept Move" data-action="accept-move" data-move-id="{{req.id}}">
+                                    <button class="tag_accept_button" title="Accept Move" aria-label="Accept Move" data-action="accept-move" data-move-id="{{req.id}}">
                                         <i class="fa fa-check" aria-hidden="true"></i>
                                     </button>
-                                    <button class="tag_deny_button" title="Deny Move" data-action="deny-move" data-move-id="{{req.id}}">
+                                    <button class="tag_deny_button" title="Deny Move" aria-label="Deny Move" data-action="deny-move" data-move-id="{{req.id}}">
                                         <i class="fa fa-times" aria-hidden="true"></i>
                                     </button>
                                 </div>
@@ -190,16 +187,16 @@
                                 <div>
                                     <div class="field-name">{{note.note_model_fields[field_suggestion.position]}}</div>
                                     <a href="/commit/{{ field_suggestion.commit_id }}" class="inherited-badge inherited-link" title="View Source Commit">
-                                        <i class="fa fa-link"></i> Commit #{{ field_suggestion.commit_id }}
+                                        <i class="fa fa-link" aria-hidden="true"></i> Commit #{{ field_suggestion.commit_id }}
                                     </a>
                                 </div>
                                 {% if access and note.reviewed %}
                                 <div class="field-actions">
                                     <button data-action="accept-field" data-field-id="{{field_suggestion.id}}" class="action-btn btn-approve" title="Accept Change">
-                                        <i class="fa fa-check"></i> Accept
+                                        <i class="fa fa-check" aria-hidden="true"></i> Accept
                                     </button>
                                     <button data-action="deny-field" data-field-id="{{field_suggestion.id}}" class="action-btn btn-deny" title="Deny Change">
-                                        <i class="fa fa-times"></i> Deny
+                                        <i class="fa fa-times" aria-hidden="true"></i> Deny
                                     </button>
                                 </div>
                                 {% endif %}
@@ -220,16 +217,16 @@
                             <div class="tag-suggestion">
                                 <div class="tag-content">
                                     <span class="tag-chip add">
-                                        <i class="fa fa-plus-circle"></i>
+                                        <i class="fa fa-plus-circle" aria-hidden="true"></i>
                                         {{tag.content}}
                                     </span>
                                 </div>
                                 {% if access and note.reviewed %}
                                 <div class="tag-actions">
-                                    <button class="tag_accept_button" title="Accept Tag Addition" data-action="accept-tag" data-tag-id="{{tag.id}}">
+                                    <button class="tag_accept_button" title="Accept Tag Addition" aria-label="Accept Tag Addition" data-action="accept-tag" data-tag-id="{{tag.id}}">
                                         <i class="fa fa-check" aria-hidden="true"></i>
                                     </button>
-                                    <button class="tag_deny_button" title="Deny Tag Addition" data-action="deny-tag" data-tag-id="{{tag.id}}">
+                                    <button class="tag_deny_button" title="Deny Tag Addition" aria-label="Deny Tag Addition" data-action="deny-tag" data-tag-id="{{tag.id}}">
                                         <i class="fa fa-times" aria-hidden="true"></i>
                                     </button>
                                 </div>
@@ -250,10 +247,10 @@
                                 </div>
                                 {% if access and note.reviewed %}
                                 <div class="tag-actions">
-                                    <button class="tag_accept_button" title="Accept Tag Removal" data-action="accept-tag" data-tag-id="{{tag.id}}">
+                                    <button class="tag_accept_button" title="Accept Tag Removal" aria-label="Accept Tag Removal" data-action="accept-tag" data-tag-id="{{tag.id}}">
                                         <i class="fa fa-check" aria-hidden="true"></i>
                                     </button>
-                                    <button class="tag_deny_button" title="Deny Tag Removal" data-action="deny-tag" data-tag-id="{{tag.id}}">
+                                    <button class="tag_deny_button" title="Deny Tag Removal" aria-label="Deny Tag Removal" data-action="deny-tag" data-tag-id="{{tag.id}}">
                                         <i class="fa fa-times" aria-hidden="true"></i>
                                     </button>
                                 </div>
@@ -266,7 +263,7 @@
                     {# Handle case where there are no suggestions at all #}
                     {% if not note.note_move_decks and not note.unconfirmed_fields and not note.new_tags and not note.removed_tags %}
                         <div class="empty-state">
-                            <i class="fa fa-lightbulb-o"></i>
+                            <i class="fa fa-lightbulb-o" aria-hidden="true"></i>
                             <p>No pending suggestions for this note.</p>
                         </div>
                     {% endif %}

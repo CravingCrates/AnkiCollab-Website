@@ -35,7 +35,7 @@
                               href="https://github.com/CravingCrates/AnkiCollab-Plugin/blob/main/getting_started_subscriber.md#adding-the-key-to-anki"
                               target="_blank"
                               rel="noopener noreferrer"
-                              aria-label="How to subscribe - help documentation"
+                              aria-label="How to subscribe - help documentation (opens in new tab)"
                             >
                               <i class="fa fa-question-circle" aria-hidden="true"></i>
                             </a>
@@ -52,7 +52,7 @@
                                 <div class="d-inline-block">
                                     <p class="text-white mb-0">Give others Maintainer privileges</p>
                                 </div>
-                                <span class="float-right display-5 opacity-5"><i class="fa fa-users"></i></span>
+                                <span class="float-right display-5 opacity-5"><i class="fa fa-users" aria-hidden="true"></i></span>
                             </a>
                         </div>
                     </div>
@@ -63,7 +63,7 @@
                                 <div class="d-inline-block">
                                     <p class="text-white mb-0">Manage your optional tags</p>
                                 </div>
-                                <span class="float-right display-5 opacity-5"><i class="fa fa-tag"></i></span>
+                                <span class="float-right display-5 opacity-5"><i class="fa fa-tag" aria-hidden="true"></i></span>
                             </a>
                         </div>
                     </div>                    
@@ -74,7 +74,7 @@
                                 <div class="d-inline-block">
                                     <p class="text-white mb-0">Explore Your Deck's Performance Metrics</p>
                                 </div>
-                                <span class="float-right display-5 opacity-5"><i class="fa fa-bar-chart"></i></span>
+                                <span class="float-right display-5 opacity-5"><i class="fa fa-bar-chart" aria-hidden="true"></i></span>
                             </a>                            
                         </div>
                     </div>
@@ -89,7 +89,7 @@
                                 <div class="mt-2">
                                     {% for base in base_links %}
                                     <a class="btn btn-light btn-sm m-1" href="/DeckSubscriptionPolicy/{{hash}}/{{base.human_hash}}" title="{{base.name}}">
-                                        <i class="fa fa-link"></i> {{base.name}}
+                                        <i class="fa fa-link" aria-hidden="true"></i> {{base.name}}
                                     </a>
                                     {% endfor %}
                                 </div>
@@ -102,7 +102,7 @@
                     <div class="card-body">
                         <h1 class="card-title m-b-40">Edit your Deck Description:</h1>
                         <p>You can select content and edit inline</p><hr>
-                        <div id="desc-editor" class="trumbowyg-editor"></div>
+                        <div id="desc-editor" class="trumbowyg-editor" aria-label="Deck description"></div>
                     </div>
                 </div>
                 <div class="card">
@@ -136,7 +136,7 @@
                     <div class="card-body">
                         <h4 class="card-title">Add a new changelog message</h4>
                         <p>You cannot use text styling. Only plain text for now. Sorry!</p><br />
-                        <div id="changelog-editor" class="trumbowyg-editor"></div>
+                        <div id="changelog-editor" class="trumbowyg-editor" aria-label="New changelog message"></div>
                         {% if changelogs|length > 0 %}
                         <h4 class="card-title mt-5">Previous Changelogs</h4>
                         <p class="text-muted"><code></code>
@@ -163,7 +163,7 @@
                     <div class="card-body">
                         <div class="sweetalert m-t-30">
                             <form data-deck-hash="{{hash}}">
-                                <button type="submit" class="btn mb-1 btn-success sweet-success">Save all Changes <span class="btn-icon-right"><i class="fa fa-check"></i></span>
+                                <button type="submit" class="btn mb-1 btn-success sweet-success">Save all Changes <span class="btn-icon-right"><i class="fa fa-check" aria-hidden="true"></i></span>
                                 </button>
                             </form>                            
                         </div>
@@ -180,7 +180,6 @@
                     </div>
                 </div>
             </div> <!-- end container flud -->
-        </div>
         <!--**********************************
             Content body end
         ***********************************-->

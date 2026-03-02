@@ -261,9 +261,112 @@ body {
 /* Link color contrast fix (SC 1.4.3)
    Theme overrides generic <a> color to #76838f (4.19:1) at style.css:7329.
    Revert to the original #006699 (5.56:1) which passes.
+
+   WCAG 1.4.1 Use of Color: links must be distinguishable from surrounding
+   text by more than color alone. Override the theme's global
+   text-decoration: none to add underlines on all links by default.
+   Navigational / UI links exempt below (distinct by context / styling).
 */
 a {
     color: #006699;
+    text-decoration: underline;
+}
+a:hover,
+a:focus {
+    text-decoration: underline;
+}
+
+/* --- WCAG 1.4.1 Exemptions: links distinguished by context, not underline --- */
+
+/* Sidebar / header navigation: visually distinct by container & position */
+.metismenu a,
+.metismenu a:hover,
+.metismenu a:focus,
+.nav-header a,
+.nav-header a:hover,
+.nav-header a:focus,
+.header a,
+.header a:hover,
+.header a:focus,
+.header-right a,
+.header-right a:hover {
+    text-decoration: none;
+}
+
+/* Sidebar hover: show underline for discoverability */
+.metismenu a:hover,
+.metismenu a:focus {
+    text-decoration: underline;
+}
+
+/* Skip link is off-screen and visually distinct when focused */
+.skip-link,
+.skip-link:focus {
+    text-decoration: none;
+}
+
+/* Buttons, badges, tabs, and other styled components */
+a.btn,
+a.btn:hover,
+a.btn:focus,
+a.badge,
+a.badge:hover,
+a.nav-link,
+a.nav-link:hover,
+a[role="tab"],
+a[role="tab"]:hover,
+a[data-toggle="collapse"],
+a[data-toggle="collapse"]:hover,
+a[data-toggle="tab"],
+a[data-toggle="tab"]:hover,
+a.close,
+a.inherited-link,
+a.inherited-badge,
+a.logo-text {
+    text-decoration: none;
+}
+
+/* DataTable internal links (sorting, pagination) */
+.dataTables_wrapper a,
+.dataTables_wrapper a:hover {
+    text-decoration: none;
+}
+/* Pagination links */
+.page-link,
+.page-link:hover {
+    text-decoration: none;
+}
+
+/* Breadcrumb links */
+.breadcrumb a,
+.breadcrumb a:hover {
+    text-decoration: none;
+}
+
+/* Commit / review page action links that are styled as buttons */
+a.action-button,
+a.action-button:hover,
+a.primary-action,
+a.primary-action:hover,
+a.danger-action,
+a.danger-action:hover,
+a.modern-btn,
+a.modern-btn:hover,
+a.modern-action-btn,
+a.modern-action-btn:hover,
+a.commit-badge,
+a.commit-badge:hover,
+a.back-button,
+a.back-button:hover,
+a.filter-button,
+a.filter-button:hover {
+    text-decoration: none;
+}
+
+/* x-editable inline-edit trigger links */
+a[data-pk],
+a[data-pk]:hover {
+    text-decoration: none;
 }
 
 /* Footer text contrast fix (SC 1.4.3)

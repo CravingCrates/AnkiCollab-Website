@@ -4,7 +4,6 @@
 <head>
     {% set page_title = "Review Commit" %}
     {% include "header_template.html" %}
-    <title>Review Commit</title>
     
     <!-- Custom Stylesheet -->
     <link href="/static/plugins/trumbowyg/ui/trumbowyg.css" rel="stylesheet">
@@ -31,19 +30,19 @@
             <div class="commit-meta">
                 <div class="meta-item">
                     <div class="meta-icon">
-                        <i class="fa fa-clock-o"></i>
+                        <i class="fa fa-clock-o" aria-hidden="true"></i>
                     </div>
                     <span>{{ commit.timestamp }}</span>
                 </div>
                 <div class="meta-item">
                     <div class="meta-icon">
-                        <i class="fa fa-user"></i>
+                        <i class="fa fa-user" aria-hidden="true"></i>
                     </div>
                     <span>{{ commit.user }}</span>
                 </div>
                 <div class="meta-item">
                     <div class="meta-icon">
-                        <i class="fa fa-folder"></i>
+                        <i class="fa fa-folder" aria-hidden="true"></i>
                     </div>
                     <span>{{ commit.deck }}</span>
                 </div>
@@ -75,11 +74,11 @@
                         <span class="group-label">All Changes</span>
                         <div class="btn-group">
                             <a href="/ApproveCommit/{{commit.id}}" class="modern-btn btn-success global-action-btn" title="Merges ALL notes in this commit, including notes not yet loaded">
-                                <i class="fa fa-check-circle"></i>
+                                <i class="fa fa-check-circle" aria-hidden="true"></i>
                                 Accept All
                             </a>
                             <a href="/DenyCommit/{{commit.id}}" class="modern-btn btn-danger global-action-btn" title="Denies ALL notes in this commit, including notes not yet loaded">
-                                <i class="fa fa-times-circle"></i>
+                                <i class="fa fa-times-circle" aria-hidden="true"></i>
                                 Deny All
                             </a>
                         </div>
@@ -92,12 +91,12 @@
                         <span class="group-label">Selected (<span id="selection-count">0</span>)</span>
                         <div class="btn-group">
                             <button type="button" class="modern-btn btn-success-outline" id="bulk-approve-btn" disabled title="Approve only selected notes">
-                                <i class="fa fa-check"></i>
+                                <i class="fa fa-check" aria-hidden="true"></i>
                                 Accept
                                 <span class="bulk-btn-spinner" aria-hidden="true"></span>
                             </button>
                             <button type="button" class="modern-btn btn-danger-outline" id="bulk-deny-btn" disabled title="Deny only selected notes">
-                                <i class="fa fa-times"></i>
+                                <i class="fa fa-times" aria-hidden="true"></i>
                                 Deny
                                 <span class="bulk-btn-spinner" aria-hidden="true"></span>
                             </button>
@@ -107,10 +106,10 @@
                 
                 <div class="actions-secondary-row">
                     <button type="button" class="text-action-btn" id="select-all-visible-btn">
-                        <i class="fa fa-check-square-o"></i> Select All Visible
+                        <i class="fa fa-check-square-o" aria-hidden="true"></i> Select All Visible
                     </button>
                     <button type="button" class="text-action-btn hidden" id="deselect-all-btn">
-                        <i class="fa fa-square-o"></i> Deselect All
+                        <i class="fa fa-square-o" aria-hidden="true"></i> Deselect All
                     </button>
                 </div>
             </div>

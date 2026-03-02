@@ -56,17 +56,17 @@
                             <h6>{{ template.name }}</h6>
                             <div class="default-tab">
                                 <ul class="nav nav-tabs mb-3" role="tablist">
-                                    <li class="nav-item" role="presentation"><a class="nav-link active" data-toggle="tab" href="#front-{{ template.template_id }}" role="tab" aria-selected="true" aria-controls="front-{{ template.template_id }}">Front</a></li>
-                                    <li class="nav-item" role="presentation"><a class="nav-link" data-toggle="tab" href="#back-{{ template.template_id }}" role="tab" aria-selected="false" aria-controls="back-{{ template.template_id }}">Back</a></li>
+                                    <li class="nav-item" role="presentation"><a class="nav-link active" data-toggle="tab" href="#front-{{ template.template_id }}" role="tab" aria-selected="true" aria-controls="front-{{ template.template_id }}" id="tab-front-{{ template.template_id }}">Front</a></li>
+                                    <li class="nav-item" role="presentation"><a class="nav-link" data-toggle="tab" href="#back-{{ template.template_id }}" role="tab" aria-selected="false" aria-controls="back-{{ template.template_id }}" id="tab-back-{{ template.template_id }}">Back</a></li>
                                 </ul>
                                 <div class="tab-content">
-                                    <div id="front-{{ template.template_id }}" class="tab-pane fade show active" role="tabpanel">
+                                    <div id="front-{{ template.template_id }}" class="tab-pane fade show active" role="tabpanel" aria-labelledby="tab-front-{{ template.template_id }}">
                                         <div class="p-t-15">
                                             <label for="{{ template.template_id }}-front" class="visually-hidden">{{ template.name }} - Front template</label>
                                             <textarea rows="15" cols="60" id="{{ template.template_id }}-front" data-template-id="{{ template.template_id }}" data-side="front">{{ template.front }}</textarea>
                                         </div>
                                     </div>
-                                    <div id="back-{{ template.template_id }}" class="tab-pane fade" role="tabpanel">
+                                    <div id="back-{{ template.template_id }}" class="tab-pane fade" role="tabpanel" aria-labelledby="tab-back-{{ template.template_id }}">
                                         <div class="p-t-15">
                                             <label for="{{ template.template_id }}-back" class="visually-hidden">{{ template.name }} - Back template</label>
                                             <textarea rows="15" cols="60" id="{{ template.template_id }}-back" data-template-id="{{ template.template_id }}" data-side="back">{{ template.back }}</textarea>
@@ -81,7 +81,7 @@
                     <div class="card-body">
                         <form id="submitForm" data-notetype-id="{{ notetype_id }}">
                             <div class="button-icon">                            
-                                <button type="submit" class="btn mb-1 btn-success">Save all changes <span class="btn-icon-right"><i class="fa fa-check"></i></span>
+                                <button type="submit" class="btn mb-1 btn-success">Save all changes <span class="btn-icon-right"><i class="fa fa-check" aria-hidden="true"></i></span>
                                 </button>
                                 <p id="confirmation" class="confirmation-message">Changes saved!</p>
                             </div>
@@ -89,7 +89,6 @@
                     </div>
                 </div>
             </div> <!-- end container flud -->
-        </div>
         <!--**********************************
             Content body end
         ***********************************-->

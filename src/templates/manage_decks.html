@@ -57,7 +57,7 @@
                       </td>
                       <td>
                         {%if deck.stats_enabled %}
-                        <a href="/Statistics/{{deck.hash}}"><button type="button" class="btn mb-1 btn-rounded btn-success">Statistics</button></a>
+                        <a href="/Statistics/{{deck.hash}}" class="btn mb-1 btn-rounded btn-success" role="button">Statistics</a>
                         {% else %}
                         <button type="button" class="btn mb-1 btn-rounded btn-secondary" disabled="disabled">Statistics</button>
                         {% endif %}
@@ -107,7 +107,6 @@
           </div>
         </div>
         <!-- end container flud -->
-      </div>
       <!--**********************************
             Content body end
         ***********************************-->

@@ -21,7 +21,7 @@
                 <div class="card card-widget">
                     <div class="card-body gradient-1">
                         <div class="media">
-                            <span class="card-widget__icon"><i class="icon-docs"></i></span>
+                            <span class="card-widget__icon"><i class="icon-docs" aria-hidden="true"></i></span>
                             <div class="media-body">
                                 <h2 class="card-widget__title">{{base.note_count}}</h2>
                                 <h5 class="card-widget__subtitle">Notes Included</h5>
@@ -35,7 +35,7 @@
                 <div class="card card-widget">
                     <div class="card-body gradient-4">
                         <div class="media">
-                            <span class="card-widget__icon"><i class="icon-loop"></i></span>
+                            <span class="card-widget__icon"><i class="icon-loop" aria-hidden="true"></i></span>
                             <div class="media-body">
                                 <h2 class="card-widget__title">{{base.lapses_avg | round(precision=1)}}</h2>
                                 <h5 class="card-widget__subtitle">Average Lapses</h5>
@@ -49,7 +49,7 @@
               <div class="card card-widget">
                   <div class="card-body gradient-4">
                       <div class="media">
-                          <span class="card-widget__icon"><i class="icon-layers"></i></span>
+                            <span class="card-widget__icon"><i class="icon-layers" aria-hidden="true"></i></span>
                           <div class="media-body">
                               <h2 class="card-widget__title">{{base.reps_avg | round(precision=1)}}</h2>
                               <h5 class="card-widget__subtitle">Average Reps</h5>
@@ -63,7 +63,7 @@
                 <div class="card card-widget">
                     <div class="card-body gradient-3">
                         <div class="media">
-                            <span class="card-widget__icon"><i class="icon-chart"></i></span>
+                            <span class="card-widget__icon"><i class="icon-chart" aria-hidden="true"></i></span>
                             <div class="media-body">
                                 <h2 class="card-widget__title">{{ base.retention_avg | round(precision=1)}}%</h2>
                                 <h5 class="card-widget__subtitle">Average Retention</h5>
@@ -105,7 +105,7 @@
                           {% else %}
                             gradient-2
                           {% endif %}
-                          ">{{ deck.retention | round(precision=1) }}%</span></a>
+                          ">{{ deck.retention | round(precision=1) }}%{% if deck.retention > 85 %}<span class="visually-hidden"> (Good)</span>{% elif deck.retention > 75 %}<span class="visually-hidden"> (Average)</span>{% else %}<span class="visually-hidden"> (Needs improvement)</span>{% endif %}</span></a>
                       </td>
                     </tr>
                     {% endfor %}
@@ -152,7 +152,6 @@
           </div>            
         </div>
         <!-- end container flud -->
-      </div>
       <!--**********************************
             Content body end
         ***********************************-->

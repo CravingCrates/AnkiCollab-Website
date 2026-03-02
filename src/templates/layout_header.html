@@ -6,7 +6,7 @@
     <!--*******************
         Preloader start
     ********************-->
-    <div id="preloader" role="status" aria-label="Loading">
+    <div id="preloader" role="status" aria-label="Loading" aria-hidden="true">
         <div class="loader">
             <svg class="circular" viewBox="25 25 50 50" aria-hidden="true" focusable="false">
                 <circle class="path" cx="50" cy="50" r="20" fill="none" stroke-width="3" stroke-miterlimit="10" />
@@ -26,7 +26,7 @@
         <!--**********************************
             Nav header start
         ***********************************-->
-        <div class="nav-header">
+        <nav class="nav-header" aria-label="Home">
             <div class="brand-logo">
                 <a class="logo-text" href="/" aria-label="AnkiCollab - Home">
                     <b class="logo-abbr" aria-hidden="true">AC </b>
@@ -36,7 +36,7 @@
                     </span>
                 </a>
             </div>
-        </div>
+        </nav>
         <!--**********************************
             Nav header end
         ***********************************-->
@@ -74,53 +74,48 @@
             <div class="nk-nav-scroll">
                 <ul class="metismenu" id="menu">
                     <li>
-                        <a href="/decks" aria-expanded="false">
+                        <a href="/decks">
                             <i class="icon-grid menu-icon" aria-hidden="true"></i><span class="nav-text">Explore Decks</span>
                         </a>
                     </li>
                     {% if user %}
                     <li class="nav-label" aria-hidden="true">Member Area</li>
                     <li>
-                        <a href="/reviews" aria-expanded="false">
+                        <a href="/reviews">
                             <i class="icon-speech menu-icon" aria-hidden="true"></i><span class="nav-text">Review Changes</span>
                         </a>                        
                     </li>
                     <li>
-                        <a href="/ManageDecks" aria-expanded="false">
+                        <a href="/ManageDecks">
                             <i class="icon-screen-tablet menu-icon" aria-hidden="true"></i><span class="nav-text">Manage Decks</span>
                         </a>                        
                     </li>
                     <li>
-                        <a href="/profile" aria-expanded="false">
+                        <a href="/profile">
                             <i class="icon-user menu-icon" aria-hidden="true"></i><span class="nav-text">Manage Profile</span>
                         </a>                        
                     </li>
                     {% endif %}
                     <li class="nav-label" aria-hidden="true">Helpful</li>
                     <li>
-                        <a href="https://discord.gg/9x4DRxzqwM" aria-expanded="false" rel="noopener noreferrer" target="_blank">
+                        <a href="https://discord.gg/9x4DRxzqwM" rel="noopener noreferrer" target="_blank">
                             <i class="icon-magic-wand menu-icon" aria-hidden="true"></i><span class="nav-text">Join Discord<span class="visually-hidden"> (opens in new tab)</span></span>
                         </a>                        
                     </li>
                     <li>
-                        <a href="https://ankiweb.net/shared/info/1957538407" aria-expanded="false" rel="noopener noreferrer" target="_blank">
+                        <a href="https://ankiweb.net/shared/info/1957538407" rel="noopener noreferrer" target="_blank">
                             <i class="icon-cloud-download menu-icon" aria-hidden="true"></i><span class="nav-text">Download Add-on<span class="visually-hidden"> (opens in new tab)</span></span>
                         </a>                        
                     </li>
                     <li>
-                        <a href="https://github.com/CravingCrates/AnkiCollab-Plugin/blob/main/README.md#ankicollab-plugin" aria-expanded="false" rel="noopener noreferrer" target="_blank">
+                        <a href="https://github.com/CravingCrates/AnkiCollab-Plugin/blob/main/README.md#ankicollab-plugin" rel="noopener noreferrer" target="_blank">
                             <i class="icon-book-open menu-icon" aria-hidden="true"></i><span class="nav-text">Documentation<span class="visually-hidden"> (opens in new tab)</span></span>
                         </a>                        
                     </li>
                     <li>
-                        <a href="/leavereview" aria-expanded="false">
+                        <a href="/leavereview">
                             <i class="icon-like menu-icon" aria-hidden="true"></i><span class="nav-text">Leave a Review</span>
                         </a>                        
-                    </li>
-                    <li>
-                        <a href="https://ko-fi.com/ankizin" aria-expanded="false" rel="noopener noreferrer" target="_blank">
-                            <i class="icon-cup menu-icon" aria-hidden="true"></i><span class="nav-text">Support Us<span class="visually-hidden"> (opens in new tab)</span></span>
-                        </a>
                     </li>
                 </ul>
             </div>
