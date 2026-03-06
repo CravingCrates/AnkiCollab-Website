@@ -1,5 +1,5 @@
 /**
- * Shared UI initializa        initializeAllNoteCards();on, event handling, and update logic
+ * Shared UI initialization, event handling, and update logic
  * for commit and review pages.
  */
 window.SharedUI = (function() {
@@ -10,8 +10,8 @@ window.SharedUI = (function() {
     const ORIGINAL_CONTENT_SELECTOR = '.original-content';
     const CURRENT_CONTENT_SELECTOR = '.current-content'; // For review page 'left' side
     const DIFF_CONTENT_SELECTOR = '.diff-content';
-    const SUGGESTION_BOX_SELECTOR = '.suggestion-box';
-    const FIELD_ACTIONS_SELECTOR = '.field-actions';
+    const SUGGESTION_BOX_SELECTOR = '.suggestion-box, .suggestion-item';
+    const FIELD_ACTIONS_SELECTOR = '.field-actions, .review-field-actions';
     const TAG_CONTAINER_SELECTOR = '.note_tag_container';
     const LAZY_IMG_SELECTOR = 'img.lazy-load-image';
     const ACTION_BUTTON_SELECTOR = '[data-action]';
@@ -63,26 +63,54 @@ window.SharedUI = (function() {
     }
 
     /**
-      * Processes a single diff field: applies image wrappers and prepares images.
+      * Processes a single diff field: splits into deletions/insertions views,
+      * applies image wrappers, and prepares images for lazy loading.
       * @param {HTMLElement} diffElement - The .diff-content element.
       */
     function processDiffField(diffElement) {
         const $diffDiv = $(diffElement);
         if (!$diffDiv.length) return;
 
-        const diffHtml = $diffDiv.html(); // Current HTML (backend generated diff)
+        // Use cached raw diff HTML if available (survives re-processing),
+        // otherwise read from current innerHTML (first run) and cache it.
+        var diffHtml = $diffDiv.data('raw-diff-html');
+        if (!diffHtml) {
+            diffHtml = $diffDiv.html();
+        }
+        $diffDiv.data('raw-diff-html', diffHtml);
         const originalHtml = HtmlDiffUtils.unescapeHtml($diffDiv.data('original') || '');
         const newHtml = HtmlDiffUtils.unescapeHtml($diffDiv.data('new-content') || '');
 
         // Apply visual wrappers for images within <ins>/<del>
         const processedDiffHtml = ImageHandler.processHtmlDiffs(originalHtml, newHtml, diffHtml);
 
-        if (processedDiffHtml !== diffHtml) {
-            $diffDiv.html(processedDiffHtml);
+        // Split diff into two views: deletions (left) and insertions (right)
+        const views = HtmlDiffUtils.splitDiff(processedDiffHtml);
+
+        // Set the diff element (right column) to show only insertions
+        $diffDiv.html(views.insertions);
+
+        // Find and update the corresponding original content element (left column)
+        // to show the deletions view instead of plain original content
+        const fieldId = $diffDiv.data('field-id');
+        if (fieldId !== undefined) {
+            const $noteCard = $diffDiv.closest(NOTE_CONTEXT_SELECTOR);
+            // Try matching by field-id first (commit page), then by position (review page)
+            var $originalDiv = $noteCard.find(ORIGINAL_CONTENT_SELECTOR + '[data-field-id="' + fieldId + '"]');
+            if (!$originalDiv.length) {
+                const position = $diffDiv.data('position');
+                if (position !== undefined) {
+                    $originalDiv = $noteCard.find(CURRENT_CONTENT_SELECTOR + '[data-position="' + position + '"]');
+                }
+            }
+            if ($originalDiv.length) {
+                $originalDiv.html(views.deletions);
+                prepareImagesForLazyLoad($originalDiv.find('img'));
+            }
         }
-        // Ensure lazy loading is applied to any images *within* this processed diff
-        // Target images that might be inside wrappers or directly in the diff content
-        prepareImagesForLazyLoad($diffDiv.find('img')); // Pass the jQuery object of images
+
+        // Ensure lazy loading is applied to images within the diff
+        prepareImagesForLazyLoad($diffDiv.find('img'));
     }
 
 
@@ -241,7 +269,12 @@ window.SharedUI = (function() {
                     handleFieldAction(ApiService.denyField, $button.data('field-id'), $button);
                      enableButtonOnError = false;
                     break;
+                case 'merge-note':
+                    handleMergeNote(noteId, $button);
+                    enableButtonOnError = false;
+                    break;
                 case 'accept-note':
+                    if (!confirm('Publish this note?')) { restoreInteractiveButton($button); break; }
                     handleNoteAction(ApiService.acceptNote, noteId, $button, {
                         action: 'accept-note',
                         errorMessage: 'Failed to publish the note. Please try again.'
@@ -249,6 +282,7 @@ window.SharedUI = (function() {
                     enableButtonOnError = false;
                     break;
                 case 'delete-note':
+                    if (!confirm('Delete this unpublished note?')) { restoreInteractiveButton($button); break; }
                     handleNoteAction(ApiService.deleteNote, noteId, $button, {
                         action: 'delete-note',
                         errorMessage: 'Failed to delete the note. Please try again.'
@@ -256,6 +290,7 @@ window.SharedUI = (function() {
                     enableButtonOnError = false;
                     break;
                 case 'accept-note-removal':
+                    if (!confirm('Permanently delete this note?')) { restoreInteractiveButton($button); break; }
                     handleNoteAction(ApiService.acceptNoteRemoval, noteId, $button, {
                         action: 'accept-note-removal',
                         errorMessage: 'Failed to confirm the note deletion. Please try again.'
@@ -286,101 +321,150 @@ window.SharedUI = (function() {
                 }
             }
         });
+
+        // "Edit Tags" toggle: show/hide the tag edit panel
+        $container.on('click.sharedUI', '.tag-edit-toggle', function() {
+            var $btn = $(this);
+            var $panel = $btn.next('.tag-edit-panel');
+            if ($panel.is(':visible')) {
+                $panel.slideUp(150);
+                $btn.removeClass('active');
+            } else {
+                $panel.slideDown(150);
+                $btn.addClass('active');
+                $panel.find('.tag-filter-input').focus();
+            }
+        });
+
+        // Tag filter input: filter reviewed tags in the edit panel
+        $container.on('input.sharedUI', '.tag-filter-input', function() {
+            var query = $(this).val().toLowerCase().trim();
+            var $list = $(this).closest('.tag-edit-panel').find('.tag-edit-list');
+            $list.find('.tag-edit-row').each(function() {
+                var content = ($(this).data('tag-content') || '').toLowerCase();
+                $(this).toggle(content.indexOf(query) !== -1);
+            });
+        });
+
+        // Tag input (inside edit panel): add new tag on Enter
+        $container.on('keydown.sharedUI', '.tag-edit-panel .tag-input', function(event) {
+            if (event.key === 'Escape') {
+                $(this).val('').blur();
+                return;
+            }
+            if (event.key !== 'Enter') return;
+            event.preventDefault();
+            var $input = $(this);
+            var tagContent = $input.val().trim().replace(/\s+/g, '_');
+            if (!tagContent) return;
+
+            var $panel = $input.closest('.tag-edit-panel');
+            var noteId = $panel.data('note-id');
+            var commitId = $panel.data('commit-id');
+            if (!noteId || !commitId) return;
+
+            $input.prop('disabled', true);
+            ApiService.addTagSuggestion(noteId, commitId, tagContent, true)
+                .then(function(result) {
+                    if (result && result.tag_id) {
+                        var $editContainer = $panel.closest('.tag-edit-container');
+                        var $chip = $('<span class="tag-chip-editable tag-chip-add" data-tag-id="' + result.tag_id + '">' +
+                            '<span class="tag-text">' + $('<span>').text(tagContent).html() + '</span>' +
+                            '<button class="tag-revert-btn" data-action="deny-tag" data-tag-id="' + result.tag_id + '" title="Remove this tag">' +
+                            '<i class="fa fa-times"></i></button></span>');
+                        $editContainer.find('.tag-edit-toggle').before($chip);
+                        $input.val('');
+                    }
+                })
+                .catch(function(err) { console.error('Failed to add tag:', err); })
+                .finally(function() { $input.prop('disabled', false).focus(); });
+        });
+
+        // Tag removal: suggest removing a reviewed tag from the edit panel
+        $container.on('click.sharedUI', '.tag-suggest-remove-btn', function(e) {
+            e.preventDefault();
+            var $btn = $(this);
+            var noteId = $btn.data('note-id');
+            var commitId = $btn.data('commit-id');
+            var tagContent = $btn.data('tag-content');
+            if (!noteId || !commitId || !tagContent) return;
+
+            var $row = $btn.closest('.tag-edit-row');
+            $row.css('opacity', 0.5);
+            $btn.prop('disabled', true);
+
+            ApiService.addTagSuggestion(noteId, commitId, tagContent, false)
+                .then(function(result) {
+                    if (result && result.tag_id) {
+                        // Add removal chip to the inline tag area
+                        var $editContainer = $row.closest('.tag-edit-container');
+                        var $removalChip = $('<span class="tag-chip-editable tag-chip-remove" data-tag-id="' + result.tag_id + '">' +
+                            '<span class="tag-text">' + $('<span>').text(tagContent).html() + '</span>' +
+                            '<button class="tag-revert-btn" data-action="deny-tag" data-tag-id="' + result.tag_id + '" title="Undo removal">' +
+                            '<i class="fa fa-undo"></i></button></span>');
+                        $editContainer.find('.tag-edit-toggle').before($removalChip);
+                        // Hide the row in the edit panel
+                        $row.slideUp(150);
+                    }
+                })
+                .catch(function(err) {
+                    console.error('Failed to suggest tag removal:', err);
+                    $row.css('opacity', 1);
+                    $btn.prop('disabled', false);
+                });
+        });
+
+        // On init: hide edit panel rows that already have pending removal suggestions
+        $container.find('.tag-edit-panel').each(function() {
+            var $panel = $(this);
+            var $editContainer = $panel.closest('.tag-edit-container');
+            var pendingRemovals = [];
+            $editContainer.find('.tag-chip-remove .tag-text').each(function() {
+                pendingRemovals.push($(this).text().trim());
+            });
+            $panel.find('.tag-edit-row').each(function() {
+                var content = $(this).data('tag-content');
+                if (pendingRemovals.indexOf(content) !== -1) {
+                    $(this).hide();
+                }
+            });
+        });
     }
 
     // --- Action Handlers (Called by Event Delegator) ---
 
     async function handleTagAction(apiMethod, tagId, $button) {
-        // Look for container - try multiple approaches for robustness
-        let $container = $button.closest('.note_tag_container, .suggestion-box');
-        
-        // If not found, try traversing up manually for review page structure
-        if ($container.length === 0) {
-            $container = $button.closest('.tag-suggestion').parent();
+        // Support both old container layout and new chip layout
+        let $container = $button.closest('.tag-chip-editable');
+        const isChipLayout = $container.length > 0;
+
+        if (!isChipLayout) {
+            $container = $button.closest('.note_tag_container, .suggestion-box');
+            if ($container.length === 0) {
+                $container = $button.closest('.tag-suggestion').parent();
+            }
         }
-        
-        const isAcceptAction = apiMethod === ApiService.acceptTag;
         
         $container.css('opacity', 0.5);
         try {
-            await apiMethod(tagId); // No content expected
-            
-            if (isAcceptAction) {
-                // For accept: extract tag content and add to published tags
-                const $tagChip = $container.find('.tag-chip');
-                const tagText = $tagChip.text().trim();
-                const isAddAction = $tagChip.hasClass('add');
-                const isRemoveAction = $tagChip.hasClass('remove');
-                
-                // Add to or remove from the published tags container
-                const $noteCard = $button.closest('.note-context');
-                let $publishedTagsContainer = $noteCard.find('.reviewed-tags-panel .collapsible-body');
-
-                if ($publishedTagsContainer.length === 0) {
-                    $publishedTagsContainer = $('#mainTags');
-
-                    // If no published tags container exists, create it (replace empty state)
-                    if ($publishedTagsContainer.length === 0) {
-                        const $emptyState = $('.published-side .empty-state');
-                        if ($emptyState.length > 0) {
-                            const $tagsSection = $(`
-                                <div class="field-item">
-                                    <div class="field-header">
-                                        <div class="field-name">🏷️ Current Tags</div>
-                                    </div>
-                                    <div class="tag-container" id="mainTags"></div>
-                                </div>
-                            `);
-                            $emptyState.replaceWith($tagsSection);
-                            $publishedTagsContainer = $('#mainTags');
-                        }
+            await apiMethod(tagId);
+            // If undoing a removal, re-show the corresponding row in the edit panel
+            if (isChipLayout && $container.hasClass('tag-chip-remove')) {
+                var removedText = $container.find('.tag-text').text().trim();
+                var $editContainer = $container.closest('.tag-edit-container');
+                $editContainer.find('.tag-edit-row').each(function() {
+                    if ($(this).data('tag-content') === removedText) {
+                        $(this).slideDown(150).css('opacity', 1);
+                        $(this).find('.tag-suggest-remove-btn').prop('disabled', false);
                     }
-                }
-                if ($publishedTagsContainer.length) {
-                    const panelEl = $publishedTagsContainer.closest('details')[0];
-                    if (panelEl) {
-                        panelEl.open = true;
-                    }
-                    if (isAddAction) {
-                        // Add new tag to published tags
-                        // Extract just the tag text, removing the plus icon
-                        const cleanTagText = tagText.replace(/^[\+\s]*/, '').trim();
-                        const $newTag = $('<span class="tag-chip reviewed-tag-chip">' + cleanTagText + '</span>');
-                        $publishedTagsContainer.append($newTag);
-                        
-                        // Add a small animation to highlight the new tag
-                        $newTag.css({
-                            'background': '#10b981',
-                            'color': 'white',
-                            'transform': 'scale(1.1)'
-                        });
-                        setTimeout(() => {
-                            $newTag.css({
-                                'background': '',
-                                'color': '',
-                                'transform': ''
-                            });
-                        }, 1000);
-                    } else if (isRemoveAction) {
-                        // Remove tag from published tags
-                        // Extract just the tag text, removing the minus icon
-                        const cleanTagText = tagText.replace(/^[\-\s]*/, '').trim();
-                        $publishedTagsContainer.find('.tag-chip').each(function() {
-                            if ($(this).text().trim() === cleanTagText) {
-                                $(this).fadeOut(300, function() { $(this).remove(); });
-                                return false; // Break out of loop
-                            }
-                        });
-                    }
-                }
+                });
             }
-            
-            // Remove the suggestion container
-            $container.fadeOut(300, function() { $(this).remove(); });
+            // Remove the tag chip/container with animation
+            $container.fadeOut(200, function() { $(this).remove(); });
         } catch (error) {
             console.error(`Tag action failed for ID ${tagId}:`, error);
             $container.css('opacity', 1);
-            $button.prop('disabled', false); // Re-enable button on failure
+            $button.prop('disabled', false);
         }
     }
 
@@ -423,26 +507,25 @@ window.SharedUI = (function() {
                  if (newContent !== undefined) {
                      const unescapedContent = HtmlDiffUtils.unescapeHtml(newContent);
 
-                     // Update diff view to show the final accepted content
+                     // Update diff view to show the final accepted content (no more diff highlights)
                      $diffDiv.html(unescapedContent);
                      // Update data attributes: original now matches the accepted content
                      $diffDiv.data('original', newContent);
-                     // data-new-content remains the accepted content
+                     // Ensure cached raw diff HTML no longer contains stale diff markup
+                     $diffDiv.data('raw-diff-html', unescapedContent);
 
-                     // Update the corresponding 'original' side display if it exists on the page
-                     const $originalDiv = $suggestionBox.closest('.row').find(`${ORIGINAL_CONTENT_SELECTOR}[data-field-id='${fieldId}']`);
+                     // Update the corresponding 'original' side display
+                     const $noteCard = $suggestionBox.closest(NOTE_CONTEXT_SELECTOR);
+                     const $originalDiv = $noteCard.find(ORIGINAL_CONTENT_SELECTOR + '[data-field-id="' + fieldId + '"]');
                      if ($originalDiv.length) {
                          $originalDiv.html(unescapedContent);
-                         $originalDiv.data('content', newContent); // Update its data cache too
-                         // Re-prepare images in the updated original div
+                         $originalDiv.data('content', newContent);
                          prepareImagesForLazyLoad($originalDiv.find('img'));
                      }
-                     // Re-prepare images in the updated diff div
                      prepareImagesForLazyLoad($diffDiv.find('img'));
 
                  } else {
-                     console.warn(`AcceptField success for ID ${fieldId}, but data('new-content') was missing.`);
-                     // Fallback: Just mark as accepted visually without changing content?
+                     console.warn('AcceptField success for ID ' + fieldId + ', but data(new-content) was missing.');
                      $diffDiv.html('<em>Content accepted (preview unavailable).</em>');
                  }
                  // Mark visually as accepted and remove action buttons
@@ -450,6 +533,21 @@ window.SharedUI = (function() {
                  $suggestionBox.removeClass('suggestion-box').css({'opacity': 1, 'border-left': '3px solid mediumseagreen'});
 
              } else { // --- Deny Field Succeeded ---
+                 // Restore the original content in the left column (remove deletion highlights)
+                 const $noteCard = $suggestionBox.closest(NOTE_CONTEXT_SELECTOR);
+                 let $originalDiv = $noteCard.find(ORIGINAL_CONTENT_SELECTOR + '[data-field-id="' + fieldId + '"]');
+                 // Fallback: try matching by position via current-content (review page uses different field IDs)
+                 if (!$originalDiv.length) {
+                     const position = $diffDiv.data('position');
+                     if (position !== undefined) {
+                         $originalDiv = $noteCard.find(CURRENT_CONTENT_SELECTOR + '[data-position="' + position + '"]');
+                     }
+                 }
+                 if ($originalDiv.length) {
+                     const originalContent = HtmlDiffUtils.unescapeHtml($originalDiv.data('content') || '');
+                     $originalDiv.html(originalContent);
+                     prepareImagesForLazyLoad($originalDiv.find('img'));
+                 }
                  // Remove the entire suggestion box from the UI
                  $suggestionBox.fadeOut(300, function() { $(this).remove(); });
              }
@@ -461,6 +559,53 @@ window.SharedUI = (function() {
              $button.prop('disabled', false); // Re-enable the specific button that failed
          }
          // No finally block needed as success cases remove the buttons/box
+     }
+
+     /**
+      * Merges all remaining changes for a reviewed note via BulkNoteAction.
+      */
+     async function handleMergeNote(noteId, $button) {
+         const normalizedId = normalizeNoteId(noteId);
+         if (!normalizedId) {
+             console.error('Merge note: missing valid note id.');
+             restoreInteractiveButton($button);
+             return;
+         }
+
+         if (!confirm('Merge all changes for this note?')) {
+             restoreInteractiveButton($button);
+             return;
+         }
+
+         const $noteCard = findNoteCardElement(normalizedId, $button);
+         const commitContext = ApiService.getCommitContext($button[0]);
+         if (!commitContext.id) {
+             console.error('Merge note: missing commit context.');
+             restoreInteractiveButton($button);
+             return;
+         }
+
+         setNoteProcessingState($noteCard, true);
+         $button.text('Merging...').prop('disabled', true);
+
+         try {
+             const result = await ApiService.bulkNoteAction(
+                 commitContext.id,
+                 [parseInt(normalizedId, 10)],
+                 'approve'
+             );
+
+             if (result && result.failed && result.failed.length > 0) {
+                 throw new Error(result.failed[0].reason || 'Merge failed');
+             }
+
+             removeNoteCard($noteCard, 'merge-note');
+         } catch (error) {
+             console.error(`Merge note failed for ID ${normalizedId}:`, error);
+             setNoteProcessingState($noteCard, false);
+             $button.text('Merge Changes').prop('disabled', false);
+             alert('Failed to merge changes. Please try again.');
+         }
      }
 
      async function handleNoteAction(apiMethod, noteId, $trigger, options = {}) {
@@ -634,5 +779,6 @@ window.SharedUI = (function() {
     // --- Public API ---
     return {
         initializePage,
+        initializeNoteCard,
     };
 })();

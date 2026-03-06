@@ -140,48 +140,48 @@ window.ApiService = (function() {
 
     // -- Tag Actions --
     function acceptTag(tagId) {
-        return apiCall(`/AcceptTag/${tagId}`, 'GET');
+        return apiCall(`/AcceptTag/${tagId}`, 'POST');
     }
 
     function denyTag(tagId) {
-        return apiCall(`/DenyTag/${tagId}`, 'GET');
+        return apiCall(`/DenyTag/${tagId}`, 'POST');
     }
 
     // -- Move Actions --
     function acceptMove(moveReqId) {
-        return apiCall(`/AcceptNoteMove/${moveReqId}`, 'GET');
+        return apiCall(`/AcceptNoteMove/${moveReqId}`, 'POST');
     }
 
     function denyMove(moveReqId) {
-        return apiCall(`/DenyNoteMove/${moveReqId}`, 'GET');
+        return apiCall(`/DenyNoteMove/${moveReqId}`, 'POST');
     }
 
     // -- Field Actions --
     function acceptField(fieldId) {
         // Returns { success: true, new_content: "..." } or similar on success
-        return apiCall(`/AcceptField/${fieldId}`, 'GET');
+        return apiCall(`/AcceptField/${fieldId}`, 'POST');
     }
 
     function denyField(fieldId) {
         // Returns { success: true, original_content: "..." } or similar on success
-        return apiCall(`/DenyField/${fieldId}`, 'GET');
+        return apiCall(`/DenyField/${fieldId}`, 'POST');
     }
 
     // -- Note Actions --
     function acceptNote(noteId) {
-        return apiCall(`/AcceptNote/${noteId}`, 'GET');
+        return apiCall(`/AcceptNote/${noteId}`, 'POST');
     }
 
     function deleteNote(noteId) {
-        return apiCall(`/DeleteNote/${noteId}`, 'GET');
+        return apiCall(`/DeleteNote/${noteId}`, 'POST');
     }
 
     function acceptNoteRemoval(noteId) {
-        return apiCall(`/AcceptNoteRemoval/${noteId}`, 'GET');
+        return apiCall(`/AcceptNoteRemoval/${noteId}`, 'POST');
     }
 
     function denyNoteRemoval(noteId) {
-        return apiCall(`/DenyNoteRemoval/${noteId}`, 'GET');
+        return apiCall(`/DenyNoteRemoval/${noteId}`, 'POST');
     }
 
     // -- Field Suggestion Update --
@@ -229,6 +229,23 @@ window.ApiService = (function() {
         });
     }
 
+    /**
+     * Add a tag suggestion (addition or removal) for a note within a commit.
+     * @param {number|string} noteId - The note ID
+     * @param {number|string} commitId - The commit ID
+     * @param {string} content - The tag text
+     * @param {boolean} action - true for addition, false for removal
+     * @returns {Promise<object>} - Resolves with { success: true, tag_id: ... }
+     */
+    function addTagSuggestion(noteId, commitId, content, action) {
+        return apiCall('/AddTagSuggestion', 'POST', {
+            note_id: parseInt(noteId, 10),
+            commit_id: parseInt(commitId, 10),
+            content: content,
+            action: action
+        });
+    }
+
     // -- Image Loading --
     /**
      * Fetches a presigned URL for a given filename and context.
@@ -268,6 +285,8 @@ window.ApiService = (function() {
         batchUpdateFieldSuggestions,
         // Bulk note actions
         bulkNoteAction,
+        // Tag suggestion
+        addTagSuggestion,
         // Image methods
         getPresignedImageUrl,
         // Utility methods

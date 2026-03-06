@@ -271,6 +271,8 @@ pub enum NoteNotFoundContext {
     TagApprove,
     #[error("Tag Denied")]
     TagDenied,
+    #[error("Tag Update")]
+    TagUpdate,
     #[error("Field Approve")]
     FieldApprove,
     #[error("Field Denied")]
@@ -297,6 +299,7 @@ impl IntoResponse for NoteNotFoundContext {
         let status_code = match self {
             Self::TagApprove => StatusCode::NOT_FOUND,
             Self::TagDenied => StatusCode::FORBIDDEN,
+            Self::TagUpdate => StatusCode::NOT_FOUND,
             Self::FieldApprove => StatusCode::NOT_FOUND,
             Self::FieldDenied => StatusCode::FORBIDDEN,
             Self::FieldUpdate => StatusCode::NOT_FOUND,

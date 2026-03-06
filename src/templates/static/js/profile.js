@@ -72,7 +72,7 @@ document.addEventListener('DOMContentLoaded', function() {
             }, function(isConfirm) {
                 if (isConfirm) {
                     // Fire the request via fetch so we can show a success message
-                    fetch("/profile/delete-account", { credentials: "same-origin" })
+                    fetch("/profile/delete-account", { method: "POST", credentials: "same-origin" })
                         .then(function() {
                             swal({
                                 title: "Account Deleted",

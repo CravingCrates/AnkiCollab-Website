@@ -989,6 +989,77 @@ pub struct FieldSuggestionResult {
     pub action: String,
     pub old_content: Option<String>,
     pub new_content: String,
+    pub reviewed_content: String,
+}
+
+/// Create a tag suggestion (addition or removal) for a note within a commit.
+/// Returns the new tag ID on success.
+pub async fn create_tag_suggestion(
+    tx: &tokio_postgres::Transaction<'_>,
+    note_id: i64,
+    commit_id: i32,
+    content: &str,
+    action: bool,
+    actor_user_id: i32,
+    client_ip: &str,
+) -> Return<i64> {
+    use crate::note_history::{self, EventType};
+
+    // Validate note exists
+    let note_row = tx
+        .query_opt(
+            "SELECT reviewed FROM notes WHERE id = $1 AND deleted = false",
+            &[&note_id],
+        )
+        .await?;
+    if note_row.is_none() {
+        return Err(NoteNotFound(NoteNotFoundContext::TagUpdate));
+    }
+
+    // Sanitize: replace whitespace with underscores (Anki tags cannot contain spaces)
+    let content: String = content.split_whitespace().collect::<Vec<&str>>().join("_");
+    if content.is_empty() {
+        return Err(NoteNotFound(NoteNotFoundContext::TagUpdate));
+    }
+
+    // Check for duplicate: same note, same content, same action, unreviewed
+    let existing = tx
+        .query_opt(
+            "SELECT id FROM tags WHERE note = $1 AND content = $2 AND action = $3 AND reviewed = false",
+            &[&note_id, &content, &action],
+        )
+        .await?;
+    if let Some(row) = existing {
+        return Ok(row.get(0)); // Return existing tag ID
+    }
+
+    // Insert new tag suggestion
+    let tag_id: i64 = tx
+        .query_one(
+            "INSERT INTO tags (note, content, reviewed, action, commit, creator_ip) VALUES ($1, $2, false, $3, $4, $5) RETURNING id",
+            &[&note_id, &content, &action, &commit_id, &client_ip],
+        )
+        .await?
+        .get(0);
+
+    // Log the event
+    let _ = note_history::log_event(
+        tx,
+        note_id,
+        if action { EventType::TagAdded } else { EventType::TagRemoved },
+        None,
+        Some(&serde_json::json!({
+            "content": content,
+            "action": action,
+            "suggestion": true
+        })),
+        Some(actor_user_id),
+        Some(commit_id),
+        Some(false),
+    )
+    .await;
+
+    Ok(tag_id)
 }
 
 /// Batch create or update field suggestions for a note.
@@ -1111,6 +1182,7 @@ pub async fn batch_create_or_update_field_suggestions(
                     action: "unchanged".to_string(),
                     old_content: Some(old_clean),
                     new_content,
+                    reviewed_content: reviewed_content.clone(),
                 });
             } else if new_content == reviewed_content {
                 // Content matches reviewed - delete the suggestion
@@ -1140,6 +1212,7 @@ pub async fn batch_create_or_update_field_suggestions(
                     action: "removed".to_string(),
                     old_content: Some(old_clean),
                     new_content,
+                    reviewed_content: reviewed_content.clone(),
                 });
             } else {
                 // Update existing suggestion
@@ -1176,6 +1249,7 @@ pub async fn batch_create_or_update_field_suggestions(
                     action: "updated".to_string(),
                     old_content: Some(old_clean),
                     new_content,
+                    reviewed_content: reviewed_content.clone(),
                 });
             }
         } else {
@@ -1224,8 +1298,9 @@ pub async fn batch_create_or_update_field_suggestions(
                 position,
                 field_id: new_id,
                 action: "created".to_string(),
-                old_content: if reviewed_content.is_empty() { None } else { Some(reviewed_content) },
+                old_content: if reviewed_content.is_empty() { None } else { Some(reviewed_content.clone()) },
                 new_content,
+                reviewed_content,
             });
         }
     }

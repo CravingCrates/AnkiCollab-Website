@@ -63,7 +63,7 @@
                         {% endif %}
                       </td>
                       <td>
-                        <a href="/ToggleStats/{{deck.hash}}"><span class="label gradient-4 rounded">{% if deck.stats_enabled %}Disable{% else %}Enable{% endif %} Stats</span></a>
+                        <button onclick="fetch('/ToggleStats/{{deck.hash}}', {method:'POST',credentials:'same-origin'}).then(()=>location.reload())" style="border:none;background:none;padding:0;cursor:pointer;"><span class="label gradient-4 rounded">{% if deck.stats_enabled %}Disable{% else %}Enable{% endif %} Stats</span></button>
                       </td>
                     </tr>
                     {% endfor %}

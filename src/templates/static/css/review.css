@@ -1,6 +1,256 @@
 /**
- * review.css - Styles for the review note page
+ * review.css — Review note page overrides
+ * Apple-quality single-note review layout
  */
+
+/* ─── Layout ─── */
+
 .content-comparison {
-    gap: 30px;
+    gap: 0;
+    border-radius: 16px;
+    overflow: hidden;
+    border: 1px solid #e5e7eb;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+}
+
+.content-side {
+    border-radius: 0;
+    box-shadow: none;
+    border: none;
+}
+
+.published-side {
+    background: #f9fafb;
+    border-right: 1px solid #e5e7eb;
+    padding: 24px;
+}
+
+.suggestions-side {
+    background: #ffffff;
+    padding: 24px;
+}
+
+/* Content headers */
+.content-header {
+    font-size: 11px;
+    font-weight: 700;
+    color: #9ca3af;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    margin-bottom: 16px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid #f0f0f0;
+}
+
+/* Published side: field items sit flush, no card-in-card */
+.published-side .field-item {
+    background: transparent;
+    border: none;
+    border-bottom: 1px solid #e5e7eb;
+    border-radius: 0;
+    padding: 14px 0;
+    margin-bottom: 0;
+    box-shadow: none;
+}
+.published-side .field-item:last-child {
+    border-bottom: none;
+}
+.published-side .field-item:hover {
+    box-shadow: none;
+}
+
+/* Tags section on published side */
+.published-side .tags-section {
+    margin-top: 16px;
+    padding-top: 16px;
+    border-top: 1px solid #e5e7eb;
+}
+
+.published-side .section-title {
+    font-size: 11px;
+    font-weight: 700;
+    color: #9ca3af;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+}
+
+/* Empty state */
+.empty-state {
+    text-align: center;
+    padding: 32px 16px;
+    color: #9ca3af;
+    font-size: 13px;
+}
+
+/* ─── History button ─── */
+
+.history-btn {
+    width: auto;
+    padding: 0 10px;
+    gap: 4px;
+    font-size: 12px;
+    font-weight: 500;
+}
+
+/* ─── Reviewed tags on left side ─── */
+
+.reviewed-tag {
+    background: #e2e8f0;
+    border: 1px solid #cbd5e1;
+    color: #334155;
+    font-weight: 500;
+}
+
+.reviewed-tag .tag-icon-sm {
+    font-size: 9px;
+    opacity: 0.5;
+}
+
+/* ─── Commit link badge ─── */
+
+.commit-link-badge {
+    font-size: 11px;
+    font-weight: 500;
+    color: #94a3b8;
+    text-decoration: none;
+    margin-left: 6px;
+    transition: color 0.15s;
+}
+.commit-link-badge:hover {
+    color: #006699;
+    text-decoration: underline;
+}
+
+/* ─── Field accept/deny actions ─── */
+
+.review-field-actions {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-shrink: 0;
+}
+
+.review-field-actions .icon-btn {
+    width: 26px;
+    height: 26px;
+    font-size: 11px;
+    border: 1px solid #d1d5db;
+    background: #f9fafb;
+    color: #6b7280;
+    transition: all 0.15s ease;
+}
+
+.review-field-actions .icon-btn:hover {
+    background: #dcfce7;
+    border-color: #86efac;
+    color: #047857;
+}
+
+/* Always show revert buttons on review page */
+.suggestions-side .revert-btn {
+    opacity: 1;
+}
+
+.review-field-actions .revert-btn {
+    width: 26px;
+    height: 26px;
+    font-size: 11px;
+}
+
+/* ─── Commit groups ─── */
+
+.commit-group {
+    margin-bottom: 14px;
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    overflow: hidden;
+    background: #fff;
+}
+
+.commit-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 16px;
+    background: #f8fafc;
+    border-bottom: 1px solid #e5e7eb;
+    font-size: 12px;
+    color: #6b7280;
+}
+
+/* Override the big blue commit-badge pill */
+.commit-group .commit-badge {
+    all: unset;
+    font-size: 12px;
+    font-weight: 600;
+    color: #006699;
+    cursor: pointer;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+.commit-group .commit-badge:hover {
+    color: #004d73;
+    text-decoration: underline;
+}
+.commit-group .commit-badge i {
+    font-size: 13px;
+}
+
+.commit-suggestions .suggestion-item {
+    border: none;
+    border-bottom: 1px solid #f3f4f6;
+    border-radius: 0;
+    margin-bottom: 0;
+    box-shadow: none;
+    background: transparent;
+}
+.commit-suggestions .suggestion-item:last-child {
+    border-bottom: none;
+}
+.commit-suggestions .suggestion-item:hover {
+    box-shadow: none;
+    transform: none;
+}
+
+/* ─── Tag suggestion items ─── */
+
+.tag-suggestion-item {
+    padding: 6px 16px;
+    border: none;
+    box-shadow: none;
+    background: transparent;
+}
+.tag-suggestion-item:hover {
+    box-shadow: none;
+    transform: none;
+}
+
+/* Tag chips inside commit groups */
+.commit-suggestions .tag-chip-editable {
+    margin: 2px 4px;
+}
+
+/* ─── Move requests ─── */
+
+.tag-move {
+    border-radius: 10px;
+    margin-bottom: 12px;
+}
+
+/* ─── Responsive ─── */
+
+@media (max-width: 768px) {
+    .content-comparison {
+        grid-template-columns: 1fr;
+        border-radius: 12px;
+    }
+    .published-side {
+        border-right: none;
+        border-bottom: 1px solid #e5e7eb;
+    }
+    .published-side, .suggestions-side {
+        padding: 16px;
+    }
 }

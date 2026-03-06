@@ -30,20 +30,14 @@
     font-style: italic;
 }
 
-/* Note Card */
+/* Note Card — commit-page-specific overrides */
 .note-card {
-    background: white;
-    border-radius: 18px;
-    margin-bottom: 24px;
-    overflow: hidden;
-    box-shadow: 0 3px 26px rgba(0, 0, 0, 0.06);
-    border: 1px solid rgba(0, 0, 0, 0.04);
+    margin-bottom: 14px;
 }
 
 .note-header {
-    background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
-    padding: 20px 28px;
-    border-bottom: 1px solid #e2e8f0;
+    padding: 12px 20px;
+    border-bottom: 1px solid #f0f0f0;
 }
 
 .status-badge {
@@ -111,45 +105,9 @@
     display: inline-block;
 }
 
-/* Field Item */
+/* Field Item — override only what differs from commit_styling.css */
 .field-item {
-    background: white;
-    border-radius: 10px;
-    padding: 16px;
-    margin-bottom: 16px;
-    border: 1px solid rgba(0, 0, 0, 0.05);
-    box-shadow: 0 2px 7px rgba(0, 0, 0, 0.04);
-}
-
-.field-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 12px;
-}
-
-.field-name {
-    font-weight: 600;
-    color: #374151;
-    font-size: 15px;
-}
-
-.field-actions {
-    display: flex;
-    gap: 8px;
-}
-
-.action-btn {
-    padding: 6px 12px;
-    border-radius: 8px;
-    border: none;
-    font-size: 12px;
-    font-weight: 600;
-    cursor: pointer;
-    transition: all 0.2s ease;
-    display: flex;
-    align-items: center;
-    gap: 4px;
+    border-color: #f0f0f0;
 }
 
 .field-content {
@@ -157,28 +115,16 @@
     color: #374151;
 }
 
-/* Tag Container */
+/* Tag Container — compact overrides for commit page */
 .note_tag_container {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
     padding: 10px 14px;
-    border-radius: 10px;
-    margin-bottom: 6px;
-    font-weight: 500;
     font-size: 13px;
-    border: none;
 }
 
 .tag_accept_button, .tag_deny_button {
     width: 22px;
     height: 22px;
     border-radius: 6px;
-    border: none;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
     font-size: 9px;
     font-weight: bold;
     transition: all 0.2s ease;
@@ -322,75 +268,10 @@
     border-left: 4px solid #ef4444;
 }
 
-/* Disabled States */
-.disabled {
-    opacity: 0.6;
-    cursor: not-allowed !important;
-    pointer-events: none !important;
-    position: relative;
-    overflow: hidden;
-}
-
-.disabled::after {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: rgba(255, 255, 255, 0.1);
-    pointer-events: none;
-}
-
-/* Specific disabled states for different button types */
-.action-btn.disabled,
-.tag_accept_button.disabled,
-.tag_deny_button.disabled {
-    transform: scale(0.98);
-    transition: all 0.2s ease;
-}
-
-.modern-btn.disabled {
-    background: #94a3b8 !important;
-    border-color: #94a3b8 !important;
-    color: #64748b !important;
-}
-
-/* Prevent double-click selection */
-.disabled {
-    -webkit-user-select: none;
-    -moz-user-select: none;
-    user-select: none;
-}
-
-/* Focus states for accessibility */
-.modern-btn:focus,
-.action-btn:focus,
-.tag_accept_button:focus,
-.tag_deny_button:focus {
-    outline: 2px solid #006699;
-    outline-offset: 2px;
-}
-
-/* Smooth loading states */
-.loading {
-    position: relative;
-    overflow: hidden;
-}
-
-.loading::after {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: -100%;
-    width: 100%;
-    height: 100%;
-    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent);
-    animation: loading-shimmer 1.5s infinite;
-}
+/* Disabled / loading / focus states are in commit_styling.css.
+   Only commit-page-specific overrides here. */
 
 /* Global action button loading state (Approve All / Deny All) */
-/* Uses different class to avoid blocking navigation */
 .global-loading {
     position: relative;
     overflow: hidden;
@@ -419,15 +300,7 @@
     100% { transform: rotate(360deg); }
 }
 
-/* Micro-interactions for better UX */
-.suggestion-box {
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.suggestion-box:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 8px 32px rgba(0, 102, 153, 0.1);
-}
+/* Micro-interactions — base styles in commit_styling.css */
 
 /* Success/error states */
 .field-success {

@@ -258,22 +258,13 @@ body {
     color: #595959 !important;
 }
 
-/* Link color contrast fix (SC 1.4.3)
-   Theme overrides generic <a> color to #76838f (4.19:1) at style.css:7329.
-   Revert to the original #006699 (5.56:1) which passes.
-
-   WCAG 1.4.1 Use of Color: links must be distinguishable from surrounding
-   text by more than color alone. Override the theme's global
-   text-decoration: none to add underlines on all links by default.
-   Navigational / UI links exempt below (distinct by context / styling).
-*/
 a {
     color: #006699;
-    text-decoration: underline;
+    text-decoration: none;
 }
 a:hover,
 a:focus {
-    text-decoration: underline;
+    text-decoration: none;
 }
 
 /* --- WCAG 1.4.1 Exemptions: links distinguished by context, not underline --- */

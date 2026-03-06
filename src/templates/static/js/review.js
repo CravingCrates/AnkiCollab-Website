@@ -92,7 +92,7 @@ function groupSuggestionsByCommit() {
                 // Convert suggestion-box to suggestion-item
                 item.removeClass('suggestion-box').addClass('suggestion-item');
                 // Remove individual commit links since they're now in the group header
-                item.find('a[href*="/commit/"]').parent().remove();
+                item.find('.commit-link-badge').remove();
                 suggestionsList.append(item);
             });
             
@@ -229,27 +229,9 @@ $(document).ready(function() {
     
     // Group suggestions by commit
     groupSuggestionsByCommit();
-    
-    // CSP-compliant event handlers
-    // Toggle tags button (replaces inline onclick)
+
+    // Toggle tags button
     $(document).on('click', '.toggle-tags-btn', function() {
         toggleTags(this);
-    });
-    
-    // Action links (replaces inline onclick for navigation links)
-    $(document).on('click', '.action-link', function(e) {
-        var $link = $(this);
-        if ($link.hasClass('disabled')) {
-            e.preventDefault();
-            return false;
-        }
-        // Disable and show loading state
-        $link.addClass('disabled')
-            .css('pointer-events', 'none');
-        
-        var loadingText = $link.data('loading-text');
-        if (loadingText) {
-            $link.html(loadingText);
-        }
     });
 });

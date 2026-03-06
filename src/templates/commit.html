@@ -73,14 +73,14 @@
                     <div class="action-group global-group">
                         <span class="group-label">All Changes</span>
                         <div class="btn-group">
-                            <a href="/ApproveCommit/{{commit.id}}" class="modern-btn btn-success global-action-btn" title="Merges ALL notes in this commit, including notes not yet loaded">
+                            <button class="modern-btn btn-success global-action-btn" data-global-action="approve" data-commit-id="{{commit.id}}" title="Merges ALL notes in this commit, including notes not yet loaded">
                                 <i class="fa fa-check-circle" aria-hidden="true"></i>
                                 Accept All
-                            </a>
-                            <a href="/DenyCommit/{{commit.id}}" class="modern-btn btn-danger global-action-btn" title="Denies ALL notes in this commit, including notes not yet loaded">
+                            </button>
+                            <button class="modern-btn btn-danger global-action-btn" data-global-action="deny" data-commit-id="{{commit.id}}" title="Denies ALL notes in this commit, including notes not yet loaded">
                                 <i class="fa fa-times-circle" aria-hidden="true"></i>
                                 Deny All
-                            </a>
+                            </button>
                         </div>
                     </div>
 

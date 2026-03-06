@@ -149,7 +149,7 @@
                                 </div>
                                 <div id="collapseOne{{changelog.id}}" class="collapse show" data-parent="#accordion-three">
                                     <div class="card-body">
-                                        <a class="changelog-delete-btn" href="/DeleteChangelog/{{changelog.id}}" aria-label="Delete changelog from {{changelog.timestamp}}"><i class="fa fa-trash" aria-hidden="true"></i></a>
+                                        <button class="changelog-delete-btn" onclick="fetch('/DeleteChangelog/{{changelog.id}}', {method:'POST',credentials:'same-origin'}).then(()=>location.reload())" aria-label="Delete changelog from {{changelog.timestamp}}"><i class="fa fa-trash" aria-hidden="true"></i></button>
                                         {{changelog.message | linebreaksbr | safe }}
                                     </div>
                                 </div>

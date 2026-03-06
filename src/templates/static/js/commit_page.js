@@ -200,8 +200,7 @@ $(document).ready(function() {
     }
 
     function initButtonFeatures() {
-        // Global action buttons (Approve All / Deny All) - CSP-compliant click handler
-        // NOTE: These buttons use href navigation - we only add visual feedback and prevent spam clicks
+        // Global action buttons (Approve All / Deny All)
         $(document).on('click', '.global-action-btn', function(e) {
             var $btn = $(this);
             
@@ -211,13 +210,35 @@ $(document).ready(function() {
                 return false;
             }
             
+            var action = $btn.data('global-action');
+            var commitId = $btn.data('commit-id');
+            if (!action || !commitId) return;
+            
+            var confirmMsg = action === 'approve' ? 'Accept ALL notes in this commit?' : 'Deny ALL notes in this commit?';
+            if (!confirm(confirmMsg)) return;
+            
             // Mark as clicked and add visual loading state
             $btn.data('clicked', true)
                 .addClass('global-loading')
                 .css('pointer-events', 'none')
                 .attr('aria-busy', 'true');
             
-            // Let the navigation happen (don't call preventDefault)
+            var url = action === 'approve' ? '/ApproveCommit/' + commitId : '/DenyCommit/' + commitId;
+            fetch(url, { method: 'POST', credentials: 'same-origin' })
+                .then(function(r) {
+                    if (r.redirected) {
+                        window.location.href = r.url;
+                    } else {
+                        location.reload();
+                    }
+                })
+                .catch(function(err) {
+                    console.error('Global action failed:', err);
+                    $btn.data('clicked', false)
+                        .removeClass('global-loading')
+                        .css('pointer-events', '')
+                        .attr('aria-busy', 'false');
+                });
         });
         
         // Comprehensive spam-click protection for all interactive buttons (EXCEPT editor buttons, editor content, and global actions)

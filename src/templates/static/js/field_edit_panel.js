@@ -54,7 +54,7 @@ window.FieldEditPanel = (function() {
     // --- Public API ---
 
     /**
-     * Opens the edit panel for a note within a specific commit context.
+     * Opens the edit drawer for a note within a specific commit context.
      * @param {string|number} noteId - The note ID
      * @param {string|number} commitId - The commit ID to scope changes to
      * @param {HTMLElement} triggerElement - The button that triggered this action
@@ -75,7 +75,7 @@ window.FieldEditPanel = (function() {
         const $trigger = $(triggerElement);
         $trigger.prop('disabled', true).addClass('loading');
         const originalHtml = $trigger.html();
-        $trigger.html('<i class="fa fa-spinner fa-spin"></i> Loading...');
+        $trigger.html('<i class="fa fa-spinner fa-spin"></i>');
 
         // Helper to restore button state
         const restoreButton = () => {
@@ -88,7 +88,6 @@ window.FieldEditPanel = (function() {
             
             if (response.error) {
                 console.error('Error fetching fields:', response.error);
-                showError($noteCard, response.error);
                 restoreButton();
                 return;
             }
@@ -109,52 +108,47 @@ window.FieldEditPanel = (function() {
                     reviewedContent: field.reviewed_content,
                     suggestionContent: field.suggestion_content,
                     suggestionId: field.suggestion_id,
-                    inherited: field.inherited
+                    inherited: field.inherited,
+                    name: field.name || 'Field ' + field.position
                 });
             });
 
-            // Render the panel
+            // Render the drawer (appended to body, not inside note card)
             renderPanel($noteCard, response, commitId);
 
-            // Hide entire content-comparison to prevent empty space
-            $noteCard.find('.content-comparison').hide();
-            
-            // Show and animate panel
-            const $panel = $noteCard.find('.edit-all-fields-panel');
-            $panel.hide();
+            // Get references to the drawer elements
+            const $overlay = $('.edit-drawer-overlay');
+            const $panel = $('.edit-all-fields-panel');
 
-            // Wait for slideDown animation to complete before initializing editors
-            // Trumbowyg needs visible elements to initialize properly
-            await new Promise((resolve) => {
-                $panel.slideDown(300, resolve);
+            // Force reflow then open with animation
+            $panel[0].offsetHeight;
+            requestAnimationFrame(() => {
+                $overlay.addClass('open');
+                $panel.addClass('open');
             });
-            
-            // Initialize editors AFTER slideDown completes (outside the callback)
-            await initializeEditors($panel, noteId);
 
-            // Hide Edit All Fields button while panel is open
-            $noteCard.find('.edit-all-fields-btn').hide();
+            // Wait for transition to complete before initializing editors
+            await new Promise(resolve => setTimeout(resolve, 320));
+            
+            // Initialize editors AFTER drawer is visible
+            await initializeEditors($panel, noteId);
             
             // Restore button after successful initialization
             restoreButton();
 
         } catch (error) {
             console.error('Failed to open edit panel:', error);
-            showError($noteCard, 'Failed to load fields. Please try again.');
             restoreButton();
         }
     }
 
     /**
-     * Closes the edit panel and restores the original view.
+     * Closes the edit drawer and restores state.
      * @param {string|number} noteId - The note ID
      */
     function close(noteId) {
-        const $noteCard = $(`#${noteId}`);
-        if (!$noteCard.length) return;
-
         // Destroy all editors and event handlers
-        $noteCard.find('.edit-field-editor').each(function() {
+        $('.edit-all-fields-panel .edit-field-editor').each(function() {
             try {
                 $(this).off('.fieldEditPanel');
                 $(this).off(PARAGRAPH_CLEANUP_EVENTS);
@@ -164,16 +158,17 @@ window.FieldEditPanel = (function() {
             }
         });
 
-        // Remove the panel
-        $noteCard.find('.edit-all-fields-panel').slideUp(200, function() {
-            $(this).remove();
-        });
+        // Animate out
+        const $overlay = $('.edit-drawer-overlay');
+        const $panel = $('.edit-all-fields-panel');
+        $overlay.removeClass('open');
+        $panel.removeClass('open');
 
-        // Show original content areas
-        $noteCard.find('.content-comparison').show();
-
-        // Show Edit All Fields button again
-        $noteCard.find('.edit-all-fields-btn').show();
+        // Remove after transition
+        setTimeout(() => {
+            $overlay.remove();
+            $panel.remove();
+        }, 300);
 
         // Clear state
         if (activePanel && String(activePanel.noteId) === String(noteId)) {
@@ -194,7 +189,7 @@ window.FieldEditPanel = (function() {
         }
 
         const $noteCard = activePanel.$noteCard;
-        const $panel = $noteCard.find('.edit-all-fields-panel');
+        const $panel = $('.edit-all-fields-panel');
         const $saveBtn = $panel.find('.save-all-fields-btn');
         const $cancelBtn = $panel.find('.cancel-all-fields-btn');
         const $status = $panel.find('.edit-panel-status');
@@ -228,29 +223,122 @@ window.FieldEditPanel = (function() {
 
             // Show success
             const changeCount = response.updated_count + response.created_count;
-            $status.html(`<span class="text-success"><i class="fa fa-check"></i> Saved ${changeCount} field(s)! Reloading...</span>`);
+            $status.html('<span class="text-success"><i class="fa fa-check"></i> Saved ' + changeCount + ' field(s)!</span>');
 
-            // Store complete page state for restoration after reload
-            const scrollPosition = window.scrollY || document.documentElement.scrollTop;
-            const $notesContainer = $('#notes-container');
-            const restoreState = {
-                scrollPosition: scrollPosition,
-                noteId: String(noteId),
-                // Pagination state
-                loaded: $notesContainer.data('loaded') || 0,
-                nextOffset: $notesContainer.data('nextOffset') || null,
-                // Store timestamp to auto-expire the state
-                timestamp: Date.now()
-            };
-            sessionStorage.setItem('fieldEditPanel_restoreState', JSON.stringify(restoreState));
-
-            // Smooth transition before reload
-            $panel.css('opacity', '0.6');
+            // Update the note card's diff views in-place using the returned diff HTML
+            if (response.fields && response.fields.length > 0) {
+                response.fields.forEach(function(fieldResult) {
+                    // Handle "removed" suggestions: the suggestion was deleted because
+                    // the edited content matches the reviewed content.
+                    if (fieldResult.action === 'removed') {
+                        // Remove the suggestion box from the suggestion side
+                        var $removedDiff = $noteCard.find('.diff-content[data-field-id="' + fieldResult.field_id + '"]:not(.original-content)');
+                        if ($removedDiff.length) {
+                            var $suggestionBox = $removedDiff.closest('.suggestion-box');
+                            // Also remove the corresponding original-content field-item
+                            var $origContent = $noteCard.find('.original-content[data-field-id="' + fieldResult.field_id + '"]:not(.diff-content)');
+                            if ($origContent.length) {
+                                $origContent.closest('.field-item').remove();
+                            }
+                            $suggestionBox.remove();
+                        }
+                        return;
+                    }
+                    
+                    if (!fieldResult.diff_html) return;
+                    
+                    // Find the diff div by field_id (works for "updated" fields)
+                    var $diffDiv = $noteCard.find('.diff-content[data-field-id="' + fieldResult.field_id + '"]');
+                    
+                    // For "created" fields, the original DOM had a different (or no) field_id.
+                    // In that case, we need to add a new field item to the suggestion side.
+                    if (!$diffDiv.length && fieldResult.position !== undefined) {
+                        var fieldName = '';
+                        // Get field name from originalFieldData (populated when panel opened)
+                        var origData = originalFieldData.get(fieldResult.position);
+                        if (origData && origData.name) {
+                            fieldName = origData.name;
+                        }
+                        if (!fieldName) {
+                            // Fallback: try to get field name from the original side
+                            var $origItems = $noteCard.find('.original-side .field-item');
+                            if ($origItems.length > fieldResult.position) {
+                                fieldName = $origItems.eq(fieldResult.position).find('.field-name').text().trim();
+                            }
+                        }
+                        if (!fieldName) fieldName = 'Field ' + fieldResult.position;
+                        
+                        // Get the edited content for the new-content data attribute
+                        var editedContent = '';
+                        var $editor = $panel.find('.edit-field-editor[data-position="' + fieldResult.position + '"]');
+                        if ($editor.length) {
+                            try { editedContent = $editor.trumbowyg('html') || ''; } catch(e) { editedContent = ''; }
+                        }
+                        
+                        // Get original reviewed content
+                        var origData = originalFieldData.get(fieldResult.position);
+                        var reviewedContent = origData ? (origData.reviewedContent || '') : '';
+                        
+                        // Create new field item on the suggestion side
+                        var newFieldHtml = '<div class="field-item suggestion-box" data-field-id="' + fieldResult.field_id + '" data-position="' + fieldResult.position + '">' +
+                            '<div class="field-header"><div class="field-name">' + $('<span>').text(fieldName).html() + '</div></div>' +
+                            '<div class="field-content note-content-display diff-content"' +
+                            ' data-field-id="' + fieldResult.field_id + '"' +
+                            ' data-position="' + fieldResult.position + '"' +
+                            ' data-original="' + escapeAttr(reviewedContent) + '"' +
+                            ' data-new-content="' + escapeAttr(editedContent) + '">' +
+                            fieldResult.diff_html + '</div></div>';
+                        
+                        // Also create matching original-content div if it doesn't exist
+                        var $origContent = $noteCard.find('.original-content[data-field-id="' + fieldResult.field_id + '"]');
+                        if (!$origContent.length) {
+                            var newOrigHtml = '<div class="field-item">' +
+                                '<div class="field-header"><div class="field-name">' + $('<span>').text(fieldName).html() + '</div></div>' +
+                                '<div class="field-content note-content-display original-content"' +
+                                ' data-field-id="' + fieldResult.field_id + '"' +
+                                ' data-content="' + escapeAttr(reviewedContent) + '"></div></div>';
+                            insertFieldInOrder($noteCard.find('.original-side'), newOrigHtml, fieldResult.position);
+                        }
+                        
+                        insertFieldInOrder($noteCard.find('.suggestion-side'), newFieldHtml, fieldResult.position);
+                        $diffDiv = $noteCard.find('.diff-content[data-field-id="' + fieldResult.field_id + '"]');
+                        // Cache the raw diff so processDiffField can re-process correctly
+                        if ($diffDiv.length) { $diffDiv.data('raw-diff-html', fieldResult.diff_html); }
+                    }
+                    
+                    if ($diffDiv.length) {
+                        // Update the diff content and cache the raw diff for re-processing
+                        $diffDiv.html(fieldResult.diff_html);
+                        $diffDiv.data('raw-diff-html', fieldResult.diff_html);
+                        
+                        // Update data-field-id in case it changed
+                        $diffDiv.attr('data-field-id', fieldResult.field_id);
+                        $diffDiv.data('field-id', fieldResult.field_id);
+                        
+                        // Also update parent suggestion-box data-field-id
+                        $diffDiv.closest('.suggestion-box').attr('data-field-id', fieldResult.field_id);
+                        
+                        // Get the edited content from the editor
+                        var $editor = $panel.find('.edit-field-editor[data-position="' + fieldResult.position + '"]');
+                        if ($editor.length) {
+                            var editedContent;
+                            try { editedContent = $editor.trumbowyg('html') || ''; } catch(e) { editedContent = ''; }
+                            $diffDiv.data('new-content', editedContent);
+                            $diffDiv.attr('data-new-content', editedContent);
+                        }
+                    }
+                });
+            }
             
-            // Brief delay to show success message, then reload
-            setTimeout(() => {
-                window.location.reload();
-            }, 600);
+            // Close the edit panel
+            close(noteId);
+            
+            // Re-initialize just this note card to re-render split diff views
+            SharedUI.initializeNoteCard($noteCard[0]);
+            
+            // Brief highlight to confirm success
+            $noteCard.addClass('save-highlight');
+            setTimeout(function() { $noteCard.removeClass('save-highlight'); }, 2500);
 
             return true;
 
@@ -326,15 +414,19 @@ window.FieldEditPanel = (function() {
         }
 
         const panelHtml = `
-            <div class="edit-all-fields-panel" data-commit-id="${commitId}">
+            <div class="edit-drawer-overlay"></div>
+            <div class="edit-all-fields-panel" data-commit-id="${commitId}" data-note-id="${response.note_id}">
                 <div class="edit-panel-header">
-                    <div class="edit-panel-title">
-                        <i class="fa fa-edit"></i>
-                        <span>Edit All Fields</span>
+                    <div>
+                        <div class="edit-panel-title">
+                            <i class="fa fa-pencil"></i>
+                            <span>Edit Fields</span>
+                        </div>
+                        <div class="edit-panel-hint">Note #${response.note_id} &middot; Commit #${commitId}</div>
                     </div>
-                    <div class="edit-panel-hint">
-                        Changes affect commit #${commitId}
-                    </div>
+                    <button class="edit-panel-close cancel-all-fields-btn" data-note-id="${response.note_id}" title="Close">
+                        <i class="fa fa-times"></i>
+                    </button>
                 </div>
                 <div class="edit-fields-container">
                     ${fieldsHtml}
@@ -343,23 +435,25 @@ window.FieldEditPanel = (function() {
                     <div class="edit-panel-status"></div>
                     <div class="edit-panel-actions">
                         <button class="modern-btn btn-secondary cancel-all-fields-btn" data-note-id="${response.note_id}">
-                            <i class="fa fa-times"></i> Cancel
+                            Cancel
                         </button>
                         <button class="modern-btn btn-success save-all-fields-btn" data-note-id="${response.note_id}">
-                            <i class="fa fa-save"></i> Save Changes
+                            <i class="fa fa-check"></i> Save
                         </button>
                     </div>
                 </div>
             </div>
         `;
 
-        // Insert after the content-comparison div
-        const $contentComparison = $noteCard.find('.content-comparison');
-        if ($contentComparison.length) {
-            $contentComparison.after(panelHtml);
-        } else {
-            $noteCard.append(panelHtml);
-        }
+        // Remove any existing drawer first
+        $('.edit-drawer-overlay, .edit-all-fields-panel').remove();
+        // Append to body as a drawer overlay
+        $('body').append(panelHtml);
+
+        // Close on overlay click
+        $('.edit-drawer-overlay').on('click', () => {
+            if (activePanel) close(activePanel.noteId);
+        });
     }
 
     /**
@@ -835,16 +929,53 @@ window.FieldEditPanel = (function() {
     }
 
     /**
-     * Shows an error message in the note card.
+     * Inserts a new field-item HTML into a side container (original-side or suggestion-side)
+     * in the correct position order, based on the position of existing field items.
+     * @param {jQuery} $side - The .original-side or .suggestion-side element
+     * @param {string} fieldHtml - The HTML string to insert
+     * @param {number} position - The field position to insert at
      */
-    function showError($noteCard, message) {
-        const $error = $(`
-            <div class="edit-panel-error alert alert-danger" style="margin: 16px;">
-                <i class="fa fa-exclamation-triangle"></i> ${escapeHtml(message)}
-            </div>
-        `);
-        $noteCard.find('.content-comparison').after($error);
-        setTimeout(() => $error.fadeOut(300, () => $error.remove()), 5000);
+    function insertFieldInOrder($side, fieldHtml, position) {
+        var $existingItems = $side.children('.field-item, .suggestion-box');
+        var inserted = false;
+        
+        $existingItems.each(function() {
+            // Try to determine position from direct data attributes or child diff/content elements
+            var $item = $(this);
+            var $content = $item.find('.diff-content, .original-content, .current-content').first();
+            var existingPos = $content.length ? parseInt($content.data('position'), 10) : NaN;
+            
+            // Fallback: try the field-item's own data or the editor position
+            if (isNaN(existingPos)) {
+                existingPos = parseInt($item.data('position'), 10);
+            }
+            
+            if (!isNaN(existingPos) && existingPos > position) {
+                $item.before(fieldHtml);
+                inserted = true;
+                return false; // break
+            }
+        });
+        
+        if (!inserted) {
+            // Append after the last field item, or after the content-header
+            if ($existingItems.length) {
+                $existingItems.last().after(fieldHtml);
+            } else {
+                $side.find('.content-header').after(fieldHtml);
+            }
+        }
+    }
+
+    /**
+     * Shows an error message in the drawer panel status area.
+     */
+    function showError(message) {
+        const $status = $('.edit-all-fields-panel .edit-panel-status');
+        if ($status.length) {
+            $status.html('<span class="text-danger"><i class="fa fa-exclamation-triangle"></i> ' + escapeHtml(message) + '</span>');
+            setTimeout(() => $status.html(''), 5000);
+        }
     }
 
     /**

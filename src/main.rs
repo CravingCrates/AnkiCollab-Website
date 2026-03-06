@@ -519,7 +519,8 @@ async fn edit_deck(
 
     context.insert("user", &user);
     context.insert("hash", &deck_hash);
-    context.insert("description", &desc);
+    // Escape </ to <\/ to prevent </script> breakout when embedded in a <script> tag
+    context.insert("description", &desc.replace("</", "<\\/"));
     context.insert("private", &is_private);
     context.insert("prevent_subdecks", &prevent_subdecks);
     context.insert("restrict_notetypes", &restrict_notetypes);
@@ -575,8 +576,8 @@ async fn delete_changelog(
     Path(changelog_id): Path<i64>,
 ) -> Result<impl IntoResponse, Error> {
     match changelog_manager::delete_changelog(&appstate, changelog_id, user.id()).await {
-        Ok(hash) => Ok(Redirect::permanent(format!("/EditDeck/{hash}").as_str())),
-        Err(_err) => Ok(Redirect::permanent("/")),
+        Ok(hash) => Ok(Redirect::to(format!("/EditDeck/{hash}").as_str())),
+        Err(_err) => Ok(Redirect::to("/")),
     }
 }
 
@@ -631,7 +632,7 @@ async fn delete_deck(
         }
     });
 
-    Ok(Redirect::permanent("/"))
+    Ok(Redirect::to("/"))
 }
 
 // Remove any deck-specific assets stored under the S3 prefix for this deck.
@@ -1465,9 +1466,8 @@ async fn batch_update_field_suggestions(
                     _ => {}
                 }
                 
-                // Get the reviewed content for diff calculation
-                let reviewed_content = result.old_content.clone().unwrap_or_default();
-                let diff_html = htmldiff::htmldiff(&reviewed_content, &result.new_content);
+                // Compute diff against the actual reviewed/published content
+                let diff_html = htmldiff::htmldiff(&result.reviewed_content, &result.new_content);
                 
                 field_results.push(structs::FieldUpdateResult {
                     position: result.position,
@@ -1508,6 +1508,80 @@ async fn batch_update_field_suggestions(
                 updated_count: 0,
                 created_count: 0,
                 fields: vec![],
+            }))
+        }
+    }
+}
+
+/// Add a tag suggestion (addition or removal) to a note within a commit
+async fn add_tag_suggestion(
+    State(appstate): State<Arc<AppState>>,
+    ClientIp(client_ip): ClientIp,
+    user: User,
+    Json(payload): Json<structs::AddTagSuggestionRequest>,
+) -> Result<impl IntoResponse, Error> {
+    // Get the deck ID for this note to check authorization
+    let client = database::client(&appstate).await?;
+    let deck_row = client
+        .query_opt(
+            "SELECT deck FROM notes WHERE id = $1 AND deleted = false",
+            &[&payload.note_id],
+        )
+        .await?;
+
+    let deck_id: i64 = match deck_row {
+        Some(row) => row.get(0),
+        None => {
+            return Ok(Json(structs::AddTagSuggestionResponse {
+                success: false,
+                tag_id: None,
+            }));
+        }
+    };
+
+    if !access_check(&appstate, deck_id, &user).await? {
+        return Ok(Json(structs::AddTagSuggestionResponse {
+            success: false,
+            tag_id: None,
+        }));
+    }
+
+    let cleaned_content = cleanser::clean(&payload.content);
+    if cleaned_content.is_empty() {
+        return Ok(Json(structs::AddTagSuggestionResponse {
+            success: false,
+            tag_id: None,
+        }));
+    }
+
+    let mut db_client = database::client(&appstate).await?;
+    let tx = db_client.transaction().await?;
+
+    let ip_str = client_ip.to_string();
+    match suggestion_manager::create_tag_suggestion(
+        &tx,
+        payload.note_id,
+        payload.commit_id,
+        &cleaned_content,
+        payload.action,
+        user.id(),
+        &ip_str,
+    )
+    .await
+    {
+        Ok(tag_id) => {
+            tx.commit().await?;
+            Ok(Json(structs::AddTagSuggestionResponse {
+                success: true,
+                tag_id: Some(tag_id),
+            }))
+        }
+        Err(error) => {
+            tracing::warn!(error = %error, note_id = payload.note_id, "Failed to add tag suggestion");
+            let _ = tx.rollback().await;
+            Ok(Json(structs::AddTagSuggestionResponse {
+                success: false,
+                tag_id: None,
             }))
         }
     }
@@ -2387,7 +2461,7 @@ async fn main() {
         .route("/logout", get(logout))
         .route("/profile", get(get_profile))
         .route("/profile/change-password", post(post_change_password))
-        .route("/profile/delete-account", get(delete_account))
+        .route("/profile/delete-account", post(delete_account))
         .route("/OptionalTags", post(post_optional_tags))
         .route("/OptionalTags/{deck_hash}", get(show_optional_tags))
         .route("/Maintainers/{deck_hash}", get(show_maintainers))
@@ -2410,36 +2484,37 @@ async fn main() {
             "/api/subscription-field-policy",
             get(api_get_subscription_policy).post(api_post_subscription_policy),
         )
-        .route("/DeleteChangelog/{changelog_id}", get(delete_changelog))
-        .route("/DeleteDeck/{deck_hash}", get(delete_deck))
+        .route("/DeleteChangelog/{changelog_id}", post(delete_changelog))
+        .route("/DeleteDeck/{deck_hash}", post(delete_deck))
         .route("/leavereview", get(forward_donation))
         .route("/decks", get(deck_overview))
         .route("/notes/{deck_hash}", get(get_notes_from_deck))
         .route("/ManageDecks", get(manage_decks))
         .route("/review/{note_id}", get(review_note))
-        .route("/ToggleStats/{deck_hash}", get(toggle_stats))
+        .route("/ToggleStats/{deck_hash}", post(toggle_stats))
         .route("/Statistics/{deck_hash}", get(show_statistics))
         .route("/UpdateStatsPages/{secret}", get(refresh_stats_cache))
-        .route("/DenyNoteRemoval/{note_id}", get(deny_note_removal))
-        .route("/AcceptNoteRemoval/{note_id}", get(remove_note_from_deck))
-        .route("/DenyTag/{tag_id}", get(deny_tag))
-        .route("/AcceptTag/{tag_id}", get(accept_tag))
-        .route("/DenyNoteMove/{move_id}", get(deny_note_move))
-        .route("/AcceptNoteMove/{move_id}", get(accept_note_move))
-        .route("/DenyField/{field_id}", get(deny_field))
-        .route("/AcceptField/{field_id}", get(accept_field))
+        .route("/DenyNoteRemoval/{note_id}", post(deny_note_removal))
+        .route("/AcceptNoteRemoval/{note_id}", post(remove_note_from_deck))
+        .route("/DenyTag/{tag_id}", post(deny_tag))
+        .route("/AcceptTag/{tag_id}", post(accept_tag))
+        .route("/DenyNoteMove/{move_id}", post(deny_note_move))
+        .route("/AcceptNoteMove/{move_id}", post(accept_note_move))
+        .route("/DenyField/{field_id}", post(deny_field))
+        .route("/AcceptField/{field_id}", post(accept_field))
         //.route("/UpdateFieldSuggestion", post(update_field))
         .route("/GetAllFieldsForEdit/{note_id}/{commit_id}", get(get_all_fields_for_edit))
         .route("/BatchUpdateFieldSuggestions", post(batch_update_field_suggestions))
-        .route("/DenyCommit/{commit_id}", get(deny_commit))
-        .route("/ApproveCommit/{commit_id}", get(approve_commit))
+        .route("/AddTagSuggestion", post(add_tag_suggestion))
+        .route("/DenyCommit/{commit_id}", post(deny_commit))
+        .route("/ApproveCommit/{commit_id}", post(approve_commit))
         .route("/BulkNoteAction/{commit_id}", post(bulk_note_action))
         .route("/commit/{commit_id}", get(review_commit))
         .route("/note_history/{note_id}", get(note_history_page))
         .route("/commit_history/{commit_id}", get(commit_history_page))
         .route("/reviews", get(all_reviews))
-        .route("/DeleteNote/{note_id}", get(deny_note))
-        .route("/AcceptNote/{note_id}", get(accept_note))
+        .route("/DeleteNote/{note_id}", post(deny_note))
+        .route("/AcceptNote/{note_id}", post(accept_note))
         .route("/GetImageFile", post(get_presigned_url))
         .nest_service(
             "/static",

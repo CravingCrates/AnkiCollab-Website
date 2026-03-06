@@ -114,11 +114,47 @@ document.addEventListener('DOMContentLoaded', function() {
             },
             function (e) {
                 if (e) {
-                    window.location.href = '/DeleteDeck/' + deckHash;
+                    fetch('/DeleteDeck/' + deckHash, { method: 'POST', credentials: 'same-origin' })
+                        .then(function(r) { if (r.redirected) window.location.href = r.url; else window.location.href = '/ManageDecks'; })
+                        .catch(function() { swal("Error", "Failed to delete deck", "error"); });
                 } else {
                     swal("Cancelled", "Your deck is safe :)", "error");
                 }
             }
         );
     };
+});
+
+// Changelog deletion handling
+document.addEventListener('DOMContentLoaded', function() {
+    document.querySelectorAll('.changelog-delete-btn').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            var changelogId = btn.dataset.changelogId;
+            var card = btn.closest('.card');
+            fetch('/DeleteChangelog/' + changelogId, { method: 'POST', credentials: 'same-origin', redirect: 'manual' })
+                .then(function(response) {
+                    if (response.ok || response.type === 'opaqueredirect' || response.status === 303) {
+                        if (card) card.remove();
+                        // If no changelogs remain, remove the section header too
+                        var accordion = document.getElementById('accordion-three');
+                        if (accordion && accordion.children.length === 0) {
+                            var heading = accordion.previousElementSibling;
+                            while (heading && heading.tagName !== 'H4') {
+                                heading = heading.previousElementSibling;
+                            }
+                            if (heading) heading.remove();
+                            // Also remove the empty <p> and accordion container
+                            var emptyP = accordion.previousElementSibling;
+                            if (emptyP && emptyP.tagName === 'P') emptyP.remove();
+                            accordion.remove();
+                        }
+                    } else {
+                        swal("Error", "Failed to delete changelog. Please try again.", "error");
+                    }
+                })
+                .catch(function() {
+                    swal("Error", "Something went wrong. Please try again.", "error");
+                });
+        });
+    });
 });

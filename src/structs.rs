@@ -263,6 +263,22 @@ pub struct UpdateOptionalTag {
     pub action: i32, // 1 = add, 0 = remove
 }
 
+/// Request payload for adding a tag suggestion to a note within a commit
+#[derive(Deserialize)]
+pub struct AddTagSuggestionRequest {
+    pub note_id: i64,
+    pub commit_id: i32,
+    pub content: String,
+    pub action: bool, // true = add, false = remove
+}
+
+/// Response for add tag suggestion
+#[derive(Serialize)]
+pub struct AddTagSuggestionResponse {
+    pub success: bool,
+    pub tag_id: Option<i64>,
+}
+
 #[derive(Deserialize, Serialize)]
 pub struct UpdateFieldSuggestion {
     pub field_id: i64,
