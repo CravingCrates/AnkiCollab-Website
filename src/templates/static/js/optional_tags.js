@@ -52,8 +52,12 @@ $(document).ready(function () {
 
     var ACTION_ADD = 1;
     var ACTION_REMOVE = 0;
+    var isProcessing = false;
 
     function sendData(action, taggroup) {
+        if (isProcessing) return;
+        isProcessing = true;
+
         var data = {
             deck: deckHash,
             taggroup: taggroup,
@@ -67,7 +71,10 @@ $(document).ready(function () {
                 "Content-Type": "application/json",
             },
         })
-        .then(function(response) { return response.text(); })
+        .then(function(response) {
+            if (!response.ok) throw new Error('HTTP ' + response.status);
+            return response.text();
+        })
         .then(function(text) {
             if (text === 'added') {
                 $('.tdl-content2 ul').append(
@@ -90,6 +97,9 @@ $(document).ready(function () {
         .catch(function(error) {
             console.error(error);
             toast_error('An error occurred. Please try again.');
+        })
+        .finally(function() {
+            isProcessing = false;
         });
     }
 

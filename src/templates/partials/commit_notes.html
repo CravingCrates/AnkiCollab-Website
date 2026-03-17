@@ -20,13 +20,13 @@
         {% if user and owned == true %}
         <div class="note-header-actions">
             {% if commit %}
-            <button class="icon-btn edit-btn" data-action="edit-all-fields" data-note-id="{{note.id}}" data-commit-id="{{commit.id}}" title="Edit suggestion">
+            <button class="icon-btn edit-btn" data-action="edit-all-fields" data-note-id="{{note.id}}" data-commit-id="{{commit.id}}" title="Edit suggestion" aria-label="Edit suggestion">
                 <i class="fa fa-pencil" aria-hidden="true"></i>
             </button>
             {% endif %}
             {% if note.reviewed == false %}
                 <button class="merge-btn" data-action="accept-note" data-note-id="{{note.id}}">Publish</button>
-                <button class="icon-btn deny-btn" data-action="delete-note" data-note-id="{{note.id}}" title="Delete note">
+                <button class="icon-btn deny-btn" data-action="delete-note" data-note-id="{{note.id}}" title="Delete note" aria-label="Delete note">
                     <i class="fa fa-trash" aria-hidden="true"></i>
                 </button>
             {% elif note.delete_req %}

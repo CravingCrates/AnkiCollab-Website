@@ -126,7 +126,14 @@ pub async fn fetch_note_history(client: &Client, note_id: NoteId) -> Return<Note
 
         let (snapshot_field_count, snapshot_tags) = snapshot_meta(&event_type, &new_value);
         let old_human = summarize_event(&event_type, &old_value, "old");
-        let new_human = summarize_event(&event_type, &new_value, "new");
+        let new_side_value = if new_value.is_none()
+            && (event_type == "field_change_denied" || event_type == "tag_change_denied")
+        {
+            &old_value
+        } else {
+            &new_value
+        };
+        let new_human = summarize_event(&event_type, new_side_value, "new");
         let diff_html = compute_diff_html(&event_type, &old_value, &new_value);
         events.push(NoteHistoryEvent {
             id: row.get(0),
@@ -270,7 +277,14 @@ pub async fn fetch_commit_history(
         }
 
         let old_human = summarize_event(&event_type, &old_value, "old");
-        let new_human = summarize_event(&event_type, &new_value, "new");
+        let new_side_value = if new_value.is_none()
+            && (event_type == "field_change_denied" || event_type == "tag_change_denied")
+        {
+            &old_value
+        } else {
+            &new_value
+        };
+        let new_human = summarize_event(&event_type, new_side_value, "new");
         let diff_html = compute_diff_html(&event_type, &old_value, &new_value);
 
         let event = CommitHistoryEvent {

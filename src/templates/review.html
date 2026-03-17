@@ -45,13 +45,13 @@
                             </p>
                         </div>
                         <div class="header-actions action-buttons">
-                            <a href="/note_history/{{note.id}}" class="icon-btn history-btn" title="History">
+                            <a href="/note_history/{{note.id}}" class="icon-btn history-btn" title="History" aria-label="View note history">
                                 <i class="fa fa-history" aria-hidden="true"></i>
                             </a>
                             
                             {% if access and note.reviewed == false %}
                             <button class="merge-btn" data-action="accept-note" data-note-id="{{note.id}}">Publish</button>
-                            <button class="icon-btn deny-btn" data-action="delete-note" data-note-id="{{note.id}}" title="Delete note">
+                            <button class="icon-btn deny-btn" data-action="delete-note" data-note-id="{{note.id}}" title="Delete note" aria-label="Delete note">
                                 <i class="fa fa-trash" aria-hidden="true"></i>
                             </button>
                             {% elif access and note.delete_req %}
@@ -135,10 +135,10 @@
                                 </div>
                                 {% if access and note.reviewed %}
                                 <div class="review-field-actions">
-                                    <button class="icon-btn" data-action="accept-field" data-field-id="{{field_suggestion.id}}" title="Accept">
+                                    <button class="icon-btn" data-action="accept-field" data-field-id="{{field_suggestion.id}}" title="Accept" aria-label="Accept field change">
                                         <i class="fa fa-check" aria-hidden="true"></i>
                                     </button>
-                                    <button class="revert-btn" data-action="deny-field" data-field-id="{{field_suggestion.id}}" title="Deny">
+                                    <button class="revert-btn" data-action="deny-field" data-field-id="{{field_suggestion.id}}" title="Deny" aria-label="Deny field change">
                                         <i class="fa fa-undo" aria-hidden="true"></i>
                                     </button>
                                 </div>

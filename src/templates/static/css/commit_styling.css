@@ -4,8 +4,8 @@ body {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 }
 
-/* Global: ensure no strikethrough anywhere on deleted content */
-del, ins { text-decoration: none !important; }
+/* Global: ensure no strikethrough anywhere on diff-generated deleted/inserted content */
+del[data-diff], ins[data-diff] { text-decoration: none !important; }
 
 .notes-grid {
   display: grid;
@@ -250,25 +250,6 @@ del, ins { text-decoration: none !important; }
 }
 
 /* Image diff styling */
-.diff-img-added {
-  border: 2px solid #1a7f37;
-  background-color: rgba(26, 127, 55, 0.05);
-  padding: 4px;
-  border-radius: 4px;
-  max-width: 150px;
-  max-height: 150px;
-}
-
-.diff-img-removed {
-  border: 2px solid #cf222e;
-  background-color: rgba(207, 34, 46, 0.05);
-  padding: 4px;
-  border-radius: 4px;
-  opacity: 0.7;
-  max-width: 150px;
-  max-height: 150px;
-}
-
 .img-diff-wrapper {
   display: inline-block;
   position: relative;
@@ -336,14 +317,14 @@ del, ins { text-decoration: none !important; }
   line-height: 1.5;
 }
 
-.html-source-diff ins {
+.html-source-diff ins[data-diff] {
   background-color: #e6ffec;
   text-decoration: none;
   display: inline-block;
   width: 100%;
 }
 
-.html-source-diff del {
+.html-source-diff del[data-diff] {
   background-color: #ffebe9;
   text-decoration: none;
   display: inline-block;
@@ -421,6 +402,76 @@ del, ins { text-decoration: none !important; }
   color: #1e293b;
   word-wrap: break-word;
   overflow-wrap: anywhere;
+  overflow: auto;
+  contain: layout;
+}
+
+/*
+ * CSS sandbox: undo specific global styles (from style.css / Bootstrap reboot)
+ * that leak into user-authored HTML inside field content.  Only reverts the
+ * exact properties set by those global rules so that font, color, line-height,
+ * etc. still inherit from .note-content-display and blend with the site theme.
+ */
+
+/* Global: table { border-collapse: collapse; } */
+.note-content-display table {
+  border-collapse: revert;
+}
+
+/* Global: caption { padding; color; text-align; caption-side } */
+.note-content-display caption {
+  padding-top: revert;
+  padding-bottom: revert;
+  color: revert;
+  text-align: revert;
+  caption-side: revert;
+}
+
+/* Global: th { text-align: inherit; } */
+.note-content-display th {
+  text-align: revert;
+}
+
+/* Global: a { color: #006699; text-decoration: none; background-color: ... } */
+.note-content-display a {
+  color: revert;
+  text-decoration: revert;
+  background-color: revert;
+}
+.note-content-display a:hover {
+  color: revert;
+  text-decoration: revert;
+}
+
+/* Global: hr { box-sizing; height; overflow } */
+.note-content-display hr {
+  box-sizing: revert;
+  height: revert;
+  overflow: revert;
+}
+
+/* Global: figure { margin: 0 0 1rem; } */
+.note-content-display figure {
+  margin: revert;
+}
+
+/* Global: label { display: inline-block; margin-bottom: 0.5rem; } */
+.note-content-display label {
+  display: revert;
+  margin-bottom: revert;
+}
+
+/* Global: img { vertical-align: middle; border-style: none; } */
+.note-content-display img {
+  vertical-align: revert;
+  border-style: revert;
+  max-width: 100%;
+  height: auto;
+}
+
+/* Global: button { border-radius: 0; } */
+.note-content-display button {
+  border-radius: revert;
 }
 
 /* Collapsible reviewed sections */
@@ -1330,7 +1381,7 @@ del, ins { text-decoration: none !important; }
 }
 
 /* Diff content styling — no strikethrough, background-only highlighting */
-.diff-content ins {
+.diff-content ins[data-diff] {
   background: rgba(16, 185, 129, 0.13);
   color: #166534;
   text-decoration: none;
@@ -1338,7 +1389,7 @@ del, ins { text-decoration: none !important; }
   border-radius: 3px;
 }
 
-.diff-content del {
+.diff-content del[data-diff] {
   background: rgba(239, 68, 68, 0.12);
   color: #991b1b;
   text-decoration: none;
@@ -1361,6 +1412,14 @@ del, ins { text-decoration: none !important; }
   text-decoration: none;
   padding: 1px 4px;
   border-radius: 3px;
+}
+
+/* Character-level diff highlight — subtle deeper tint on the exact changed
+   characters within a word-level replacement (e.g. spelling corrections).
+   Works in both inline diff and split diff views. */
+[data-diff-char] {
+  background-color: rgba(0, 0, 0, 0.07);
+  border-radius: 2px;
 }
 
 /* Column background tints for split diff view */

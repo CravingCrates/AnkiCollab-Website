@@ -9,6 +9,7 @@ pub mod gdrive_manager;
 pub mod maintainer_manager;
 pub mod media_reference_manager;
 pub mod media_tokens;
+pub mod notification_manager;
 pub mod note_history;
 pub mod note_manager;
 pub mod notetype_manager;
@@ -51,6 +52,10 @@ use structs::{
 };
 use structs::{
     BulkNoteActionRequest, BulkNoteActionResponse, BulkNoteActionFailure,
+};
+use structs::{
+    CommitDecisionRequest, NotificationHistoryResponse, NotificationMarkReadRequest,
+    NotificationMarkReadResponse, NotificationUnreadResponse,
 };
 use tera::Tera;
 
@@ -701,7 +706,17 @@ async fn approve_commit(
     user: User,
     Path(commit_id): Path<i32>,
 ) -> Result<impl IntoResponse, Error> {
+    let actor_user_id = user.id();
     let res = suggestion_manager::merge_by_commit(&appstate, commit_id, true, user).await?;
+
+    notification_manager::create_commit_notification(
+        &appstate,
+        commit_id,
+        "approved",
+        None,
+        actor_user_id,
+    )
+    .await?;
 
     Ok(if res.is_none() {
         Redirect::to("/reviews")
@@ -714,9 +729,31 @@ async fn deny_commit(
     State(appstate): State<Arc<AppState>>,
     user: User,
     Path(commit_id): Path<i32>,
+    payload: Option<Json<CommitDecisionRequest>>,
 ) -> Result<impl IntoResponse, Error> {
+    let actor_user_id = user.id();
+    let decision = payload.map(|Json(p)| p).unwrap_or_default();
+    let silent = decision.silent.unwrap_or(false);
+    let sanitized_reason = decision
+        .reason
+        .as_deref()
+        .map(ammonia::clean)
+        .map(|r| r.trim().chars().take(2000).collect::<String>())
+        .filter(|r| !r.is_empty());
+
     match suggestion_manager::merge_by_commit(&appstate, commit_id, false, user).await {
         Ok(res) => {
+            if !silent {
+                notification_manager::create_commit_notification(
+                    &appstate,
+                    commit_id,
+                    "denied",
+                    sanitized_reason.as_deref(),
+                    actor_user_id,
+                )
+                .await?;
+            }
+
             if res.is_none() {
                 Ok(Redirect::to("/reviews"))
             } else {
@@ -737,6 +774,14 @@ async fn bulk_note_action(
     Path(commit_id): Path<i32>,
     Json(payload): Json<BulkNoteActionRequest>,
 ) -> Result<impl IntoResponse, Error> {
+    let silent = payload.silent.unwrap_or(false);
+    let sanitized_reason = payload
+        .reason
+        .as_deref()
+        .map(ammonia::clean)
+        .map(|r| r.trim().chars().take(2000).collect::<String>())
+        .filter(|r| !r.is_empty());
+
     // Validate action
     let approve = match payload.action.as_str() {
         "approve" => true,
@@ -789,7 +834,71 @@ async fn bulk_note_action(
         })
         .collect();
 
+    if !succeeded.is_empty() {
+        if approve {
+            notification_manager::create_commit_notification(
+                &appstate,
+                commit_id,
+                "approved",
+                None,
+                user.id(),
+            )
+            .await?;
+        } else if !silent {
+            notification_manager::create_commit_notification(
+                &appstate,
+                commit_id,
+                "denied",
+                sanitized_reason.as_deref(),
+                user.id(),
+            )
+            .await?;
+        }
+    }
+
     Ok(Json(BulkNoteActionResponse { succeeded, failed }))
+}
+
+#[derive(Default, Deserialize)]
+struct NotificationHistoryQuery {
+    offset: Option<i64>,
+    limit: Option<i64>,
+}
+
+async fn get_notifications(
+    State(appstate): State<Arc<AppState>>,
+    user: User,
+) -> Result<impl IntoResponse, Error> {
+    let response: NotificationUnreadResponse =
+        notification_manager::get_unread_grouped(&appstate, user.id()).await?;
+    Ok(Json(response))
+}
+
+async fn get_notifications_history(
+    State(appstate): State<Arc<AppState>>,
+    user: User,
+    Query(params): Query<NotificationHistoryQuery>,
+) -> Result<impl IntoResponse, Error> {
+    let offset = params.offset.unwrap_or(0).max(0);
+    let limit = params.limit.unwrap_or(50).clamp(1, 200);
+    let response: NotificationHistoryResponse =
+        notification_manager::get_history(&appstate, user.id(), offset, limit).await?;
+    Ok(Json(response))
+}
+
+async fn mark_notifications_read(
+    State(appstate): State<Arc<AppState>>,
+    user: User,
+    Json(payload): Json<NotificationMarkReadRequest>,
+) -> Result<impl IntoResponse, Error> {
+    if payload.ids.len() > notification_manager::MAX_MARK_READ_IDS {
+        return Err(Error::BadRequest(format!(
+            "Too many IDs (max {})",
+            notification_manager::MAX_MARK_READ_IDS
+        )));
+    }
+    let updated = notification_manager::mark_read(&appstate, user.id(), &payload.ids).await?;
+    Ok(Json(NotificationMarkReadResponse { updated }))
 }
 
 #[derive(Default, Deserialize)]
@@ -2509,6 +2618,9 @@ async fn main() {
         .route("/DenyCommit/{commit_id}", post(deny_commit))
         .route("/ApproveCommit/{commit_id}", post(approve_commit))
         .route("/BulkNoteAction/{commit_id}", post(bulk_note_action))
+        .route("/GetNotifications", get(get_notifications))
+        .route("/GetNotificationsHistory", get(get_notifications_history))
+        .route("/MarkNotificationsRead", post(mark_notifications_read))
         .route("/commit/{commit_id}", get(review_commit))
         .route("/note_history/{note_id}", get(note_history_page))
         .route("/commit_history/{commit_id}", get(commit_history_page))

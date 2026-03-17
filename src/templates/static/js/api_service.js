@@ -222,11 +222,35 @@ window.ApiService = (function() {
      * @param {string} action - Either 'approve' or 'deny'
      * @returns {Promise<object>} - Resolves with { succeeded: [...], failed: [...] }
      */
-    function bulkNoteAction(commitId, noteIds, action) {
-        return apiCall(`/BulkNoteAction/${commitId}`, 'POST', {
+    function bulkNoteAction(commitId, noteIds, action, options = {}) {
+        const payload = {
             note_ids: noteIds.map(id => parseInt(id, 10)),
-            action: action
+            action: action,
+        };
+
+        if (typeof options.silent === 'boolean') {
+            payload.silent = options.silent;
+        }
+
+        if (typeof options.reason === 'string') {
+            payload.reason = options.reason;
+        }
+
+        return apiCall(`/BulkNoteAction/${commitId}`, 'POST', {
+            ...payload
         });
+    }
+
+    function getUnreadNotifications() {
+        return apiCall('/GetNotifications', 'GET');
+    }
+
+    function getNotificationHistory(offset = 0, limit = 50) {
+        return apiCall(`/GetNotificationsHistory?offset=${offset}&limit=${limit}`, 'GET');
+    }
+
+    function markNotificationsRead(ids) {
+        return apiCall('/MarkNotificationsRead', 'POST', { ids: ids });
     }
 
     /**
@@ -285,6 +309,10 @@ window.ApiService = (function() {
         batchUpdateFieldSuggestions,
         // Bulk note actions
         bulkNoteAction,
+        // Notifications
+        getUnreadNotifications,
+        getNotificationHistory,
+        markNotificationsRead,
         // Tag suggestion
         addTagSuggestion,
         // Image methods

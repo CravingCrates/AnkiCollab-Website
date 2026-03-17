@@ -145,11 +145,11 @@
                             {% for changelog in changelogs %}
                             <div class="card">
                                 <div class="card-header">
-                                    <h5 class="mb-0"><button type="button" class="btn btn-link" data-toggle="collapse" data-target="#collapseOne{{changelog.id}}" aria-expanded="true" aria-controls="collapseOne{{changelog.id}}"><i class="fa" aria-hidden="true"></i> {{changelog.timestamp}}</button></h5>
+                                    <h5 class="mb-0"><button type="button" class="btn btn-link" data-toggle="collapse" data-target="#collapseOne{{changelog.id}}" aria-expanded="true" aria-controls="collapseOne{{changelog.id}}">{{changelog.timestamp}} <i class="fa" aria-hidden="true"></i></button></h5>
                                 </div>
                                 <div id="collapseOne{{changelog.id}}" class="collapse show" data-parent="#accordion-three">
                                     <div class="card-body">
-                                        <button class="changelog-delete-btn" onclick="fetch('/DeleteChangelog/{{changelog.id}}', {method:'POST',credentials:'same-origin'}).then(()=>location.reload())" aria-label="Delete changelog from {{changelog.timestamp}}"><i class="fa fa-trash" aria-hidden="true"></i></button>
+                                        <button class="changelog-delete-btn" data-changelog-id="{{changelog.id}}" aria-label="Delete changelog from {{changelog.timestamp}}"><i class="fa fa-trash" aria-hidden="true"></i></button>
                                         {{changelog.message | linebreaksbr | safe }}
                                     </div>
                                 </div>

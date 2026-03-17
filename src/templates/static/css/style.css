@@ -10825,13 +10825,14 @@ table.dataTable thead .sorting::after {
   content: "\f107"; }
 
 #accordion-three .fa {
-  float: right; }
+  margin-left: 8px;
+  vertical-align: middle; }
 
 #accordion-three [data-toggle="collapse"] .fa:before {
-  content: "\f107"; }
+  content: "\f106"; }
 
 #accordion-three [data-toggle="collapse"].collapsed .fa:before {
-  content: "\f105"; }
+  content: "\f107"; }
 
 .badge {
   font-weight: 400;

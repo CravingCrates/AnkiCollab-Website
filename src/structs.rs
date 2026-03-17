@@ -426,6 +426,14 @@ pub struct PresignedURLResponse {
 pub struct BulkNoteActionRequest {
     pub note_ids: Vec<i64>,
     pub action: String, // "approve" or "deny"
+    pub silent: Option<bool>,
+    pub reason: Option<String>,
+}
+
+#[derive(Default, Deserialize)]
+pub struct CommitDecisionRequest {
+    pub silent: Option<bool>,
+    pub reason: Option<String>,
 }
 
 #[derive(Serialize)]
@@ -438,6 +446,51 @@ pub struct BulkNoteActionFailure {
 pub struct BulkNoteActionResponse {
     pub succeeded: Vec<i64>,
     pub failed: Vec<BulkNoteActionFailure>,
+}
+
+#[derive(Serialize)]
+pub struct NotificationItem {
+    pub id: i32,
+    pub commit_id: i32,
+    pub deck_id: i64,
+    pub deck_name: String,
+    pub status: String,
+    pub reason: Option<String>,
+    pub created_at: String,
+    pub is_read: bool,
+}
+
+#[derive(Serialize)]
+pub struct NotificationDeckGroup {
+    pub deck_id: i64,
+    pub deck_name: String,
+    pub approved_count: i64,
+    pub denied_count: i64,
+    pub notifications: Vec<NotificationItem>,
+}
+
+#[derive(Serialize)]
+pub struct NotificationUnreadResponse {
+    pub unread_count: i64,
+    pub groups: Vec<NotificationDeckGroup>,
+}
+
+#[derive(Serialize)]
+pub struct NotificationHistoryResponse {
+    pub total: i64,
+    pub offset: i64,
+    pub limit: i64,
+    pub items: Vec<NotificationItem>,
+}
+
+#[derive(Deserialize)]
+pub struct NotificationMarkReadRequest {
+    pub ids: Vec<i32>,
+}
+
+#[derive(Serialize)]
+pub struct NotificationMarkReadResponse {
+    pub updated: u64,
 }
 
 // Subscription policy API

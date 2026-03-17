@@ -63,7 +63,9 @@
                         {% endif %}
                       </td>
                       <td>
-                        <button onclick="fetch('/ToggleStats/{{deck.hash}}', {method:'POST',credentials:'same-origin'}).then(()=>location.reload())" style="border:none;background:none;padding:0;cursor:pointer;"><span class="label gradient-4 rounded">{% if deck.stats_enabled %}Disable{% else %}Enable{% endif %} Stats</span></button>
+                        <form method="POST" action="/ToggleStats/{{deck.hash}}" style="display:inline">
+                          <button type="submit" class="btn mb-1 btn-rounded btn-primary">{% if deck.stats_enabled %}Disable{% else %}Enable{% endif %} Stats</button>
+                        </form>
                       </td>
                     </tr>
                     {% endfor %}

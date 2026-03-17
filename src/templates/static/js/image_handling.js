@@ -27,16 +27,16 @@ window.ImageHandler = (function() {
             const doc = parser.parseFromString(`<div>${diffHtml}</div>`, 'text/html');
             const container = doc.body.firstChild; // Get the container div
 
-            // Process images within <ins> tags
-            container.querySelectorAll('ins img').forEach(img => {
+            // Process images within <ins data-diff> tags
+            container.querySelectorAll('ins[data-diff] img').forEach(img => {
                 // Check if it's already wrapped (shouldn't happen with clean input, but defensively check)
                 if (!img.closest('span.img-diff-wrapper')) {
                     _addImageWrapper(img, 'added');
                 }
             });
 
-            // Process images within <del> tags
-            container.querySelectorAll('del img').forEach(img => {
+            // Process images within <del data-diff> tags
+            container.querySelectorAll('del[data-diff] img').forEach(img => {
                  if (!img.closest('span.img-diff-wrapper')) {
                     _addImageWrapper(img, 'removed');
                 }

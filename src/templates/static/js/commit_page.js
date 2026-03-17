@@ -13,6 +13,342 @@ $(document).ready(function() {
     initPaginationControls();
     initBulkSelectionControls();
     initStateRestoration(); // Must come after pagination controls
+
+    function showSimpleConfirmModal(title, message) {
+        return new Promise(function(resolve) {
+            // Remember the element that was focused before opening the modal
+            var lastFocusedElement = document.activeElement;
+
+            var overlay = document.createElement('div');
+            overlay.className = 'ac-modal-overlay';
+
+            var headingId = 'ac-modal-heading-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2);
+
+            var modal = document.createElement('div');
+            modal.className = 'ac-modal-card';
+            modal.setAttribute('role', 'dialog');
+            modal.setAttribute('aria-modal', 'true');
+            modal.setAttribute('aria-labelledby', headingId);
+
+            var heading = document.createElement('h3');
+            heading.className = 'ac-modal-title';
+            heading.id = headingId;
+            heading.textContent = title;
+
+            var body = document.createElement('p');
+            body.className = 'ac-modal-body';
+            body.textContent = message;
+
+            var footer = document.createElement('div');
+            footer.className = 'ac-modal-footer';
+
+            var footerLeft = document.createElement('div');
+            footerLeft.className = 'ac-modal-footer-left';
+
+            var footerRight = document.createElement('div');
+            footerRight.className = 'ac-modal-footer-right';
+
+            var cancelBtn = document.createElement('button');
+            cancelBtn.className = 'ac-modal-btn ac-modal-btn-secondary';
+            cancelBtn.type = 'button';
+            cancelBtn.textContent = 'Cancel';
+
+            var confirmBtn = document.createElement('button');
+            confirmBtn.className = 'ac-modal-btn ac-modal-btn-primary';
+            confirmBtn.type = 'button';
+            confirmBtn.textContent = 'Confirm';
+
+            footerLeft.appendChild(cancelBtn);
+            footerRight.appendChild(confirmBtn);
+            footer.appendChild(footerLeft);
+            footer.appendChild(footerRight);
+            modal.appendChild(heading);
+            modal.appendChild(body);
+            modal.appendChild(footer);
+            overlay.appendChild(modal);
+            document.body.appendChild(overlay);
+
+            // Collect focusable elements inside the modal for focus trapping
+            var focusableSelectors = 'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])';
+            var focusableElements = Array.prototype.slice.call(
+                modal.querySelectorAll(focusableSelectors)
+            );
+
+            requestAnimationFrame(function() {
+                overlay.classList.add('is-visible');
+                // Move focus to the primary action, if available
+                if (confirmBtn && typeof confirmBtn.focus === 'function') {
+                    confirmBtn.focus();
+                } else if (focusableElements.length > 0 && typeof focusableElements[0].focus === 'function') {
+                    focusableElements[0].focus();
+                }
+            });
+
+            function closeModal(result) {
+                overlay.classList.remove('is-visible');
+                setTimeout(function() {
+                    if (overlay.parentNode) {
+                        overlay.parentNode.removeChild(overlay);
+                    }
+                    // Restore focus to the element that triggered the modal, if still in the document
+                    if (lastFocusedElement && document.contains(lastFocusedElement) && typeof lastFocusedElement.focus === 'function') {
+                        lastFocusedElement.focus();
+                    }
+                    resolve(result);
+                }, 200);
+            }
+
+            overlay.addEventListener('click', function(event) {
+                if (event.target === overlay) {
+                    closeModal(false);
+                }
+            });
+
+            overlay.addEventListener('keydown', function(event) {
+                if (event.key === 'Escape' || event.key === 'Esc') {
+                    event.stopPropagation();
+                    closeModal(false);
+                    return;
+                }
+
+                if (event.key === 'Tab') {
+                    if (!focusableElements || focusableElements.length === 0) {
+                        return;
+                    }
+                    var currentIndex = focusableElements.indexOf(document.activeElement);
+                    if (currentIndex === -1) {
+                        currentIndex = 0;
+                    }
+
+                    event.preventDefault();
+                    var nextIndex;
+                    if (event.shiftKey) {
+                        nextIndex = currentIndex - 1;
+                        if (nextIndex < 0) {
+                            nextIndex = focusableElements.length - 1;
+                        }
+                    } else {
+                        nextIndex = currentIndex + 1;
+                        if (nextIndex >= focusableElements.length) {
+                            nextIndex = 0;
+                        }
+                    }
+
+                    var nextElement = focusableElements[nextIndex];
+                    if (nextElement && typeof nextElement.focus === 'function') {
+                        nextElement.focus();
+                    }
+                }
+            });
+
+            cancelBtn.addEventListener('click', function() {
+                closeModal(false);
+            });
+
+            confirmBtn.addEventListener('click', function() {
+                closeModal(true);
+            });
+        });
+    }
+
+    function showInfoModal(title, message) {
+        return new Promise(function(resolve) {
+            var overlay = document.createElement('div');
+            overlay.className = 'ac-modal-overlay';
+
+            var modal = document.createElement('div');
+            modal.className = 'ac-modal-card';
+            modal.setAttribute('role', 'dialog');
+            modal.setAttribute('aria-modal', 'true');
+            var headingId = 'ac-info-heading-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2);
+            modal.setAttribute('aria-labelledby', headingId);
+
+            var heading = document.createElement('h3');
+            heading.className = 'ac-modal-title';
+            heading.id = headingId;
+            heading.textContent = title;
+
+            var body = document.createElement('p');
+            body.className = 'ac-modal-body';
+            body.textContent = message;
+
+            var footer = document.createElement('div');
+            footer.className = 'ac-modal-footer';
+
+            var footerRight = document.createElement('div');
+            footerRight.className = 'ac-modal-footer-right';
+            footerRight.style.marginLeft = 'auto';
+
+            var okBtn = document.createElement('button');
+            okBtn.className = 'ac-modal-btn ac-modal-btn-primary';
+            okBtn.type = 'button';
+            okBtn.textContent = 'OK';
+
+            footerRight.appendChild(okBtn);
+            footer.appendChild(footerRight);
+            modal.appendChild(heading);
+            modal.appendChild(body);
+            modal.appendChild(footer);
+            overlay.appendChild(modal);
+            document.body.appendChild(overlay);
+
+            requestAnimationFrame(function() {
+                overlay.classList.add('is-visible');
+                okBtn.focus();
+            });
+
+            function closeModal() {
+                overlay.classList.remove('is-visible');
+                setTimeout(function() {
+                    if (overlay.parentNode) {
+                        overlay.parentNode.removeChild(overlay);
+                    }
+                    resolve();
+                }, 200);
+            }
+
+            overlay.addEventListener('click', function(event) {
+                if (event.target === overlay) {
+                    closeModal();
+                }
+            });
+
+            overlay.addEventListener('keydown', function(event) {
+                if (event.key === 'Escape') {
+                    event.stopPropagation();
+                    closeModal();
+                }
+            });
+
+            okBtn.addEventListener('click', closeModal);
+        });
+    }
+
+    function showDenySuggestionModal() {
+        return new Promise(function(resolve) {
+            var overlay = document.createElement('div');
+            overlay.className = 'ac-modal-overlay';
+
+            var modal = document.createElement('div');
+            modal.className = 'ac-modal-card';
+            modal.setAttribute('role', 'dialog');
+            modal.setAttribute('aria-modal', 'true');
+            var headingId = 'ac-deny-heading-' + Date.now() + '-' + Math.random().toString(36).slice(2);
+            modal.setAttribute('aria-labelledby', headingId);
+
+            var heading = document.createElement('h3');
+            heading.className = 'ac-modal-title';
+            heading.id = headingId;
+            heading.textContent = 'Deny Suggestion';
+
+            var body = document.createElement('p');
+            body.className = 'ac-modal-body';
+            body.textContent = 'You can deny silently or send optional feedback to the user.';
+
+            var textarea = document.createElement('textarea');
+            textarea.className = 'ac-modal-textarea';
+            textarea.placeholder = 'Optional feedback for the user\u2026';
+            textarea.maxLength = 2000;
+            textarea.setAttribute('aria-label', 'Feedback message');
+
+            var charCount = document.createElement('div');
+            charCount.className = 'ac-modal-charcount';
+            charCount.textContent = '0 / 2000';
+
+            var footer = document.createElement('div');
+            footer.className = 'ac-modal-footer';
+
+            var leftActions = document.createElement('div');
+            leftActions.className = 'ac-modal-footer-left';
+
+            var rightActions = document.createElement('div');
+            rightActions.className = 'ac-modal-footer-right';
+
+            var cancelBtn = document.createElement('button');
+            cancelBtn.className = 'ac-modal-btn ac-modal-btn-plain';
+            cancelBtn.type = 'button';
+            cancelBtn.textContent = 'Cancel';
+
+            var silentBtn = document.createElement('button');
+            silentBtn.className = 'ac-modal-btn ac-modal-btn-secondary';
+            silentBtn.type = 'button';
+            silentBtn.textContent = 'Deny Silently';
+
+            var notifyBtn = document.createElement('button');
+            notifyBtn.className = 'ac-modal-btn ac-modal-btn-danger';
+            notifyBtn.type = 'button';
+            notifyBtn.textContent = 'Deny & Notify';
+
+            leftActions.appendChild(cancelBtn);
+            rightActions.appendChild(silentBtn);
+            rightActions.appendChild(notifyBtn);
+            footer.appendChild(leftActions);
+            footer.appendChild(rightActions);
+
+            modal.appendChild(heading);
+            modal.appendChild(body);
+            modal.appendChild(textarea);
+            modal.appendChild(charCount);
+            modal.appendChild(footer);
+            overlay.appendChild(modal);
+            document.body.appendChild(overlay);
+
+            requestAnimationFrame(function() {
+                overlay.classList.add('is-visible');
+                textarea.focus();
+            });
+
+            function closeModal(result) {
+                overlay.classList.remove('is-visible');
+                setTimeout(function() {
+                    if (overlay.parentNode) {
+                        overlay.parentNode.removeChild(overlay);
+                    }
+                    resolve(result);
+                }, 200);
+            }
+
+            overlay.addEventListener('click', function(event) {
+                if (event.target === overlay) {
+                    closeModal({ cancelled: true });
+                }
+            });
+
+            overlay.addEventListener('keydown', function(event) {
+                if (event.key === 'Escape') {
+                    event.stopPropagation();
+                    closeModal({ cancelled: true });
+                }
+            });
+
+            cancelBtn.addEventListener('click', function() {
+                closeModal({ cancelled: true });
+            });
+
+            silentBtn.addEventListener('click', function() {
+                closeModal({
+                    cancelled: false,
+                    silent: true,
+                    reason: textarea.value || ''
+                });
+            });
+
+            notifyBtn.addEventListener('click', function() {
+                closeModal({
+                    cancelled: false,
+                    silent: false,
+                    reason: textarea.value || ''
+                });
+            });
+
+            textarea.addEventListener('input', function() {
+                var len = textarea.value.length;
+                charCount.textContent = String(len) + ' / 2000';
+                charCount.classList.toggle('near-limit', len >= 1600 && len < 1900);
+                charCount.classList.toggle('at-limit', len >= 1900);
+            });
+        });
+    }
     
     /**
      * State Restoration - Restores scroll position and pagination state
@@ -201,7 +537,7 @@ $(document).ready(function() {
 
     function initButtonFeatures() {
         // Global action buttons (Approve All / Deny All)
-        $(document).on('click', '.global-action-btn', function(e) {
+        $(document).on('click', '.global-action-btn', async function(e) {
             var $btn = $(this);
             
             // If already clicked, prevent spam clicks
@@ -213,9 +549,15 @@ $(document).ready(function() {
             var action = $btn.data('global-action');
             var commitId = $btn.data('commit-id');
             if (!action || !commitId) return;
-            
-            var confirmMsg = action === 'approve' ? 'Accept ALL notes in this commit?' : 'Deny ALL notes in this commit?';
-            if (!confirm(confirmMsg)) return;
+
+            var denyOptions = null;
+            if (action === 'approve') {
+                var approveConfirmed = await showSimpleConfirmModal('Approve All', 'Accept all notes in this commit?');
+                if (!approveConfirmed) return;
+            } else {
+                denyOptions = await showDenySuggestionModal();
+                if (!denyOptions || denyOptions.cancelled) return;
+            }
             
             // Mark as clicked and add visual loading state
             $btn.data('clicked', true)
@@ -224,7 +566,16 @@ $(document).ready(function() {
                 .attr('aria-busy', 'true');
             
             var url = action === 'approve' ? '/ApproveCommit/' + commitId : '/DenyCommit/' + commitId;
-            fetch(url, { method: 'POST', credentials: 'same-origin' })
+            var fetchOptions = { method: 'POST', credentials: 'same-origin' };
+            if (denyOptions) {
+                fetchOptions.headers = { 'Content-Type': 'application/json' };
+                fetchOptions.body = JSON.stringify({
+                    silent: !!denyOptions.silent,
+                    reason: denyOptions.reason || ''
+                });
+            }
+
+            fetch(url, fetchOptions)
                 .then(function(r) {
                     if (r.redirected) {
                         window.location.href = r.url;
@@ -693,7 +1044,7 @@ $(document).ready(function() {
         });
 
         // Bulk action: Approve or Deny selected notes
-        async function performBulkAction(action) {
+        async function performBulkAction(action, options) {
             var selection = getSelection();
             if (selection.length === 0) {
                 return;
@@ -720,7 +1071,9 @@ $(document).ready(function() {
                     },
                     body: JSON.stringify({
                         note_ids: selection.map(function(id) { return parseInt(id, 10); }),
-                        action: action
+                        action: action,
+                        silent: options && typeof options.silent === 'boolean' ? options.silent : undefined,
+                        reason: options && typeof options.reason === 'string' ? options.reason : undefined
                     })
                 });
 
@@ -771,12 +1124,12 @@ $(document).ready(function() {
                 if (result.failed.length > 0) {
                     var successCount = result.succeeded.length;
                     var failCount = result.failed.length;
-                    alert((isApprove ? 'Approved' : 'Denied') + ' ' + successCount + ' note(s). ' + failCount + ' note(s) failed. Check the console for details.');
+                    await showInfoModal('Bulk Action Complete', (isApprove ? 'Approved' : 'Denied') + ' ' + successCount + ' note(s). ' + failCount + ' note(s) failed. Check the console for details.');
                 }
 
             } catch (error) {
                 console.error('Bulk ' + action + ' failed:', error);
-                alert('Failed to ' + action + ' selected notes: ' + error.message);
+                await showInfoModal('Action Failed', 'Failed to ' + action + ' selected notes: ' + error.message);
 
                 // Remove processing state from all selected notes
                 selection.forEach(function(noteId) {
@@ -795,27 +1148,29 @@ $(document).ready(function() {
         }
 
         // Event: Bulk Approve
-        $bulkApproveBtn.on('click', function() {
+        $bulkApproveBtn.on('click', async function() {
             if ($(this).prop('disabled')) return;
             
             var selection = getSelection();
             if (selection.length > 50) {
-                if (!confirm('You are about to approve ' + selection.length + ' notes. This may take a moment. Continue?')) {
+                var confirmed = await showSimpleConfirmModal('Approve Selected', 'You are about to approve ' + selection.length + ' notes. This may take a moment. Continue?');
+                if (!confirmed) {
                     return;
                 }
             }
-            performBulkAction('approve');
+            performBulkAction('approve', { silent: false, reason: '' });
         });
 
         // Event: Bulk Deny
-        $bulkDenyBtn.on('click', function() {
+        $bulkDenyBtn.on('click', async function() {
             if ($(this).prop('disabled')) return;
             
             var selection = getSelection();
-            if (!confirm('Are you sure you want to deny ' + selection.length + ' selected note(s)?')) {
+            var denyOptions = await showDenySuggestionModal();
+            if (!denyOptions || denyOptions.cancelled) {
                 return;
             }
-            performBulkAction('deny');
+            performBulkAction('deny', denyOptions);
         });
 
         // Listen for new notes being loaded (pagination)

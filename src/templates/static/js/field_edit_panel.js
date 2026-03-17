@@ -538,8 +538,14 @@ window.FieldEditPanel = (function() {
         const doc = parser.parseFromString(htmlContent, 'text/html');
         const body = doc.body;
 
-        // Remove <ins> and <del> diff markers, keeping their content
-        body.querySelectorAll('ins, del').forEach(el => {
+        // Remove <ins data-diff> and <del data-diff> diff markers, keeping their content
+        // User-authored <ins>/<del> without data-diff are preserved
+        body.querySelectorAll('ins[data-diff], del[data-diff]').forEach(el => {
+            el.replaceWith(...el.childNodes);
+        });
+
+        // Remove char-level diff highlight spans
+        body.querySelectorAll('[data-diff-char]').forEach(el => {
             el.replaceWith(...el.childNodes);
         });
 

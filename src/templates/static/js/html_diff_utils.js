@@ -32,33 +32,32 @@ window.HtmlDiffUtils = (function() {
 
         var parser = new DOMParser();
 
-        // Parse two copies of the diff
-        var delDoc = parser.parseFromString('<div>' + diffHtml + '</div>', 'text/html');
-        var insDoc = parser.parseFromString('<div>' + diffHtml + '</div>', 'text/html');
-        var delContainer = delDoc.body.firstChild;
-        var insContainer = insDoc.body.firstChild;
+        // Parse once, clone for each view
+        var doc = parser.parseFromString('<div>' + diffHtml + '</div>', 'text/html');
+        var delContainer = doc.body.firstChild.cloneNode(true);
+        var insContainer = doc.body.firstChild.cloneNode(true);
 
-        // Deletions view: remove <ins> elements, convert <del> to highlighted spans
-        var insElements = delContainer.querySelectorAll('ins');
+        // Deletions view: remove <ins data-diff> elements, convert <del data-diff> to highlighted spans
+        var insElements = delContainer.querySelectorAll('ins[data-diff]');
         for (var i = insElements.length - 1; i >= 0; i--) {
             insElements[i].parentNode.removeChild(insElements[i]);
         }
-        var delElements = delContainer.querySelectorAll('del');
+        var delElements = delContainer.querySelectorAll('del[data-diff]');
         for (var i = 0; i < delElements.length; i++) {
-            var span = delDoc.createElement('span');
+            var span = doc.createElement('span');
             span.className = 'diff-highlight-del';
             span.innerHTML = delElements[i].innerHTML;
             delElements[i].parentNode.replaceChild(span, delElements[i]);
         }
 
-        // Insertions view: remove <del> elements, convert <ins> to highlighted spans
-        var delElements2 = insContainer.querySelectorAll('del');
+        // Insertions view: remove <del data-diff> elements, convert <ins data-diff> to highlighted spans
+        var delElements2 = insContainer.querySelectorAll('del[data-diff]');
         for (var i = delElements2.length - 1; i >= 0; i--) {
             delElements2[i].parentNode.removeChild(delElements2[i]);
         }
-        var insElements2 = insContainer.querySelectorAll('ins');
+        var insElements2 = insContainer.querySelectorAll('ins[data-diff]');
         for (var i = 0; i < insElements2.length; i++) {
-            var span = insDoc.createElement('span');
+            var span = doc.createElement('span');
             span.className = 'diff-highlight-ins';
             span.innerHTML = insElements2[i].innerHTML;
             insElements2[i].parentNode.replaceChild(span, insElements2[i]);

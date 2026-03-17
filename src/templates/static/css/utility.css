@@ -148,7 +148,19 @@ button.hamburger:focus {
 
 .changelog-delete-btn {
     float: right;
-    margin: 5px;
+    margin: 0;
+    background: transparent;
+    border: none;
+    color: #adb5bd;
+    font-size: 1rem;
+    padding: 0;
+    line-height: 1;
+    cursor: pointer;
+    transition: color 0.15s;
+}
+
+.changelog-delete-btn:hover {
+    color: #e74c3c;
 }
 
 /* Review page specific */
@@ -422,6 +434,14 @@ a[data-pk]:hover {
 .btn-danger:disabled {
     background-color: #c62828 !important;
     border-color: #c62828 !important;
+}
+
+/* Disabled buttons should look obviously non-interactive */
+button[disabled],
+.btn[disabled],
+.btn.disabled {
+    cursor: not-allowed;
+    opacity: 0.55;
 }
 
 /* --- 3. Focus Visibility (SC 2.4.7 Focus Visible, SC 2.4.11 Focus Appearance) ---
