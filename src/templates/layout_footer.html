@@ -19,6 +19,13 @@
 Main wrapper end
 ***********************************-->
 
+<div id="global-cookie-banner" class="alert alert-primary alert-dismissible fade show fixed-bottom m-0 rounded-0" role="alert" aria-live="assertive" style="display: none; z-index: 9999;">
+    We use strictly necessary cookies to ensure our site functions securely and correctly. By continuing to browse this site, you agree to this use of cookies.  <a href="/privacy" class="alert-link">Learn more in our Privacy Policy</a>.
+    <button type="button" class="close" data-dismiss="alert" aria-label="Close" id="global-cookie-banner-close">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</div>
+
 <!--**********************************
 Scripts
 ***********************************-->
@@ -41,4 +48,35 @@ window.a11yAnnounce = function(message, priority) {
 if (typeof toastr !== 'undefined') {
     toastr.options.closeHtml = '<button type="button" aria-label="Close notification">&times;</button>';
 }
+
+(function() {
+    var cookieDismissKey = 'ankicollab_cookie_dismissed';
+    var banner = document.getElementById('global-cookie-banner');
+
+    if (!banner) {
+        return;
+    }
+
+    try {
+        if (!localStorage.getItem(cookieDismissKey)) {
+            banner.style.display = 'block';
+            document.getElementById('main-wrapper').style.paddingBottom = banner.offsetHeight + 'px';
+        }
+    } catch (error) {
+        banner.style.display = 'block';
+        document.getElementById('main-wrapper').style.paddingBottom = banner.offsetHeight + 'px';
+    }
+
+    var closeButton = document.getElementById('global-cookie-banner-close');
+    if (closeButton) {
+        closeButton.addEventListener('click', function() {
+            document.getElementById('main-wrapper').style.paddingBottom = '';
+            try {
+                localStorage.setItem(cookieDismissKey, 'true');
+            } catch (error) {
+                /* Ignore storage failures and allow dismiss to continue */
+            }
+        });
+    }
+})();
 </script>
