@@ -1,4 +1,3 @@
-use std::env;
 use std::sync::Arc;
 
 use bb8_postgres::bb8::{Pool, PooledConnection};
