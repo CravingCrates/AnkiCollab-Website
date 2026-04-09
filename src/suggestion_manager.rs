@@ -617,7 +617,7 @@ pub async fn approve_tag_change_with_commit(
                 scope.set_tag("component", "suggestion_manager");
                 scope.set_tag("operation", "approve_tag_change_with_commit");
                 scope.set_extra("tag_id", tag_id.into());
-                scope.set_extra("commit_id_param", commit_id.map(|c| c.into()).unwrap_or_else(|| "none".into()));
+                scope.set_extra("commit_id_param", commit_id.map(|c| c.into()).unwrap_or("none".into()));
                 scope.set_extra("actor_user_id", actor_user_id.into());
             },
             || {
@@ -2075,7 +2075,7 @@ pub async fn merge_by_commit(
                                 "note_id",
                                 note_for_tag
                                     .map(|n| n.into())
-                                    .unwrap_or_else(|| "unknown".into()),
+                                    .unwrap_or("unknown".into()),
                             );
                             scope.set_extra("user_id", user.id().into());
                         },

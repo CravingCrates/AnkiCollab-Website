@@ -829,10 +829,7 @@ async fn bulk_note_action(
         .filter(|r| !r.success)
         .map(|r| BulkNoteActionFailure {
             id: r.note_id,
-            reason: r
-                .reason
-                .clone()
-                .unwrap_or_else(|| "Unknown error".to_string()),
+            reason: r.reason.clone().unwrap_or("Unknown error".to_string()),
         })
         .collect();
 
@@ -2420,22 +2417,22 @@ async fn main() {
     // Enable tracing.
     let env_filter = if cfg!(debug_assertions) {
         // Debug build
-        tracing_subscriber::EnvFilter::try_from_default_env().unwrap_or_else(|_| {
+        tracing_subscriber::EnvFilter::try_from_default_env().unwrap_or(
             format!(
                 "{}=debug,tower_http=debug,axum=trace",
                 env!("CARGO_CRATE_NAME")
             )
-            .into()
-        })
+            .into(),
+        )
     } else {
         // Release build
-        tracing_subscriber::EnvFilter::try_from_default_env().unwrap_or_else(|_| {
+        tracing_subscriber::EnvFilter::try_from_default_env().unwrap_or(
             format!(
                 "{}=info,tower_http=info,axum=info",
                 env!("CARGO_CRATE_NAME")
             )
-            .into()
-        })
+            .into(),
+        )
     };
 
     // Configure sentry tracing layer to only capture breadcrumbs, not events.
@@ -2554,7 +2551,6 @@ async fn main() {
         media_token_service,
         server_config,
     });
-
 
     let app = Router::new()
         .route("/login", get(get_login).post(post_login))
