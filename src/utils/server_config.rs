@@ -43,7 +43,7 @@ impl ServerConfig {
 
 /// Reads environment variable env_name and tries to parse it to the "Expected" type if it implements FromStr.
 /// Optional default value. In case there is no environment variable env_name, the process will
-/// end if no defaul is provided. Crashes if Expected can't be parsed (from default) and ends the process.
+/// end if no defaul is provided.
 pub fn env_or_default<Expected>(env_name: &str, default: Option<Expected>) -> Expected
 where
     Expected: FromStr + Debug,
@@ -57,7 +57,7 @@ where
                     default_value
                 }
                 None => {
-                    error!("Environment variable {env_name}");
+                    error!("Environment variable {env_name} is set to a value that isn't in the right format but required.");
                     std::process::exit(1);
                 }
             },
