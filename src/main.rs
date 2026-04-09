@@ -2541,6 +2541,12 @@ async fn main() {
     ));
 
     let port_clone = server_config.port.clone();
+
+    let client_ip_middleware = match &server_config.use_cloudflare_connecting_ip {
+        true => ClientIpSource::CfConnectingIp.into_extension(),
+        false => ClientIpSource::ConnectInfo.into_extension(),
+    };
+
     let state = Arc::new(AppState {
         db_pool: Arc::new(pool),
         tera: Arc::new(tera),
@@ -2548,6 +2554,7 @@ async fn main() {
         media_token_service,
         server_config,
     });
+
 
     let app = Router::new()
         .route("/login", get(get_login).post(post_login))
@@ -2649,8 +2656,7 @@ async fn main() {
         // })
         .with_state(state)
         .layer(Extension(auth))
-        .layer(ClientIpSource::CfConnectingIp.into_extension());
-    //.layer(ClientIpSource::ConnectInfo.into_extension());
+        .layer(client_ip_middleware);
 
     // run it
     let listener = tokio::net::TcpListener::bind(format!("localhost:{}", port_clone))

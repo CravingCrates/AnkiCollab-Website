@@ -18,6 +18,7 @@ pub struct ServerConfig {
     pub media_token_secret: String,
     pub media_proxy_url: String, // TODO: Discuss stronger typing with a Url type,
     pub port: u16,
+    pub use_cloudflare_connecting_ip: bool,
 }
 
 impl ServerConfig {
@@ -35,6 +36,7 @@ impl ServerConfig {
             media_token_secret: env_or_default("MEDIA_TOKEN_SECRET", None),
             media_proxy_url: env_or_default("MEDIA_PROXY_URL", Some("https://media.ankicollab.com".into())),
             port: env_or_default("PORT", Some(1337)),
+            use_cloudflare_connecting_ip: env_or_default("USE_CLOUDFLARE_CONNECTING_IP", Some(true)),
         }
     }
 }
