@@ -3271,12 +3271,14 @@ del[data-diff], ins[data-diff] { text-decoration: none !important; }
   min-height: 150px !important;
 }
 
-.edit-field-item .trumbowyg-editor-box {
+.edit-field-item .trumbowyg-editor-box,
+.edit-field-item .trumbowyg-textarea {
   min-height: 100px !important;
 }
 
-.edit-field-item .trumbowyg-editor {
-  min-height: 80px !important;
+.edit-field-item .trumbowyg-editor,
+.edit-field-item .trumbowyg-textarea {
+  min-height: 100px !important;
   padding: 14px 16px;
   font-size: 14px;
   line-height: 1.6;
