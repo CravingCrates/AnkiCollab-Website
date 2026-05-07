@@ -1,4 +1,3 @@
-use std::env;
 use std::sync::Arc;
 
 use bb8_postgres::bb8::{Pool, PooledConnection};
@@ -11,6 +10,7 @@ use aws_sdk_s3::Client as S3Client;
 use tera::Tera;
 
 use crate::media_tokens::MediaTokenService;
+use crate::utils::server_config::ServerConfig;
 
 #[derive(Debug)]
 pub struct AppState {
@@ -18,17 +18,16 @@ pub struct AppState {
     pub tera: Arc<Tera>,
     pub s3_client: S3Client,
     pub media_token_service: MediaTokenService,
+    pub server_config: ServerConfig,
 }
 
-pub async fn establish_pool_connection() -> Result<
+pub async fn establish_pool_connection(
+    database_url: &str,
+) -> Result<
     Pool<PostgresConnectionManager<NoTls>>,
     Box<dyn std::error::Error + Send + Sync + 'static>,
 > {
-    let conn_manager = PostgresConnectionManager::new_from_stringlike(
-        env::var("DATABASE_URL").expect("Expected DATABASE_URL to exist in the environment"),
-        NoTls,
-    )
-    .unwrap();
+    let conn_manager = PostgresConnectionManager::new_from_stringlike(database_url, NoTls)?;
 
     let pool = Pool::builder().max_size(15).build(conn_manager).await?;
     Ok(pool)

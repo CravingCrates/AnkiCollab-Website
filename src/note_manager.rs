@@ -1,5 +1,4 @@
-use std::sync::Arc;
-
+extern crate htmldiff;
 use crate::cleanser;
 use crate::database;
 use crate::error::Error::{NoteNotFound, Unauthorized};
@@ -12,8 +11,8 @@ use crate::suggestion_manager;
 use crate::user;
 use crate::NoteId;
 use crate::Return;
-
-extern crate htmldiff;
+use std::collections::{HashMap, HashSet};
+use std::sync::Arc;
 
 pub async fn under_review(
     db_state: &Arc<database::AppState>,
@@ -304,8 +303,7 @@ pub async fn get_note_data(
                     &[&base_id],
                 )
                 .await?;
-            let mut base_pos_map: std::collections::HashMap<i32, String> =
-                std::collections::HashMap::new();
+            let mut base_pos_map: HashMap<i32, String> = HashMap::new();
             for r in base_fields_rows {
                 let pos: i32 = r.get(0);
                 let content: String = r.get(1);
@@ -343,7 +341,7 @@ pub async fn get_note_data(
 
             // Merge tags: base minus removed_base_tags, then union local reviewed tags
             // Build a set of local reviewed tags
-            let mut local_set: std::collections::HashSet<String> = std::collections::HashSet::new();
+            let mut local_set: HashSet<String> = HashSet::new();
             for t in &current_note.reviewed_tags {
                 local_set.insert(t.content.clone());
             }
@@ -354,20 +352,20 @@ pub async fn get_note_data(
                     &[&base_id],
                 )
                 .await?;
-            let mut base_tags: std::collections::HashSet<String> = std::collections::HashSet::new();
+            let mut base_tags: HashSet<String> = HashSet::new();
             for r in base_tags_rows {
                 let c: Option<String> = r.get(0);
                 if let Some(cc) = c {
                     base_tags.insert(cleanser::clean(&cc));
                 }
             }
-            let removed_set: std::collections::HashSet<String> = removed_base_tags
+            let removed_set: HashSet<String> = removed_base_tags
                 .into_iter()
                 .map(|t| cleanser::clean(&t))
                 .collect();
-            let effective_base: std::collections::HashSet<String> =
+            let effective_base: HashSet<String> =
                 base_tags.difference(&removed_set).cloned().collect();
-            let mut final_tags: std::collections::HashSet<String> =
+            let mut final_tags: HashSet<String> =
                 effective_base.union(&local_set).cloned().collect();
 
             // Replace reviewed_tags with merged, marking inherited ones
@@ -568,8 +566,7 @@ pub async fn mark_note_deleted(
                 &[&note_id],
             )
             .await?;
-        let mut base_fields_map: std::collections::HashMap<i32, String> =
-            std::collections::HashMap::new();
+        let mut base_fields_map: HashMap<i32, String> = HashMap::new();
         for r in base_fields {
             let s: String = r.get(1);
             base_fields_map.insert(r.get(0), cleanser::clean(&s));
@@ -580,7 +577,7 @@ pub async fn mark_note_deleted(
                 &[&note_id],
             )
             .await?;
-        let mut base_tags: std::collections::HashSet<String> = std::collections::HashSet::new();
+        let mut base_tags: HashSet<String> = HashSet::new();
         for r in base_tags_rows {
             let c: Option<String> = r.get(0);
             if let Some(cc) = c {
@@ -626,22 +623,20 @@ pub async fn mark_note_deleted(
                     &[&sub_note_id],
                 )
                 .await?;
-            let mut local_tags: std::collections::HashSet<String> =
-                std::collections::HashSet::new();
+            let mut local_tags: HashSet<String> = HashSet::new();
             for rt in local_tags_rows {
                 let c: Option<String> = rt.get(0);
                 if let Some(cc) = c {
                     local_tags.insert(cleanser::clean(&cc));
                 }
             }
-            let removed_set: std::collections::HashSet<String> = removed_base_tags
+            let removed_set: HashSet<String> = removed_base_tags
                 .into_iter()
                 .map(|t| cleanser::clean(&t))
                 .collect();
-            let effective_base: std::collections::HashSet<String> =
+            let effective_base: HashSet<String> =
                 base_tags.difference(&removed_set).cloned().collect();
-            let mut merged: std::collections::HashSet<String> =
-                local_tags.union(&effective_base).cloned().collect();
+            let mut merged: HashSet<String> = local_tags.union(&effective_base).cloned().collect();
             merged.insert("AnkiCollab::Base_note_deleted".to_string());
 
             // Replace subscriber reviewed tags with merged

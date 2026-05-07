@@ -1,26 +1,23 @@
+use crate::error::AuthError;
 use argon2::{
     password_hash::{rand_core::OsRng, PasswordHash, PasswordHasher, PasswordVerifier, SaltString},
     Argon2,
 };
-
-use axum::http::request::Parts;
-
 use axum::extract::{FromRequestParts, OptionalFromRequestParts};
+use axum::http::request::Parts;
 use axum_extra::extract::cookie::CookieJar;
-
 use cookie::{Cookie as CookieBuilder, SameSite};
 use jsonwebtoken::{decode, encode, DecodingKey, EncodingKey, Header, Validation};
 use serde::{Deserialize, Serialize};
-use sha2::{Sha256, Digest};
+use sha2::{Digest, Sha256};
 use std::net::IpAddr;
 use std::sync::Arc;
 use time::{Duration, OffsetDateTime};
 use tokio_postgres::Client;
+use tracing::error;
 
-use crate::error::AuthError;
-
-const AUTH_COOKIE_NAME: &str = "__Host-ankicollabsession";
-const COOKIE_MAX_AGE: i64 = 60 * 60 * 24 * 7; // 7 days in seconds
+static AUTH_COOKIE_NAME: &str = "__Host-ankicollabsession";
+static COOKIE_MAX_AGE: i64 = 604800; // 7 days in seconds
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct User {
@@ -116,7 +113,7 @@ impl Auth {
             return Err(AuthError::InvalidCredentials);
         }
 
-        // Check if username already exists (case insensitive)
+        // Check if username already exists (case-insensitive)
         let exists = self
             .db
             .query_one(
@@ -195,7 +192,7 @@ impl Auth {
         // Verify password
         let parsed_hash = PasswordHash::new(&password_hash)
             .map_err(|e| AuthError::PasswordHash(e.to_string()))?;
-        if argon2::Argon2::default()
+        if Argon2::default()
             .verify_password(creds.password.as_bytes(), &parsed_hash)
             .is_err()
         {
@@ -231,7 +228,7 @@ impl Auth {
                 .secure(self.cookie_secure)
                 .http_only(true)
                 .same_site(SameSite::Lax)
-                .max_age(time::Duration::new(COOKIE_MAX_AGE, 0))
+                .max_age(Duration::new(COOKIE_MAX_AGE, 0))
                 .to_string();
 
             Ok(cookie)
@@ -250,7 +247,7 @@ impl Auth {
     pub async fn logout(&self) -> String {
         // Create expired cookie to clear the session
         CookieBuilder::build((AUTH_COOKIE_NAME, ""))
-            .expires(time::OffsetDateTime::now_utc() - time::Duration::days(1))
+            .expires(OffsetDateTime::now_utc() - Duration::days(1))
             .path("/")
             .secure(self.cookie_secure)
             .http_only(true)
@@ -323,7 +320,7 @@ where
     ) -> Result<Option<Self>, Self::Rejection> {
         match Self::extract_user(parts, state).await {
             Ok(user) => Ok(Some(user)),
-            Err(_e) => Ok(None),
+            Err(_) => Ok(None),
             //Err(e) => Err(e), we dont propagate the error here, we just return None if the user is not authenticated
         }
     }
@@ -350,10 +347,7 @@ impl Auth {
         // Get current password hash
         let row = self
             .db
-            .query_opt(
-                "SELECT password FROM users WHERE id = $1",
-                &[&user_id],
-            )
+            .query_opt("SELECT password FROM users WHERE id = $1", &[&user_id])
             .await?
             .ok_or(AuthError::UserNotFound)?;
 
@@ -362,7 +356,7 @@ impl Auth {
         // Verify current password
         let parsed_hash = PasswordHash::new(&password_hash)
             .map_err(|e| AuthError::PasswordHash(e.to_string()))?;
-        if argon2::Argon2::default()
+        if Argon2::default()
             .verify_password(current_password.as_bytes(), &parsed_hash)
             .is_err()
         {
@@ -390,10 +384,7 @@ impl Auth {
 
         // Invalidate all auth tokens for third-party apps
         self.db
-            .execute(
-                "DELETE FROM auth_tokens WHERE user_id = $1",
-                &[&user_id],
-            )
+            .execute("DELETE FROM auth_tokens WHERE user_id = $1", &[&user_id])
             .await?;
 
         Ok(())
@@ -406,10 +397,7 @@ impl Auth {
         // Fetch username before we touch anything
         let row = self
             .db
-            .query_opt(
-                "SELECT username FROM users WHERE id = $1",
-                &[&user_id],
-            )
+            .query_opt("SELECT username FROM users WHERE id = $1", &[&user_id])
             .await?
             .ok_or(AuthError::UserNotFound)?;
 
@@ -427,10 +415,7 @@ impl Auth {
         // Invalidate third-party auth tokens immediately
         let _ = self
             .db
-            .execute(
-                "DELETE FROM auth_tokens WHERE user_id = $1",
-                &[&user_id],
-            )
+            .execute("DELETE FROM auth_tokens WHERE user_id = $1", &[&user_id])
             .await;
 
         Ok(username)
@@ -439,7 +424,7 @@ impl Auth {
 
 /// Heavy account data cleanup that can safely run in a background task.
 /// Takes a pooled DB connection so it does not block the request.
-pub async fn purge_deleted_account_data<C: std::ops::Deref<Target = tokio_postgres::Client>>(
+pub async fn purge_deleted_account_data<C: std::ops::Deref<Target = Client>>(
     db: &C,
     user_id: i32,
     username: &str,
@@ -451,13 +436,10 @@ pub async fn purge_deleted_account_data<C: std::ops::Deref<Target = tokio_postgr
 
     // Delete user's statistics by user_hash
     if let Err(e) = db
-        .execute(
-            "DELETE FROM note_stats WHERE user_hash = $1",
-            &[&user_hash],
-        )
+        .execute("DELETE FROM note_stats WHERE user_hash = $1", &[&user_hash])
         .await
     {
-        tracing::error!(user_id, error = %e, "Failed to purge note_stats for deleted account");
+        error!(user_id, error = %e, "Failed to purge note_stats for deleted account");
     }
 
     // Delete user's subscriptions by user_hash
@@ -468,7 +450,7 @@ pub async fn purge_deleted_account_data<C: std::ops::Deref<Target = tokio_postgr
         )
         .await
     {
-        tracing::error!(user_id, error = %e, "Failed to purge subscriptions for deleted account");
+        error!(user_id, error = %e, "Failed to purge subscriptions for deleted account");
     }
 
     // Finally remove the user row (cascading deletes handle the rest)
@@ -476,7 +458,6 @@ pub async fn purge_deleted_account_data<C: std::ops::Deref<Target = tokio_postgr
         .execute("DELETE FROM users WHERE id = $1", &[&user_id])
         .await
     {
-        tracing::error!(user_id, error = %e, "Failed to delete user row for deleted account");
+        error!(user_id, error = %e, "Failed to delete user row for deleted account");
     }
-
 }
