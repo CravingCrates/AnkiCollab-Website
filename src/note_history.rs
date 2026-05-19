@@ -522,7 +522,7 @@ fn collect_actors(events: &[NoteHistoryEvent]) -> Vec<String> {
             event
                 .actor_username
                 .clone()
-                .unwrap_or_else(|| "Anonymous".to_string()),
+                .unwrap_or("Anonymous".to_string()),
         );
     }
     actors.into_iter().collect()

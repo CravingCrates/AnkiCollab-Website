@@ -1,13 +1,12 @@
-use std::fmt;
-use std::sync::Arc;
-use std::time::Duration;
-
 use base64::engine::general_purpose::URL_SAFE_NO_PAD;
 use base64::Engine;
 use chrono::{Duration as ChronoDuration, Utc};
 use hmac::{Hmac, Mac};
 use serde::{Deserialize, Serialize};
 use sha2::Sha256;
+use std::fmt;
+use std::sync::Arc;
+use std::time::Duration;
 
 type HmacSha256 = Hmac<Sha256>;
 
@@ -19,8 +18,8 @@ pub struct MediaTokenService {
     download_ttl: Duration,
 }
 
-impl std::fmt::Debug for MediaTokenService {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl fmt::Debug for MediaTokenService {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("MediaTokenService")
             .field("secret", &"<redacted>")
             .field("download_ttl", &self.download_ttl)

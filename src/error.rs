@@ -1,18 +1,17 @@
+use crate::{format, option_env, str, AppState, Html, Next, NoteId, State};
 use axum::{
     extract::Request,
     http::{Method, StatusCode},
     response::{IntoResponse, Response},
 };
+use once_cell::sync::Lazy;
 use sentry::{protocol::Event, ClientInitGuard, Level};
 use serde::Serialize;
+use std::sync::Arc;
 use tera::Context;
 use thiserror::Error;
-
 use tokio_postgres::Error as PgError;
-
-use crate::{format, option_env, str, usize, AppState, Html, Next, NoteId, State};
-
-use std::sync::Arc;
+use tracing::warn;
 
 /// Categorizes errors for structured Sentry reporting without exposing PII.
 #[derive(Debug, Clone, Copy)]
@@ -76,7 +75,7 @@ fn is_expected_client_error(message: &str) -> bool {
 
 impl Reporter {
     pub fn new() -> Self {
-        let endpoint = std::env::var("SENTRY_URL").unwrap();
+        let endpoint = std::env::var("SENTRY_URL").unwrap(); // TODO: Initialize with value from ServerConfig
         let before_send = Some(Arc::new(|mut event: Event<'static>| {
             // Drop expected client errors - these are properly handled, not bugs
             if event.message.as_ref().is_some_and(|m| is_expected_client_error(m)) {
@@ -147,8 +146,6 @@ impl Reporter {
         }
     }
 }
-
-use once_cell::sync::Lazy;
 
 /// Pre-compiled regexes for path sanitization (compiled once at startup)
 static RE_NUMERIC_ID: Lazy<regex::Regex> =
@@ -248,7 +245,7 @@ fn capture_server_error(
 fn log_client_error(status: StatusCode, method: &Method, path: &str, message: &str) {
     if status.is_client_error() && !is_expected_client_error(message) {
         let sanitized_path = sanitize_path(path);
-        tracing::warn!(
+        warn!(
             http.status = %status,
             http.method = %method,
             http.path = %sanitized_path,
@@ -652,12 +649,12 @@ pub async fn pretty_error_middleware(
     }
 
     // Handle 404 - don't send to Sentry, just log locally
-    if status_code == axum::http::StatusCode::NOT_FOUND {
+    if status_code == StatusCode::NOT_FOUND {
         tracing::debug!(http.path = %path, "Page not found");
-        let mut context = tera::Context::new();
+        let mut context = Context::new();
         context.insert("message", "Page not found");
         if let Ok(html) = app_state.tera.render("error.html", &context) {
-            return (axum::http::StatusCode::NOT_FOUND, Html(html)).into_response();
+            return (StatusCode::NOT_FOUND, Html(html)).into_response();
         }
     }
 
