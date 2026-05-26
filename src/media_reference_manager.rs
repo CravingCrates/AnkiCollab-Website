@@ -240,6 +240,11 @@ pub async fn get_presigned_url(
     };
 
     let clean_filename = crate::cleanser::clean(filename);
+
+    // Skip svg files since we don't sanitize them atm
+    if clean_filename.to_lowercase().ends_with(".svg") {
+        return Err("SVG files are not supported".into());
+    }
     
     // Query to get hash and deck_hash in one go
     let query = "
