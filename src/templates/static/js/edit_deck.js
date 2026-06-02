@@ -27,10 +27,10 @@ jQuery(document).ready(function() {
             .attr('aria-multiline', 'true')
             .attr('aria-label', 'Deck description');
 
-        // Load description from JSON data if present
+        // Load description from data attribute if present
         var descDataElement = document.getElementById('desc-data');
         if (descDataElement) {
-            var descHtml = JSON.parse(descDataElement.textContent);
+            var descHtml = descDataElement.getAttribute('data-description');
             $('#desc-editor').trumbowyg('html', descHtml);
         }
 
@@ -115,7 +115,12 @@ document.addEventListener('DOMContentLoaded', function() {
             function (e) {
                 if (e) {
                     fetch('/DeleteDeck/' + deckHash, { method: 'POST', credentials: 'same-origin' })
-                        .then(function(r) { if (r.redirected) window.location.href = r.url; else window.location.href = '/ManageDecks'; })
+                        .then(function(r) { 
+                            swal("Deleted!", "The deck is scheduled for deletion and will be removed asap, but keep in mind that it won't remove the local installation of users.", "success");
+                            setTimeout(function() {
+                                if (r.redirected) window.location.href = r.url; else window.location.href = '/ManageDecks';
+                            }, 10000);
+                        })
                         .catch(function() { swal("Error", "Failed to delete deck", "error"); });
                 } else {
                     swal("Cancelled", "Your deck is safe :)", "error");

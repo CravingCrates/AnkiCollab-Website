@@ -191,9 +191,7 @@
     <script src="/static/plugins/trumbowyg/plugins/colors/trumbowyg.colors.js"></script>
     
     {% if description %} 
-        <script id="desc-data" type="application/json">
-            {{ description | json_encode() | safe }}
-        </script>
+        <div id="desc-data" style="display:none;" data-description="{{ description }}"></div>
     {% endif %}
     <script src="/static/js/clipboard.js"></script>
     <script src="/static/js/edit_deck.js"></script>
