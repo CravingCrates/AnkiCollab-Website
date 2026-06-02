@@ -447,7 +447,7 @@ pub async fn purge_deleted_account_data<C: std::ops::Deref<Target = tokio_postgr
     // Calculate SHA256 hash of username (matching the user_hash format in note_stats)
     let mut hasher = Sha256::new();
     hasher.update(username.as_bytes());
-    let user_hash = format!("{:x}", hasher.finalize());
+    let user_hash = hex::encode(hasher.finalize());
 
     // Delete user's statistics by user_hash
     if let Err(e) = db
