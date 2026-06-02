@@ -104,48 +104,40 @@ pub async fn commits_review(
         ),
 
         relevant_commits AS MATERIALIZED (
-            SELECT DISTINCT commit_id
+            SELECT c.commit_id
             FROM (
-                SELECT c.commit_id
-                FROM fields f
-                JOIN commits c ON c.commit_id = f.commit
-                WHERE f.reviewed = false
-                AND c.deck IN (SELECT id FROM accessible)
-
-                UNION ALL
-
-                SELECT c.commit_id
-                FROM tags t
-                JOIN commits c ON c.commit_id = t.commit
-                WHERE t.reviewed = false
-                AND c.deck IN (SELECT id FROM accessible)
-
-                UNION ALL
-
-                SELECT c.commit_id
-                FROM card_deletion_suggestions cds
-                JOIN commits c ON c.commit_id = cds.commit
-                WHERE c.deck IN (SELECT id FROM accessible)
-
-                UNION ALL
-
-                SELECT c.commit_id
-                FROM note_move_suggestions nms
-                JOIN commits c ON c.commit_id = nms.commit
-                WHERE c.deck IN (SELECT id FROM accessible)
-            ) s
+                SELECT DISTINCT commit AS commit_id FROM fields    WHERE reviewed = false
+                UNION
+                SELECT DISTINCT commit               FROM tags     WHERE reviewed = false
+                UNION
+                SELECT DISTINCT commit               FROM card_deletion_suggestions
+                UNION
+                SELECT DISTINCT commit               FROM note_move_suggestions
+            ) uc
+            JOIN commits c ON c.commit_id = uc.commit_id
+            WHERE c.deck IN (SELECT id FROM accessible)
         ),
 
         distinct_decks AS (
             SELECT DISTINCT src.commit, n.deck
             FROM (
-                SELECT f.commit, f.note FROM fields f WHERE f.reviewed = false AND f.commit IN (SELECT commit_id FROM relevant_commits)
+                SELECT f.commit, f.note
+                FROM fields f
+                WHERE f.reviewed = false
+                AND f.commit IN (SELECT commit_id FROM relevant_commits)
                 UNION ALL
-                SELECT t.commit, t.note FROM tags t WHERE t.reviewed = false AND t.commit IN (SELECT commit_id FROM relevant_commits)
+                SELECT t.commit, t.note
+                FROM tags t
+                WHERE t.reviewed = false
+                AND t.commit IN (SELECT commit_id FROM relevant_commits)
                 UNION ALL
-                SELECT cds.commit, cds.note FROM card_deletion_suggestions cds WHERE cds.commit IN (SELECT commit_id FROM relevant_commits)
+                SELECT cds.commit, cds.note
+                FROM card_deletion_suggestions cds
+                WHERE cds.commit IN (SELECT commit_id FROM relevant_commits)
                 UNION ALL
-                SELECT nms.commit, nms.note FROM note_move_suggestions nms WHERE nms.commit IN (SELECT commit_id FROM relevant_commits)
+                SELECT nms.commit, nms.note
+                FROM note_move_suggestions nms
+                WHERE nms.commit IN (SELECT commit_id FROM relevant_commits)
             ) src
             JOIN notes n ON n.id = src.note
         ),
