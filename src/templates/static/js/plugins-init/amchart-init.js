@@ -2178,7 +2178,6 @@ $(document).ready(function () {
              * data loader for data set data
              */
             "dataLoader": {
-                "url": "https://www.amcharts.com/wp-content/uploads/assets/stock/MSFT.csv",
                 "format": "csv",
                 "showCurtain": true,
                 "showErrors": true,
@@ -2192,7 +2191,6 @@ $(document).ready(function () {
              * data loader for events data
              */
             "eventDataLoader": {
-                "url": "https://www.amcharts.com/wp-content/uploads/assets/stock/MSFT_events.csv",
                 "format": "csv",
                 "showCurtain": true,
                 "showErrors": true,
@@ -2245,7 +2243,6 @@ $(document).ready(function () {
             "compared": true,
             "categoryField": "Date",
             "dataLoader": {
-                "url": "https://www.amcharts.com/wp-content/uploads/assets/stock/TXN.csv",
                 "format": "csv",
                 "showCurtain": true,
                 "showErrors": true,
@@ -2626,7 +2623,6 @@ $(document).ready(function () {
         "theme": "dark",
         "color": "#fff",
         "dataLoader": {
-            "url": "https://poloniex.com/public?command=returnOrderBook&currencyPair=BTC_ETH&depth=50",
             "format": "json",
             "reload": 30,
             "postProcess": function (data) {

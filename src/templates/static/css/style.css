@@ -7561,6 +7561,7 @@ sub {
   color: #abafb3; }
 
 .footer {
+  padding: 1rem 0;
   padding-left: 15.1875rem;
   background-color: #fff; }
   .footer .copyright {
@@ -11870,21 +11871,6 @@ table.dataTable thead .sorting::after {
 
 #invoice-bot {
   min-height: 25rem; }
-
-.invoice-logo {
-  float: left;
-  height: 6rem;
-  width: 6rem;
-  background: url("http://michaeltruong.ca/images/logo1.png") no-repeat;
-  background-size: 6rem 6rem; }
-
-.clientlogo {
-  float: left;
-  height: 6rem;
-  width: 6rem;
-  background: url("http://michaeltruong.ca/images/client.jpg") no-repeat;
-  background-size: 6rem 6rem;
-  border-radius: 5rem; }
 
 .invoice-info {
   display: block;

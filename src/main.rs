@@ -27,6 +27,7 @@ use net::SocketAddr;
 use sync::Arc;
 use tokio::signal;
 use tower::ServiceBuilder;
+use tower_governor::{governor::GovernorConfigBuilder, GovernorLayer};
 use user::{Auth, ChangePasswordRequest, Credentials, User, purge_deleted_account_data};
 
 use axum_client_ip::{ClientIp, ClientIpSource};
@@ -524,8 +525,7 @@ async fn edit_deck(
 
     context.insert("user", &user);
     context.insert("hash", &deck_hash);
-    // Escape </ to <\/ to prevent </script> breakout when embedded in a <script> tag
-    context.insert("description", &desc.replace("</", "<\\/"));
+    context.insert("description", &desc);
     context.insert("private", &is_private);
     context.insert("prevent_subdecks", &prevent_subdecks);
     context.insert("restrict_notetypes", &restrict_notetypes);
@@ -603,16 +603,21 @@ async fn delete_deck(
     let _ = owned_deck_id(&appstate, &deck_hash, user.id()).await?; // only for checking if user owns the deck
 
     client
-        .query("Select delete_deck($1)", &[&deck_hash])
+        .query(
+            "UPDATE decks SET deleted_at = NOW() WHERE id IN (
+                WITH RECURSIVE subdecks AS (
+                    SELECT id FROM decks WHERE human_hash = $1
+                    UNION ALL
+                    SELECT d.id FROM decks d JOIN subdecks s ON s.id = d.parent
+                ) SELECT id FROM subdecks
+            )",
+            &[&deck_hash],
+        )
         .await?;
-
 
     // Run on the Tokio runtime
     tokio::spawn(async move {
-        if let Err(e) = purge_s3_deck_assets(&db_state_clone, &deck_hash).await {
-            tracing::warn!(error = %e, deck_hash = %deck_hash, "Failed to purge S3 assets for deck");
-        }
-
+        // chunked background delete
         let client: SharedConn = match db_state_clone.db_pool.get_owned().await {
             Ok(pool) => pool,
             Err(err) => {
@@ -620,7 +625,26 @@ async fn delete_deck(
                 return;
             }
         };
-        // This query is quite expensive, but it is only used when deleting a deck, so it should be fine. I use it to trigger a cleanup
+
+        // Find all deck ids in this tree
+        let rows = client.query("WITH RECURSIVE subdecks AS (
+            SELECT id, 1 as depth FROM decks WHERE human_hash = $1
+            UNION ALL
+            SELECT d.id, s.depth + 1 FROM decks d JOIN subdecks s ON s.id = d.parent
+        ) SELECT id FROM subdecks ORDER BY depth DESC", &[&deck_hash]).await;
+
+        if let Ok(rows) = rows {
+            for row in rows {
+                let deck_id: i64 = row.get(0);
+                
+                // Delete the subdeck on its own, allowing CASCADE to clean up its notes,
+                // commits, and other dependencies in a smaller transaction.
+                let _ = client.query("DELETE FROM decks WHERE id = $1", &[&deck_id]).await;
+                tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+            }
+        }
+        
+        // This query cleans up unused notetypes
         client
             .query(
                 "DELETE FROM notetype WHERE id NOT IN (SELECT DISTINCT notetype FROM notes)",
@@ -628,12 +652,8 @@ async fn delete_deck(
             )
             .await.unwrap();
 
-        if let Err(err) = purge_s3_deck_assets(&appstate, &deck_hash).await {
-            tracing::warn!(
-                error = %err,
-                deck_hash = %deck_hash,
-                "Failed to delete S3 assets for deck"
-            );
+        if let Err(err) = purge_s3_deck_assets(&db_state_clone, &deck_hash).await {
+            tracing::warn!(error = %err, deck_hash = %deck_hash, "Failed to purge S3 assets for deck");
         }
     });
 
@@ -1011,6 +1031,52 @@ async fn review_commit(
     let rendered_template = appstate
         .tera
         .render("commit.html", &context)
+        .expect("Failed to render template");
+
+    Ok(Html(rendered_template).into_response())
+}
+
+async fn review_commit_preview(
+    State(appstate): State<Arc<AppState>>,
+    user: User,
+    Path(commit_id): Path<i32>,
+) -> Result<Response, Error> {
+    let client = database::client(&appstate).await?;
+    let q_guid = client
+        .query(
+            "Select deck from commits where commit_id = $1",
+            &[&commit_id],
+        )
+        .await?;
+    if q_guid.is_empty() {
+        return error_page(&appstate, error::Error::CommitNotFound.to_string())
+            .await
+            .map(IntoResponse::into_response);
+    }
+    let deck_id: i64 = q_guid[0].get(0);
+
+    let access = suggestion_manager::is_authorized(&appstate, &user, deck_id).await?;
+    if !access {
+        return error_page(&appstate, error::Error::Unauthorized.to_string())
+            .await
+            .map(IntoResponse::into_response);
+    }
+
+    let commit = commit_manager::get_commit_info(&appstate, commit_id).await?;
+    let notes_page = commit_manager::notes_by_commit(&appstate, commit_id, 0, 5).await?;
+    let notemodels = notetype_manager::notetypes_by_commit(&appstate, commit_id).await?;
+
+    let mut context = tera::Context::new();
+    context.insert("commit", &commit);
+    context.insert("notes", &notes_page.notes);
+    context.insert("notes_total", &notes_page.total);
+    context.insert("notemodels", &notemodels);
+    context.insert("user", &user);
+    context.insert("owned", &access);
+
+    let rendered_template = appstate
+        .tera
+        .render("partials/commit_preview_drawer.html", &context)
         .expect("Failed to render template");
 
     Ok(Html(rendered_template).into_response())
@@ -2015,16 +2081,17 @@ async fn deck_overview(
         .prepare(
             "
         SELECT 
-            id, 
-            name, 
-            description, 
-            human_hash, 
-            owner,
-            TO_CHAR(last_update, 'MM/DD/YYYY') AS last_update,
+            deck_stats.id, 
+            deck_stats.name, 
+            deck_stats.description, 
+            deck_stats.human_hash, 
+            deck_stats.owner,
+            TO_CHAR(deck_stats.last_update, 'MM/DD/YYYY') AS last_update,
             (SELECT COUNT(*) FROM subscriptions WHERE deck_id = deck_stats.id) AS subs,
-            note_count
+            deck_stats.note_count
         FROM deck_stats 
-        WHERE private = false OR owner = $1
+        JOIN decks ON decks.id = deck_stats.id
+        WHERE (deck_stats.private = false OR deck_stats.owner = $1) AND decks.deleted_at IS NULL
         ",
         )
         .await
@@ -2319,7 +2386,7 @@ async fn manage_decks(
             (SELECT COUNT(*) FROM subscriptions WHERE deck_id = decks.id) AS subs,
             stats_enabled
         FROM decks 
-        WHERE parent IS NULL and owner = $1
+        WHERE parent IS NULL and owner = $1 and deleted_at IS NULL
     ",
         )
         .await
@@ -2520,21 +2587,21 @@ async fn main() {
         .with(tracing_subscriber::fmt::layer().without_time())
         .init();
 
-    // let governor_conf = Arc::new(
-    //     GovernorConfigBuilder::default()
-    //         .finish()
-    //         .unwrap(),
-    // );
+    let governor_conf = Arc::new(
+        GovernorConfigBuilder::default()
+            .finish()
+            .unwrap(),
+    );
 
-    // let governor_limiter = governor_conf.limiter().clone();
-    // let interval = std::time::Duration::from_secs(60);
-    // // a separate background task to clean up
-    // std::thread::spawn(move || {
-    //     loop {
-    //         std::thread::sleep(interval);
-    //         governor_limiter.retain_recent();
-    //     }
-    // });
+    let governor_limiter = governor_conf.limiter().clone();
+    let interval = std::time::Duration::from_secs(60);
+    // a separate background task to clean up
+    std::thread::spawn(move || {
+        loop {
+            std::thread::sleep(interval);
+            governor_limiter.retain_recent();
+        }
+    });
 
     // Second db connection for the auth. idk.. should prolly use the pool for this too
     let (client, connection) = tokio_postgres::connect(
@@ -2558,9 +2625,15 @@ async fn main() {
         env::var("COOKIE_SECURE").unwrap_or("false".to_string()) == "true",
     ));
 
-    let app = Router::new()
+    let auth_routes = Router::new()
         .route("/login", get(get_login).post(post_login))
         .route("/signup", get(get_signup).post(post_signup))
+        .route("/profile/change-password", post(post_change_password))
+        .route("/profile/delete-account", post(delete_account))
+        .layer(GovernorLayer::new(governor_conf.clone()));
+
+    let app = Router::new()
+        .merge(auth_routes)
         .route("/", get(index))
         .route("/terms", get(terms))
         .route("/privacy", get(privacy))
@@ -2569,8 +2642,6 @@ async fn main() {
         .route("/accessibility", get(accessibility_page))
         .route("/logout", get(logout))
         .route("/profile", get(get_profile))
-        .route("/profile/change-password", post(post_change_password))
-        .route("/profile/delete-account", post(delete_account))
         .route("/OptionalTags", post(post_optional_tags))
         .route("/OptionalTags/{deck_hash}", get(show_optional_tags))
         .route("/Maintainers/{deck_hash}", get(show_maintainers))
@@ -2622,6 +2693,7 @@ async fn main() {
         .route("/GetNotificationsHistory", get(get_notifications_history))
         .route("/MarkNotificationsRead", post(mark_notifications_read))
         .route("/commit/{commit_id}", get(review_commit))
+        .route("/commit_preview/{commit_id}", get(review_commit_preview))
         .route("/note_history/{note_id}", get(note_history_page))
         .route("/commit_history/{commit_id}", get(commit_history_page))
         .route("/reviews", get(all_reviews))
@@ -2648,9 +2720,6 @@ async fn main() {
             state.clone(),
             error::pretty_error_middleware,
         ))
-        // .layer(GovernorLayer {
-        //     config: governor_conf,
-        // })
         .with_state(state)
         .layer(Extension(auth))
         .layer(ClientIpSource::CfConnectingIp.into_extension());

@@ -321,16 +321,6 @@ let dataSet = [
         .DataTable();
 
 
-    
-    //Language file
-    $('#example-advance-3').DataTable( {
-        "language": {
-            "url": "https://cdn.datatables.net/plug-ins/9dcbecd42ad/i18n/German.json"
-        }
-    });
-
-
-
 
     //plugins
 

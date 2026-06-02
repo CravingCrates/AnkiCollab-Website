@@ -1,0 +1,137 @@
+/* Drawer CSS */
+#quick-preview-drawer {
+    position: fixed !important;
+    top: 0 !important;
+    right: 0 !important;
+    width: 45vw !important;
+    height: 100vh !important;
+    background: white !important;
+    box-shadow: -5px 0 25px rgba(0,0,0,0.15) !important;
+    z-index: 1050 !important;
+    transform: translateX(100%);
+    transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1) !important;
+    display: flex !important;
+    flex-direction: column !important;
+}
+
+#quick-preview-drawer.open {
+    transform: translateX(0) !important;
+}
+
+.drawer-header {
+    padding: 1.25rem 1.5rem !important;
+    border-bottom: 1px solid #e9ecef !important;
+    background: #fff !important;
+}
+
+.drawer-footer {
+    padding: 1.25rem 1.5rem !important;
+    border-top: 1px solid #e9ecef !important;
+    background: #fff !important;
+    margin-top: auto !important;
+}
+
+.drawer-body {
+    padding: 1rem !important;
+    overflow-y: auto !important;
+    background: #fdfdfd !important;
+    position: relative !important;
+}
+
+.commit-preview-drawer-content .commit-info-quote {
+    position: relative;
+    margin: 0 0 1rem;
+    padding: 0.8rem 1rem 0.8rem 0.9rem;
+    border-left: 1px solid rgba(13, 110, 253, 0.35);
+    color: #3d4b5c;
+    font-size: 0.93rem;
+    line-height: 1.5;
+    font-style: italic;
+}
+
+.commit-preview-drawer-content .note-id-link {
+    display: inline-flex;
+    align-items: center;
+    position: relative;
+    z-index: 2;
+    pointer-events: auto;
+    text-decoration: none;
+}
+
+.commit-preview-drawer-content .note-card,
+.commit-preview-drawer-content .note-card:hover {
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04), 0 0 0 1px rgba(0, 0, 0, 0.04) !important;
+    transform: none !important;
+    transition: none !important;
+}
+
+.commit-preview-drawer-content .note-card:hover::before {
+    opacity: 0 !important;
+}
+
+.drawer-loading-overlay {
+    position: absolute !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    background: rgba(255, 255, 255, 0.65) !important;
+    backdrop-filter: blur(8px) !important;
+    -webkit-backdrop-filter: blur(8px) !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    z-index: 1060 !important;
+    border-radius: inherit !important;
+    opacity: 0 !important;
+    transition: opacity 0.2s ease !important;
+}
+
+.drawer-loading-overlay.visible {
+    opacity: 1 !important;
+}
+
+.review-spinner {
+    width: 22px !important;
+    height: 22px !important;
+    border: 2.5px solid rgba(0, 0, 0, 0.1) !important;
+    border-top-color: #007aff !important;
+    border-radius: 50% !important;
+    animation: review-spin 0.6s linear infinite !important;
+}
+
+@keyframes review-spin {
+    to { transform: rotate(360deg); }
+}
+
+.drawer-body.drawer-body-processing > :not(.drawer-loading-overlay) {
+    opacity: 0.5 !important;
+    transition: opacity 0.2s ease !important;
+}
+
+/* Overlay */
+#drawer-overlay {
+    position: fixed !important; 
+    top: 0 !important; left: 0 !important; right: 0 !important; bottom: 0 !important;
+    background: rgba(0,0,0,0.3) !important;
+    z-index: 1040 !important;
+    display: none !important;
+    opacity: 0 !important;
+    transition: opacity 0.3s !important;
+}
+#drawer-overlay.show {
+    display: block !important;
+    opacity: 1 !important;
+}
+
+@media (max-width: 991px) {
+    #quick-preview-drawer { width: 80vw !important; }
+}
+@media (max-width: 576px) {
+    #quick-preview-drawer { width: 100vw !important; }
+}
+
+/* Table Interactions */
+.table-hover tbody tr { cursor: pointer; transition: background-color 0.1s; }
+.table-hover tbody tr:hover { background-color: #f1f3f5; }
+.table-active { background-color: #e2e8f0 !important; border-left: 4px solid #007bff; }

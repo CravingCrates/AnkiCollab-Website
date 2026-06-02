@@ -395,7 +395,7 @@ del[data-diff], ins[data-diff] { text-decoration: none !important; }
   border: 1px solid #e2e8f0;
   padding: 14px 16px;
   margin-top: 5px;
-  min-height: 50px;
+  min-height: 20px;
   border-radius: 8px;
   line-height: 1.65;
   font-size: 14px;
@@ -1385,16 +1385,16 @@ del[data-diff], ins[data-diff] { text-decoration: none !important; }
   background: rgba(16, 185, 129, 0.13);
   color: #166534;
   text-decoration: none;
-  padding: 1px 3px;
-  border-radius: 3px;
+  padding: 1px;
+  line-height: 1.5;
 }
 
 .diff-content del[data-diff] {
   background: rgba(239, 68, 68, 0.12);
   color: #991b1b;
   text-decoration: none;
-  padding: 1px 3px;
-  border-radius: 3px;
+  padding: 1px;
+  line-height: 1.5;
 }
 
 /* Split diff highlight styles — background-only, no strikethrough */
@@ -1402,16 +1402,16 @@ del[data-diff], ins[data-diff] { text-decoration: none !important; }
   background: #fecaca;
   color: #991b1b;
   text-decoration: none;
-  padding: 1px 4px;
-  border-radius: 3px;
+  padding: 1px;
+  line-height: 1.5;
 }
 
 .diff-highlight-ins {
   background: #bbf7d0;
   color: #166534;
   text-decoration: none;
-  padding: 1px 4px;
-  border-radius: 3px;
+  padding: 1px;
+  line-height: 1.5;
 }
 
 /* Character-level diff highlight — subtle deeper tint on the exact changed
@@ -1419,7 +1419,6 @@ del[data-diff], ins[data-diff] { text-decoration: none !important; }
    Works in both inline diff and split diff views. */
 [data-diff-char] {
   background-color: rgba(0, 0, 0, 0.07);
-  border-radius: 2px;
 }
 
 /* Column background tints for split diff view */
@@ -1428,6 +1427,10 @@ del[data-diff], ins[data-diff] { text-decoration: none !important; }
   border: 1px solid #f5c6cb;
   background: #fff8f8;
 }
+
+.original-side .normalized-lh {
+  line-height: 1.5;
+} 
 
 .suggestion-side .diff-content {
   border: 1px solid #b7ebc9;

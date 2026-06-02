@@ -8,6 +8,9 @@
       href="/static/plugins/tables/css/datatable/dataTables.bootstrap4.min.css"
       rel="stylesheet"
     />
+    <link href="/static/css/commit_styling.css" rel="stylesheet" />
+    <link href="/static/css/commit_page.css" rel="stylesheet" />
+    <link href="/static/css/drawer.css" rel="stylesheet" />
   </head>
   {% include "layout_header.html" %}
         <!-- End Top layout-->
@@ -24,7 +27,7 @@
                   <div class="table-responsive">
                     <table
                       id="deckOverview"
-                      class="table table-striped table-bordered zero-configuration"
+                      class="table table-striped table-bordered zero-configuration table-hover"
                     >
                       <thead>
                         <tr>
@@ -37,32 +40,13 @@
                       </thead>
                       <tbody>
                         {% for commit in commits %}
-                        <tr>
-                          <td>
-                            <a href="/commit/{{ commit.id }}"
-                              >{{ commit.user }}</a
-                            >
-                          </td>
-                          <td>
-                            <a href="/commit/{{ commit.id }}"
-                              >{{ commit.rationale }}</a
-                            >
-                          </td>
-                          <td>
-                            <a href="/commit/{{ commit.id }}"
-                              >{{ commit.commit_info | striptags | truncate(length=125) }}</a
-                            >
-                          </td>
-                          <td>
-                            <a href="/commit/{{ commit.id }}"
-                              >{{ commit.deck | truncate(length=100) }}</a
-                            >
-                          </td>
-                          <td>
-                            <a href="/commit/{{ commit.id }}"
-                              >{{ commit.timestamp }}</a
-                            >
-                          </td>
+                        <tr data-commit-id="{{ commit.id }}">
+                          <td><a href="/commit/{{ commit.id }}">{{ commit.user }}</a></td>
+                          <td>{{ commit.rationale }}</td>
+                          <td>{{ commit.commit_info | striptags | truncate(length=125) }}</td>
+                          <td>{{ commit.deck | truncate(length=100) }}</td>
+                          <td>{{ commit.timestamp }}</td>
+                        </tr>
                         </tr>
                         {% endfor %}
                       </tbody>
@@ -85,8 +69,46 @@
       <!--**********************************
             Content body end
         ***********************************-->
+
         {% include "layout_footer.html" %}
+
+    <!-- The Overlay Background -->
+    <div id="drawer-overlay"></div>
+
+    <!-- The Slide-out Drawer -->
+    <div id="quick-preview-drawer">
+        <div class="drawer-header d-flex justify-content-between align-items-center">
+            <h4 class="mb-0">Quick Preview</h4>
+            <button class="btn btn-light btn-sm rounded-circle" id="closeDrawer" style="width: 32px; height: 32px;">
+                <i class="fa fa-times"></i>
+            </button>
+        </div>
+        
+        <div class="drawer-body" id="drawerBody">
+            <!-- Simulated injected content -->
+        </div>
+        
+        <div class="drawer-footer d-flex justify-content-between align-items-center">
+            <div class="btn-group shadow-sm">
+                <button class="btn btn-light border" id="btnPrev" title="Previous Commit">
+                    <i class="fa fa-chevron-up"></i>
+                </button>
+                <button class="btn btn-light border" id="btnNext" title="Next Commit">
+                    <i class="fa fa-chevron-down"></i>
+                </button>
+            </div>
+            
+            <a href="#" class="btn btn-outline-secondary shadow-sm" id="btnFullEditor">
+                View Full Suggestion <i class="fa fa-external-link ml-1"></i>
+            </a>
+        </div>
+    </div>
         <script src="/static/plugins/jquery/jquery.min.js"></script>
+        <script src="/static/js/html_diff_utils.js"></script>
+        <script src="/static/js/image_handling.js"></script>
+        <script src="/static/js/api_service.js"></script>
+        <script src="/static/js/field_edit_panel.js"></script>
+        <script src="/static/js/shared_ui.js"></script>
         <script src="/static/plugins/tables/js/datatable/dataTables.bootstrap4.min.js"></script>
         <script src="/static/plugins/tables/js/datatable-init/datatable-basic.min.js"></script>
         <script src="/static/js/reviews.js"></script>

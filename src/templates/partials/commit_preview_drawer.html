@@ -1,0 +1,130 @@
+<div class="commit-preview-drawer-content p-4">
+    <div class="drawer-header-info mb-4">
+        <h3 class="mt-0 fw-semibold mb-3">{{ commit.rationale }}</h3>
+        {% if commit.commit_info %}
+        <div class="commit-info-quote mb-3">
+            {{ commit.commit_info | striptags }}
+        </div>
+        {% endif %}
+        <div class="text-secondary small mt-2">
+            <div class="my-1"><strong>Author:</strong> {{ commit.user }}</div>
+            <div class="my-1"><strong>Deck:</strong> {{ commit.deck }}</div>
+            <div class="my-1"><strong>Last Update:</strong> {{ commit.timestamp }}</div>
+        </div>
+    </div>
+
+    <!-- Quick Approve/Deny block for small commits -->
+    {% if notes_total <= 5 %}
+    <div class="alert alert-secondary p-3 rounded mb-4 border d-flex justify-content-between align-items-center">
+        <div>
+            <span class="font-weight-bold small text-dark d-block">Quick Action</span>
+            <span class="text-muted small">This commit is fully previewed here.</span>
+        </div>
+        <div class="btn-group">
+            <button class="modern-btn btn-danger global-action-preview-btn" data-global-action="deny" data-commit-id="{{commit.id}}" title="Deny all notes in this commit">
+                <i class="fa fa-times-circle" aria-hidden="true"></i>
+                Deny
+            </button>
+            <button class="modern-btn btn-success global-action-preview-btn" data-global-action="approve" data-commit-id="{{commit.id}}" title="Accept all notes in this commit">
+                <i class="fa fa-check-circle" aria-hidden="true"></i>
+                Accept
+            </button>
+        </div>
+    </div>
+    {% endif %}
+
+    <div class="drawer-changes">
+        <h4 class="mb-3 pb-2 border-bottom font-weight-bold">Included Changes</h4>
+        
+        {% if notes_total > 5 %}
+        <div class="alert alert-info py-2 px-3 small border-0 bg-light text-secondary d-flex align-items-center">
+            <i class="fa fa-info-circle mr-2"></i> Previewing first 5 of {{ notes_total }} changes. View full suggestions to see the rest.
+        </div>
+        {% endif %}
+        
+        {% if notes | length == 0 %}
+        <p class="empty-state text-secondary text-center py-4">No notes found in this commit.</p>
+        {% endif %}
+
+        {% for note in notes %}
+        <div class="note-card note-context mb-4" data-context-type="note" data-note-id="{{note.id}}">
+            <div class="note-header-compact">
+                <div class="note-header-info">
+                    <a href="/review/{{note.id}}" class="note-id-link" title="Open detail view">#{{note.id}}</a>
+                    <span class="note-meta-inline">{{ note.deck }}</span>
+                    <div class="status-pill {% if note.reviewed and not note.delete_req %}pill-suggestion{% elif note.delete_req %}pill-removal{% else %}pill-new{% endif %}">
+                        {% if note.reviewed and not note.delete_req %}Changed
+                        {% elif note.delete_req %}Removal
+                        {% else %}New
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+            <div class="content-comparison {% if note.delete_req %}deletion-request{% endif %}">
+                {% if not note.delete_req %}
+                <div class="original-side">
+                    <h3 class="content-header">Current Version</h3>
+                    {% for field in note.fields %}
+                    <div class="field-item">
+                        <div class="field-header">
+                            <div class="field-name">{{notemodels[note.note_model][field.position]}}</div>
+                        </div>
+                        <div class="field-content note-content-display original-content"
+                             data-field-id='{{field.id}}'
+                             data-content='{{ field.reviewed_content | escape }}'>
+                        </div>
+                    </div>
+                    {% endfor %}
+
+                </div>
+
+                <div class="suggestion-side">
+                    <h3 class="content-header">Proposed Changes</h3>
+                    {% for field in note.fields %}
+                    <div class="field-item suggestion-box" data-field-id="{{field.id}}">
+                        <div class="field-header">
+                            <div class="field-name">{{notemodels[note.note_model][field.position]}}</div>
+                            {% if user and owned == true and note.reviewed %}
+                            <button class="revert-btn" data-action="deny-field" data-field-id="{{field.id}}" title="Revert this change">
+                                <i class="fa fa-undo" aria-hidden="true"></i>
+                            </button>
+                            {% endif %}
+                        </div>
+                        <div class="field-content note-content-display diff-content"
+                             data-field-id='{{field.id}}'
+                             data-original='{{ field.reviewed_content | escape }}'
+                             data-new-content='{{ field.content | escape }}'>
+                             {{ field.diff | safe }}
+                        </div>
+                    </div>
+                    {% endfor %}
+
+                    {% if note.new_tags or note.removed_tags %}
+                    <div class="tags-section" data-note-id="{{note.id}}">
+                        <div class="section-title">Tags</div>
+                        <div class="tag-edit-container">
+                            {% for tag in note.removed_tags %}
+                            <span class="tag-chip-editable tag-chip-remove" data-tag-id="{{tag.id}}">
+                                <span class="tag-text">{{ tag.content }}</span>
+                            </span>
+                            {% endfor %}
+                            {% for tag in note.new_tags %}
+                            <span class="tag-chip-editable tag-chip-add" data-tag-id="{{tag.id}}">
+                                <span class="tag-text">{{ tag.content }}</span>
+                            </span>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+                {% else %}
+                <div class="text-center text-danger p-3 w-100">
+                    <em>This note is requested to be deleted.</em>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
