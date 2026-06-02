@@ -24,6 +24,10 @@ static ALLOWED_CSS_PROPERTIES: Lazy<HashSet<&'static str>> = Lazy::new(|| {
         "stroke-width",
         "opacity",
         "display",
+        // Added for Yomitan
+        "list-style-type",
+        "list-style",
+        "vertical-align",
     ]
     .iter()
     .cloned()
@@ -102,7 +106,15 @@ static ALLOWED_IFRAME_SRC_REGEX: Lazy<Regex> = Lazy::new(|| {
 
 /// Sanitize inline style declarations by retaining only allowed CSS properties.
 fn sanitize_style(style: &str) -> String {
-    style
+    // FIX: HTML entities like &quot; contain semicolons, which breaks the split(';') below.
+    // We safely replace quote entities with single quotes (valid in CSS) so properties aren't shattered.
+    let normalized_style = style
+        .replace("&quot;", "'")
+        .replace("&#39;", "'")
+        .replace("&#34;", "'")
+        .replace("&apos;", "'");
+
+    normalized_style
         .split(';')
         .filter_map(|decl| {
             let decl = decl.trim();
@@ -169,19 +181,26 @@ fn extract_pitch_accent_comments(html: &str) -> Vec<String> {
 /// The ammonia builder, allowing the "style" attribute.
 static CLEANSER: Lazy<Builder<'static>> = Lazy::new(|| {
     let mut builder = Builder::default();
-    // Allow common attributes plugin uses. We will special-case `onclick`
-    // in the attribute_filter to only permit a tiny whitelist of call
-    // signatures.
-    builder.add_generic_attributes(&["style", "class", "data-src", "id", "onclick"]);
+    
+    // Allow common attributes plugin uses, plus Yomitan metadata attributes.
+    // We will special-case `onclick` in the attribute_filter.
+    builder.add_generic_attributes(&[
+        "style", "class", "data-src", "id", "onclick", "title",
+        // Yomitan specific attributes
+        "data-sc-content", "data-sc-class", "data-sc-code", "data-sc-source", "lang"
+    ]);
+    
     builder.add_tags(&["font"]);
     builder.add_tag_attributes("font", &["color"]);
+    
     // Allow a constrained subset of SVG needed for user accent pitch graphics.
     builder.add_tags(&[
         "svg", "text", "path", "circle",
-        // Add common HTML elements used by the addon Kanji Popup Dictionary with mobile support
-        "div", "span", "h2", "button", "table", "tr", "td", "ul", "li", "small", "hr", "ruby", "rt",
-        "iframe",
+        // Common HTML elements used by plugins & Yomitan
+        "div", "span", "h2", "button", "table", "tr", "td", "ul", "ol", "li", "small", "hr", 
+        "ruby", "rt", "i", "b", "a", "iframe",
     ]);
+    
     builder.add_tag_attributes("svg", &["width", "height", "viewBox", "class"]);
     builder.add_tag_attributes("text", &["x", "y", "style"]);
     builder.add_tag_attributes("path", &["d", "style"]);
