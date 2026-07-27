@@ -150,7 +150,7 @@
                                 <div id="collapseOne{{changelog.id}}" class="collapse show" data-parent="#accordion-three">
                                     <div class="card-body">
                                         <button class="changelog-delete-btn" data-changelog-id="{{changelog.id}}" aria-label="Delete changelog from {{changelog.timestamp}}"><i class="fa fa-trash" aria-hidden="true"></i></button>
-                                        {{changelog.message | linebreaksbr | safe }}
+                                        {{changelog.message | newlines_to_br | safe }}
                                     </div>
                                 </div>
                             </div>

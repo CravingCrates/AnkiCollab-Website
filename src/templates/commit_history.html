@@ -158,13 +158,13 @@
                     </div>
                     <span class="event-meta">
                       v{{ e.version }} • {{ e.created_at }}
-                      {% if e.actor_username %}
+                      {% if e.actor_username is defined and e.actor_username %}
                         <span class="actor-chip"><i class="fa fa-user" aria-hidden="true"></i> @{{ e.actor_username }}</span>
                       {% endif %}
                     </span>
                   </div>
                 
-                {% if e.rationale %}
+                {% if e.rationale is defined and e.rationale %}
                   <div class="event-meta event-meta-styled">
                     "{{ e.rationale }}"
                   </div>
@@ -172,7 +172,7 @@
 
                 {% if e.event_type == 'field_updated' %}
                   <div class="event-diff field-update-comparison">
-                    {% if e.field_name %}
+                    {% if e.field_name is defined and e.field_name %}
                       <div class="field-name-label">{{ e.field_name }}</div>
                     {% endif %}
                     <div class="comparison-container">
@@ -197,7 +197,7 @@
                   </div>
                 {% elif e.event_type == 'field_added' %}
                   <div class="event-diff field-added-display">
-                    {% if e.field_name %}
+                    {% if e.field_name is defined and e.field_name %}
                       <div class="field-name-label">{{ e.field_name }}</div>
                     {% endif %}
                     <div class="added-content-preview">
@@ -206,7 +206,7 @@
                   </div>
                 {% elif e.event_type == 'field_removed' %}
                   <div class="event-diff field-removed-display">
-                    {% if e.field_name %}
+                    {% if e.field_name is defined and e.field_name %}
                       <div class="field-name-label">{{ e.field_name }}</div>
                     {% endif %}
                     <div class="removed-content-preview">
@@ -216,13 +216,13 @@
                 {% elif e.event_type == 'tag_added' %}
                   <div class="event-diff tag-added-display">
                     <div class="tag-preview added">
-                      {{ e.new_human }}
+                      {{ e.new_human | default(value='') }}
                     </div>
                   </div>
                 {% elif e.event_type == 'tag_removed' %}
                   <div class="event-diff tag-removed-display">
                     <div class="tag-preview removed">
-                      {{ e.new_human | default(value=e.old_human) }}
+                      {{ e.new_human | default(value=e.old_human) | default(value='') }}
                     </div>
                   </div>
                 {% elif e.event_type == 'note_moved' %}
@@ -239,7 +239,7 @@
                   </div>
                 {% elif e.event_type == 'field_change_denied' %}
                   <div class="event-diff denied-field-change">
-                    {% if e.old_value and e.old_value.had_current %}
+                    {% if e.old_value and (e.old_value.had_current | default(value=false)) %}
                       <div class="comparison-container">
                         <div class="comparison-side current">
                           <div class="comparison-label">Current</div>

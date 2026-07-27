@@ -50,12 +50,12 @@
                 </div>
                 <div class="field-content note-content-display original-content"
                      data-field-id='{{field.id}}'
-                     data-content='{{ field.reviewed_content | escape }}'>
+                     data-content='{{ field.reviewed_content | escape_html }}'>
                 </div>
             </div>
             {% endfor %}
 
-            {% if note.reviewed_fields %}
+            {% if note.reviewed_fields is defined and note.reviewed_fields %}
             <details class="collapsible-panel reviewed-fields-panel">
                 <summary>
                     <div class="collapsible-title">
@@ -67,12 +67,12 @@
                 </summary>
                 <div class="collapsible-body">
                     {% for field in note.reviewed_fields %}
-                    {% set related_changes = note.fields | filter(attribute="position", value=field.position) %}
+                    {% set related_changes = [f for f in note.fields if f.position == field.position] %}
                     <div class="field-item compact {% if related_changes %}field-has-change{% endif %}">
                         <div class="field-header">
                             <div class="field-name">
                                 {{notemodels[note.note_model][field.position]}}
-                                {% if field.inherited %}
+                                {% if field.inherited is defined and field.inherited %}
                                 <span class="inherited-badge" title="Inherited from base note">
                                     <i class="fa fa-link" aria-hidden="true"></i>
                                     Inherited
@@ -82,7 +82,7 @@
                         </div>
                         <div class="field-content note-content-display original-content normalized-lh" 
                              data-field-id='{{field.id}}'
-                             data-content='{{ field.content | escape }}'>
+                             data-content='{{ field.content | escape_html }}'>
                         </div>
                     </div>
                     {% endfor %}
@@ -90,7 +90,7 @@
             </details>
             {% endif %}
 
-            {% if note.reviewed_tags %}
+            {% if note.reviewed_tags is defined and note.reviewed_tags %}
             <details class="collapsible-panel reviewed-tags-panel">
                 <summary>
                     <div class="collapsible-title">
@@ -102,8 +102,8 @@
                 </summary>
                 <div class="collapsible-body tag-list">
                     {% for tag in note.reviewed_tags %}
-                    <span class="tag-chip {% if tag.inherited %}inherited{% endif %} reviewed-tag-chip">
-                        {% if tag.inherited %}<i class="fa fa-link tag-icon-sm" aria-hidden="true"></i>{% endif %}
+                    <span class="tag-chip {% if tag.inherited is defined and tag.inherited %}inherited{% endif %} reviewed-tag-chip">
+                        {% if tag.inherited is defined and tag.inherited %}<i class="fa fa-link tag-icon-sm" aria-hidden="true"></i>{% endif %}
                         {{ tag.content }}
                     </span>
                     {% endfor %}
@@ -115,7 +115,7 @@
         <div class="suggestion-side">
             <h3 class="content-header">Proposed Changes</h3>
             
-            {% if note.move_req %}
+            {% if note.move_req is defined and note.move_req %}
             <div class="note_tag_container suggestion-box tag-move">
                 <div class="tag-content">
                     <span class="tag-icon">📁</span>
@@ -144,19 +144,19 @@
                 </div>
                 <div class="field-content note-content-display diff-content"
                      data-field-id='{{field.id}}'
-                     data-original='{{ field.reviewed_content | escape }}'
-                     data-new-content='{{ field.content | escape }}'>
+                     data-original='{{ field.reviewed_content | escape_html }}'
+                     data-new-content='{{ field.content | escape_html }}'>
                      {{ field.diff | safe }}
                 </div>
             </div>
             {% endfor %}
             {% endif %}
 
-            {% if note.new_tags or note.removed_tags or (user and owned == true and commit) %}
+            {% if (note.new_tags is defined and note.new_tags) or (note.removed_tags is defined and note.removed_tags) or (user and owned == true and commit) %}
             <div class="tags-section" data-note-id="{{note.id}}">
                 <div class="section-title">Tags</div>
                 <div class="tag-edit-container">
-                    {% for tag in note.removed_tags %}
+                    {% for tag in note.removed_tags | default(value=[]) %}
                     <span class="tag-chip-editable tag-chip-remove" data-tag-id="{{tag.id}}">
                         <span class="tag-text">{{ tag.content }}</span>
                         {% if user and owned == true %}
@@ -166,7 +166,7 @@
                         {% endif %}
                     </span>
                     {% endfor %}
-                    {% for tag in note.new_tags %}
+                    {% for tag in note.new_tags | default(value=[]) %}
                     <span class="tag-chip-editable tag-chip-add" data-tag-id="{{tag.id}}">
                         <span class="tag-text">{{ tag.content }}</span>
                         {% if user and owned == true %}
@@ -181,11 +181,11 @@
                         <i class="fa fa-pencil" aria-hidden="true"></i> Edit Tags
                     </button>
                     <div class="tag-edit-panel" data-note-id="{{note.id}}" data-commit-id="{{commit.id}}">
-                        {% if note.reviewed_tags %}
+                        {% if note.reviewed_tags is defined and note.reviewed_tags %}
                         <input type="text" class="tag-filter-input" placeholder="Filter tags…" aria-label="Filter tags">
                         <div class="tag-edit-list">
                             {% for tag in note.reviewed_tags %}
-                            {% if not tag.inherited %}
+                            {% if not (tag.inherited is defined and tag.inherited) %}
                             <div class="tag-edit-row" data-tag-content="{{ tag.content }}">
                                 <span class="tag-edit-label">{{ tag.content }}</span>
                                 <button class="tag-suggest-remove-btn" data-note-id="{{note.id}}" data-commit-id="{{commit.id}}" data-tag-content="{{ tag.content }}" title="Suggest removing this tag" type="button">

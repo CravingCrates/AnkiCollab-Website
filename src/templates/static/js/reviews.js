@@ -4,6 +4,11 @@
 
 const reviewsDataTableConfig = {
     destroy: true,
+    dom: '<"reviews-table-toolbar"l<"reviews-toolbar-right"f>>rtip',
+    language: {
+        search: '',
+        searchPlaceholder: 'Search commits…'
+    },
     columnDefs: [
     {
         "targets": 4,
@@ -27,6 +32,272 @@ $(document).ready(function() {
     let table = $('#deckOverview').DataTable(reviewsDataTableConfig);
 
     let currentRow = null;
+
+    // ── Deck Filter Module ──────────────────────────────────────────
+    var DECK_FILTER_KEY = 'reviews_deck_filter';
+    var DECK_FILTER_ALL = '__all__';
+    var SEARCH_THRESHOLD = 8;
+    var activeDeckFilter = DECK_FILTER_ALL;
+
+    // Register one custom DataTable search function that filters on data-deck
+    // with prefix matching so "A" also shows "A::A1".
+    $.fn.dataTable.ext.search.push(function(settings, data, dataIndex) {
+        if (activeDeckFilter === DECK_FILTER_ALL) return true;
+        var row = settings.aoData[dataIndex].nTr;
+        if (!row) return true;
+        var rowDeck = ($(row).attr('data-deck') || '').trim();
+        if (!rowDeck) return false;
+        // Prefix match: selected deck matches row deck exactly or as parent
+        return rowDeck === activeDeckFilter ||
+               rowDeck.indexOf(activeDeckFilter + '::') === 0;
+    });
+
+    /** Extract unique deck names and their commit counts from table rows. */
+    function extractDecksFromTable() {
+        var deckMap = {};
+        $('#deckOverview tbody tr[data-deck]').each(function() {
+            var deckName = ($(this).attr('data-deck') || '').trim();
+            if (!deckName) {
+                deckName = '(Unnamed)';
+            }
+            deckMap[deckName] = (deckMap[deckName] || 0) + 1;
+        });
+        // Sort alphabetically, case-insensitive
+        var sorted = Object.keys(deckMap).sort(function(a, b) {
+            return a.toLowerCase().localeCompare(b.toLowerCase());
+        });
+        var result = {};
+        sorted.forEach(function(k) { result[k] = deckMap[k]; });
+        return result;
+    }
+
+    /** Build and populate the dropdown menu from a deck→count map. */
+    function buildDeckFilterMenu(deckMap, dataTable) {
+        var $options = $('#deckFilterOptions');
+        var $searchWrap = $('#deckFilterSearchWrap');
+        var $searchInput = $('#deckFilterSearch');
+        var deckNames = Object.keys(deckMap);
+        var totalCommits = 0;
+        deckNames.forEach(function(k) { totalCommits += deckMap[k]; });
+
+        // Show/hide search input based on deck count
+        if (deckNames.length > SEARCH_THRESHOLD) {
+            $searchWrap.addClass('reviews-filter-search-visible');
+            $searchInput.val('');
+        } else {
+            $searchWrap.removeClass('reviews-filter-search-visible');
+            $searchInput.val('');
+        }
+
+        // Build option HTML
+        var html = '';
+        // "All Decks" option
+        html += '<button class="reviews-filter-option selected" data-deck="' + DECK_FILTER_ALL + '" type="button">';
+        html += '<span class="deck-name-text">All Decks</span>';
+        html += '<span class="deck-count">' + totalCommits + '</span>';
+        html += '</button>';
+
+        deckNames.forEach(function(deckName) {
+            var count = deckMap[deckName];
+            html += '<button class="reviews-filter-option" data-deck="' + escapeHtmlAttr(deckName) + '" type="button">';
+            html += '<span class="deck-name-text" title="' + escapeHtmlAttr(deckName) + '">' + escapeHtml(deckName) + '</span>';
+            html += '<span class="deck-count">' + count + '</span>';
+            html += '</button>';
+        });
+
+        $options.html(html);
+    }
+
+    /** Escape a string for safe use in HTML attributes. */
+    function escapeHtmlAttr(str) {
+        return String(str)
+            .replace(/&/g, '&amp;')
+            .replace(/"/g, '&quot;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;');
+    }
+
+    /** Escape a string for safe use in HTML text content. */
+    function escapeHtml(str) {
+        return String(str)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;');
+    }
+
+    /** Apply a deck filter to the DataTable and update UI state. */
+    function applyDeckFilter(dataTable, deckName, skipSave) {
+        var $label = $('#deckFilterLabel');
+        var $btn = $('#deckFilterBtn');
+
+        if (!deckName || deckName === DECK_FILTER_ALL) {
+            // Show all
+            activeDeckFilter = DECK_FILTER_ALL;
+            dataTable.draw();
+            $label.text('All Decks');
+            $btn.removeClass('active');
+            $('#deckFilterOptions .reviews-filter-option').removeClass('selected');
+            $('#deckFilterOptions .reviews-filter-option[data-deck="' + DECK_FILTER_ALL + '"]').addClass('selected');
+            if (!skipSave) {
+                try { sessionStorage.removeItem(DECK_FILTER_KEY); } catch(e) {}
+            }
+        } else {
+            // Filter to specific deck (prefix match via ext.search)
+            activeDeckFilter = deckName;
+            dataTable.draw();
+            var displayName = deckName.length > 30 ? deckName.substring(0, 28) + '…' : deckName;
+            $label.text(displayName);
+            $label.attr('title', deckName);
+            $btn.addClass('active');
+            $('#deckFilterOptions .reviews-filter-option').removeClass('selected');
+            $('#deckFilterOptions .reviews-filter-option[data-deck="' + escapeHtmlAttr(deckName) + '"]').addClass('selected');
+            if (!skipSave) {
+                try { sessionStorage.setItem(DECK_FILTER_KEY, deckName); } catch(e) {}
+            }
+        }
+    }
+
+    /** Rebuild the menu and re-apply the stored filter (called after table refresh). */
+    function reapplyDeckFilter(dataTable) {
+        var deckMap = extractDecksFromTable();
+        var deckNames = Object.keys(deckMap);
+
+        if (deckNames.length <= 1) {
+            // 0 or 1 unique deck: hide filter, clear any stored selection
+            $('#deckFilterDropdown').addClass('reviews-filter-dropdown-hidden');
+            try { sessionStorage.removeItem(DECK_FILTER_KEY); } catch(e) {}
+            // Clear the custom filter
+            activeDeckFilter = DECK_FILTER_ALL;
+            dataTable.draw();
+            return;
+        }
+
+        $('#deckFilterDropdown').removeClass('reviews-filter-dropdown-hidden');
+        // Safety: ensure filter dropdown is mounted in toolbar
+        if ($('#deckFilterDropdown').parent().closest('.reviews-table-toolbar').length === 0) {
+            var $right = $('.reviews-toolbar-right');
+            if ($right.length) {
+                $right.append($('#deckFilterDropdown'));
+            }
+        }
+        buildDeckFilterMenu(deckMap, dataTable);
+
+        var stored = null;
+        try { stored = sessionStorage.getItem(DECK_FILTER_KEY); } catch(e) {}
+
+        if (stored && deckMap[stored]) {
+            applyDeckFilter(dataTable, stored, true);
+        } else {
+            applyDeckFilter(dataTable, DECK_FILTER_ALL, true);
+        }
+    }
+
+    /** One-time initialization of the deck filter on page load. */
+    function initDeckFilter(dataTable) {
+        var $mount = $('#reviewsDeckFilterMount');
+        var $right = $('.reviews-toolbar-right');
+
+        // Mount the deck filter dropdown into the DataTable toolbar's right section
+        if ($mount.length && $right.length) {
+            $mount.children().first().detach().appendTo($right);
+            $mount.remove();
+        }
+
+        var deckMap = extractDecksFromTable();
+        var deckNames = Object.keys(deckMap);
+
+        if (deckNames.length <= 1) {
+            $('#deckFilterDropdown').addClass('reviews-filter-dropdown-hidden');
+            return;
+        }
+
+        $('#deckFilterDropdown').removeClass('reviews-filter-dropdown-hidden');
+        buildDeckFilterMenu(deckMap, dataTable);
+
+        // Restore persisted filter
+        var stored = null;
+        try { stored = sessionStorage.getItem(DECK_FILTER_KEY); } catch(e) {}
+        if (stored && deckMap[stored]) {
+            applyDeckFilter(dataTable, stored, true);
+        }
+
+        // ── Event handlers ──────────────────────────────────────
+
+        // Toggle dropdown
+        $('#deckFilterBtn').on('click', function(e) {
+            e.stopPropagation();
+            var $menu = $('#deckFilterMenu');
+            var $btn = $(this);
+            if ($menu.hasClass('show')) {
+                $menu.removeClass('show');
+                $btn.removeClass('active');
+            } else {
+                $menu.addClass('show');
+                $btn.addClass('active');
+                // Focus search input if visible
+                if ($('#deckFilterSearchWrap').hasClass('reviews-filter-search-visible')) {
+                    setTimeout(function() { $('#deckFilterSearch').focus(); }, 50);
+                }
+            }
+        });
+
+        // Close dropdown on outside click
+        $(document).on('click', function(e) {
+            if (!$(e.target).closest('#deckFilterDropdown').length) {
+                $('#deckFilterMenu').removeClass('show');
+                $('#deckFilterBtn').removeClass('active');
+            }
+        });
+
+        // Option selection via delegation
+        $('#deckFilterOptions').on('click', '.reviews-filter-option', function(e) {
+            e.stopPropagation();
+            var deckName = $(this).attr('data-deck');
+            if (deckName === DECK_FILTER_ALL) {
+                applyDeckFilter(table, DECK_FILTER_ALL);
+            } else {
+                // Decode the attribute (it was HTML-escaped on build)
+                applyDeckFilter(table, deckName);
+            }
+            $('#deckFilterMenu').removeClass('show');
+            $('#deckFilterBtn').removeClass('active');
+        });
+
+        // Search within dropdown
+        var searchTimeout;
+        $('#deckFilterSearch').on('input', function() {
+            clearTimeout(searchTimeout);
+            var self = this;
+            searchTimeout = setTimeout(function() {
+                var query = self.value.toLowerCase().trim();
+                var $options = $('#deckFilterOptions .reviews-filter-option');
+                var visibleCount = 0;
+                $options.each(function() {
+                    var $opt = $(this);
+                    var deckVal = ($opt.attr('data-deck') || '').toLowerCase();
+                    var matches = deckVal === DECK_FILTER_ALL || deckVal.indexOf(query) !== -1;
+                    if (matches) {
+                        $opt.removeClass('reviews-filter-option-hidden');
+                        visibleCount++;
+                    } else {
+                        $opt.addClass('reviews-filter-option-hidden');
+                    }
+                });
+                // Show/hide "no results" message
+                var $noResults = $('#deckFilterNoResults');
+                if (visibleCount === 0) {
+                    if (!$noResults.length) {
+                        $('#deckFilterOptions').after('<div class="reviews-filter-no-results" id="deckFilterNoResults">No matching decks</div>');
+                    }
+                } else {
+                    $noResults.remove();
+                }
+            }, 150);
+        });
+    }
+
+    // ── Initialize deck filter ──────────────────────────────────
+    initDeckFilter(table);
 
     // Row click listener bound to the parent table to survive DataTables redraws
     $('#deckOverview').on('click', 'tbody tr', function (e) {
@@ -157,6 +428,9 @@ $(document).ready(function() {
                 return;
             }
 
+            // Detach the deck filter dropdown before DataTable is destroyed
+            var $savedFilter = $('#deckFilterDropdown').detach();
+
             // Destroy existing DataTable instance
             if ($.fn.DataTable.isDataTable('#deckOverview')) {
                 $('#deckOverview').DataTable().destroy();
@@ -167,6 +441,15 @@ $(document).ready(function() {
 
             // Re-initialize DataTable with stored config
             table = $('#deckOverview').DataTable(reviewsDataTableConfig);
+
+            // Re-mount deck filter into the new toolbar
+            var $right = $('.reviews-toolbar-right');
+            if ($right.length && $savedFilter.length) {
+                $right.append($savedFilter);
+            }
+
+            // Re-apply deck filter if one was stored
+            reapplyDeckFilter(table);
 
             // Hide the loading overlay
             hideDrawerLoading();
@@ -223,11 +506,6 @@ $(document).ready(function() {
         if (!action || !commitId) return;
 
         const isApprove = action === 'approve';
-        if (isApprove) {
-            if (!confirm('Accept all notes in this commit?')) return;
-        } else {
-            if (!confirm('Deny all notes in this commit?')) return;
-        }
 
         // Lock ALL quick-action buttons to prevent double-submit
         $('.global-action-preview-btn')
@@ -283,10 +561,15 @@ $(document).ready(function() {
         }
     });
 
-    // Close on escape key
+    // Close on escape key (drawer first, then filter dropdown)
     $(document).keyup(function(e) {
-        if (e.key === "Escape" && $('#quick-preview-drawer').hasClass('open')) {
-            closeDrawer();
+        if (e.key === "Escape") {
+            if ($('#quick-preview-drawer').hasClass('open')) {
+                closeDrawer();
+            } else if ($('#deckFilterMenu').hasClass('show')) {
+                $('#deckFilterMenu').removeClass('show');
+                $('#deckFilterBtn').removeClass('active');
+            }
         }
     });
 });

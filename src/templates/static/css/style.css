@@ -9833,7 +9833,7 @@ Input Style
 .form-control {
   border-radius: 0;
   box-shadow: none;
-  height: 45px; }
+  height: 34px; }
   .form-control:hover {
     box-shadow: none; }
   .form-control.active, .form-control:focus {
@@ -9847,18 +9847,6 @@ Input Style
 
 .input-rounded {
   border-radius: 100px; }
-
-/*****************************************
-  Input Size
-******************************************/
-.form-control {
-  min-height: 40px; }
-
-.form-control-sm {
-  min-height: 36px; }
-
-.form-control-lg {
-  min-height: 52px; }
 
 /*****************************************
   upload button styles

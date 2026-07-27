@@ -80,7 +80,7 @@
                             <div class="note-content-display current-content"
                                  data-field-id="{{field.id}}"
                                  data-position="{{field.position}}"
-                                 data-content="{{ field.content | escape }}">
+                                 data-content="{{ field.content | escape_html }}">
                             </div>
                         </div>
                         {% endfor %}
@@ -147,8 +147,8 @@
                             <div class="note-content-display diff-content"
                                 data-field-id="{{ field_suggestion.id }}"
                                 data-position="{{ field_suggestion.position }}"
-                                data-original="{{ note.reviewed_fields[field_suggestion.position].content | escape }}"
-                                data-new-content="{{ field_suggestion.content | escape }}">
+                                data-original="{{ note.reviewed_fields[field_suggestion.position].content | escape_html }}"
+                                data-new-content="{{ field_suggestion.content | escape_html }}">
                                 {{ field_suggestion.diff | safe }}
                             </div>
                         </div>

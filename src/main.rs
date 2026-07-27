@@ -59,6 +59,7 @@ use structs::{
     NotificationMarkReadResponse, NotificationUnreadResponse,
 };
 use tera::Tera;
+use sentry::integrations::tracing::EventFilter;
 
 use aws_sdk_s3::Client as S3Client;
 use std::result::Result;
@@ -2479,7 +2480,6 @@ async fn set_static_cache_control(request: axum::extract::Request, next: Next) -
 }
 
 use crate::error::Reporter;
-use sentry::integrations::tracing::EventFilter;
 
 #[tokio::main]
 async fn main() {
@@ -2488,7 +2488,11 @@ async fn main() {
     );
     let _reporter = Reporter::new();
 
-    let mut tera = match Tera::new("src/templates/**/*.html") {
+    let mut tera = Tera::default();
+    // Register filters that were moved from Tera core to tera-contrib in v2
+    tera.register_filter("striptags", tera_contrib::regex::striptags);
+    tera.register_filter("json_encode", tera_contrib::json::json_encode);
+    match tera.load_from_glob("src/templates/**/*.html") {
         Ok(t) => t,
         Err(e) => {
             eprintln!("FATAL: Template parsing error(s): {e}");

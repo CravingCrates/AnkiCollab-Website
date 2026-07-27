@@ -72,7 +72,7 @@
                         </div>
                         <div class="field-content note-content-display original-content"
                              data-field-id='{{field.id}}'
-                             data-content='{{ field.reviewed_content | escape }}'>
+                             data-content='{{ field.reviewed_content | escape_html }}'>
                         </div>
                     </div>
                     {% endfor %}
@@ -93,8 +93,8 @@
                         </div>
                         <div class="field-content note-content-display diff-content"
                              data-field-id='{{field.id}}'
-                             data-original='{{ field.reviewed_content | escape }}'
-                             data-new-content='{{ field.content | escape }}'>
+                             data-original='{{ field.reviewed_content | escape_html }}'
+                             data-new-content='{{ field.content | escape_html }}'>
                              {{ field.diff | safe }}
                         </div>
                     </div>

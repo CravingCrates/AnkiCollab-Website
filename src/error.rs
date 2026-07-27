@@ -137,8 +137,9 @@ impl Reporter {
                 endpoint.as_str(),
                 sentry::ClientOptions {
                     release: sentry::release_name!(),
-                    traces_sample_rate: 0.2, // Performance monitoring, 0.0 to disable
-                    sample_rate: 0.35,       // Error event sampling
+                    traces_sample_rate: 0.0, // Performance monitoring, 0.0 to disable
+                    auto_session_tracking: false,
+                    sample_rate: 1.0,       // Error event sampling
                     send_default_pii: false,
                     before_send,
                     ..Default::default()

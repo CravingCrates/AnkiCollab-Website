@@ -2658,6 +2658,339 @@ del[data-diff], ins[data-diff] { text-decoration: none !important; }
   display: none !important;
 }
 
+/* ============================================
+   Reviews page unified table toolbar
+   ============================================ */
+
+/* Toolbar — one line, flex, integrated controls */
+.reviews-table-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 0;
+  gap: 12px;
+}
+
+/* Right side: deck filter + DataTable search */
+.reviews-toolbar-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* ── Compact DataTable length selector ── */
+.dataTables_length {
+  margin-top: 0 !important;
+  display: flex !important;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: #64748b;
+  white-space: nowrap;
+  float: none !important;
+}
+
+.dataTables_length label {
+  margin-bottom: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 400;
+}
+
+.dataTables_length select {
+  background-color: #f8fafc;
+  background-image: none !important;
+  border: 1px solid #e2e8f0 !important;
+  border-radius: 8px !important;
+  padding: 7px 28px 7px 10px !important;
+  font-size: 13px;
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', Roboto, sans-serif;
+  color: #374151;
+  cursor: pointer;
+  appearance: auto;
+  -webkit-appearance: auto;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  width: auto;
+  line-height: 1.4;
+  height: 34px !important;
+  min-height: 0 !important;
+}
+
+.dataTables_length select:focus {
+  border-color: #006699 !important;
+  box-shadow: 0 0 0 3px rgba(0,102,153,0.1) !important;
+  background-size: 0 2px, 100% 1px !important;
+}
+
+/* ── Compact DataTable search ── */
+.dataTables_filter {
+  float: none !important;
+  margin-top: 0 !important;
+  display: flex !important;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: #64748b;
+  white-space: nowrap;
+}
+
+.dataTables_filter label {
+  margin-bottom: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 400;
+}
+
+.dataTables_filter input {
+  background-color: #f8fafc !important;
+  border: 1px solid #e2e8f0 !important;
+  border-radius: 8px !important;
+  padding: 7px 10px !important;
+  font-size: 13px;
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', Roboto, sans-serif;
+  color: #374151;
+  outline: none;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  width: 160px !important;
+  line-height: 1.4;
+  height: 34px !important;
+  min-height: 0 !important;
+  margin-left: 0 !important;
+  float: none !important;
+  box-shadow: none !important;
+  background-position: unset !important;
+  background-size: unset !important;
+}
+
+.dataTables_filter input:focus {
+  border-color: #006699 !important;
+  box-shadow: 0 0 0 3px rgba(0,102,153,0.1) !important;
+  background-size: unset !important;
+}
+
+.dataTables_filter input::placeholder {
+  color: #94a3b8;
+}
+
+/* ── Deck filter dropdown (now inside toolbar) ── */
+.reviews-filter-dropdown {
+  position: relative;
+  z-index: 100;
+}
+
+.reviews-filter-dropdown-hidden {
+  display: none !important;
+}
+
+.reviews-filter-option-hidden {
+  display: none !important;
+}
+
+.reviews-filter-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  background: #f8fafc;
+  color: #374151;
+  padding: 7px 14px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  border: 1px solid #e2e8f0;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', Roboto, sans-serif;
+  line-height: 1.4;
+  white-space: nowrap;
+  height: 34px;
+  box-sizing: border-box;
+}
+
+.reviews-filter-btn:hover {
+  background: #f1f5f9;
+  border-color: #cbd5e1;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+}
+
+.reviews-filter-btn:active {
+  background: #e8ecf1;
+  transform: scale(0.98);
+}
+
+.reviews-filter-btn i:first-child {
+  font-size: 14px;
+  color: #64748b;
+}
+
+.reviews-filter-btn .chevron-icon-sm {
+  font-size: 10px;
+  color: #94a3b8;
+  transition: transform 0.2s ease;
+}
+
+.reviews-filter-btn.active .chevron-icon-sm {
+  transform: rotate(180deg);
+}
+
+#deckFilterLabel {
+  max-width: 180px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Responsive: stack toolbar on narrow screens */
+@media (max-width: 768px) {
+  .reviews-table-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+  }
+  .reviews-toolbar-right {
+    justify-content: flex-end;
+  }
+  .dataTables_filter input {
+    width: 120px !important;
+  }
+}
+
+/* Dropdown menu */
+.reviews-filter-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  background: white;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 8px;
+  min-width: 240px;
+  max-width: 320px;
+  box-shadow: 0 12px 28px rgba(0,0,0,0.12), 0 0 0 1px rgba(0,0,0,0.04);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  z-index: 9999;
+  display: none;
+  max-height: 50vh;
+  overflow-y: auto;
+}
+
+.reviews-filter-menu.show {
+  display: block;
+  animation: fadeInUp 0.15s ease-out;
+}
+
+/* Mount container (replaces inline display:contents for CSP compliance) */
+.reviews-deck-filter-mount {
+  display: contents;
+}
+
+/* Search input inside dropdown — hidden by default */
+.reviews-filter-search {
+  padding: 4px 4px 8px 4px;
+  position: sticky;
+  top: 0;
+  background: white;
+  z-index: 1;
+  display: none;
+}
+
+.reviews-filter-search.reviews-filter-search-visible {
+  display: block;
+}
+
+.reviews-filter-search-input {
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  font-size: 13px;
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', Roboto, sans-serif;
+  color: #374151;
+  background: #f8fafc;
+  outline: none;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.reviews-filter-search-input:focus {
+  border-color: #006699;
+  box-shadow: 0 0 0 3px rgba(0,102,153,0.1);
+  background: white;
+}
+
+.reviews-filter-search-input::placeholder {
+  color: #94a3b8;
+}
+
+/* Options list */
+.reviews-filter-options {
+  display: flex;
+  flex-direction: column;
+}
+
+.reviews-filter-option {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  font-size: 13px;
+  color: #374151;
+  cursor: pointer;
+  transition: background 0.12s ease;
+  border: none;
+  background: none;
+  width: 100%;
+  text-align: left;
+  font-family: inherit;
+  line-height: 1.4;
+}
+
+.reviews-filter-option:hover {
+  background: #f1f5f9;
+}
+
+.reviews-filter-option.selected {
+  background: #e6f3f9;
+  color: #006699;
+  font-weight: 600;
+}
+
+.reviews-filter-option.selected::before {
+  content: "✓";
+  font-size: 11px;
+  font-weight: 700;
+  flex-shrink: 0;
+  width: 16px;
+  text-align: center;
+}
+
+.reviews-filter-option .deck-name-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.reviews-filter-option .deck-count {
+  margin-left: auto;
+  font-size: 11px;
+  color: #94a3b8;
+  flex-shrink: 0;
+}
+
+.reviews-filter-option.selected .deck-count {
+  color: #006699;
+  opacity: 0.7;
+}
+
+.reviews-filter-no-results {
+  padding: 16px 12px;
+  text-align: center;
+  color: #94a3b8;
+  font-size: 13px;
+  font-style: italic;
+}
+
 @media (max-width: 768px) {
   .filter-menu {
     left: 8px !important;
