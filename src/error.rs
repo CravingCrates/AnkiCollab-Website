@@ -10,7 +10,7 @@ use thiserror::Error;
 
 use tokio_postgres::Error as PgError;
 
-use crate::{format, option_env, str, usize, AppState, Html, Next, NoteId, State};
+use crate::{format, option_env, str, AppState, Html, Next, NoteId, State};
 
 use std::sync::Arc;
 
@@ -79,12 +79,18 @@ impl Reporter {
         let endpoint = std::env::var("SENTRY_URL").unwrap();
         let before_send = Some(Arc::new(|mut event: Event<'static>| {
             // Drop expected client errors - these are properly handled, not bugs
-            if event.message.as_ref().is_some_and(|m| is_expected_client_error(m)) {
+            if event
+                .message
+                .as_ref()
+                .is_some_and(|m| is_expected_client_error(m))
+            {
                 return None;
             }
-            if event.exception.iter().any(|exc| {
-                is_expected_client_error(exc.value.as_deref().unwrap_or(""))
-            }) {
+            if event
+                .exception
+                .iter()
+                .any(|exc| is_expected_client_error(exc.value.as_deref().unwrap_or("")))
+            {
                 return None;
             }
 
@@ -100,8 +106,7 @@ impl Reporter {
             // Also drop transaction or connection pool timeouts that are benign under load
             if event.exception.iter().any(|exc| {
                 let msg = exc.value.as_deref().unwrap_or("").to_ascii_lowercase();
-                msg.contains("timed out waiting for connection")
-                    || msg.contains("connection reset")
+                msg.contains("timed out waiting for connection") || msg.contains("connection reset")
             }) {
                 return None;
             }
@@ -130,7 +135,8 @@ impl Reporter {
             });
 
             Some(event)
-        }) as Arc<dyn Fn(Event<'static>) -> Option<Event<'static>> + Send + Sync>);
+        })
+            as Arc<dyn Fn(Event<'static>) -> Option<Event<'static>> + Send + Sync>);
 
         Self {
             _sentry: sentry::init((
@@ -139,7 +145,7 @@ impl Reporter {
                     release: sentry::release_name!(),
                     traces_sample_rate: 0.0, // Performance monitoring, 0.0 to disable
                     auto_session_tracking: false,
-                    sample_rate: 1.0,       // Error event sampling
+                    sample_rate: 1.0, // Error event sampling
                     send_default_pii: false,
                     before_send,
                     ..Default::default()
@@ -149,12 +155,11 @@ impl Reporter {
     }
 }
 
-use once_cell::sync::Lazy;
-
 /// Pre-compiled regexes for path sanitization (compiled once at startup)
-static RE_NUMERIC_ID: Lazy<regex::Regex> =
-    Lazy::new(|| regex::Regex::new(r"/\d+(?:/|$)").expect("Invalid numeric ID regex"));
-static RE_DECK_HASH: Lazy<regex::Regex> = Lazy::new(|| {
+static RE_NUMERIC_ID: std::sync::LazyLock<regex::Regex> = std::sync::LazyLock::new(|| {
+    regex::Regex::new(r"/\d+(?:/|$)").expect("Invalid numeric ID regex")
+});
+static RE_DECK_HASH: std::sync::LazyLock<regex::Regex> = std::sync::LazyLock::new(|| {
     regex::Regex::new(
         r"/(EditDeck|notes|Statistics|Maintainers|OptionalTags|ToggleStats|DeckSubscriptionPolicy)/[a-zA-Z0-9_-]+",
     )
@@ -166,10 +171,10 @@ static RE_DECK_HASH: Lazy<regex::Regex> = Lazy::new(|| {
 fn sanitize_path(path: &str) -> String {
     // Replace numeric IDs in paths (e.g., /review/12345 -> /review/{id}/)
     let result = RE_NUMERIC_ID.replace_all(path, "/{id}/");
-    
+
     // Replace deck hashes in known routes (e.g., /EditDeck/abc123 -> /EditDeck/{hash})
     let result = RE_DECK_HASH.replace_all(&result, "/$1/{hash}");
-    
+
     result.to_string()
 }
 
@@ -292,24 +297,22 @@ pub enum NoteNotFoundContext {
     NoteMovalRequest,
     #[error("Log Event")]
     NoteLogEvent,
-
 }
 
 impl IntoResponse for NoteNotFoundContext {
     fn into_response(self) -> Response {
         let status_code = match self {
-            Self::TagApprove => StatusCode::NOT_FOUND,
-            Self::TagDenied => StatusCode::FORBIDDEN,
-            Self::TagUpdate => StatusCode::NOT_FOUND,
-            Self::FieldApprove => StatusCode::NOT_FOUND,
-            Self::FieldDenied => StatusCode::FORBIDDEN,
-            Self::FieldUpdate => StatusCode::NOT_FOUND,
-            Self::MarkNoteDeleted => StatusCode::NOT_FOUND,
-            Self::ApproveCard => StatusCode::FORBIDDEN,
+            Self::TagDenied | Self::FieldDenied | Self::ApproveCard | Self::DeleteCard => {
+                StatusCode::FORBIDDEN
+            }
             Self::InvalidData => StatusCode::BAD_REQUEST,
-            Self::DeleteCard => StatusCode::FORBIDDEN,
-            Self::NoteMovalRequest => StatusCode::NOT_FOUND,
-            Self::NoteLogEvent => StatusCode::NOT_FOUND,
+            Self::TagApprove
+            | Self::TagUpdate
+            | Self::FieldApprove
+            | Self::FieldUpdate
+            | Self::MarkNoteDeleted
+            | Self::NoteMovalRequest
+            | Self::NoteLogEvent => StatusCode::NOT_FOUND,
         };
 
         let mut response = Response::new(axum::body::Body::empty());
@@ -373,22 +376,29 @@ pub enum Error {
 
 impl Error {
     /// Returns the error category for structured logging and Sentry tagging.
+    #[must_use]
     pub const fn category(&self) -> ErrorCategory {
         match self {
             Self::DB(_) | Self::BB8(_) | Self::Database(_) | Self::DatabaseConnection => {
                 ErrorCategory::Database
             }
             Self::Unauthorized | Self::Auth(_) => ErrorCategory::Authorization,
-            Self::UserNotFound | Self::CommitNotFound | Self::CommitDeckNotFound
-            | Self::NoteNotFound(_) | Self::DeckNotFound | Self::NoNotesAffected
+            Self::UserNotFound
+            | Self::CommitNotFound
+            | Self::CommitDeckNotFound
+            | Self::NoteNotFound(_)
+            | Self::DeckNotFound
+            | Self::NoNotesAffected
             | Self::NoNoteTypesAffected => ErrorCategory::NotFound,
-            Self::TagAlreadyExists | Self::UserIsAlreadyMaintainer | Self::FolderIdTooLong
-            | Self::InvalidNote | Self::FirstFieldEmpty | Self::AmbiguousFields(_) | Self::Serialization(_)
-            | Self::BadRequest(_) => {
-                ErrorCategory::Validation
-            }
-            Self::Template(_) => ErrorCategory::Internal,
-            Self::Redirect(_) | Self::Unknown => ErrorCategory::Internal,
+            Self::TagAlreadyExists
+            | Self::UserIsAlreadyMaintainer
+            | Self::FolderIdTooLong
+            | Self::InvalidNote
+            | Self::FirstFieldEmpty
+            | Self::AmbiguousFields(_)
+            | Self::Serialization(_)
+            | Self::BadRequest(_) => ErrorCategory::Validation,
+            Self::Template(_) | Self::Redirect(_) | Self::Unknown => ErrorCategory::Internal,
         }
     }
 }
@@ -396,30 +406,28 @@ impl Error {
 impl IntoResponse for Error {
     fn into_response(self) -> Response {
         let status_code = match &self {
-            Self::Unauthorized => StatusCode::UNAUTHORIZED,
+            Self::Unauthorized | Self::Auth(_) => StatusCode::UNAUTHORIZED,
             Self::Redirect(_) => StatusCode::FOUND,
-            Self::TagAlreadyExists => StatusCode::BAD_REQUEST,
-            Self::UserIsAlreadyMaintainer => StatusCode::BAD_REQUEST,
-            Self::NoNotesAffected => StatusCode::BAD_REQUEST,
-            Self::FolderIdTooLong => StatusCode::BAD_REQUEST,
-            Self::UserNotFound => StatusCode::NOT_FOUND,
-            Self::CommitNotFound => StatusCode::NOT_FOUND,
-            Self::CommitDeckNotFound => StatusCode::NOT_FOUND,
-            Self::NoteNotFound(_) => StatusCode::NOT_FOUND,
-            Self::DeckNotFound => StatusCode::NOT_FOUND,
-            Self::AmbiguousFields(_) => StatusCode::BAD_REQUEST,
-            Self::InvalidNote => StatusCode::BAD_REQUEST,
-            Self::FirstFieldEmpty => StatusCode::BAD_REQUEST,
-            Self::NoNoteTypesAffected => StatusCode::BAD_REQUEST,
-            Self::BadRequest(_) => StatusCode::BAD_REQUEST,
+            Self::TagAlreadyExists
+            | Self::UserIsAlreadyMaintainer
+            | Self::NoNotesAffected
+            | Self::FolderIdTooLong
+            | Self::AmbiguousFields(_)
+            | Self::InvalidNote
+            | Self::FirstFieldEmpty
+            | Self::NoNoteTypesAffected
+            | Self::BadRequest(_)
+            | Self::Serialization(_) => StatusCode::BAD_REQUEST,
+            Self::UserNotFound
+            | Self::CommitNotFound
+            | Self::CommitDeckNotFound
+            | Self::NoteNotFound(_)
+            | Self::DeckNotFound => StatusCode::NOT_FOUND,
             // Database and BB8 errors should return 503 Service Unavailable, not 500
             Self::DB(_) | Self::BB8(_) | Self::Database(_) | Self::DatabaseConnection => {
                 StatusCode::SERVICE_UNAVAILABLE
             }
-            Self::Template(_) => StatusCode::INTERNAL_SERVER_ERROR,
-            Self::Serialization(_) => StatusCode::BAD_REQUEST,
-            Self::Auth(_) => StatusCode::UNAUTHORIZED,
-            Self::Unknown => StatusCode::INTERNAL_SERVER_ERROR,
+            Self::Template(_) | Self::Unknown => StatusCode::INTERNAL_SERVER_ERROR,
         };
 
         if let Self::Redirect(path) = &self {
@@ -627,13 +635,7 @@ pub async fn pretty_error_middleware(
     if let Some(error_response) = response.extensions().get::<ErrorResponse>() {
         let category = error_response.category;
         if status_code.is_server_error() {
-            capture_server_error(
-                status_code,
-                &method,
-                &path,
-                &error_response.error,
-                category,
-            );
+            capture_server_error(status_code, &method, &path, &error_response.error, category);
         } else {
             log_client_error(status_code, &method, &path, &error_response.error);
         }

@@ -4,7 +4,9 @@ use std::collections::{BTreeMap, BTreeSet, HashMap};
 use tokio_postgres::Client;
 
 use crate::{
-    Return, cleanser, structs::{CommitHistoryEvent, CommitHistoryNote, NoteHistoryEvent, NoteHistoryGroup, NoteId}
+    cleanser,
+    structs::{CommitHistoryEvent, CommitHistoryNote, NoteHistoryEvent, NoteHistoryGroup, NoteId},
+    Return,
 };
 
 use crate::Error::NoteNotFound;
@@ -30,23 +32,24 @@ pub enum EventType {
 }
 
 impl EventType {
-    pub fn as_str(&self) -> &'static str {
+    #[must_use]
+    pub const fn as_str(&self) -> &'static str {
         match self {
-            EventType::NoteCreated => "note_created",
-            EventType::FieldAdded => "field_added",
-            EventType::FieldUpdated => "field_updated",
-            EventType::FieldRemoved => "field_removed",
-            EventType::TagAdded => "tag_added",
-            EventType::TagRemoved => "tag_removed",
-            EventType::TagHidden => "tag_hidden",
-            EventType::TagUnhidden => "tag_unhidden",
-            EventType::NoteMoved => "note_moved",
-            EventType::NoteDeleted => "note_deleted",
-            EventType::CommitApprovedEffect => "commit_approved_effect",
-            EventType::CommitDeniedEffect => "commit_denied_effect",
-            EventType::SuggestionDenied => "suggestion_denied",
-            EventType::FieldChangeDenied => "field_change_denied",
-            EventType::TagChangeDenied => "tag_change_denied",
+            Self::NoteCreated => "note_created",
+            Self::FieldAdded => "field_added",
+            Self::FieldUpdated => "field_updated",
+            Self::FieldRemoved => "field_removed",
+            Self::TagAdded => "tag_added",
+            Self::TagRemoved => "tag_removed",
+            Self::TagHidden => "tag_hidden",
+            Self::TagUnhidden => "tag_unhidden",
+            Self::NoteMoved => "note_moved",
+            Self::NoteDeleted => "note_deleted",
+            Self::CommitApprovedEffect => "commit_approved_effect",
+            Self::CommitDeniedEffect => "commit_denied_effect",
+            Self::SuggestionDenied => "suggestion_denied",
+            Self::FieldChangeDenied => "field_change_denied",
+            Self::TagChangeDenied => "tag_change_denied",
         }
     }
 }
@@ -105,7 +108,7 @@ pub async fn fetch_note_history(client: &Client, note_id: NoteId) -> Return<Note
     }
 
     let mut events: Vec<NoteHistoryEvent> = Vec::with_capacity(rows.len());
-    for row in rows.iter() {
+    for row in &rows {
         let event_type: String = row.get(2);
         let old_value: Option<JsonValue> = row.get(7);
         let new_value: Option<JsonValue> = row.get(8);
@@ -118,14 +121,14 @@ pub async fn fetch_note_history(client: &Client, note_id: NoteId) -> Return<Note
                 .or_else(|| old_value.as_ref().and_then(|v| v.get("position")));
 
             if let Some(pos_v) = pos_val {
-                if let Some(pos_i64) = pos_v.as_i64() {
-                    field_name = field_map.get(&(pos_i64 as u32)).cloned();
+                if let Some(pos_u32) = pos_v.as_i64().and_then(|v| u32::try_from(v).ok()) {
+                    field_name = field_map.get(&pos_u32).cloned();
                 }
             }
         }
 
-        let (snapshot_field_count, snapshot_tags) = snapshot_meta(&event_type, &new_value);
-        let old_human = summarize_event(&event_type, &old_value, "old");
+        let (snapshot_field_count, snapshot_tags) = snapshot_meta(&event_type, new_value.as_ref());
+        let old_human = summarize_event(&event_type, old_value.as_ref(), "old");
         let new_side_value = if new_value.is_none()
             && (event_type == "field_change_denied" || event_type == "tag_change_denied")
         {
@@ -133,8 +136,8 @@ pub async fn fetch_note_history(client: &Client, note_id: NoteId) -> Return<Note
         } else {
             &new_value
         };
-        let new_human = summarize_event(&event_type, new_side_value, "new");
-        let diff_html = compute_diff_html(&event_type, &old_value, &new_value);
+        let new_human = summarize_event(&event_type, new_side_value.as_ref(), "new");
+        let diff_html = compute_diff_html(&event_type, old_value.as_ref(), new_value.as_ref());
         events.push(NoteHistoryEvent {
             id: row.get(0),
             version: row.get(1),
@@ -167,6 +170,7 @@ pub async fn fetch_note_history(client: &Client, note_id: NoteId) -> Return<Note
 }
 
 // Inserts an event and returns its id. Increments note version atomically.
+#[allow(clippy::too_many_arguments)] // TODO: refactor arguments into a struct
 pub async fn log_event(
     tx: &tokio_postgres::Transaction<'_>,
     note_id: i64,
@@ -252,7 +256,7 @@ pub async fn fetch_commit_history(
     }
 
     let mut notes: BTreeMap<NoteId, CommitHistoryNote> = BTreeMap::new();
-    for row in rows.iter() {
+    for row in &rows {
         let note_id: NoteId = row.get(0);
         let version: i64 = row.get(2);
         let event_type: String = row.get(3);
@@ -269,14 +273,14 @@ pub async fn fetch_commit_history(
                     .or_else(|| old_value.as_ref().and_then(|v| v.get("position")));
 
                 if let Some(pos_v) = pos_val {
-                    if let Some(pos_i64) = pos_v.as_i64() {
-                        field_name = field_map.get(&(nt, pos_i64 as u32)).cloned();
+                    if let Some(pos_u32) = pos_v.as_i64().and_then(|v| u32::try_from(v).ok()) {
+                        field_name = field_map.get(&(nt, pos_u32)).cloned();
                     }
                 }
             }
         }
 
-        let old_human = summarize_event(&event_type, &old_value, "old");
+        let old_human = summarize_event(&event_type, old_value.as_ref(), "old");
         let new_side_value = if new_value.is_none()
             && (event_type == "field_change_denied" || event_type == "tag_change_denied")
         {
@@ -284,8 +288,8 @@ pub async fn fetch_commit_history(
         } else {
             &new_value
         };
-        let new_human = summarize_event(&event_type, new_side_value, "new");
-        let diff_html = compute_diff_html(&event_type, &old_value, &new_value);
+        let new_human = summarize_event(&event_type, new_side_value.as_ref(), "new");
+        let diff_html = compute_diff_html(&event_type, old_value.as_ref(), new_value.as_ref());
 
         let event = CommitHistoryEvent {
             id: row.get(1),
@@ -328,19 +332,17 @@ pub async fn fetch_commit_history(
 
 fn compute_diff_html(
     event_type: &str,
-    old_value: &Option<JsonValue>,
-    new_value: &Option<JsonValue>,
+    old_value: Option<&JsonValue>,
+    new_value: Option<&JsonValue>,
 ) -> Option<String> {
     if event_type != "field_updated" {
         return None;
     }
     let old_content = old_value
-        .as_ref()
         .and_then(|v| v.get("content"))
         .and_then(|c| c.as_str())
         .unwrap_or("");
     let new_content = new_value
-        .as_ref()
         .and_then(|v| v.get("content"))
         .and_then(|c| c.as_str())
         .unwrap_or("");
@@ -354,7 +356,7 @@ fn compute_diff_html(
 
 fn snapshot_meta(
     event_type: &str,
-    new_value: &Option<JsonValue>,
+    new_value: Option<&JsonValue>,
 ) -> (Option<usize>, Option<Vec<String>>) {
     if event_type != "note_created" {
         return (None, None);
@@ -368,38 +370,38 @@ fn snapshot_meta(
     let field_count = value
         .get("fields")
         .and_then(|f| f.as_array())
-        .map(|arr| arr.len());
+        .map(std::vec::Vec::len);
     let tags = value.get("tags").and_then(|t| t.as_array()).map(|arr| {
         arr.iter()
-            .filter_map(|e| e.as_str().map(|s| s.to_string()))
+            .filter_map(|e| e.as_str().map(std::string::ToString::to_string))
             .collect::<Vec<_>>()
     });
     (field_count, tags)
 }
 
-fn summarize_event(event_type: &str, json: &Option<JsonValue>, side: &str) -> Option<String> {
-    let v = json.as_ref()?;
+fn summarize_event(event_type: &str, json: Option<&JsonValue>, side: &str) -> Option<String> {
+    let v = json?;
     match event_type {
         "field_added" | "field_removed" | "field_updated" => v
             .get("content")
             .and_then(|c| c.as_str())
-            .map(|s| s.to_string())
+            .map(std::string::ToString::to_string)
             .or_else(|| {
                 v.get("value")
                     .and_then(|c| c.as_str())
-                    .map(|s| s.to_string())
+                    .map(std::string::ToString::to_string)
             }),
         "tag_added" | "tag_removed" => v
             .get("content")
             .and_then(|c| c.as_str())
-            .map(|s| format!("#{}", s)),
+            .map(|s| format!("#{s}")),
         "note_moved" => {
             let to = v.get("to").and_then(|x| x.as_str()).unwrap_or("");
             let from = v.get("from").and_then(|x| x.as_str()).unwrap_or("");
             if side == "new" && !to.is_empty() {
-                Some(format!("to deck {}", to))
+                Some(format!("to deck {to}"))
             } else if side == "old" && !from.is_empty() {
-                Some(format!("from deck {}", from))
+                Some(format!("from deck {from}"))
             } else {
                 Some("moved".to_string())
             }
@@ -423,11 +425,14 @@ fn summarize_event(event_type: &str, json: &Option<JsonValue>, side: &str) -> Op
         }
         "tag_change_denied" => {
             let content = v.get("content").and_then(|c| c.as_str()).unwrap_or("");
-            let action = v.get("action").and_then(|a| a.as_bool()).unwrap_or(true);
+            let action = v
+                .get("action")
+                .and_then(serde_json::Value::as_bool)
+                .unwrap_or(true);
             if action {
-                Some(format!("denied addition: #{}", content))
+                Some(format!("denied addition: #{content}"))
             } else {
-                Some(format!("denied removal: #{}", content))
+                Some(format!("denied removal: #{content}"))
             }
         }
         _ => None,
@@ -444,15 +449,7 @@ fn truncate(s: &str, max: usize) -> String {
     }
 
     // Walk char boundaries so we never split a multi-byte codepoint mid-slice.
-    let mut end = None;
-    let mut count = 0;
-    for (idx, _) in s.char_indices() {
-        if count == max {
-            end = Some(idx);
-            break;
-        }
-        count += 1;
-    }
+    let end = s.char_indices().nth(max).map(|(idx, _)| idx);
 
     match end {
         None => s.to_string(),

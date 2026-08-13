@@ -59,8 +59,9 @@ pub async fn owned_deck_id(
         )
         .await?;
 
-    match owned_info.is_empty() {
-        true => Err(Unauthorized),
-        false => Ok(owned_info[0].get(0)),
+    if owned_info.is_empty() {
+        Err(Unauthorized)
+    } else {
+        Ok(owned_info[0].get(0))
     }
 }

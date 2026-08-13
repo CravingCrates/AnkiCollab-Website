@@ -3,7 +3,8 @@ use std::sync::Arc;
 
 use crate::database;
 use crate::structs::{
-    NotificationDeckGroup, NotificationHistoryResponse, NotificationItem, NotificationUnreadResponse,
+    NotificationDeckGroup, NotificationHistoryResponse, NotificationItem,
+    NotificationUnreadResponse,
 };
 use crate::Return;
 
@@ -105,13 +106,15 @@ pub async fn get_unread_grouped(
             is_read: false,
         };
 
-        let entry = groups.entry(deck_id).or_insert_with(|| NotificationDeckGroup {
-            deck_id,
-            deck_name: deck_display_name(&full_path),
-            approved_count: 0,
-            denied_count: 0,
-            notifications: Vec::new(),
-        });
+        let entry = groups
+            .entry(deck_id)
+            .or_insert_with(|| NotificationDeckGroup {
+                deck_id,
+                deck_name: deck_display_name(&full_path),
+                approved_count: 0,
+                denied_count: 0,
+                notifications: Vec::new(),
+            });
 
         if status == "approved" {
             entry.approved_count += 1;
@@ -134,7 +137,7 @@ pub async fn get_unread_grouped(
 
     let unread_count = group_list
         .iter()
-        .map(|g| g.notifications.len() as i64)
+        .map(|g| i64::try_from(g.notifications.len()).unwrap_or(i64::MAX))
         .sum::<i64>();
 
     Ok(NotificationUnreadResponse {

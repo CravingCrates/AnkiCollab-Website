@@ -1,107 +1,109 @@
 use ammonia::Builder;
-use once_cell::sync::Lazy;
 use regex::Regex;
 use std::collections::HashSet;
 
-static ALLOWED_CSS_PROPERTIES: Lazy<HashSet<&'static str>> = Lazy::new(|| {
-    [
-        "color",
-        "background-color",
-        "font-size",
-        "font-family",
-        "font-weight",
-        "text-align",
-        "text-decoration",
-        "line-height",
-        "margin",
-        "padding",
-        "border-width",
-        "border-style",
-        "border-color",
-        "writing-mode",
-        "fill",
-        "stroke",
-        "stroke-width",
-        "opacity",
-        "display",
-        // Added for Yomitan
-        "list-style-type",
-        "list-style",
-        "vertical-align",
-    ]
-    .iter()
-    .cloned()
-    .collect()
-});
+static ALLOWED_CSS_PROPERTIES: std::sync::LazyLock<HashSet<&'static str>> =
+    std::sync::LazyLock::new(|| {
+        [
+            "color",
+            "background-color",
+            "font-size",
+            "font-family",
+            "font-weight",
+            "text-align",
+            "text-decoration",
+            "line-height",
+            "margin",
+            "padding",
+            "border-width",
+            "border-style",
+            "border-color",
+            "writing-mode",
+            "fill",
+            "stroke",
+            "stroke-width",
+            "opacity",
+            "display",
+            // Added for Yomitan
+            "list-style-type",
+            "list-style",
+            "vertical-align",
+        ]
+        .iter()
+        .copied()
+        .collect()
+    });
 
-static ALLOWED_COLOR_NAMES: Lazy<HashSet<&'static str>> = Lazy::new(|| {
-    [
-        "aqua",
-        "black",
-        "blue",
-        "fuchsia",
-        "gray",
-        "green",
-        "lime",
-        "maroon",
-        "navy",
-        "olive",
-        "purple",
-        "red",
-        "silver",
-        "teal",
-        "white",
-        "yellow",
-        "currentcolor",
-        "transparent",
-        "rebeccapurple",
-        // Additional safe keywords for SVG
-        "none",
-    ]
-    .iter()
-    .cloned()
-    .collect()
-});
+static ALLOWED_COLOR_NAMES: std::sync::LazyLock<HashSet<&'static str>> =
+    std::sync::LazyLock::new(|| {
+        [
+            "aqua",
+            "black",
+            "blue",
+            "fuchsia",
+            "gray",
+            "green",
+            "lime",
+            "maroon",
+            "navy",
+            "olive",
+            "purple",
+            "red",
+            "silver",
+            "teal",
+            "white",
+            "yellow",
+            "currentcolor",
+            "transparent",
+            "rebeccapurple",
+            // Additional safe keywords for SVG
+            "none",
+        ]
+        .iter()
+        .copied()
+        .collect()
+    });
 
-static ALLOWED_WRITING_MODE_VALUES: Lazy<HashSet<&'static str>> = Lazy::new(|| {
-    [
-        "horizontal-tb",
-        "vertical-rl",
-        "vertical-lr",
-        "sideways-rl",
-        "sideways-lr",
-        "inherit",
-        "initial",
-        "unset",
-        "revert",
-        "revert-layer",
-    ]
-    .iter()
-    .cloned()
-    .collect()
-});
+static ALLOWED_WRITING_MODE_VALUES: std::sync::LazyLock<HashSet<&'static str>> =
+    std::sync::LazyLock::new(|| {
+        [
+            "horizontal-tb",
+            "vertical-rl",
+            "vertical-lr",
+            "sideways-rl",
+            "sideways-lr",
+            "inherit",
+            "initial",
+            "unset",
+            "revert",
+            "revert-layer",
+        ]
+        .iter()
+        .copied()
+        .collect()
+    });
 
 /// Allowed onclick patterns used by the Anki addon Kanji Popup Dictionary with mobile support
-static ALLOWED_ONCLICK_REGEXES: Lazy<Vec<Regex>> = Lazy::new(|| {
+static ALLOWED_ONCLICK_REGEXES: std::sync::LazyLock<Vec<Regex>> = std::sync::LazyLock::new(|| {
     vec![
         // showKanjiPopup('X') or showKanjiPopup("X")
         Regex::new(r#"^showKanjiPopup\(\s*['\"][^'\"]+['\"]\s*\)$"#).unwrap(),
         // showLargePopup(this, 'KANJI')
         Regex::new(r#"^showLargePopup\(\s*this\s*,\s*['\"][^'\"]+['\"]\s*\)$"#).unwrap(),
         // hideKanjiPopup()
-        Regex::new(r#"^hideKanjiPopup\(\s*\)$"#).unwrap(),
+        Regex::new(r"^hideKanjiPopup\(\s*\)$").unwrap(),
         // toggleStory('id') and toggleKanjiDetails('id')
         Regex::new(r#"^toggleStory\(\s*['\"][^'\"]+['\"]\s*\)$"#).unwrap(),
         Regex::new(r#"^toggleKanjiDetails\(\s*['\"][^'\"]+['\"]\s*\)$"#).unwrap(),
         // simple this.style.display='none' (common inline onclick used in addon)
         Regex::new(r#"^this\.style\.display\s*=\s*['\"][^'\"]+['\"]$"#).unwrap(),
         // keep cards_ct_click pattern for the kbd special-case
-        Regex::new(r#"^cards_ct_click\('\d+'\)$"#).unwrap(),
+        Regex::new(r"^cards_ct_click\('\d+'\)$").unwrap(),
     ]
 });
 
-static ALLOWED_IFRAME_SRC_REGEX: Lazy<Regex> = Lazy::new(|| {
-    Regex::new(r#"^https://(www\.)?youtube(-nocookie)?\.com/embed/"#).unwrap()
+static ALLOWED_IFRAME_SRC_REGEX: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+    Regex::new(r"^https://(www\.)?youtube(-nocookie)?\.com/embed/").unwrap()
 });
 
 /// Sanitize inline style declarations by retaining only allowed CSS properties.
@@ -140,17 +142,17 @@ fn sanitize_style(style: &str) -> String {
                         {
                             None
                         } else {
-                            Some(format!("{}: {};", prop_clean, value_clean))
+                            Some(format!("{prop_clean}: {value_clean};"))
                         }
                     } else if prop_clean == "writing-mode" {
                         let value_lower = value_clean.to_lowercase();
                         if ALLOWED_WRITING_MODE_VALUES.contains(value_lower.as_str()) {
-                            Some(format!("{}: {};", prop_clean, value_clean))
+                            Some(format!("{prop_clean}: {value_clean};"))
                         } else {
                             None
                         }
                     } else {
-                        Some(format!("{}: {};", prop_clean, value_clean))
+                        Some(format!("{prop_clean}: {value_clean};"))
                     }
                 } else {
                     None
@@ -163,12 +165,13 @@ fn sanitize_style(style: &str) -> String {
 }
 
 /// This regex matches a style attribute (case-insensitive) using either double or single quotes or unquoted attributes.
-static STYLE_REGEX: Lazy<Regex> =
-    Lazy::new(|| Regex::new(r#"(?i)\s+style\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]*))"#).unwrap());
+static STYLE_REGEX: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+    Regex::new(r#"(?i)\s+style\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]*))"#).unwrap()
+});
 
 /// This regex matches pitch accent plugin comments that need to be preserved.
-static PITCH_ACCENT_COMMENTS_REGEX: Lazy<Regex> =
-    Lazy::new(|| Regex::new(r"<!--\s*(user_)?accent_(start|end)\s*-->").unwrap());
+static PITCH_ACCENT_COMMENTS_REGEX: std::sync::LazyLock<Regex> =
+    std::sync::LazyLock::new(|| Regex::new(r"<!--\s*(user_)?accent_(start|end)\s*-->").unwrap());
 
 /// Extract pitch accent comments from HTML before cleaning.
 fn extract_pitch_accent_comments(html: &str) -> Vec<String> {
@@ -179,28 +182,37 @@ fn extract_pitch_accent_comments(html: &str) -> Vec<String> {
 }
 
 /// The ammonia builder, allowing the "style" attribute.
-static CLEANSER: Lazy<Builder<'static>> = Lazy::new(|| {
+static CLEANSER: std::sync::LazyLock<Builder<'static>> = std::sync::LazyLock::new(|| {
     let mut builder = Builder::default();
-    
+
     // Allow common attributes plugin uses, plus Yomitan metadata attributes.
     // We will special-case `onclick` in the attribute_filter.
     builder.add_generic_attributes(&[
-        "style", "class", "data-src", "id", "onclick", "title",
+        "style",
+        "class",
+        "data-src",
+        "id",
+        "onclick",
+        "title",
         // Yomitan specific attributes
-        "data-sc-content", "data-sc-class", "data-sc-code", "data-sc-source", "lang"
+        "data-sc-content",
+        "data-sc-class",
+        "data-sc-code",
+        "data-sc-source",
+        "lang",
     ]);
-    
+
     builder.add_tags(&["font"]);
     builder.add_tag_attributes("font", &["color"]);
-    
+
     // Allow a constrained subset of SVG needed for user accent pitch graphics.
     builder.add_tags(&[
         "svg", "text", "path", "circle",
         // Common HTML elements used by plugins & Yomitan
-        "div", "span", "h2", "button", "table", "tr", "td", "ul", "ol", "li", "small", "hr", 
-        "ruby", "rt", "i", "b", "a", "iframe",
+        "div", "span", "h2", "button", "table", "tr", "td", "ul", "ol", "li", "small", "hr", "ruby",
+        "rt", "i", "b", "a", "iframe",
     ]);
-    
+
     builder.add_tag_attributes("svg", &["width", "height", "viewBox", "class"]);
     builder.add_tag_attributes("text", &["x", "y", "style"]);
     builder.add_tag_attributes("path", &["d", "style"]);
@@ -256,9 +268,9 @@ static CLEANSER: Lazy<Builder<'static>> = Lazy::new(|| {
 });
 
 /// Post-process the sanitized HTML to restrict inline styles.
-fn sanitize_html_styles(html: String) -> String {
+fn sanitize_html_styles(html: &str) -> String {
     STYLE_REGEX
-        .replace_all(&html, |caps: &regex::Captures| {
+        .replace_all(html, |caps: &regex::Captures| {
             let original = caps
                 .get(1) // Double quotes
                 .or_else(|| caps.get(2)) // Single quotes
@@ -281,7 +293,7 @@ fn restore_pitch_accent_comments(cleaned_html: &str, comments: &[String]) -> Str
 
     // Replace placeholder markers with actual comments
     for (i, comment) in comments.iter().enumerate() {
-        let placeholder = format!("__PITCH_ACCENT_COMMENT_{}__", i);
+        let placeholder = format!("__PITCH_ACCENT_COMMENT_{i}__");
         result = result.replace(&placeholder, comment);
     }
 
@@ -303,12 +315,12 @@ pub fn clean(src: &str) -> String {
     // Replace comments with placeholders before cleaning
     let mut html_with_placeholders = src.to_string();
     for (i, comment) in pitch_accent_comments.iter().enumerate() {
-        let placeholder = format!("__PITCH_ACCENT_COMMENT_{}__", i);
+        let placeholder = format!("__PITCH_ACCENT_COMMENT_{i}__");
         html_with_placeholders = html_with_placeholders.replace(comment, &placeholder);
     }
 
     let sanitized_html = CLEANSER.clean(&html_with_placeholders).to_string();
-    let style_sanitized = sanitize_html_styles(sanitized_html);
+    let style_sanitized = sanitize_html_styles(&sanitized_html);
 
     // Restore pitch accent comments
     restore_pitch_accent_comments(&style_sanitized, &pitch_accent_comments)

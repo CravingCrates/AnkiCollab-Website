@@ -110,7 +110,7 @@ pub async fn update_notetype(
     if !field_ids.is_empty() {
         let changed_rows = tx
             .query(
-                r#"
+                r"
                 WITH incoming AS (
                     SELECT unnest($1::bigint[]) AS id, unnest($2::bool[]) AS new_protected
                 ), updated AS (
@@ -123,7 +123,7 @@ pub async fn update_notetype(
                     RETURNING nf.id, nf.position::int AS position, nf.protected AS new_protected
                 )
                 SELECT position, new_protected FROM updated
-                "#,
+                ",
                 &[&field_ids, &new_statuses, &notetype.notetype_id],
             )
             .await?;
@@ -143,7 +143,7 @@ pub async fn update_notetype(
 
         // Remove newly protected field positions from explicit subscription_field_policy arrays.
         tx.execute(
-            r#"
+            r"
             UPDATE subscription_field_policy
             SET subscribed_fields = (
                 SELECT COALESCE(array_agg(elem ORDER BY elem), '{}')
@@ -155,7 +155,7 @@ pub async fn update_notetype(
               AND EXISTS (
                   SELECT 1 FROM unnest(subscribed_fields) e WHERE e = ANY($1)
               )
-            "#,
+            ",
             &[&newly_protected_positions, &notetype.notetype_id],
         )
         .await?;

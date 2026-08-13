@@ -245,7 +245,7 @@ pub async fn get_presigned_url(
     // if clean_filename.to_lowercase().ends_with(".svg") {
     //     return Err("SVG files are not supported".into());
     // }
-    
+
     // Query to get hash and deck_hash in one go
     let query = "
         SELECT mf.hash, d.human_hash 
@@ -255,7 +255,7 @@ pub async fn get_presigned_url(
         JOIN decks d ON d.id = n.deck
         WHERE mr.file_name = $1 AND mr.note_id = $2
     ";
-    
+
     let row = client
         .query_one(query, &[&clean_filename, &note_id])
         .await?;
@@ -281,7 +281,7 @@ pub async fn get_presigned_url(
         .unwrap_or_else(|_| "https://media.ankicollab.com".to_string());
 
     // Construct proxy URL
-    let proxy_url = format!("{}/v1/media/{}?token={}", media_proxy_url, hash, token);
+    let proxy_url = format!("{media_proxy_url}/v1/media/{hash}?token={token}");
 
     Ok(proxy_url)
 }

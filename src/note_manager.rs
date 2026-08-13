@@ -213,7 +213,7 @@ pub async fn get_note_data(
     for (index, _field) in current_note.note_model_fields.iter().enumerate() {
         current_note.reviewed_fields.push(FieldsInfo {
             id: 0,
-            position: index as u32,
+            position: u32::try_from(index).unwrap_or(u32::MAX),
             content: String::new(),
             inherited: false,
         });
@@ -316,11 +316,11 @@ pub async fn get_note_data(
             match subscribed_fields_opt {
                 None => {
                     // Inherit all: overwrite any positions present in base_pos_map
-                    for (pos, val) in base_pos_map.iter() {
+                    for (pos, val) in &base_pos_map {
                         if *pos >= 0 {
-                            let idx = *pos as usize;
+                            let idx = usize::try_from(*pos).unwrap_or(usize::MAX);
                             if idx < current_note.reviewed_fields.len() {
-                                current_note.reviewed_fields[idx].content = val.clone();
+                                current_note.reviewed_fields[idx].content.clone_from(val);
                                 current_note.reviewed_fields[idx].inherited = true;
                             }
                         }
@@ -329,10 +329,10 @@ pub async fn get_note_data(
                 Some(ords) => {
                     for ord in ords {
                         if ord >= 0 {
-                            let idx = ord as usize;
+                            let idx = usize::try_from(ord).unwrap_or(usize::MAX);
                             if idx < current_note.reviewed_fields.len() {
                                 if let Some(val) = base_pos_map.get(&ord) {
-                                    current_note.reviewed_fields[idx].content = val.clone();
+                                    current_note.reviewed_fields[idx].content.clone_from(val);
                                     current_note.reviewed_fields[idx].inherited = true;
                                 }
                             }
@@ -424,7 +424,7 @@ pub async fn retrieve_notes(
     let raw_rows = client.query(query, &[&deck]).await?;
     let mut notes: Vec<Note> = Vec::new();
     let mut note_ids: Vec<i64> = Vec::new();
-    for row in raw_rows.iter() {
+    for row in &raw_rows {
         if let Some(content) = row.get::<usize, Option<String>>(4) {
             let id: i64 = row.get(0);
             note_ids.push(id);
@@ -457,8 +457,9 @@ pub async fn retrieve_notes(
                 let sub_id: i64 = r.get(0);
                 let base_id: i64 = r.get(1);
                 let subs: Option<Vec<i32>> = r.get(2);
-                if !inheritance_map.contains_key(&sub_id) {
-                    inheritance_map.insert(sub_id, (base_id, subs));
+                if let std::collections::hash_map::Entry::Vacant(e) = inheritance_map.entry(sub_id)
+                {
+                    e.insert((base_id, subs));
                     base_ids.push(base_id);
                 }
             }
@@ -483,8 +484,7 @@ pub async fn retrieve_notes(
             for n in &mut notes {
                 if let Some((base_id, subs_opt)) = inheritance_map.get(&n.id) {
                     let subscribe_all = subs_opt.is_none();
-                    let subscribed_to_zero =
-                        subs_opt.as_ref().map(|v| v.contains(&0)).unwrap_or(true);
+                    let subscribed_to_zero = subs_opt.as_ref().is_none_or(|v| v.contains(&0));
                     if subscribe_all || subscribed_to_zero {
                         if let Some(base_content) = base_front_map.get(base_id) {
                             n.fields = base_content.clone();
@@ -595,7 +595,7 @@ pub async fn mark_note_deleted(
 
             // Determine positions to copy
             let positions: Vec<i32> = match subscribed_fields {
-                None => base_fields_map.keys().cloned().collect(), // inherit all
+                None => base_fields_map.keys().copied().collect(), // inherit all
                 Some(arr) => arr
                     .into_iter()
                     .filter(|p| base_fields_map.contains_key(p))
@@ -613,7 +613,7 @@ pub async fn mark_note_deleted(
                     if let Some(content) = base_fields_map.get(pos) {
                         tx.execute(
                             "INSERT INTO fields (note, position, content, reviewed) VALUES ($1, $2, $3, true)",
-                            &[&sub_note_id, &(*pos as u32), content]
+                            &[&sub_note_id, &u32::try_from(*pos).unwrap_or(0), content]
                         ).await?;
                     }
                 }

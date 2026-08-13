@@ -1,7 +1,10 @@
 use crate::cleanser;
 use crate::database;
 use crate::error::Error::NoNotesAffected;
-use crate::structs::{CommitData, CommitNotesPage, CommitsOverview, FieldsInfo, FieldsReviewInfo, NoteMoveReq, TagsInfo};
+use crate::structs::{
+    CommitData, CommitNotesPage, CommitsOverview, FieldsInfo, FieldsReviewInfo, NoteMoveReq,
+    TagsInfo,
+};
 use crate::Return;
 
 use std::cmp::min;
@@ -64,7 +67,7 @@ pub async fn get_commit_info(
     Ok(commit)
 }
 
-fn find_common_prefix(paths: Vec<&str>) -> String {
+fn find_common_prefix(paths: &[&str]) -> String {
     if paths.is_empty() {
         return String::new();
     }
@@ -173,7 +176,7 @@ pub async fn commits_review(
 
             let deck_string = deck_paths_opt.map_or(String::new(), |paths_vec| {
                 let paths_ref: Vec<&str> = paths_vec.iter().map(String::as_str).collect();
-                find_common_prefix(paths_ref)
+                find_common_prefix(&paths_ref)
             });
 
             CommitsOverview {
@@ -203,7 +206,7 @@ pub async fn get_field_diff(db_state: &Arc<database::AppState>, field_id: i64) -
     }
     let note_id: i64 = new_content_row.get(0);
     let new_content: String = new_content_row.get(1);
-    let position: u32 = new_content_row.get::<_, i32>(2) as u32;
+    let position: u32 = u32::try_from(new_content_row.get::<_, i32>(2)).unwrap_or(0);
     let og_content_row = client
         .query_one(
             "SELECT content FROM fields WHERE note = $1 AND position = $2 ORDER BY reviewed DESC LIMIT 1", 
@@ -233,7 +236,7 @@ pub async fn notes_by_commit(
     let sanitized_limit = limit.clamp(1, 200);
     let upper_bound = sanitized_offset.saturating_add(sanitized_limit);
 
-    let comprehensive_query = r#"
+    let comprehensive_query = r"
         WITH affected_notes AS MATERIALIZED (
             SELECT note FROM (
                 SELECT note FROM fields WHERE commit = $1 AND reviewed = false
@@ -408,7 +411,7 @@ pub async fn notes_by_commit(
         LEFT JOIN base_reviewed_tags brt ON nd.id = brt.note
         LEFT JOIN move_data md ON nd.id = md.note
         ORDER BY nd.rn;
-    "#;
+    ";
 
     let rows = client
         .query(
@@ -464,11 +467,15 @@ pub async fn notes_by_commit(
                         .unwrap_or("");
                     let clean_content = cleanser::clean(content);
                     current_note.fields.push(FieldsReviewInfo {
-                        id: field_data.get("id").and_then(|v| v.as_i64()).unwrap_or(0),
+                        id: field_data
+                            .get("id")
+                            .and_then(serde_json::Value::as_i64)
+                            .unwrap_or(0),
                         position: field_data
                             .get("position")
-                            .and_then(|v| v.as_i64())
-                            .unwrap_or(0) as u32,
+                            .and_then(serde_json::Value::as_i64)
+                            .and_then(|v| u32::try_from(v).ok())
+                            .unwrap_or(0),
                         content: clean_content.clone(),
                         reviewed_content: clean_content.clone(),
                         diff: clean_content,
@@ -493,11 +500,15 @@ pub async fn notes_by_commit(
                     let diff_string = htmldiff::htmldiff(&clean_reviewed, &clean_content);
 
                     current_note.fields.push(FieldsReviewInfo {
-                        id: field_data.get("id").and_then(|v| v.as_i64()).unwrap_or(0),
+                        id: field_data
+                            .get("id")
+                            .and_then(serde_json::Value::as_i64)
+                            .unwrap_or(0),
                         position: field_data
                             .get("position")
-                            .and_then(|v| v.as_i64())
-                            .unwrap_or(0) as u32,
+                            .and_then(serde_json::Value::as_i64)
+                            .and_then(|v| u32::try_from(v).ok())
+                            .unwrap_or(0),
                         content: clean_content,
                         reviewed_content: clean_reviewed,
                         diff: diff_string,
@@ -509,9 +520,9 @@ pub async fn notes_by_commit(
             if let Some(tags_array) = tags_changes_json.as_array() {
                 for tag_data in tags_array {
                     if let (Some(id), Some(content), Some(action)) = (
-                        tag_data.get("id").and_then(|v| v.as_i64()),
+                        tag_data.get("id").and_then(serde_json::Value::as_i64),
                         tag_data.get("content").and_then(|v| v.as_str()),
-                        tag_data.get("action").and_then(|v| v.as_bool()),
+                        tag_data.get("action").and_then(serde_json::Value::as_bool),
                     ) {
                         let tag_info = TagsInfo {
                             id,
@@ -532,11 +543,11 @@ pub async fn notes_by_commit(
         let move_req_json: Option<serde_json::Value> = row.get(13);
         if let Some(move_data) = move_req_json {
             if let (Some(id), Some(path)) = (
-                move_data.get("id").and_then(|v| v.as_i64()),
+                move_data.get("id").and_then(serde_json::Value::as_i64),
                 move_data.get("path").and_then(|v| v.as_str()),
             ) {
                 current_note.move_req = Some(NoteMoveReq {
-                    id: id as i32,
+                    id: i32::try_from(id).unwrap_or(0),
                     path: path.to_string(),
                 });
             }
@@ -551,11 +562,15 @@ pub async fn notes_by_commit(
                     .map(cleanser::clean)
                     .unwrap_or_default();
                 current_note.reviewed_fields.push(FieldsInfo {
-                    id: field_data.get("id").and_then(|v| v.as_i64()).unwrap_or(0),
+                    id: field_data
+                        .get("id")
+                        .and_then(serde_json::Value::as_i64)
+                        .unwrap_or(0),
                     position: field_data
                         .get("position")
-                        .and_then(|v| v.as_i64())
-                        .unwrap_or(0) as u32,
+                        .and_then(serde_json::Value::as_i64)
+                        .and_then(|v| u32::try_from(v).ok())
+                        .unwrap_or(0),
                     content: clean_content,
                     inherited: false,
                 });
@@ -566,7 +581,7 @@ pub async fn notes_by_commit(
         if let Some(tags_array) = reviewed_tags_json.as_array() {
             for tag_data in tags_array {
                 if let (Some(id), Some(content)) = (
-                    tag_data.get("id").and_then(|v| v.as_i64()),
+                    tag_data.get("id").and_then(serde_json::Value::as_i64),
                     tag_data.get("content").and_then(|v| v.as_str()),
                 ) {
                     current_note.reviewed_tags.push(TagsInfo {
@@ -588,7 +603,10 @@ pub async fn notes_by_commit(
         if base_note_id.is_some() {
             // Overlay inherited fields
             let subscribed_set: Option<HashSet<u32>> = subscribed_fields.map(|positions| {
-                positions.into_iter().map(|p| p.max(0) as u32).collect()
+                positions
+                    .into_iter()
+                    .map(|p| u32::try_from(p.max(0)).unwrap_or(0))
+                    .collect()
             });
 
             let mut position_index: HashMap<u32, usize> = HashMap::new();
@@ -600,9 +618,9 @@ pub async fn notes_by_commit(
                 for field_data in base_fields {
                     let position = field_data
                         .get("position")
-                        .and_then(|v| v.as_i64())
+                        .and_then(serde_json::Value::as_i64)
                         .unwrap_or(0);
-                    let position_u32 = position.max(0) as u32;
+                    let position_u32 = u32::try_from(position.max(0)).unwrap_or(0);
                     let allowed = match &subscribed_set {
                         None => true,
                         Some(set) => set.contains(&position_u32),
@@ -618,7 +636,9 @@ pub async fn notes_by_commit(
                         .unwrap_or_default();
 
                     if let Some(idx) = position_index.get(&position_u32).copied() {
-                        current_note.reviewed_fields[idx].content = clean_content.clone();
+                        current_note.reviewed_fields[idx]
+                            .content
+                            .clone_from(&clean_content);
                         current_note.reviewed_fields[idx].inherited = true;
                     } else {
                         current_note.reviewed_fields.push(FieldsInfo {
@@ -656,10 +676,7 @@ pub async fn notes_by_commit(
                 }
             }
 
-            let mut combined: Vec<String> = local_tags
-                .union(&effective_base)
-                .cloned()
-                .collect();
+            let mut combined: Vec<String> = local_tags.union(&effective_base).cloned().collect();
             combined.sort();
 
             current_note.reviewed_tags = combined

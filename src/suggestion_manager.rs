@@ -300,7 +300,9 @@ pub async fn approve_card(
         }
     }
 
-    if !bulk {
+    if bulk {
+        // bulk path still needs to handle subscriber timestamp bump outside (caller responsibility)
+    } else {
         // Collect timestamps to update: the note plus any subscribers
         let mut to_bump: Vec<i64> = vec![note_id];
         // Bump linked subscriber notes' timestamps if this note is a base for others (bubble to decks)
@@ -315,8 +317,6 @@ pub async fn approve_card(
             to_bump.push(sid);
         }
         update_notes_timestamps(tx, &to_bump).await?;
-    } else {
-        // bulk path still needs to handle subscriber timestamp bump outside (caller responsibility)
     }
 
     Ok(note_id.to_string())
@@ -436,7 +436,7 @@ pub async fn deny_field_change(
             &[&note_id, &position, &field_id],
         )
         .await?;
-    
+
     let current_content = current_content_opt.map(|r| r.get::<_, String>(0));
 
     // Determine whether the parent note is already reviewed
@@ -542,18 +542,18 @@ pub async fn approve_move_note_request(
         .query_one("SELECT deck FROM notes WHERE id = $1", &[&note_id])
         .await?;
     let old_deck: i64 = old_deck_row.get(0);
-    
+
     // Get deck names (consider paths instead?) for human-readable event logging
     let old_deck_path_row = tx
         .query_one("SELECT name FROM decks WHERE id = $1", &[&old_deck])
         .await?;
     let old_deck_path: String = old_deck_path_row.get(0);
-    
+
     let new_deck_path_row = tx
         .query_one("SELECT name FROM decks WHERE id = $1", &[&target_deck])
         .await?;
     let new_deck_path: String = new_deck_path_row.get(0);
-    
+
     tx.execute(
         "UPDATE notes SET deck = $1 WHERE id = $2",
         &[&target_deck, &note_id],
@@ -616,7 +616,10 @@ pub async fn approve_tag_change_with_commit(
                 scope.set_tag("component", "suggestion_manager");
                 scope.set_tag("operation", "approve_tag_change_with_commit");
                 scope.set_extra("tag_id", tag_id.into());
-                scope.set_extra("commit_id_param", commit_id.map(|c| c.into()).unwrap_or_else(|| "none".into()));
+                scope.set_extra(
+                    "commit_id_param",
+                    commit_id.map_or_else(|| "none".into(), std::convert::Into::into),
+                );
                 scope.set_extra("actor_user_id", actor_user_id.into());
             },
             || {
@@ -668,25 +671,7 @@ pub async fn approve_tag_change_with_commit(
 
     if is_subscriber {
         // Subscriber-specific logic
-        if !action {
-            // removal request
-            if has_local_reviewed {
-                // Remove the local tag(s)
-                tx.execute("DELETE FROM tags WHERE note = $1 AND content = $2 AND reviewed = true AND action = true", &[&note_id, &content]).await?;
-            }
-            if base_has_tag {
-                // hide base tag
-                tx.execute(
-                    "UPDATE note_inheritance SET removed_base_tags = CASE WHEN $2 = ANY(removed_base_tags) THEN removed_base_tags ELSE array_append(removed_base_tags, $2) END WHERE subscriber_note_id = $1",
-                    &[&note_id, &content]
-                ).await?;
-            } else if !has_local_reviewed { // stale removal suggestion (neither base nor local)
-                 // nothing to track
-            }
-            // Delete the removal suggestion row itself
-            tx.execute("DELETE FROM tags WHERE id = $1", &[&tag_id])
-                .await?;
-        } else {
+        if action {
             // addition request
             if base_has_tag {
                 // re-enable hidden base tag or duplicate of base
@@ -717,6 +702,24 @@ pub async fn approve_tag_change_with_commit(
                     ).await?;
                 }
             }
+        } else {
+            // removal request
+            if has_local_reviewed {
+                // Remove the local tag(s)
+                tx.execute("DELETE FROM tags WHERE note = $1 AND content = $2 AND reviewed = true AND action = true", &[&note_id, &content]).await?;
+            }
+            if base_has_tag {
+                // hide base tag
+                tx.execute(
+                    "UPDATE note_inheritance SET removed_base_tags = CASE WHEN $2 = ANY(removed_base_tags) THEN removed_base_tags ELSE array_append(removed_base_tags, $2) END WHERE subscriber_note_id = $1",
+                    &[&note_id, &content]
+                ).await?;
+            } else if !has_local_reviewed { // stale removal suggestion (neither base nor local)
+                 // nothing to track
+            }
+            // Delete the removal suggestion row itself
+            tx.execute("DELETE FROM tags WHERE id = $1", &[&tag_id])
+                .await?;
         }
     } else {
         // Base (or standalone) note logic
@@ -843,9 +846,9 @@ pub async fn get_all_fields_for_edit(
     commit_id: i32,
 ) -> Return<crate::structs::AllFieldsForEditResponse> {
     use crate::structs::{AllFieldsForEditResponse, EditableFieldInfo};
-    
+
     let client = database::client(db_state).await?;
-    
+
     // Get note info and notetype
     let note_row = client
         .query_opt(
@@ -853,12 +856,12 @@ pub async fn get_all_fields_for_edit(
             &[&note_id],
         )
         .await?;
-    
+
     let (notetype_id, note_reviewed): (i64, bool) = match note_row {
         Some(row) => (row.get(0), row.get(1)),
         None => return Err(NoteNotFound(NoteNotFoundContext::FieldUpdate)),
     };
-    
+
     // Get all field definitions from the notetype
     let field_defs = client
         .query(
@@ -866,7 +869,7 @@ pub async fn get_all_fields_for_edit(
             &[&notetype_id],
         )
         .await?;
-    
+
     // Get reviewed fields for this note
     let reviewed_fields = client
         .query(
@@ -880,7 +883,7 @@ pub async fn get_all_fields_for_edit(
         let content: String = row.get(1);
         reviewed_map.insert(pos, cleanser::clean(&content));
     }
-    
+
     // Get suggestions for THIS commit
     let suggestions_this_commit = client
         .query(
@@ -888,14 +891,15 @@ pub async fn get_all_fields_for_edit(
             &[&note_id, &commit_id],
         )
         .await?;
-    let mut suggestion_map: std::collections::HashMap<u32, (i64, String)> = std::collections::HashMap::new();
+    let mut suggestion_map: std::collections::HashMap<u32, (i64, String)> =
+        std::collections::HashMap::new();
     for row in suggestions_this_commit {
         let id: i64 = row.get(0);
         let pos: u32 = row.get(1);
         let content: String = row.get(2);
         suggestion_map.insert(pos, (id, cleanser::clean(&content)));
     }
-    
+
     // Get suggestions from OTHER commits (to mark fields that have pending changes elsewhere)
     let suggestions_other_commits = client
         .query(
@@ -903,12 +907,13 @@ pub async fn get_all_fields_for_edit(
             &[&note_id, &commit_id],
         )
         .await?;
-    let mut other_suggestions_positions: std::collections::HashSet<u32> = std::collections::HashSet::new();
+    let mut other_suggestions_positions: std::collections::HashSet<u32> =
+        std::collections::HashSet::new();
     for row in suggestions_other_commits {
         let pos: u32 = row.get(0);
         other_suggestions_positions.insert(pos);
     }
-    
+
     // Check if this is an inherited note and get subscribed fields
     let inheritance_row = client
         .query_opt(
@@ -916,12 +921,12 @@ pub async fn get_all_fields_for_edit(
             &[&note_id],
         )
         .await?;
-    
+
     let (base_note_id, subscribed_fields): (Option<i64>, Option<Vec<i32>>) = match inheritance_row {
         Some(row) => (Some(row.get(0)), row.get(1)),
         None => (None, None),
     };
-    
+
     // If inherited, fetch base note reviewed fields and overlay
     let mut inherited_positions: std::collections::HashSet<u32> = std::collections::HashSet::new();
     if let Some(base_id) = base_note_id {
@@ -931,30 +936,30 @@ pub async fn get_all_fields_for_edit(
                 &[&base_id],
             )
             .await?;
-        
+
         let is_subscribed = |pos: i32| -> bool {
             match &subscribed_fields {
                 None => true, // Subscribe all
                 Some(v) => v.contains(&pos),
             }
         };
-        
+
         for row in base_fields {
             let pos: u32 = row.get(0);
             let content: String = row.get(1);
-            if is_subscribed(pos as i32) {
+            if is_subscribed(i32::try_from(pos).unwrap_or(i32::MAX)) {
                 reviewed_map.insert(pos, cleanser::clean(&content));
                 inherited_positions.insert(pos);
             }
         }
     }
-    
+
     // Build the response
     let mut fields: Vec<EditableFieldInfo> = Vec::with_capacity(field_defs.len());
     for row in field_defs {
         let position: u32 = row.get(0);
         let name: String = row.get(1);
-        
+
         let reviewed_content = reviewed_map.get(&position).cloned().unwrap_or_default();
         let (suggestion_id, suggestion_content) = match suggestion_map.get(&position) {
             Some((id, content)) => (Some(*id), Some(content.clone())),
@@ -962,7 +967,7 @@ pub async fn get_all_fields_for_edit(
         };
         let inherited = inherited_positions.contains(&position);
         let has_other_suggestions = other_suggestions_positions.contains(&position);
-        
+
         fields.push(EditableFieldInfo {
             position,
             name,
@@ -973,7 +978,7 @@ pub async fn get_all_fields_for_edit(
             has_other_suggestions,
         });
     }
-    
+
     Ok(AllFieldsForEditResponse {
         note_id,
         commit_id,
@@ -1046,7 +1051,11 @@ pub async fn create_tag_suggestion(
     let _ = note_history::log_event(
         tx,
         note_id,
-        if action { EventType::TagAdded } else { EventType::TagRemoved },
+        if action {
+            EventType::TagAdded
+        } else {
+            EventType::TagRemoved
+        },
         None,
         Some(&serde_json::json!({
             "content": content,
@@ -1063,6 +1072,7 @@ pub async fn create_tag_suggestion(
 }
 
 /// Batch create or update field suggestions for a note.
+///
 /// This handles the "Save Changes" action from the edit all fields panel.
 /// Skips protected field validation (maintainer override).
 /// Returns results for each field processed.
@@ -1075,7 +1085,7 @@ pub async fn batch_create_or_update_field_suggestions(
     client_ip: &str,
 ) -> Return<Vec<FieldSuggestionResult>> {
     use crate::note_history::{self, EventType};
-    
+
     // Get note info
     let note_row = tx
         .query_opt(
@@ -1083,12 +1093,12 @@ pub async fn batch_create_or_update_field_suggestions(
             &[&note_id],
         )
         .await?;
-    
+
     let (notetype_id, _note_reviewed): (i64, bool) = match note_row {
         Some(row) => (row.get(0), row.get(1)),
         None => return Err(NoteNotFound(NoteNotFoundContext::FieldUpdate)),
     };
-    
+
     // Get all field positions from notetype (for validation)
     let valid_positions: std::collections::HashSet<u32> = tx
         .query(
@@ -1099,7 +1109,7 @@ pub async fn batch_create_or_update_field_suggestions(
         .into_iter()
         .map(|r| r.get::<_, u32>(0))
         .collect();
-    
+
     // Get current reviewed content for each position
     let reviewed_rows = tx
         .query(
@@ -1113,7 +1123,7 @@ pub async fn batch_create_or_update_field_suggestions(
         let content: String = row.get(1);
         reviewed_map.insert(pos, content);
     }
-    
+
     // Get existing unreviewed suggestions for this commit
     let existing_suggestions = tx
         .query(
@@ -1121,14 +1131,15 @@ pub async fn batch_create_or_update_field_suggestions(
             &[&note_id, &commit_id],
         )
         .await?;
-    let mut suggestion_map: std::collections::HashMap<u32, (i64, String)> = std::collections::HashMap::new();
+    let mut suggestion_map: std::collections::HashMap<u32, (i64, String)> =
+        std::collections::HashMap::new();
     for row in existing_suggestions {
         let id: i64 = row.get(0);
         let pos: u32 = row.get(1);
         let content: String = row.get(2);
         suggestion_map.insert(pos, (id, content));
     }
-    
+
     // Check for inheritance to determine which fields are inherited (read-only)
     let inheritance_row = tx
         .query_opt(
@@ -1136,44 +1147,48 @@ pub async fn batch_create_or_update_field_suggestions(
             &[&note_id],
         )
         .await?;
-    
+
     let inherited_positions: std::collections::HashSet<u32> = if let Some(row) = inheritance_row {
         let subscribed_fields: Option<Vec<i32>> = row.get(1);
         match subscribed_fields {
             None => valid_positions.clone(), // All fields inherited
-            Some(v) => v.into_iter().filter(|&p| p >= 0).map(|p| p as u32).collect(),
+            Some(v) => v
+                .into_iter()
+                .filter(|&p| p >= 0)
+                .map(|p| u32::try_from(p).unwrap_or(0))
+                .collect(),
         }
     } else {
         std::collections::HashSet::new()
     };
-    
+
     let mut results: Vec<FieldSuggestionResult> = Vec::with_capacity(fields.len());
-    
+
     for field_update in fields {
         let position = field_update.position;
-        
+
         // Validate position exists in notetype
         if !valid_positions.contains(&position) {
             continue; // Skip invalid positions
         }
-        
+
         // Skip inherited fields (read-only)
         if inherited_positions.contains(&position) {
             continue;
         }
-        
+
         // Clean and sanitize content
         let cleaned_content_r = field_update.content.replace('\u{200B}', "");
         let new_content = cleanser::clean(&cleaned_content_r);
-        
+
         // Get the baseline (reviewed content for this position)
         let reviewed_content = reviewed_map.get(&position).cloned().unwrap_or_default();
-        
+
         // Check if there's an existing suggestion for this commit
         if let Some((existing_id, existing_content)) = suggestion_map.get(&position) {
             // Existing suggestion found
             let old_clean = cleanser::clean(existing_content);
-            
+
             if new_content == old_clean {
                 // No change
                 results.push(FieldSuggestionResult {
@@ -1188,7 +1203,7 @@ pub async fn batch_create_or_update_field_suggestions(
                 // Content matches reviewed - delete the suggestion
                 tx.execute("DELETE FROM fields WHERE id = $1", &[existing_id])
                     .await?;
-                
+
                 // Log the removal
                 let _ = note_history::log_event(
                     tx,
@@ -1205,7 +1220,7 @@ pub async fn batch_create_or_update_field_suggestions(
                     None,
                 )
                 .await;
-                
+
                 results.push(FieldSuggestionResult {
                     position,
                     field_id: *existing_id,
@@ -1221,7 +1236,7 @@ pub async fn batch_create_or_update_field_suggestions(
                     &[&new_content, existing_id],
                 )
                 .await?;
-                
+
                 // Log the update
                 let _ = note_history::log_event(
                     tx,
@@ -1242,7 +1257,7 @@ pub async fn batch_create_or_update_field_suggestions(
                     None,
                 )
                 .await;
-                
+
                 results.push(FieldSuggestionResult {
                     position,
                     field_id: *existing_id,
@@ -1258,12 +1273,12 @@ pub async fn batch_create_or_update_field_suggestions(
                 // No change from reviewed content - skip
                 continue;
             }
-            
+
             if new_content.is_empty() && reviewed_content.is_empty() {
                 // Both empty - skip
                 continue;
             }
-            
+
             // Create new suggestion
             let new_id: i64 = tx
                 .query_one(
@@ -1272,7 +1287,7 @@ pub async fn batch_create_or_update_field_suggestions(
                 )
                 .await?
                 .get(0);
-            
+
             // Log the creation
             let _ = note_history::log_event(
                 tx,
@@ -1293,18 +1308,22 @@ pub async fn batch_create_or_update_field_suggestions(
                 None,
             )
             .await;
-            
+
             results.push(FieldSuggestionResult {
                 position,
                 field_id: new_id,
                 action: "created".to_string(),
-                old_content: if reviewed_content.is_empty() { None } else { Some(reviewed_content.clone()) },
+                old_content: if reviewed_content.is_empty() {
+                    None
+                } else {
+                    Some(reviewed_content.clone())
+                },
                 new_content,
                 reviewed_content,
             });
         }
     }
-    
+
     Ok(results)
 }
 
@@ -1336,12 +1355,11 @@ pub async fn approve_field_change_with_commit(
         String,
         u32,
         Option<i32>,
-    ) = match field_info_row {
-        Some(row) => (row.get(0), row.get(1), row.get(2), row.get(3)),
-        None => {
-            tracing::warn!(field_id = field_id, "Field not found during approval");
-            return Err(NoteNotFound(NoteNotFoundContext::FieldApprove));
-        }
+    ) = if let Some(row) = field_info_row {
+        (row.get(0), row.get(1), row.get(2), row.get(3))
+    } else {
+        tracing::warn!(field_id = field_id, "Field not found during approval");
+        return Err(NoteNotFound(NoteNotFoundContext::FieldApprove));
     };
 
     let effective_commit_id = commit_id.or(suggestion_commit);
@@ -1528,7 +1546,7 @@ pub async fn approve_field_change_with_commit(
         bump.push(r.get(0));
     }
     if !bump.is_empty() {
-        let _ = update_notes_timestamps(&tx, &bump).await;
+        let _ = update_notes_timestamps(tx, &bump).await;
     }
 
     Ok(note_id.to_string())
@@ -1551,6 +1569,7 @@ pub async fn merge_by_note_ids(
     approve: bool,
     user: &User,
 ) -> Return<Vec<BulkNoteResult>> {
+    use std::collections::{HashMap, HashSet};
     if note_ids.is_empty() {
         return Ok(Vec::new());
     }
@@ -1594,7 +1613,6 @@ pub async fn merge_by_note_ids(
         .query(affected_notes_query, &[&commit_id, &note_ids])
         .await?;
 
-    use std::collections::{HashMap, HashSet};
     let valid_note_map: HashMap<i64, bool> = valid_notes
         .iter()
         .map(|row| (row.get::<_, i64>(0), row.get::<_, bool>(1)))
@@ -1687,7 +1705,7 @@ pub async fn merge_by_note_ids(
     Ok(results)
 }
 
-/// Process a single note for merge/deny. Extracted from merge_by_commit for reuse.
+/// Process a single note for merge/deny. Extracted from `merge_by_commit` for reuse.
 /// This function operates within the provided transaction and handles all aspects
 /// of merging or denying a single note.
 async fn process_single_note_merge(
@@ -1737,9 +1755,7 @@ async fn process_single_note_merge(
             &[&commit_id, &note_id],
         )
         .await?;
-    let move_suggestion: Option<(i64, i64)> = move_row
-        .first()
-        .map(|row| (row.get(0), row.get(1)));
+    let move_suggestion: Option<(i64, i64)> = move_row.first().map(|row| (row.get(0), row.get(1)));
 
     if approve {
         // Process tags
@@ -1851,6 +1867,7 @@ pub async fn merge_by_commit(
     approve: bool,
     user: User,
 ) -> Return<Option<i32>> {
+    use std::collections::HashSet;
     let mut client = database::client(db_state).await?;
 
     let q_guid = client
@@ -1938,10 +1955,9 @@ pub async fn merge_by_commit(
         .iter()
         .map(|row| row.get(0))
         .collect::<Vec<i64>>();
-    use std::collections::HashSet;
     let reviewed_notes: HashSet<i64> = affected_notes
         .iter()
-        .filter(|row| row.get::<usize, bool>(1) == true)
+        .filter(|row| row.get::<usize, bool>(1))
         .map(|row| row.get::<usize, i64>(0))
         .collect();
 
@@ -2058,14 +2074,9 @@ pub async fn merge_by_commit(
                     .find(|(tid, _)| tid == tag)
                     .map(|(_, n)| *n);
 
-                if let Err(err) = approve_tag_change_with_commit(
-                    &tx,
-                    *tag,
-                    false,
-                    Some(commit_id),
-                    user.id(),
-                )
-                .await
+                if let Err(err) =
+                    approve_tag_change_with_commit(&tx, *tag, false, Some(commit_id), user.id())
+                        .await
                 {
                     // Note: Only use sentry::with_scope, not error!() macro,
                     // because the sentry_layer auto-captures ERROR events causing double-capture
@@ -2078,8 +2089,7 @@ pub async fn merge_by_commit(
                             scope.set_extra(
                                 "note_id",
                                 note_for_tag
-                                    .map(|n| n.into())
-                                    .unwrap_or_else(|| "unknown".into()),
+                                    .map_or_else(|| "unknown".into(), std::convert::Into::into),
                             );
                             scope.set_extra("user_id", user.id().into());
                         },

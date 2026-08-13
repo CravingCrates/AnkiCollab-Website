@@ -11,7 +11,7 @@ use axum_extra::extract::cookie::CookieJar;
 use cookie::{Cookie as CookieBuilder, SameSite};
 use jsonwebtoken::{decode, encode, DecodingKey, EncodingKey, Header, Validation};
 use serde::{Deserialize, Serialize};
-use sha2::{Sha256, Digest};
+use sha2::{Digest, Sha256};
 use std::net::IpAddr;
 use std::sync::Arc;
 use time::{Duration, OffsetDateTime};
@@ -131,7 +131,7 @@ impl Auth {
         }
 
         // Validate password strength
-        self.validate_password(&creds.password)?;
+        Self::validate_password(&creds.password)?;
 
         // Hash password
         let salt = SaltString::generate(&mut OsRng);
@@ -158,7 +158,7 @@ impl Auth {
         })
     }
 
-    const fn validate_password(&self, password: &str) -> Result<(), AuthError> {
+    const fn validate_password(password: &str) -> Result<(), AuthError> {
         // Check password length
         if password.len() < 8 {
             return Err(AuthError::PasswordWeak);
@@ -247,7 +247,8 @@ impl Auth {
         }
     }
 
-    pub async fn logout(&self) -> String {
+    #[must_use]
+    pub fn logout(&self) -> String {
         // Create expired cookie to clear the session
         CookieBuilder::build((AUTH_COOKIE_NAME, ""))
             .expires(time::OffsetDateTime::now_utc() - time::Duration::days(1))
@@ -350,10 +351,7 @@ impl Auth {
         // Get current password hash
         let row = self
             .db
-            .query_opt(
-                "SELECT password FROM users WHERE id = $1",
-                &[&user_id],
-            )
+            .query_opt("SELECT password FROM users WHERE id = $1", &[&user_id])
             .await?
             .ok_or(AuthError::UserNotFound)?;
 
@@ -370,7 +368,7 @@ impl Auth {
         }
 
         // Validate new password strength
-        self.validate_password(new_password)?;
+        Self::validate_password(new_password)?;
 
         // Hash new password
         let salt = SaltString::generate(&mut OsRng);
@@ -390,10 +388,7 @@ impl Auth {
 
         // Invalidate all auth tokens for third-party apps
         self.db
-            .execute(
-                "DELETE FROM auth_tokens WHERE user_id = $1",
-                &[&user_id],
-            )
+            .execute("DELETE FROM auth_tokens WHERE user_id = $1", &[&user_id])
             .await?;
 
         Ok(())
@@ -406,10 +401,7 @@ impl Auth {
         // Fetch username before we touch anything
         let row = self
             .db
-            .query_opt(
-                "SELECT username FROM users WHERE id = $1",
-                &[&user_id],
-            )
+            .query_opt("SELECT username FROM users WHERE id = $1", &[&user_id])
             .await?
             .ok_or(AuthError::UserNotFound)?;
 
@@ -427,10 +419,7 @@ impl Auth {
         // Invalidate third-party auth tokens immediately
         let _ = self
             .db
-            .execute(
-                "DELETE FROM auth_tokens WHERE user_id = $1",
-                &[&user_id],
-            )
+            .execute("DELETE FROM auth_tokens WHERE user_id = $1", &[&user_id])
             .await;
 
         Ok(username)
@@ -451,10 +440,7 @@ pub async fn purge_deleted_account_data<C: std::ops::Deref<Target = tokio_postgr
 
     // Delete user's statistics by user_hash
     if let Err(e) = db
-        .execute(
-            "DELETE FROM note_stats WHERE user_hash = $1",
-            &[&user_hash],
-        )
+        .execute("DELETE FROM note_stats WHERE user_hash = $1", &[&user_hash])
         .await
     {
         tracing::error!(user_id, error = %e, "Failed to purge note_stats for deleted account");
@@ -478,5 +464,4 @@ pub async fn purge_deleted_account_data<C: std::ops::Deref<Target = tokio_postgr
     {
         tracing::error!(user_id, error = %e, "Failed to delete user row for deleted account");
     }
-
 }

@@ -193,8 +193,7 @@ pub async fn get_base_deck_info(
     let (note_count, retention_avg) = if let Some(row) = rows.first() {
         (row.get(0), row.get(1))
     } else {
-        return Err(Box::new(std::io::Error::new(
-            std::io::ErrorKind::Other,
+        return Err(Box::new(std::io::Error::other(
             "No deck found with the given hash",
         )));
     };
@@ -218,17 +217,19 @@ pub async fn get_base_deck_info(
     let (lapses_avg, reps_avg) = if let Some(row) = rows.first() {
         (row.get(0), row.get(1))
     } else {
-        return Err(Box::new(std::io::Error::new(
-            std::io::ErrorKind::Other,
+        return Err(Box::new(std::io::Error::other(
             "No calculated stats found for the given deck",
         )));
     };
+
+    let contributor_count = get_contributor_count(db_state, deck_hash).await?;
 
     Ok(DeckBaseStatsInfo {
         note_count,
         lapses_avg,
         reps_avg,
         retention_avg,
+        contributor_count,
     })
 }
 
@@ -282,15 +283,32 @@ pub async fn get_worst_notes_info(
             UNION ALL
             SELECT d.id, d.human_hash, d.parent, d.full_path
             FROM cte JOIN decks d ON d.parent = cte.id
-        ), worst_notes AS (
+        ), candidates AS (
             SELECT n.id, cs.lapses, cs.reps, cs.retention, cs.sample_size
-            FROM notes n 
+            FROM notes n
             JOIN calculated_stats cs ON n.id = cs.note_id
-            WHERE n.deck IN (SELECT id FROM cte) and NOT n.deleted
-            ORDER BY cs.retention ASC, cs.lapses DESC
+            WHERE n.deck IN (SELECT id FROM cte) AND NOT n.deleted
+              AND cs.retention IS NOT NULL
+        ), pool_stats AS (
+            SELECT
+                AVG(retention) AS c,
+                PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY sample_size) AS m
+            FROM candidates
+        ), worst_notes AS (
+            SELECT
+                c.id, c.lapses, c.reps, c.retention, c.sample_size,
+                (c.sample_size::float8 / (c.sample_size + GREATEST(s.m, 1)))
+                    * c.retention
+                +
+                (GREATEST(s.m, 1) / (c.sample_size + GREATEST(s.m, 1)))
+                    * s.c
+                AS weighted_retention
+            FROM candidates c
+            CROSS JOIN pool_stats s
+            ORDER BY weighted_retention ASC, c.lapses DESC
             LIMIT 100
         )
-        SELECT wn.id, 
+        SELECT wn.id,
             (SELECT coalesce(f.content, '') FROM fields AS f WHERE f.note = wn.id AND f.position = 0 LIMIT 1) AS content,
             wn.lapses, wn.reps, wn.retention, wn.sample_size
         FROM worst_notes wn
@@ -324,4 +342,30 @@ pub async fn toggle_stats(
     ";
     client.execute(query, &[&deck_id]).await?;
     Ok(())
+}
+
+pub async fn get_contributor_count(
+    db_state: &Arc<database::AppState>,
+    deck_hash: &String,
+) -> Result<i64, Box<dyn std::error::Error>> {
+    let client = database::client(db_state).await?;
+    let query = "
+        WITH RECURSIVE cte AS (
+            SELECT id
+            FROM decks
+            WHERE human_hash = $1
+            UNION ALL
+            SELECT d.id
+            FROM cte JOIN decks d ON d.parent = cte.id
+        )
+        SELECT COUNT(DISTINCT ns.user_hash)
+        FROM cte
+        JOIN notes n ON cte.id = n.deck AND NOT n.deleted
+        JOIN note_stats ns ON ns.note_id = n.id
+    ";
+
+    let row = client.query_one(query, &[&deck_hash]).await?;
+    let contributor_count: i64 = row.get(0);
+
+    Ok(contributor_count)
 }

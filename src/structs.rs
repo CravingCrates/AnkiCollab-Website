@@ -406,6 +406,7 @@ pub struct DeckBaseStatsInfo {
     pub lapses_avg: f64,
     pub reps_avg: f64,
     pub retention_avg: f32,
+    pub contributor_count: i64,
 }
 
 #[derive(Serialize, Deserialize)]

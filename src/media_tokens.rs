@@ -29,10 +29,7 @@ impl std::fmt::Debug for MediaTokenService {
 }
 
 impl MediaTokenService {
-    pub fn new(
-        secret: Vec<u8>,
-        download_ttl: Duration,
-    ) -> Result<Self, MediaTokenError> {
+    pub fn new(secret: Vec<u8>, download_ttl: Duration) -> Result<Self, MediaTokenError> {
         if secret.len() < 32 {
             return Err(MediaTokenError::InvalidSecret);
         }
@@ -156,14 +153,16 @@ pub enum MediaTokenError {
 impl fmt::Display for MediaTokenError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            MediaTokenError::InvalidSecret => write!(f, "Media token secret must be at least 32 bytes"),
-            MediaTokenError::InvalidTtl => write!(f, "Invalid token TTL"),
-            MediaTokenError::InvalidFormat => write!(f, "Invalid token format"),
-            MediaTokenError::InvalidSignature => write!(f, "Invalid token signature"),
-            MediaTokenError::Expired => write!(f, "Token expired"),
-            MediaTokenError::UnsupportedVersion(v) => write!(f, "Unsupported token version: {v}"),
-            MediaTokenError::Decode(err) => write!(f, "Token decode error: {err}"),
-            MediaTokenError::Serialization(err) => write!(f, "Token serialization error: {err}"),
+            Self::InvalidSecret => {
+                write!(f, "Media token secret must be at least 32 bytes")
+            }
+            Self::InvalidTtl => write!(f, "Invalid token TTL"),
+            Self::InvalidFormat => write!(f, "Invalid token format"),
+            Self::InvalidSignature => write!(f, "Invalid token signature"),
+            Self::Expired => write!(f, "Token expired"),
+            Self::UnsupportedVersion(v) => write!(f, "Unsupported token version: {v}"),
+            Self::Decode(err) => write!(f, "Token decode error: {err}"),
+            Self::Serialization(err) => write!(f, "Token serialization error: {err}"),
         }
     }
 }

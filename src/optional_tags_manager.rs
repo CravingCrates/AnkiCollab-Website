@@ -70,6 +70,6 @@ pub async fn remove_tag(
             FROM cte JOIN decks d ON d.parent = cte.id
         )
         DELETE FROM tags WHERE content LIKE $2 AND note IN (SELECT id FROM notes WHERE deck IN (SELECT id FROM cte))",
-    &[&deck, &format!("AnkiCollab_Optional::{}::%", &tag_group)]).await?;
+    &[&deck, &format!("AnkiCollab_Optional::{tag_group}::%")]).await?;
     Ok("removed".to_string())
 }

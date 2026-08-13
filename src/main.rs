@@ -1,4 +1,14 @@
-#![warn(clippy::all, clippy::pedantic, clippy::nursery)]
+#![warn(clippy::all)]
+#![warn(clippy::pedantic)]
+#![allow(
+    clippy::missing_errors_doc,
+    clippy::missing_panics_doc,
+    clippy::too_many_lines,
+    clippy::manual_let_else,
+    clippy::implicit_hasher,
+    clippy::similar_names,
+    clippy::case_sensitive_file_extension_comparisons
+)]
 
 pub mod changelog_manager;
 pub mod cleanser;
@@ -9,10 +19,10 @@ pub mod gdrive_manager;
 pub mod maintainer_manager;
 pub mod media_reference_manager;
 pub mod media_tokens;
-pub mod notification_manager;
 pub mod note_history;
 pub mod note_manager;
 pub mod notetype_manager;
+pub mod notification_manager;
 pub mod optional_tags_manager;
 pub mod stats_manager;
 pub mod structs;
@@ -28,7 +38,7 @@ use sync::Arc;
 use tokio::signal;
 use tower::ServiceBuilder;
 use tower_governor::{governor::GovernorConfigBuilder, GovernorLayer};
-use user::{Auth, ChangePasswordRequest, Credentials, User, purge_deleted_account_data};
+use user::{purge_deleted_account_data, Auth, ChangePasswordRequest, Credentials, User};
 
 use axum_client_ip::{ClientIp, ClientIpSource};
 use tower_http::services::ServeDir;
@@ -44,32 +54,30 @@ use axum::{
     Extension, Json, Router,
 };
 
+use sentry::integrations::tracing::EventFilter;
 use structs::{
     BasicDeckInfo, DeckHash, DeckId, DeckOverview, FieldId, NoteId, Return, UpdateNotetype,
     UpdateNotetypeTemplate, UserId,
 };
-use structs::{
-    SubscriptionPolicyGetResponse, SubscriptionPolicyItem, SubscriptionPolicyPostRequest,
-};
-use structs::{
-    BulkNoteActionRequest, BulkNoteActionResponse, BulkNoteActionFailure,
-};
+use structs::{BulkNoteActionFailure, BulkNoteActionRequest, BulkNoteActionResponse};
 use structs::{
     CommitDecisionRequest, NotificationHistoryResponse, NotificationMarkReadRequest,
     NotificationMarkReadResponse, NotificationUnreadResponse,
 };
+use structs::{
+    SubscriptionPolicyGetResponse, SubscriptionPolicyItem, SubscriptionPolicyPostRequest,
+};
 use tera::Tera;
-use sentry::integrations::tracing::EventFilter;
 
 use aws_sdk_s3::Client as S3Client;
-use std::result::Result;
-use std::{
-    cfg, env, eprintln, format, i32, i64, net, option_env, panic, str, sync, u32,
-    unreachable, usize, vec,
-};
 use serde::{Deserialize, Serialize};
+use std::result::Result;
+use std::{cfg, env, eprintln, format, net, option_env, panic, str, sync, unreachable, vec};
 
-type SharedConn = bb8_postgres::bb8::PooledConnection<'static, bb8_postgres::PostgresConnectionManager<tokio_postgres::NoTls>>;
+type SharedConn = bb8_postgres::bb8::PooledConnection<
+    'static,
+    bb8_postgres::PostgresConnectionManager<tokio_postgres::NoTls>,
+>;
 
 fn check_login(user: Option<User>) -> Result<User, Error> {
     match user {
@@ -113,9 +121,9 @@ async fn post_signup(
     post_login(ClientIp(ip), Extension(auth), axum::Form(form)).await
 }
 
-async fn error_page(appstate: &Arc<AppState>, message: String) -> Result<Html<String>, Error> {
+fn error_page(appstate: &Arc<AppState>, message: &str) -> Result<Html<String>, Error> {
     let mut context = tera::Context::new();
-    context.insert("message", &message);
+    context.insert("message", message);
     let rendered_template = appstate.tera.render("error.html", &context)?;
     Ok(Html(rendered_template))
 }
@@ -160,14 +168,18 @@ async fn datenschutz(State(appstate): State<Arc<AppState>>) -> Result<impl IntoR
     Ok(Html(rendered_template))
 }
 
-async fn accessibility_page(State(appstate): State<Arc<AppState>>) -> Result<impl IntoResponse, Error> {
+async fn accessibility_page(
+    State(appstate): State<Arc<AppState>>,
+) -> Result<impl IntoResponse, Error> {
     let context = tera::Context::new();
-    let rendered_template = appstate.tera.render("accessibility_statement.html", &context)?;
+    let rendered_template = appstate
+        .tera
+        .render("accessibility_statement.html", &context)?;
     Ok(Html(rendered_template))
 }
 
 async fn logout(Extension(auth): Extension<Arc<Auth>>) -> Result<impl IntoResponse, Error> {
-    let exp_cookie = auth.logout().await;
+    let exp_cookie = auth.logout();
     let mut response = axum::response::Redirect::to("/").into_response();
     response.headers_mut().insert(
         header::SET_COOKIE,
@@ -210,7 +222,7 @@ async fn post_change_password(
         .await?;
 
     // Log the user out so they need to re-authenticate with new password
-    let exp_cookie = auth.logout().await;
+    let exp_cookie = auth.logout();
     let mut response = axum::response::Redirect::to("/login").into_response();
     response.headers_mut().insert(
         header::SET_COOKIE,
@@ -249,7 +261,7 @@ async fn delete_account(
     });
 
     // Log the user out immediately
-    let exp_cookie = auth.logout().await;
+    let exp_cookie = auth.logout();
     let mut response = axum::response::Redirect::to("/").into_response();
     response.headers_mut().insert(
         header::SET_COOKIE,
@@ -418,7 +430,7 @@ async fn edit_notetype(
         .await
         .expect("Error preparing edit notetype statement");
     if owned_info.is_empty() {
-        return error_page(&appstate, error::Error::Unauthorized.to_string()).await;
+        return error_page(&appstate, &error::Error::Unauthorized.to_string());
     }
 
     let notetype_info = client
@@ -498,7 +510,7 @@ async fn edit_deck(
     let mut context = tera::Context::new();
 
     if owner != user.id() {
-        return error_page(&appstate, error::Error::Unauthorized.to_string()).await;
+        return error_page(&appstate, &error::Error::Unauthorized.to_string());
     }
 
     let desc: String = owned_info[0].get(1);
@@ -595,12 +607,12 @@ async fn delete_deck(
     let db_state_clone = Arc::clone(&appstate);
 
     let client: SharedConn = match db_state_clone.db_pool.get_owned().await {
-            Ok(pool) => pool,
-            Err(err) => {
-                tracing::error!(error = %err, "Failed to get database connection pool");
-                return Err(error::Error::DatabaseConnection);
-            }
-        };
+        Ok(pool) => pool,
+        Err(err) => {
+            tracing::error!(error = %err, "Failed to get database connection pool");
+            return Err(error::Error::DatabaseConnection);
+        }
+    };
     let _ = owned_deck_id(&appstate, &deck_hash, user.id()).await?; // only for checking if user owns the deck
 
     client
@@ -628,30 +640,38 @@ async fn delete_deck(
         };
 
         // Find all deck ids in this tree
-        let rows = client.query("WITH RECURSIVE subdecks AS (
+        let rows = client
+            .query(
+                "WITH RECURSIVE subdecks AS (
             SELECT id, 1 as depth FROM decks WHERE human_hash = $1
             UNION ALL
             SELECT d.id, s.depth + 1 FROM decks d JOIN subdecks s ON s.id = d.parent
-        ) SELECT id FROM subdecks ORDER BY depth DESC", &[&deck_hash]).await;
+        ) SELECT id FROM subdecks ORDER BY depth DESC",
+                &[&deck_hash],
+            )
+            .await;
 
         if let Ok(rows) = rows {
             for row in rows {
                 let deck_id: i64 = row.get(0);
-                
+
                 // Delete the subdeck on its own, allowing CASCADE to clean up its notes,
                 // commits, and other dependencies in a smaller transaction.
-                let _ = client.query("DELETE FROM decks WHERE id = $1", &[&deck_id]).await;
+                let _ = client
+                    .query("DELETE FROM decks WHERE id = $1", &[&deck_id])
+                    .await;
                 tokio::time::sleep(std::time::Duration::from_millis(100)).await;
             }
         }
-        
+
         // This query cleans up unused notetypes
         client
             .query(
                 "DELETE FROM notetype WHERE id NOT IN (SELECT DISTINCT notetype FROM notes)",
                 &[],
             )
-            .await.unwrap();
+            .await
+            .unwrap();
 
         if let Err(err) = purge_s3_deck_assets(&db_state_clone, &deck_hash).await {
             tracing::warn!(error = %err, deck_hash = %deck_hash, "Failed to purge S3 assets for deck");
@@ -676,10 +696,7 @@ async fn purge_s3_deck_assets(
     let mut continuation_token: Option<String> = None;
 
     loop {
-        let mut request = client
-            .list_objects_v2()
-            .bucket(&bucket)
-            .prefix(&prefix);
+        let mut request = client.list_objects_v2().bucket(&bucket).prefix(&prefix);
 
         if let Some(ref token) = continuation_token {
             request = request.continuation_token(token);
@@ -739,10 +756,9 @@ async fn approve_commit(
     )
     .await?;
 
-    Ok(if res.is_none() {
-        Redirect::to("/reviews")
-    } else {
-        Redirect::to(&format!("/commit/{}", res.unwrap()))
+    Ok(match res {
+        None => Redirect::to("/reviews"),
+        Some(commit_id) => Redirect::to(&format!("/commit/{commit_id}")),
     })
 }
 
@@ -775,10 +791,9 @@ async fn deny_commit(
                 .await?;
             }
 
-            if res.is_none() {
-                Ok(Redirect::to("/reviews"))
-            } else {
-                Ok(Redirect::to(&format!("/commit/{}", res.unwrap())))
+            match res {
+                Some(commit_id) => Ok(Redirect::to(&format!("/commit/{commit_id}"))),
+                None => Ok(Redirect::to("/reviews")),
             }
         }
         Err(error) => {
@@ -812,7 +827,10 @@ async fn bulk_note_action(
                 succeeded: vec![],
                 failed: vec![BulkNoteActionFailure {
                     id: 0,
-                    reason: format!("Invalid action '{}'. Expected 'approve' or 'deny'.", payload.action),
+                    reason: format!(
+                        "Invalid action '{}'. Expected 'approve' or 'deny'.",
+                        payload.action
+                    ),
                 }],
             }));
         }
@@ -851,7 +869,10 @@ async fn bulk_note_action(
         .filter(|r| !r.success)
         .map(|r| BulkNoteActionFailure {
             id: r.note_id,
-            reason: r.reason.clone().unwrap_or_else(|| "Unknown error".to_string()),
+            reason: r
+                .reason
+                .clone()
+                .unwrap_or_else(|| "Unknown error".to_string()),
         })
         .collect();
 
@@ -950,8 +971,7 @@ async fn review_commit(
     let wants_json = params
         .format
         .as_deref()
-        .map(|f| f.eq_ignore_ascii_case("json"))
-        .unwrap_or(false);
+        .is_some_and(|f| f.eq_ignore_ascii_case("json"));
 
     let raw_offset = params.offset.unwrap_or(0).max(0);
     let sanitized_offset = raw_offset - (raw_offset % PAGE_INCREMENT);
@@ -964,13 +984,9 @@ async fn review_commit(
         _ => default_limit,
     };
 
-    let notes_page = commit_manager::notes_by_commit(
-        &appstate,
-        commit_id,
-        sanitized_offset,
-        sanitized_limit,
-    )
-    .await?;
+    let notes_page =
+        commit_manager::notes_by_commit(&appstate, commit_id, sanitized_offset, sanitized_limit)
+            .await?;
     let notes_loaded = notes_page.notes.len();
 
     let commit = commit_manager::get_commit_info(&appstate, commit_id).await?;
@@ -983,8 +999,7 @@ async fn review_commit(
         )
         .await?;
     if q_guid.is_empty() {
-        return error_page(&appstate, error::Error::CommitNotFound.to_string())
-            .await
+        return error_page(&appstate, &error::Error::CommitNotFound.to_string())
             .map(IntoResponse::into_response);
     }
     let deck_id: i64 = q_guid[0].get(0);
@@ -1050,16 +1065,14 @@ async fn review_commit_preview(
         )
         .await?;
     if q_guid.is_empty() {
-        return error_page(&appstate, error::Error::CommitNotFound.to_string())
-            .await
+        return error_page(&appstate, &error::Error::CommitNotFound.to_string())
             .map(IntoResponse::into_response);
     }
     let deck_id: i64 = q_guid[0].get(0);
 
     let access = suggestion_manager::is_authorized(&appstate, &user, deck_id).await?;
     if !access {
-        return error_page(&appstate, error::Error::Unauthorized.to_string())
-            .await
+        return error_page(&appstate, &error::Error::Unauthorized.to_string())
             .map(IntoResponse::into_response);
     }
 
@@ -1100,10 +1113,9 @@ async fn review_note(
         Err(_error) => {
             return error_page(
                 &appstate,
-                error::Error::NoteNotFound(NoteNotFoundContext::InvalidData).to_string(),
+                &error::Error::NoteNotFound(NoteNotFoundContext::InvalidData).to_string(),
             )
-            .await
-            .map(|h| h.into_response());
+            .map(axum::response::IntoResponse::into_response);
         }
     };
 
@@ -1111,10 +1123,9 @@ async fn review_note(
         // Invalid data // No note found!
         return error_page(
             &appstate,
-            error::Error::NoteNotFound(NoteNotFoundContext::InvalidData).to_string(),
+            &error::Error::NoteNotFound(NoteNotFoundContext::InvalidData).to_string(),
         )
-        .await
-        .map(|h| h.into_response());
+        .map(axum::response::IntoResponse::into_response);
     }
 
     // access boolean previously used for template conditions; removed as unused
@@ -1128,10 +1139,9 @@ async fn review_note(
     if q_guid.is_empty() {
         return error_page(
             &appstate,
-            error::Error::NoteNotFound(NoteNotFoundContext::InvalidData).to_string(),
+            &error::Error::NoteNotFound(NoteNotFoundContext::InvalidData).to_string(),
         )
-        .await
-        .map(|h| h.into_response());
+        .map(axum::response::IntoResponse::into_response);
     }
     let deck_id: i64 = q_guid[0].get(0);
     let access = suggestion_manager::is_authorized(&appstate, current_user, deck_id).await?;
@@ -1165,10 +1175,9 @@ async fn note_history_page(
     if row_opt.is_none() {
         return error_page(
             &appstate,
-            error::Error::NoteNotFound(NoteNotFoundContext::InvalidData).to_string(),
+            &error::Error::NoteNotFound(NoteNotFoundContext::InvalidData).to_string(),
         )
-        .await
-        .map(|h| h.into_response());
+        .map(axum::response::IntoResponse::into_response);
     }
     let deck_id: i64 = row_opt.unwrap().get(0);
     let u = user.as_ref().unwrap();
@@ -1509,7 +1518,7 @@ async fn get_all_fields_for_edit(
             &[&note_id],
         )
         .await?;
-    
+
     let deck_id: i64 = match deck_row {
         Some(row) => row.get(0),
         None => {
@@ -1518,14 +1527,14 @@ async fn get_all_fields_for_edit(
             })));
         }
     };
-    
+
     // Check user has access to this deck
     if !access_check(&appstate, deck_id, &user).await? {
         return Ok(Json(serde_json::json!({
             "error": "Unauthorized"
         })));
     }
-    
+
     // Verify the commit exists and is associated with a deck the user can access
     let commit_deck_row = client
         .query_opt(
@@ -1533,7 +1542,7 @@ async fn get_all_fields_for_edit(
             &[&commit_id],
         )
         .await?;
-    
+
     if commit_deck_row.is_none() {
         return Ok(Json(serde_json::json!({
             "error": "Commit not found"
@@ -1547,7 +1556,7 @@ async fn get_all_fields_for_edit(
             "error": "Unauthorized"
         })));
     }
-    
+
     match suggestion_manager::get_all_fields_for_edit(&appstate, note_id, commit_id).await {
         Ok(response) => Ok(Json(serde_json::json!(response))),
         Err(error) => {
@@ -1574,7 +1583,7 @@ async fn batch_update_field_suggestions(
             &[&payload.note_id],
         )
         .await?;
-    
+
     let deck_id: i64 = match deck_row {
         Some(row) => row.get(0),
         None => {
@@ -1586,7 +1595,7 @@ async fn batch_update_field_suggestions(
             }));
         }
     };
-    
+
     // Check user has access to this deck
     if !access_check(&appstate, deck_id, &user).await? {
         return Ok(Json(structs::BatchFieldSuggestionResponse {
@@ -1596,7 +1605,7 @@ async fn batch_update_field_suggestions(
             fields: vec![],
         }));
     }
-    
+
     // Verify the commit exists
     let commit_exists = client
         .query_opt(
@@ -1605,7 +1614,7 @@ async fn batch_update_field_suggestions(
         )
         .await?
         .is_some();
-    
+
     if !commit_exists {
         return Ok(Json(structs::BatchFieldSuggestionResponse {
             success: false,
@@ -1614,11 +1623,11 @@ async fn batch_update_field_suggestions(
             fields: vec![],
         }));
     }
-    
+
     let ip_str = client_ip.to_string();
     let mut db_client = database::client(&appstate).await?;
     let tx = db_client.transaction().await?;
-    
+
     match suggestion_manager::batch_create_or_update_field_suggestions(
         &tx,
         payload.note_id,
@@ -1631,20 +1640,21 @@ async fn batch_update_field_suggestions(
     {
         Ok(results) => {
             // Calculate diffs for each modified field
-            let mut field_results: Vec<structs::FieldUpdateResult> = Vec::with_capacity(results.len());
+            let mut field_results: Vec<structs::FieldUpdateResult> =
+                Vec::with_capacity(results.len());
             let mut updated_count = 0;
             let mut created_count = 0;
-            
+
             for result in results {
                 match result.action.as_str() {
                     "updated" => updated_count += 1,
                     "created" => created_count += 1,
                     _ => {}
                 }
-                
+
                 // Compute diff against the actual reviewed/published content
                 let diff_html = htmldiff::htmldiff(&result.reviewed_content, &result.new_content);
-                
+
                 field_results.push(structs::FieldUpdateResult {
                     position: result.position,
                     field_id: result.field_id,
@@ -1652,9 +1662,9 @@ async fn batch_update_field_suggestions(
                     diff_html,
                 });
             }
-            
+
             tx.commit().await?;
-            
+
             // Update media references asynchronously
             let note_id = payload.note_id;
             let state_clone = appstate.clone();
@@ -1668,7 +1678,7 @@ async fn batch_update_field_suggestions(
                     tracing::warn!(error = ?e, note_id = note_id, "Failed to update media references for note");
                 }
             });
-            
+
             Ok(Json(structs::BatchFieldSuggestionResponse {
                 success: true,
                 updated_count,
@@ -1861,10 +1871,9 @@ async fn deny_note_removal(
     }
 }
 
-use once_cell::sync::Lazy;
-
-static STATS_CACHE_KEY: Lazy<String> =
-    Lazy::new(|| std::env::var("STATS_CACHE_KEY").expect("STATS_CACHE_KEY must be set"));
+static STATS_CACHE_KEY: std::sync::LazyLock<String> = std::sync::LazyLock::new(|| {
+    std::env::var("STATS_CACHE_KEY").expect("STATS_CACHE_KEY must be set")
+});
 
 async fn refresh_stats_cache(
     State(appstate): State<Arc<AppState>>,
@@ -1997,9 +2006,8 @@ async fn get_notes_from_deck(
     let client = database::client(&appstate).await?;
     let deck_info = client.query("Select id, name, description, human_hash, owner, TO_CHAR(last_update, 'MM/DD/YYYY') AS last_update from decks where human_hash = $1 Limit 1", &[&deck_hash]).await.expect("Error preparing deck notes statement");
     if deck_info.is_empty() {
-        return error_page(&appstate, error::Error::DeckNotFound.to_string())
-            .await
-            .map(|h| h.into_response());
+        return error_page(&appstate, &error::Error::DeckNotFound.to_string())
+            .map(axum::response::IntoResponse::into_response);
     }
 
     let id: i64 = deck_info[0].get(0);
@@ -2259,8 +2267,8 @@ async fn api_post_subscription_policy(
                 valid_positions.sort_unstable();
                 valid_positions.dedup();
 
-                use std::collections::HashSet;
-                let vp_set: HashSet<i32> = valid_positions.iter().copied().collect();
+                let vp_set: std::collections::HashSet<i32> =
+                    valid_positions.iter().copied().collect();
                 let mut filtered: Vec<i32> = arr
                     .iter()
                     .copied()
@@ -2292,16 +2300,13 @@ async fn page_subscription_policy(
     // Authorization: must be owner/maintainer of subscriber deck
     let sub_id = resolve_deck_id_by_hash(&appstate, &subscriber_hash).await?;
     if sub_id == 0 || !access_check(&appstate, sub_id, &user).await? {
-        return error_page(&appstate, error::Error::Unauthorized.to_string())
-            .await
+        return error_page(&appstate, &error::Error::Unauthorized.to_string())
             .map(IntoResponse::into_response);
     }
     // Ensure the subscription link exists
     let base_id = resolve_deck_id_by_hash(&appstate, &base_hash).await?;
     if base_id == 0 {
-        return error_page(&appstate, "Base deck not found.".to_string())
-            .await
-            .map(IntoResponse::into_response);
+        return error_page(&appstate, "Base deck not found.").map(IntoResponse::into_response);
     }
     let client_check = database::client(&appstate).await?;
     let exists = client_check.query(
@@ -2311,9 +2316,8 @@ async fn page_subscription_policy(
     if exists.is_empty() {
         return error_page(
             &appstate,
-            "No deck subscription link exists for these decks.".to_string(),
+            "No deck subscription link exists for these decks.",
         )
-        .await
         .map(IntoResponse::into_response);
     }
 
@@ -2321,7 +2325,7 @@ async fn page_subscription_policy(
     let client = database::client(&appstate).await?;
     let nt_rows = client
         .query(
-            r#"
+            r"
         WITH RECURSIVE subtree AS (
             SELECT id FROM decks WHERE human_hash = $1
             UNION ALL
@@ -2331,7 +2335,7 @@ async fn page_subscription_policy(
         FROM notes n
         JOIN notetype nt ON nt.id = n.notetype
         WHERE n.deck IN (SELECT id FROM subtree) AND n.deleted = false
-        "#,
+        ",
             &[&subscriber_hash],
         )
         .await?;
@@ -2456,13 +2460,17 @@ async fn get_presigned_url(
     if parsed_nid == 0 {
         return Ok(Json(response));
     }
-    let presigned_url =
-        match media_reference_manager::get_presigned_url(&appstate, &data.filename, parsed_nid, user.id())
-            .await
-        {
-            Ok(presigned_url) => presigned_url,
-            Err(_error) => return Ok(Json(response)),
-        };
+    let presigned_url = match media_reference_manager::get_presigned_url(
+        &appstate,
+        &data.filename,
+        parsed_nid,
+        user.id(),
+    )
+    .await
+    {
+        Ok(presigned_url) => presigned_url,
+        Err(_error) => return Ok(Json(response)),
+    };
 
     response.success = true;
     response.presigned_url = presigned_url;
@@ -2498,7 +2506,7 @@ async fn main() {
             eprintln!("FATAL: Template parsing error(s): {e}");
             ::std::process::exit(1);
         }
-    };
+    }
     tera.autoescape_on(vec![".html", ".sql", ".htm", ".xml"]);
 
     let pool = database::establish_pool_connection()
@@ -2536,11 +2544,11 @@ async fn main() {
     let s3_client = S3Client::from_conf(s3_service_config);
 
     // Initialize media token service
-    let media_token_secret = std::env::var("MEDIA_TOKEN_SECRET")
-        .expect("MEDIA_TOKEN_SECRET must be set");
+    let media_token_secret =
+        std::env::var("MEDIA_TOKEN_SECRET").expect("MEDIA_TOKEN_SECRET must be set");
     let media_token_service = media_tokens::MediaTokenService::new(
         media_token_secret.into_bytes(),
-        std::time::Duration::from_secs(5 * 60), // 5 minutes
+        std::time::Duration::from_mins(5), // 5 minutes
     )
     .expect("Failed to initialize media token service");
 
@@ -2591,20 +2599,14 @@ async fn main() {
         .with(tracing_subscriber::fmt::layer().without_time())
         .init();
 
-    let governor_conf = Arc::new(
-        GovernorConfigBuilder::default()
-            .finish()
-            .unwrap(),
-    );
+    let governor_conf = Arc::new(GovernorConfigBuilder::default().finish().unwrap());
 
     let governor_limiter = governor_conf.limiter().clone();
-    let interval = std::time::Duration::from_secs(60);
+    let interval = std::time::Duration::from_mins(1);
     // a separate background task to clean up
-    std::thread::spawn(move || {
-        loop {
-            std::thread::sleep(interval);
-            governor_limiter.retain_recent();
-        }
+    std::thread::spawn(move || loop {
+        std::thread::sleep(interval);
+        governor_limiter.retain_recent();
     });
 
     // Second db connection for the auth. idk.. should prolly use the pool for this too
@@ -2654,9 +2656,8 @@ async fn main() {
         // .route("/MediaManager", post(post_media_manager))
         .route("/EditNotetype/{notetype_id}", get(edit_notetype))
         .route(
-            "/EditNotetype", 
-            post(post_edit_notetype)
-                .layer(axum::extract::DefaultBodyLimit::max(5 * 1024 * 1024)) // 5MB limit for notetype updates (to allow large CSS/templates
+            "/EditNotetype",
+            post(post_edit_notetype).layer(axum::extract::DefaultBodyLimit::max(5 * 1024 * 1024)), // 5MB limit for notetype updates (to allow large CSS/templates
         )
         .route("/EditDeck/{deck_hash}", get(edit_deck))
         .route("/EditDeck", post(post_edit_deck))
@@ -2687,8 +2688,14 @@ async fn main() {
         .route("/DenyField/{field_id}", post(deny_field))
         .route("/AcceptField/{field_id}", post(accept_field))
         //.route("/UpdateFieldSuggestion", post(update_field))
-        .route("/GetAllFieldsForEdit/{note_id}/{commit_id}", get(get_all_fields_for_edit))
-        .route("/BatchUpdateFieldSuggestions", post(batch_update_field_suggestions))
+        .route(
+            "/GetAllFieldsForEdit/{note_id}/{commit_id}",
+            get(get_all_fields_for_edit),
+        )
+        .route(
+            "/BatchUpdateFieldSuggestions",
+            post(batch_update_field_suggestions),
+        )
         .route("/AddTagSuggestion", post(add_tag_suggestion))
         .route("/DenyCommit/{commit_id}", post(deny_commit))
         .route("/ApproveCommit/{commit_id}", post(approve_commit))
@@ -2727,7 +2734,7 @@ async fn main() {
         .with_state(state)
         .layer(Extension(auth))
         .layer(ClientIpSource::CfConnectingIp.into_extension());
-        //.layer(ClientIpSource::ConnectInfo.into_extension());
+    //.layer(ClientIpSource::ConnectInfo.into_extension());
 
     // run it
     let listener = tokio::net::TcpListener::bind("localhost:1337")
