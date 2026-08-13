@@ -13,12 +13,16 @@ keywords = ["html", "diff"]
 license = "MIT"
 edition = "2021"
 
+[badges]
+travis-ci = { repository = "seikichi/htmldiff" }
+appveyor = { repository = "seikichi/htmldiff" }
+
 [dependencies]
 kuchiki = "0.8.1"
-rand = "0.10.0"
-unicode-segmentation = "1.13.2"
+rand = "0.10.2"
+unicode-segmentation = "1.13.3"
 
 [dev-dependencies]
 proptest = "1.11.0"
-rand = "0.10.0" # reuse same version
+rand = "0.10.2" # reuse same version
 kuchiki = "0.8.1"

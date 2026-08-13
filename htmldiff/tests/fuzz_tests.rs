@@ -1,19 +1,37 @@
-use rand::{Rng, SeedableRng};
-use rand::rngs::StdRng;
-use kuchiki::traits::*;
-use kuchiki::parse_html;
-use std::fmt::Write as FmtWrite;
 use htmldiff::htmldiff;
+use kuchiki::parse_html;
+use kuchiki::traits::*;
 use proptest::prelude::*;
+use rand::rngs::StdRng;
+use rand::{Rng, SeedableRng};
+use std::fmt::Write as FmtWrite;
 
 #[derive(Debug)]
 enum EditKind {
-    Insert { token: String },
-    Delete { token: String },
-    Move { token: String },
-    ReplaceTag { token: String, _old_tag: String, _new_tag: String },
-    ChangeAttr { token: String, _attr: String, _old: String, new: String },
-    SplitText { token: String, _tail_token: String },
+    Insert {
+        token: String,
+    },
+    Delete {
+        token: String,
+    },
+    Move {
+        token: String,
+    },
+    ReplaceTag {
+        token: String,
+        _old_tag: String,
+        _new_tag: String,
+    },
+    ChangeAttr {
+        token: String,
+        _attr: String,
+        _old: String,
+        new: String,
+    },
+    SplitText {
+        token: String,
+        _tail_token: String,
+    },
 }
 
 #[derive(Debug)]
@@ -40,7 +58,12 @@ fn pick_random_existing_token(rng: &mut StdRng, max_tokens: usize) -> String {
 
 /// Apply edits to a serialized HTML string using simple, robust string transforms.
 /// Each edit returns an `Edit` that records the token(s) we can later assert on.
-fn apply_random_edits(html: &str, rng: &mut StdRng, max_tokens: usize, edits_count: usize) -> (String, Vec<Edit>) {
+fn apply_random_edits(
+    html: &str,
+    rng: &mut StdRng,
+    max_tokens: usize,
+    edits_count: usize,
+) -> (String, Vec<Edit>) {
     let mut s = html.to_string();
     let mut edits = Vec::with_capacity(edits_count);
 
@@ -59,7 +82,9 @@ fn apply_random_edits(html: &str, rng: &mut StdRng, max_tokens: usize, edits_cou
                 } else {
                     s.push_str(&format!("<p>{}</p>", token));
                 }
-                edits.push(Edit { kind: EditKind::Insert { token }});
+                edits.push(Edit {
+                    kind: EditKind::Insert { token },
+                });
             }
             1 => {
                 // Delete: remove the first occurrence of a whole paragraph containing a chosen token
@@ -73,7 +98,9 @@ fn apply_random_edits(html: &str, rng: &mut StdRng, max_tokens: usize, edits_cou
                         if let Some(close_pos) = s[tokpos..].find("</p>") {
                             let close_abs = tokpos + close_pos + 4; // include "</p>"
                             s.replace_range(open_pos..close_abs, "");
-                            edits.push(Edit { kind: EditKind::Delete { token }});
+                            edits.push(Edit {
+                                kind: EditKind::Delete { token },
+                            });
                             continue;
                         }
                     }
@@ -81,7 +108,9 @@ fn apply_random_edits(html: &str, rng: &mut StdRng, max_tokens: usize, edits_cou
                 // fallback: remove the token string occurrences
                 if s.contains(&token) {
                     s = s.replacen(&token, "", 1);
-                    edits.push(Edit { kind: EditKind::Delete { token }});
+                    edits.push(Edit {
+                        kind: EditKind::Delete { token },
+                    });
                 } else {
                     // nothing deleted; skip this edit
                 }
@@ -103,7 +132,9 @@ fn apply_random_edits(html: &str, rng: &mut StdRng, max_tokens: usize, edits_cou
                             } else {
                                 s.insert_str(0, &node_html);
                             }
-                            edits.push(Edit { kind: EditKind::Move { token }});
+                            edits.push(Edit {
+                                kind: EditKind::Move { token },
+                            });
                         }
                     }
                 }
@@ -121,7 +152,13 @@ fn apply_random_edits(html: &str, rng: &mut StdRng, max_tokens: usize, edits_cou
                             if let Some(pclose) = s[tokpos..].find("</p>") {
                                 let pclose_abs = tokpos + pclose;
                                 s.replace_range(pclose_abs..pclose_abs + 4, "</b>");
-                                edits.push(Edit { kind: EditKind::ReplaceTag { token, _old_tag: "p".into(), _new_tag: "b".into() }});
+                                edits.push(Edit {
+                                    kind: EditKind::ReplaceTag {
+                                        token,
+                                        _old_tag: "p".into(),
+                                        _new_tag: "b".into(),
+                                    },
+                                });
                             }
                         }
                     }
@@ -133,8 +170,18 @@ fn apply_random_edits(html: &str, rng: &mut StdRng, max_tokens: usize, edits_cou
                 // naive replace "<p>" with `<p class="c{eidx}">` at first <p> before token
                 if let Some(tokpos) = s.find(&token) {
                     if let Some(open_pos) = s[..tokpos].rfind("<p>") {
-                        s.replace_range(open_pos..open_pos+3, &format!("<p class=\"c{}\">", eidx));
-                        edits.push(Edit { kind: EditKind::ChangeAttr { token, _attr: "class".into(), _old: "".into(), new: format!("c{}", eidx) }});
+                        s.replace_range(
+                            open_pos..open_pos + 3,
+                            &format!("<p class=\"c{}\">", eidx),
+                        );
+                        edits.push(Edit {
+                            kind: EditKind::ChangeAttr {
+                                token,
+                                _attr: "class".into(),
+                                _old: "".into(),
+                                new: format!("c{}", eidx),
+                            },
+                        });
                     }
                 }
             }
@@ -147,23 +194,63 @@ fn apply_random_edits(html: &str, rng: &mut StdRng, max_tokens: usize, edits_cou
                     let tail_token = format!("TAIL{}", eidx);
                     if let Some(_word_pos) = s[tokpos..].find(&format!("word-")) {
                         // naive transform: replace "word-N" with "wor<b>d</b>"
-                        let full_word = format!("word-{}", token.trim_start_matches('W').parse::<usize>().unwrap_or(0));
+                        let full_word = format!(
+                            "word-{}",
+                            token.trim_start_matches('W').parse::<usize>().unwrap_or(0)
+                        );
                         if s.contains(&full_word) {
                             let before = s.clone();
-                            s = s.replacen(&full_word, &format!("{}<b>{}</b>", &full_word[..3], tail_token), 1);
-                            if s != before { edits.push(Edit { kind: EditKind::SplitText { token, _tail_token: tail_token }}); }
+                            s = s.replacen(
+                                &full_word,
+                                &format!("{}<b>{}</b>", &full_word[..3], tail_token),
+                                1,
+                            );
+                            if s != before {
+                                edits.push(Edit {
+                                    kind: EditKind::SplitText {
+                                        token,
+                                        _tail_token: tail_token,
+                                    },
+                                });
+                            }
                         } else if s.contains(&token) {
                             let before = s.clone();
-                            s = s.replacen(&token, &format!("{}<b>{}</b>", &token[..std::cmp::min(2, token.len())], tail_token), 1);
-                            if s != before { edits.push(Edit { kind: EditKind::SplitText { token, _tail_token: tail_token }}); }
+                            s = s.replacen(
+                                &token,
+                                &format!(
+                                    "{}<b>{}</b>",
+                                    &token[..std::cmp::min(2, token.len())],
+                                    tail_token
+                                ),
+                                1,
+                            );
+                            if s != before {
+                                edits.push(Edit {
+                                    kind: EditKind::SplitText {
+                                        token,
+                                        _tail_token: tail_token,
+                                    },
+                                });
+                            }
                         }
                     } else {
                         // fallback simple split
                         let tail_token = format!("TAIL{}", eidx);
                         if token.len() > 2 && s.contains(&token) {
                             let before = s.clone();
-                            s = s.replacen(&token, &format!("{}<b>{}</b>", &token[..2], tail_token), 1);
-                            if s != before { edits.push(Edit { kind: EditKind::SplitText { token, _tail_token: tail_token }}); }
+                            s = s.replacen(
+                                &token,
+                                &format!("{}<b>{}</b>", &token[..2], tail_token),
+                                1,
+                            );
+                            if s != before {
+                                edits.push(Edit {
+                                    kind: EditKind::SplitText {
+                                        token,
+                                        _tail_token: tail_token,
+                                    },
+                                });
+                            }
                         }
                     }
                 }
@@ -220,14 +307,18 @@ fn fuzz_dom_diff_generator() {
         let (new_html, edits) = apply_random_edits(&base, &mut rng, base_tokens, edit_count);
 
         // run diff
-    let out = htmldiff(&base, &new_html);
-    validate_no_bad_nesting(&out);
+        let out = htmldiff(&base, &new_html);
+        validate_no_bad_nesting(&out);
 
         // 1) Output should be parseable HTML
         let parsed = parse_html().one(out.clone());
         // If parse_html() panics or fails that's already bad; here we assert the document contains something
         let text = parsed.text_contents();
-        assert!(!text.is_empty(), "Parsed diff shouldn't be empty (iter {})", iter);
+        assert!(
+            !text.is_empty(),
+            "Parsed diff shouldn't be empty (iter {})",
+            iter
+        );
 
         // 2) For each edit, perform reasonable assertions
         for ed in edits {
@@ -242,28 +333,61 @@ fn fuzz_dom_diff_generator() {
                 EditKind::Delete { token } => {
                     // deleted token should appear inside <del> or at least in output (since it existed in base)
                     if !token_in_del(&out, &token) {
-                        assert!(out.contains(&token), "Delete token '{}' missing in output (iter {})", token, iter);
+                        assert!(
+                            out.contains(&token),
+                            "Delete token '{}' missing in output (iter {})",
+                            token,
+                            iter
+                        );
                     }
                 }
                 EditKind::Move { token } => {
                     // movement may be represented as move or delete+insert; ensure token exists in output
-                    assert!(out.contains(&token), "Moved token '{}' missing in output (iter {})", token, iter);
+                    assert!(
+                        out.contains(&token),
+                        "Moved token '{}' missing in output (iter {})",
+                        token,
+                        iter
+                    );
                 }
                 EditKind::ReplaceTag { token, .. } => {
                     // token should still be present; and diff should have some ins/del if tag changed
-                    assert!(out.contains(&token), "ReplaceTag token '{}' missing (iter {})", token, iter);
-                    assert!(out.contains("<ins") || out.contains("<del"), "No <ins>/<del> found for ReplaceTag (iter {})", iter);
+                    assert!(
+                        out.contains(&token),
+                        "ReplaceTag token '{}' missing (iter {})",
+                        token,
+                        iter
+                    );
+                    assert!(
+                        out.contains("<ins") || out.contains("<del"),
+                        "No <ins>/<del> found for ReplaceTag (iter {})",
+                        iter
+                    );
                 }
                 EditKind::ChangeAttr { token, new, .. } => {
                     // class value should be visible somewhere if added
                     if !out.contains(&new) {
                         // fallback: token must be present
-                        assert!(out.contains(&token), "ChangeAttr token '{}' missing and new attr '{}' not present (iter {})", token, new, iter);
+                        assert!(
+                            out.contains(&token),
+                            "ChangeAttr token '{}' missing and new attr '{}' not present (iter {})",
+                            token,
+                            new,
+                            iter
+                        );
                     }
                 }
-                EditKind::SplitText { token, _tail_token: _ } => {
+                EditKind::SplitText {
+                    token,
+                    _tail_token: _,
+                } => {
                     // Original token should remain visible somewhere (either unchanged or inside a diff span)
-                    assert!(out.contains(&token), "SplitText token '{}' missing (iter {})", token, iter);
+                    assert!(
+                        out.contains(&token),
+                        "SplitText token '{}' missing (iter {})",
+                        token,
+                        iter
+                    );
                     // Tail token may occasionally be optimized away or merged by the diff; treat absence as non-fatal.
                     // (We only ensure the diff retained the original token; tail presence is a best-effort signal of split handling.)
                     // if !out.contains(&tail_token) { eprintln!("[warn] SplitText tail '{}' absent (iter {})", tail_token, iter); }
@@ -273,7 +397,12 @@ fn fuzz_dom_diff_generator() {
 
         // optional: cheap sanity checks to disallow tags interleaving patterns you already know are bad
         // e.g. avoid see the classic broken nesting like "</u></b>" — ensure your diff output doesn't contain adjacent mismatched closes
-    assert!(!out.contains("</u></b>") && !out.contains("</b></u>"), "Detected bad nesting pattern (iter {}): {}", iter, out);
+        assert!(
+            !out.contains("</u></b>") && !out.contains("</b></u>"),
+            "Detected bad nesting pattern (iter {}): {}",
+            iter,
+            out
+        );
     }
 
     assert_eq!(failures, 0, "One or more fuzz iterations flagged failures");
@@ -281,13 +410,34 @@ fn fuzz_dom_diff_generator() {
 
 fn validate_no_bad_nesting(out: &str) {
     let mut stack: Vec<&str> = Vec::new();
-    let mut i = 0; let bytes = out.as_bytes();
+    let mut i = 0;
+    let bytes = out.as_bytes();
     while i < bytes.len() {
         if bytes[i] == b'<' {
-            if out[i..].starts_with("<ins data-diff>") { stack.push("ins"); i += 15; continue; }
-            if out[i..].starts_with("<del data-diff>") { stack.push("del"); i += 15; continue; }
-            if out[i..].starts_with("</ins>") { if stack.last() == Some(&"ins") { stack.pop(); } i += 6; continue; }
-            if out[i..].starts_with("</del>") { if stack.last() == Some(&"del") { stack.pop(); } i += 6; continue; }
+            if out[i..].starts_with("<ins data-diff>") {
+                stack.push("ins");
+                i += 15;
+                continue;
+            }
+            if out[i..].starts_with("<del data-diff>") {
+                stack.push("del");
+                i += 15;
+                continue;
+            }
+            if out[i..].starts_with("</ins>") {
+                if stack.last() == Some(&"ins") {
+                    stack.pop();
+                }
+                i += 6;
+                continue;
+            }
+            if out[i..].starts_with("</del>") {
+                if stack.last() == Some(&"del") {
+                    stack.pop();
+                }
+                i += 6;
+                continue;
+            }
         }
         i += 1;
     }
@@ -333,7 +483,7 @@ fn malformed_html() -> impl Strategy<Value = String> {
         Just("</div>".to_string()),
         Just("<li>".to_string()),
         Just("</li>".to_string()),
-    raw_text.prop_map(|s| s),
+        raw_text.prop_map(|s| s),
     ];
     // Build a sequence of 1..10 fragments concatenated; occasionally wrap with an outer unclosed tag
     prop_oneof![

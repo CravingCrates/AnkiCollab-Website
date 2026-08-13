@@ -15,7 +15,9 @@ where
         // with only Common edits in between. If found, emit
         // <del><tagA>...content...</tagA></del><ins><tagB>...content...</tagB></ins>
         let replacement_emitted = if i + 4 < ses.len() {
-            if let (Edit::Delete { old: old_open_idx }, Edit::Add { new: new_open_idx }) = (&ses[i], &ses[i + 1]) {
+            if let (Edit::Delete { old: old_open_idx }, Edit::Add { new: new_open_idx }) =
+                (&ses[i], &ses[i + 1])
+            {
                 let old_open = old_words[*old_open_idx];
                 let new_open = new_words[*new_open_idx];
                 if is_open_tag(old_open) && is_open_tag(new_open) {
@@ -33,10 +35,16 @@ where
                     }
                     // need Delete(old_close), Add(new_close)
                     if j + 1 < ses.len() {
-                        if let (Edit::Delete { old: old_close_idx }, Edit::Add { new: new_close_idx }) = (&ses[j], &ses[j + 1]) {
+                        if let (
+                            Edit::Delete { old: old_close_idx },
+                            Edit::Add { new: new_close_idx },
+                        ) = (&ses[j], &ses[j + 1])
+                        {
                             let old_close = old_words[*old_close_idx];
                             let new_close = new_words[*new_close_idx];
-                            if is_matching_closing_tag(old_open, old_close) && is_matching_closing_tag(new_open, new_close) {
+                            if is_matching_closing_tag(old_open, old_close)
+                                && is_matching_closing_tag(new_open, new_close)
+                            {
                                 // ensure no structural edits inside (only commons)
                                 // Emit replacement block
                                 callback("<del data-diff>");
@@ -54,14 +62,28 @@ where
                                 callback("</ins>");
                                 i = j + 2; // skip consumed edits
                                 true
-                            } else { false }
-                        } else { false }
-                    } else { false }
-                } else { false }
-            } else { false }
-        } else { false };
+                            } else {
+                                false
+                            }
+                        } else {
+                            false
+                        }
+                    } else {
+                        false
+                    }
+                } else {
+                    false
+                }
+            } else {
+                false
+            }
+        } else {
+            false
+        };
 
-        if replacement_emitted { continue; }
+        if replacement_emitted {
+            continue;
+        }
 
         match &ses[i] {
             Edit::Common { old, new: _ } => {
@@ -105,7 +127,9 @@ fn is_open_tag(s: &str) -> bool {
 }
 
 fn is_matching_closing_tag(open: &str, close: &str) -> bool {
-    if !open.starts_with('<') || !close.starts_with("</") { return false; }
+    if !open.starts_with('<') || !close.starts_with("</") {
+        return false;
+    }
     let name_open = extract_tag_name(open);
     let name_close = extract_tag_name(close);
     match (name_open, name_close) {
@@ -116,13 +140,25 @@ fn is_matching_closing_tag(open: &str, close: &str) -> bool {
 
 fn extract_tag_name(tag: &str) -> Option<&str> {
     // assumes called with either <tag ...> or </tag>
-    if tag.len() < 3 { return None; }
+    if tag.len() < 3 {
+        return None;
+    }
     let bytes = tag.as_bytes();
-    let (start, mut i) = if bytes[1] == b'/' { (2usize, 2usize) } else { (1usize, 1usize) };
+    let (start, mut i) = if bytes[1] == b'/' {
+        (2usize, 2usize)
+    } else {
+        (1usize, 1usize)
+    };
     while i < bytes.len() {
         let c = bytes[i];
-        if c == b'>' || c.is_ascii_whitespace() || c == b'/' { break; }
+        if c == b'>' || c.is_ascii_whitespace() || c == b'/' {
+            break;
+        }
         i += 1;
     }
-    if i > start { Some(&tag[start..i]) } else { None }
+    if i > start {
+        Some(&tag[start..i])
+    } else {
+        None
+    }
 }

@@ -1,12 +1,16 @@
 use htmldiff::htmldiff;
 
-#[test] fn text_insert_inline() {
+#[test]
+fn text_insert_inline() {
     let old = "<p>Hello world</p>";
 
     let new = "<p>Text</p>";
     let out = htmldiff(old, new);
     println!("only_whitespace_to_content => {}", out);
-    assert!(out.contains("<del data-diff>Hello world</del>") && out.contains("<ins data-diff>Text</ins>"));
+    assert!(
+        out.contains("<del data-diff>Hello world</del>")
+            && out.contains("<ins data-diff>Text</ins>")
+    );
 }
 
 #[test]
@@ -18,7 +22,10 @@ fn basic_insert() {
 #[test]
 fn tag_swap() {
     let out = htmldiff("<p><u>x</u></p>", "<p><b>x</b></p>");
-    assert!(out.contains("<del data-diff><u>x</u></del>") && out.contains("<ins data-diff><b>x</b></ins>"));
+    assert!(
+        out.contains("<del data-diff><u>x</u></del>")
+            && out.contains("<ins data-diff><b>x</b></ins>")
+    );
 }
 
 #[test]
@@ -32,16 +39,21 @@ fn large_change() {
 //
 // case sensitivity & attribute casing
 //
-#[test] fn tag_case_insensitivity() {
+#[test]
+fn tag_case_insensitivity() {
     let old = "<DIV>Hi</DIV>";
     let new = "<div>Hiya</div>";
     let out = htmldiff(old, new);
     println!("tag_case_insensitivity => {}", out);
     // Word-level diffing: entire word should be wrapped, not split mid-word
-    assert!(out.to_lowercase().contains("<ins data-diff>hiya</ins>") || out.to_lowercase().contains("<ins data-diff>ya</ins>"));
+    assert!(
+        out.to_lowercase().contains("<ins data-diff>hiya</ins>")
+            || out.to_lowercase().contains("<ins data-diff>ya</ins>")
+    );
 }
 
-#[test] fn attribute_case_and_quotes() {
+#[test]
+fn attribute_case_and_quotes() {
     let old = "<p data-Flag=1>Hi</p>";
     let new = "<p data-flag=\"1\">Hi</p>";
     let out = htmldiff(old, new);
@@ -52,9 +64,11 @@ fn large_change() {
 //
 // performance / large-ish
 //
-#[test] fn large_input_basic() {
+#[test]
+fn large_input_basic() {
     let old = "<div>".to_owned() + &("<p>lorem ipsum</p>\n".repeat(500)) + "</div>";
-    let new = "<div>".to_owned() + &("<p>lorem ipsum</p>\n".repeat(499)) + "<p>lorem changed</p></div>";
+    let new =
+        "<div>".to_owned() + &("<p>lorem ipsum</p>\n".repeat(499)) + "<p>lorem changed</p></div>";
     let out = htmldiff(&old, &new);
     println!("large_input_basic => (len {})", out.len());
     assert!(out.contains("changed"));
@@ -203,7 +217,10 @@ fn u_ins_shows_diff() {
     // <u> and <ins> should be treated as DIFFERENT tags (Anki note styling may distinguish them)
     let out = htmldiff("<p><u>underlined</u></p>", "<p><ins>underlined</ins></p>");
     println!("u_ins_shows_diff => {}", out);
-    assert!(out.contains("data-diff"), "u ↔ ins swap should show as a diff");
+    assert!(
+        out.contains("data-diff"),
+        "u ↔ ins swap should show as a diff"
+    );
 }
 
 #[test]
@@ -211,7 +228,10 @@ fn s_del_shows_diff() {
     // <s> and <del> should be treated as DIFFERENT tags
     let out = htmldiff("<p><s>struck</s></p>", "<p><del>struck</del></p>");
     println!("s_del_shows_diff => {}", out);
-    assert!(out.contains("data-diff"), "s ↔ del swap should show as a diff");
+    assert!(
+        out.contains("data-diff"),
+        "s ↔ del swap should show as a diff"
+    );
 }
 
 #[test]
@@ -219,7 +239,10 @@ fn b_strong_equiv_no_diff() {
     // <b> and <strong> are truly visually identical, should NOT produce diff noise
     let out = htmldiff("<p><b>bold</b></p>", "<p><strong>bold</strong></p>");
     println!("b_strong_equiv_no_diff => {}", out);
-    assert!(!out.contains("data-diff"), "b ↔ strong swap should not produce a diff marker");
+    assert!(
+        !out.contains("data-diff"),
+        "b ↔ strong swap should not produce a diff marker"
+    );
 }
 
 // --- Multilingual / UTF-8 tests ---
@@ -230,7 +253,10 @@ fn chinese_text_diff() {
     let new = "<p>今天天气不好</p>";
     let out = htmldiff(old, new);
     println!("chinese_text_diff => {}", out);
-    assert!(out.contains("data-diff"), "Chinese character change should be detected");
+    assert!(
+        out.contains("data-diff"),
+        "Chinese character change should be detected"
+    );
     // Both the old and new character should appear
     assert!(out.contains("很") && out.contains("不"));
 }
@@ -241,7 +267,10 @@ fn chinese_text_unchanged() {
     let new = "<p>学习是很重要的</p>";
     let out = htmldiff(old, new);
     println!("chinese_text_unchanged => {}", out);
-    assert!(!out.contains("data-diff"), "Identical Chinese text should produce no diff");
+    assert!(
+        !out.contains("data-diff"),
+        "Identical Chinese text should produce no diff"
+    );
 }
 
 #[test]
@@ -298,7 +327,10 @@ fn nbsp_to_space_no_diff() {
     let new = "<p>hello world</p>";
     let out = htmldiff(old, new);
     println!("nbsp_to_space_no_diff => {}", out);
-    assert!(!out.contains("data-diff"), "nbsp vs space should not produce diff noise");
+    assert!(
+        !out.contains("data-diff"),
+        "nbsp vs space should not produce diff noise"
+    );
 }
 
 #[test]
@@ -307,7 +339,10 @@ fn multiple_nbsp_no_diff() {
     let new = "<p>a b c</p>";
     let out = htmldiff(old, new);
     println!("multiple_nbsp_no_diff => {}", out);
-    assert!(!out.contains("data-diff"), "multiple nbsp vs space should not produce diff noise");
+    assert!(
+        !out.contains("data-diff"),
+        "multiple nbsp vs space should not produce diff noise"
+    );
 }
 
 #[test]
@@ -337,7 +372,10 @@ fn char_highlight_single_char_change() {
     // Single character substitution in a long word should get inner highlight
     let out = htmldiff("<p>今天天气很好</p>", "<p>今天天气不好</p>");
     println!("char_highlight_single_char => {}", out);
-    assert!(out.contains("data-diff-char"), "single char change should get char-level highlight");
+    assert!(
+        out.contains("data-diff-char"),
+        "single char change should get char-level highlight"
+    );
     assert!(out.contains("<span data-diff-char>很</span>"));
     assert!(out.contains("<span data-diff-char>不</span>"));
 }
@@ -347,7 +385,10 @@ fn char_highlight_insertion() {
     // Single character insertion (speling→spelling) should highlight added char
     let out = htmldiff("<p>speling mistake</p>", "<p>spelling mistake</p>");
     println!("char_highlight_insertion => {}", out);
-    assert!(out.contains("data-diff-char"), "inserted char should get highlight");
+    assert!(
+        out.contains("data-diff-char"),
+        "inserted char should get highlight"
+    );
     // The "l" insertion should be highlighted on the ins side
     assert!(out.contains("<ins data-diff>spel<span data-diff-char>l</span>ing</ins>"));
 }
@@ -357,7 +398,10 @@ fn char_highlight_skipped_for_large_change() {
     // Entire word replacement should NOT get char-level highlight
     let out = htmldiff("<p>hello world</p>", "<p>goodbye world</p>");
     println!("char_highlight_skipped_large => {}", out);
-    assert!(!out.contains("data-diff-char"), "large change should not get char-level highlight");
+    assert!(
+        !out.contains("data-diff-char"),
+        "large change should not get char-level highlight"
+    );
 }
 
 #[test]
@@ -365,5 +409,8 @@ fn char_highlight_skipped_for_short_word() {
     // Very short word (< 3 graphemes) should not get char highlight
     let out = htmldiff("<p>hi there</p>", "<p>ho there</p>");
     println!("char_highlight_short_word => {}", out);
-    assert!(!out.contains("data-diff-char"), "2-char word change should not get char highlight");
+    assert!(
+        !out.contains("data-diff-char"),
+        "2-char word change should not get char highlight"
+    );
 }
