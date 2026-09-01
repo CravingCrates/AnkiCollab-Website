@@ -74,6 +74,75 @@ async fn derive_commit_id(
     Ok(None)
 }
 
+/// Capture a full snapshot of a note (fields with resolved names, tags, notetype,
+/// guid and original note id) before it is hard-deleted, so the denial remains
+/// visible in note history. Returns None if the note row is already gone.
+async fn capture_note_snapshot(
+    tx: &tokio_postgres::Transaction<'_>,
+    note_id: i64,
+) -> Return<Option<serde_json::Value>> {
+    let note_row = tx
+        .query_opt(
+            "SELECT notetype, guid FROM notes WHERE id = $1",
+            &[&note_id],
+        )
+        .await?;
+    let Some(note_row) = note_row else {
+        return Ok(None);
+    };
+    let notetype_id: i64 = note_row.get(0);
+    let guid: Option<String> = note_row.get(1);
+
+    // Resolve field names from the notetype definition
+    let name_rows = tx
+        .query(
+            "SELECT position, name FROM notetype_field WHERE notetype = $1",
+            &[&notetype_id],
+        )
+        .await?;
+    let mut names: std::collections::HashMap<u32, String> = std::collections::HashMap::new();
+    for r in name_rows {
+        let pos: u32 = r.get(0);
+        let name: String = r.get(1);
+        names.insert(pos, name);
+    }
+
+    let field_rows = tx
+        .query(
+            "SELECT position, content FROM fields WHERE note = $1 ORDER BY position",
+            &[&note_id],
+        )
+        .await?;
+    let mut fields_json = Vec::with_capacity(field_rows.len());
+    for fr in field_rows {
+        let pos: u32 = fr.get(0);
+        let content: String = fr.get(1);
+        fields_json.push(serde_json::json!({
+            "position": pos,
+            "name": names.get(&pos).cloned().unwrap_or_default(),
+            "content": cleanser::clean(&content),
+        }));
+    }
+
+    let tag_rows = tx
+        .query("SELECT content FROM tags WHERE note = $1", &[&note_id])
+        .await?;
+    let mut tags_json = Vec::with_capacity(tag_rows.len());
+    for tr in tag_rows {
+        if let Some(c) = tr.get::<_, Option<String>>(0) {
+            tags_json.push(cleanser::clean(&c));
+        }
+    }
+
+    Ok(Some(serde_json::json!({
+        "note_id": note_id,
+        "notetype": notetype_id,
+        "guid": guid,
+        "fields": fields_json,
+        "tags": tags_json,
+    })))
+}
+
 pub async fn is_authorized(
     db_state: &Arc<database::AppState>,
     user: &User,
@@ -1821,9 +1890,22 @@ async fn process_single_note_merge(
                 deny_field_change(tx, *field_id, user.id()).await?;
             }
         } else {
-            // For unreviewed notes, delete them entirely
+            // For unreviewed notes: snapshot, hard-delete, then log a NULL-note
+            // tombstone so the denial remains visible in history.
+            let snapshot = capture_note_snapshot(tx, note_id).await?;
             tx.execute("DELETE FROM notes WHERE id = $1", &[&note_id])
                 .await?;
+            if let Some(snap) = snapshot {
+                let _ = note_history::log_orphan_event(
+                    tx,
+                    EventType::NoteDenied,
+                    Some(&snap),
+                    Some(user.id()),
+                    Some(commit_id),
+                    Some(false),
+                )
+                .await;
+            }
         }
 
         // Clean up deletion suggestions
@@ -1844,18 +1926,21 @@ async fn process_single_note_merge(
             .await?;
         }
 
-        // Log denial event
-        let _ = note_history::log_event(
-            tx,
-            note_id,
-            EventType::CommitDeniedEffect,
-            Some(&serde_json::json!({"commit_state": "pending"})),
-            Some(&serde_json::json!({"commit_state": "denied"})),
-            Some(user.id()),
-            Some(commit_id),
-            Some(false),
-        )
-        .await;
+        // Log denial effect for reviewed notes only; unreviewed notes use the
+        // NoteDenied tombstone above instead.
+        if is_reviewed {
+            let _ = note_history::log_event(
+                tx,
+                note_id,
+                EventType::CommitDeniedEffect,
+                Some(&serde_json::json!({"commit_state": "pending"})),
+                Some(&serde_json::json!({"commit_state": "denied"})),
+                Some(user.id()),
+                Some(commit_id),
+                Some(false),
+            )
+            .await;
+        }
     }
 
     Ok(())
@@ -2171,18 +2256,36 @@ pub async fn merge_by_commit(
                 }
             }
 
-            // Remove unreviewed notes and any pending suggestions tied to them (cascade handles suggestions)
+            // Snapshot unreviewed notes, then hard-delete them and log a NULL-note
+            // tombstone per note (cascade handles their suggestion rows).
             let unreviewed_note_ids: Vec<i64> = affected_notes
                 .iter()
                 .filter(|row| !row.get::<usize, bool>(1))
                 .map(|row| row.get::<usize, i64>(0))
                 .collect();
+            let mut snapshots: Vec<(i64, serde_json::Value)> = Vec::new();
+            for nid in &unreviewed_note_ids {
+                if let Some(snap) = capture_note_snapshot(&tx, *nid).await? {
+                    snapshots.push((*nid, snap));
+                }
+            }
             if !unreviewed_note_ids.is_empty() {
                 tx.execute(
                     "DELETE FROM notes WHERE id = ANY($1)",
                     &[&unreviewed_note_ids],
                 )
                 .await?;
+            }
+            for (_nid, snap) in snapshots {
+                let _ = note_history::log_orphan_event(
+                    &tx,
+                    EventType::NoteDenied,
+                    Some(&snap),
+                    Some(user.id()),
+                    Some(commit_id),
+                    Some(false),
+                )
+                .await;
             }
             // Clean up commit-level suggestions not tied to unreviewed notes, in batches
             if !deleted_notes.is_empty() {
@@ -2204,19 +2307,22 @@ pub async fn merge_by_commit(
                 )
                 .await?;
             }
-            // Denial commit events
+            // Denial commit events for reviewed notes only; unreviewed notes were
+            // hard-deleted and recorded via NoteDenied tombstones above.
             for nid in &affected_note_ids {
-                let _ = note_history::log_event(
-                    &tx,
-                    *nid,
-                    EventType::CommitDeniedEffect,
-                    Some(&serde_json::json!({"commit_state":"pending"})),
-                    Some(&serde_json::json!({"commit_state":"denied"})),
-                    Some(user.id()),
-                    Some(commit_id),
-                    Some(false),
-                )
-                .await;
+                if reviewed_notes.contains(nid) {
+                    let _ = note_history::log_event(
+                        &tx,
+                        *nid,
+                        EventType::CommitDeniedEffect,
+                        Some(&serde_json::json!({"commit_state":"pending"})),
+                        Some(&serde_json::json!({"commit_state":"denied"})),
+                        Some(user.id()),
+                        Some(commit_id),
+                        Some(false),
+                    )
+                    .await;
+                }
             }
         }
         Ok(())

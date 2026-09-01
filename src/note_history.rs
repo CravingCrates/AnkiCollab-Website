@@ -24,6 +24,7 @@ pub enum EventType {
     TagUnhidden,
     NoteMoved,
     NoteDeleted,
+    NoteDenied,
     CommitApprovedEffect,
     CommitDeniedEffect,
     SuggestionDenied,
@@ -45,6 +46,7 @@ impl EventType {
             Self::TagUnhidden => "tag_unhidden",
             Self::NoteMoved => "note_moved",
             Self::NoteDeleted => "note_deleted",
+            Self::NoteDenied => "note_denied",
             Self::CommitApprovedEffect => "commit_approved_effect",
             Self::CommitDeniedEffect => "commit_denied_effect",
             Self::SuggestionDenied => "suggestion_denied",
@@ -215,6 +217,39 @@ pub async fn log_event(
     Ok(id_row[0].get(0))
 }
 
+// Inserts a note event not tied to a live note (note_id = NULL). Used for
+// hard-deleted notes (e.g. denied new notes) whose audit record must survive
+// the deletion. The original note id and content live in `old_value` JSON.
+// `version` is fixed at 1: there is no live note history to sequence against.
+#[allow(clippy::too_many_arguments)]
+pub async fn log_orphan_event(
+    tx: &tokio_postgres::Transaction<'_>,
+    event_type: EventType,
+    old_value: Option<&JsonValue>,
+    actor_user_id: Option<i32>,
+    commit_id: Option<i32>,
+    approved: Option<bool>,
+) -> Return<i64> {
+    let row = tx
+        .query(
+            "INSERT INTO note_events (note_id, version, event_type, actor_user_id, commit_id, approved, old_value, new_value)
+             VALUES (NULL, 1, $1, $2, $3, $4, $5, NULL) RETURNING id",
+            &[
+                &event_type.as_str(),
+                &actor_user_id,
+                &commit_id,
+                &approved,
+                &old_value,
+            ],
+        )
+        .await?;
+
+    if row.is_empty() {
+        return Err(NoteNotFound(NoteNotFoundContext::NoteLogEvent));
+    }
+    Ok(row[0].get(0))
+}
+
 pub async fn fetch_commit_history(
     client: &Client,
     commit_id: i32,
@@ -257,7 +292,14 @@ pub async fn fetch_commit_history(
 
     let mut notes: BTreeMap<NoteId, CommitHistoryNote> = BTreeMap::new();
     for row in &rows {
-        let note_id: NoteId = row.get(0);
+        // Denied new notes have note_id = NULL; recover the original id from the JSON snapshot.
+        let note_id: NoteId = match row.get::<_, Option<NoteId>>(0) {
+            Some(id) => id,
+            None => row
+                .get::<_, Option<JsonValue>>(4)
+                .and_then(|v| v.get("note_id").and_then(serde_json::Value::as_i64))
+                .unwrap_or(0),
+        };
         let version: i64 = row.get(2);
         let event_type: String = row.get(3);
         let old_value: Option<JsonValue> = row.get(4);
@@ -407,6 +449,7 @@ fn summarize_event(event_type: &str, json: Option<&JsonValue>, side: &str) -> Op
             }
         }
         "note_deleted" => Some("note deleted".to_string()),
+        "note_denied" => Some("note denied".to_string()),
         "commit_approved_effect" => Some("commit approved".to_string()),
         "commit_denied_effect" => Some("commit denied".to_string()),
         "suggestion_denied" => Some("suggestion denied".to_string()),

@@ -682,6 +682,7 @@ async fn delete_deck(
 }
 
 // Remove any deck-specific assets stored under the S3 prefix for this deck.
+#[allow(clippy::result_large_err)]
 async fn purge_s3_deck_assets(
     appstate: &Arc<AppState>,
     deck_hash: &str,

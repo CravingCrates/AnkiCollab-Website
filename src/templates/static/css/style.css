@@ -14633,3 +14633,10 @@ html[dir="rtl"] [direction="rtl"][data-sidebar-style="compact"]:not([data-layout
 .small-badge {
   font-size: 0.1rem
 }
+
+#notesOverview tr.low-confidence {
+  opacity: 0.55;
+}
+#notesOverview tr.low-confidence td a {
+  color: inherit;
+}
