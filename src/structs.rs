@@ -8,14 +8,6 @@ pub type DeckId = i64;
 pub type NoteId = i64;
 pub type FieldId = i64;
 
-/// The `Login` form is used along with the [`Auth`] guard to authenticate users.
-#[derive(Deserialize)]
-pub struct BetterLogin {
-    pub username: String,
-    pub password: String,
-    pub cookie: bool,
-}
-
 /* Notes */
 #[derive(Serialize)]
 pub struct Note {
@@ -360,27 +352,6 @@ pub struct NotetypeOverview {
     pub id: i64,
     pub name: String,
     pub notecount: i64,
-}
-
-#[derive(Serialize, Deserialize)]
-pub struct GoogleServiceAccount {
-    pub r#type: String,
-    pub project_id: String,
-    pub private_key_id: String,
-    pub private_key: String,
-    pub client_email: String,
-    pub client_id: String,
-    pub auth_uri: String,
-    pub token_uri: String,
-    pub auth_provider_x509_cert_url: String,
-    pub client_x509_cert_url: String,
-}
-
-#[derive(Serialize, Deserialize)]
-pub struct GDriveInfo {
-    pub deck: String,
-    pub service_account: GoogleServiceAccount,
-    pub folder_id: String,
 }
 
 #[derive(Serialize, Deserialize)]

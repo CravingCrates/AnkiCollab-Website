@@ -1,5 +1,3 @@
-use std::sync::Arc;
-
 use crate::cleanser;
 use crate::error::Error::{
     AmbiguousFields, CommitDeckNotFound, FirstFieldEmpty, InvalidNote, NoteNotFound, Unauthorized,
@@ -10,6 +8,7 @@ use crate::note_history::{self, EventType};
 use crate::user::User;
 use crate::{database, note_manager, Return};
 use sentry::Level;
+use std::sync::Arc;
 
 pub async fn update_note_timestamp(
     tx: &tokio_postgres::Transaction<'_>,
@@ -143,11 +142,7 @@ async fn capture_note_snapshot(
     })))
 }
 
-pub async fn is_authorized(
-    db_state: &Arc<database::AppState>,
-    user: &User,
-    deck: i64,
-) -> Return<bool> {
+pub async fn is_authorized(db_state: &database::AppState, user: &User, deck: i64) -> Return<bool> {
     let client = database::client(db_state).await?;
     let rows = client
         .query(
@@ -200,7 +195,7 @@ pub async fn is_authorized(
 
 // Only used for unreviewed cards to prevent them from being added to the deck. Existing cards should use mark_note_deleted instead
 pub async fn delete_card(
-    db_state: &Arc<database::AppState>,
+    db_state: &database::AppState,
     note_id: i64,
     user: User,
 ) -> Return<String> {
@@ -235,7 +230,7 @@ pub async fn delete_card(
 // If bulk is true, we skip a few steps that have already been handled by the caller
 pub async fn approve_card(
     tx: &tokio_postgres::Transaction<'_>,
-    db_state: &Arc<database::AppState>,
+    db_state: &database::AppState,
     note_id: i64,
     user: &User,
     bulk: bool,
@@ -910,7 +905,7 @@ pub async fn update_field_suggestion(
 /// Fetches all fields for a note with their reviewed content and any pending suggestions for a specific commit.
 /// Used by the "Edit All Fields" panel to show maintainers all fields at once.
 pub async fn get_all_fields_for_edit(
-    db_state: &Arc<database::AppState>,
+    db_state: &database::AppState,
     note_id: i64,
     commit_id: i32,
 ) -> Return<crate::structs::AllFieldsForEditResponse> {
@@ -1779,7 +1774,7 @@ pub async fn merge_by_note_ids(
 /// of merging or denying a single note.
 async fn process_single_note_merge(
     tx: &tokio_postgres::Transaction<'_>,
-    db_state: &Arc<database::AppState>,
+    db_state: &database::AppState,
     commit_id: i32,
     note_id: i64,
     is_reviewed: bool,

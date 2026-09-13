@@ -1,12 +1,10 @@
-use std::collections::BTreeMap;
-use std::sync::Arc;
-
 use crate::database;
 use crate::structs::{
     NotificationDeckGroup, NotificationHistoryResponse, NotificationItem,
     NotificationUnreadResponse,
 };
 use crate::Return;
+use std::collections::BTreeMap;
 
 fn deck_display_name(full_path: &str) -> String {
     let name = full_path
@@ -23,7 +21,7 @@ fn deck_display_name(full_path: &str) -> String {
 }
 
 pub async fn create_commit_notification(
-    db_state: &Arc<database::AppState>,
+    db_state: &database::AppState,
     commit_id: i32,
     status: &str,
     reason: Option<&str>,
@@ -65,7 +63,7 @@ pub async fn create_commit_notification(
 }
 
 pub async fn get_unread_grouped(
-    db_state: &Arc<database::AppState>,
+    db_state: &database::AppState,
     user_id: i32,
 ) -> Return<NotificationUnreadResponse> {
     let client = database::client(db_state).await?;
@@ -147,7 +145,7 @@ pub async fn get_unread_grouped(
 }
 
 pub async fn get_history(
-    db_state: &Arc<database::AppState>,
+    db_state: &database::AppState,
     user_id: i32,
     offset: i64,
     limit: i64,
@@ -211,7 +209,7 @@ pub async fn get_history(
 pub const MAX_MARK_READ_IDS: usize = 1_000;
 
 pub async fn mark_read(
-    db_state: &Arc<database::AppState>,
+    db_state: &database::AppState,
     user_id: i32,
     notification_ids: &[i32],
 ) -> Return<u64> {

@@ -1,12 +1,8 @@
-use std::sync::Arc;
-
 use crate::database;
 use crate::structs::{DeckBaseStatsInfo, DeckStatsInfo, NoteStatsInfo};
 use async_recursion::async_recursion;
 
-pub async fn update_stats(
-    db_state: &Arc<database::AppState>,
-) -> Result<(), Box<dyn std::error::Error>> {
+pub async fn update_stats(db_state: &database::AppState) -> Result<(), Box<dyn std::error::Error>> {
     // Refresh the note calculated_stats
     calculate_note_stats(db_state).await?;
 
@@ -17,7 +13,7 @@ pub async fn update_stats(
 }
 
 pub async fn calculate_note_stats(
-    db_state: &Arc<database::AppState>,
+    db_state: &database::AppState,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let client = database::client(db_state).await?;
     let query = "
@@ -67,7 +63,7 @@ pub async fn calculate_note_stats(
 }
 
 pub async fn get_leaf_decks(
-    db_state: &Arc<database::AppState>,
+    db_state: &database::AppState,
 ) -> Result<Vec<i64>, Box<dyn std::error::Error>> {
     let client = database::client(db_state).await?;
     let query = "
@@ -90,7 +86,7 @@ pub async fn get_leaf_decks(
 
 #[async_recursion]
 pub async fn calculate_average_retention(
-    db_state: &Arc<database::AppState>,
+    db_state: &database::AppState,
     deck: i64,
 ) -> Result<Option<f32>, Box<dyn std::error::Error>> {
     let client = database::client(db_state).await?;
@@ -129,7 +125,7 @@ pub async fn calculate_average_retention(
 
 #[async_recursion]
 pub async fn update_deck_and_parent_retention(
-    db_state: &Arc<database::AppState>,
+    db_state: &database::AppState,
     deck: i64,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let client = database::client(db_state).await?;
@@ -166,7 +162,7 @@ pub async fn update_deck_and_parent_retention(
 }
 
 pub async fn update_all_decks(
-    db_state: &Arc<database::AppState>,
+    db_state: &database::AppState,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let leaf_decks = get_leaf_decks(db_state).await?;
 
@@ -178,7 +174,7 @@ pub async fn update_all_decks(
 }
 
 pub async fn get_base_deck_info(
-    db_state: &Arc<database::AppState>,
+    db_state: &database::AppState,
     deck_hash: &String,
 ) -> Result<DeckBaseStatsInfo, Box<dyn std::error::Error>> {
     let client = database::client(db_state).await?;
@@ -234,7 +230,7 @@ pub async fn get_base_deck_info(
 }
 
 pub async fn get_deck_stat_info(
-    db_state: &Arc<database::AppState>,
+    db_state: &database::AppState,
     deck_hash: &String,
 ) -> Result<Vec<DeckStatsInfo>, Box<dyn std::error::Error>> {
     let client = database::client(db_state).await?;
@@ -271,7 +267,7 @@ pub async fn get_deck_stat_info(
 }
 
 pub async fn get_worst_notes_info(
-    db_state: &Arc<database::AppState>,
+    db_state: &database::AppState,
     deck_hash: &String,
 ) -> Result<Vec<NoteStatsInfo>, Box<dyn std::error::Error>> {
     let client = database::client(db_state).await?;
@@ -331,7 +327,7 @@ pub async fn get_worst_notes_info(
 }
 
 pub async fn toggle_stats(
-    db_state: &Arc<database::AppState>,
+    db_state: &database::AppState,
     deck_id: i64,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let client = database::client(db_state).await?;
@@ -345,7 +341,7 @@ pub async fn toggle_stats(
 }
 
 pub async fn get_contributor_count(
-    db_state: &Arc<database::AppState>,
+    db_state: &database::AppState,
     deck_hash: &String,
 ) -> Result<i64, Box<dyn std::error::Error>> {
     let client = database::client(db_state).await?;

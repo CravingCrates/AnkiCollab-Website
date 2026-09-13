@@ -1,5 +1,5 @@
 use argon2::{
-    password_hash::{rand_core::OsRng, PasswordHash, PasswordHasher, PasswordVerifier, SaltString},
+    password_hash::{phc::PasswordHash, PasswordHasher, PasswordVerifier},
     Argon2,
 };
 
@@ -9,6 +9,7 @@ use axum::extract::{FromRequestParts, OptionalFromRequestParts};
 use axum_extra::extract::cookie::CookieJar;
 
 use cookie::{Cookie as CookieBuilder, SameSite};
+use hmac::{Hmac, KeyInit, Mac};
 use jsonwebtoken::{decode, encode, DecodingKey, EncodingKey, Header, Validation};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -16,6 +17,8 @@ use std::net::IpAddr;
 use std::sync::Arc;
 use time::{Duration, OffsetDateTime};
 use tokio_postgres::Client;
+
+type HmacSha256 = Hmac<Sha256>;
 
 use crate::error::AuthError;
 
@@ -134,10 +137,9 @@ impl Auth {
         Self::validate_password(&creds.password)?;
 
         // Hash password
-        let salt = SaltString::generate(&mut OsRng);
         let argon2 = Argon2::default();
         let password_hash = argon2
-            .hash_password(creds.password.as_bytes(), &salt)
+            .hash_password(creds.password.as_bytes())
             .map_err(|e| AuthError::PasswordHash(e.to_string()))?
             .to_string();
 
@@ -371,10 +373,9 @@ impl Auth {
         Self::validate_password(new_password)?;
 
         // Hash new password
-        let salt = SaltString::generate(&mut OsRng);
         let argon2 = Argon2::default();
         let new_password_hash = argon2
-            .hash_password(new_password.as_bytes(), &salt)
+            .hash_password(new_password.as_bytes())
             .map_err(|e| AuthError::PasswordHash(e.to_string()))?
             .to_string();
 
@@ -463,5 +464,26 @@ pub async fn purge_deleted_account_data<C: std::ops::Deref<Target = tokio_postgr
         .await
     {
         tracing::error!(user_id, error = %e, "Failed to delete user row for deleted account");
+    }
+}
+
+/// Generates an HMAC token for a user ID so Discord never sees raw IDs
+#[must_use]
+pub fn hash_user_id(user_id: i32, secret_salt: &str) -> String {
+    let mut mac =
+        HmacSha256::new_from_slice(secret_salt.as_bytes()).expect("HMAC can take key of any size");
+    mac.update(user_id.to_string().as_bytes());
+    hex::encode(mac.finalize().into_bytes())
+}
+
+/// Dispatches an offsite webhook notification asynchronously
+pub async fn notify_offsite_deletion(webhook_url: &str, hashed_id: String) {
+    let client = reqwest::Client::new();
+    let payload = serde_json::json!({
+        "content": format!("ACCOUNT_DELETED: `{}`", hashed_id)
+    });
+
+    if let Err(e) = client.post(webhook_url).json(&payload).send().await {
+        eprintln!("Failed to send offsite deletion webhook: {e:?}");
     }
 }

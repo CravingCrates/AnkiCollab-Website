@@ -15,7 +15,6 @@ pub mod cleanser;
 pub mod commit_manager;
 pub mod database;
 pub mod error;
-pub mod gdrive_manager;
 pub mod maintainer_manager;
 pub mod media_reference_manager;
 pub mod media_tokens;
@@ -38,7 +37,10 @@ use sync::Arc;
 use tokio::signal;
 use tower::ServiceBuilder;
 use tower_governor::{governor::GovernorConfigBuilder, GovernorLayer};
-use user::{purge_deleted_account_data, Auth, ChangePasswordRequest, Credentials, User};
+use user::{
+    hash_user_id, notify_offsite_deletion, purge_deleted_account_data, Auth, ChangePasswordRequest,
+    Credentials, User,
+};
 
 use axum_client_ip::{ClientIp, ClientIpSource};
 use tower_http::services::ServeDir;
@@ -245,6 +247,12 @@ async fn delete_account(
 
     // Fast soft-delete: invalidates password + sets deleted_at (instant)
     let username = auth.soft_delete_account(user.id).await?;
+
+    let hashed_id = hash_user_id(user.id, &OFF_SITE_SECRET_SALT);
+
+    tokio::spawn(async move {
+        notify_offsite_deletion(&DISCORD_WEBHOOK_URL, hashed_id).await;
+    });
 
     // Spawn the heavy cleanup work in the background so the user isn't waiting
     let pool = appstate.db_pool.clone();
@@ -1874,6 +1882,14 @@ async fn deny_note_removal(
 
 static STATS_CACHE_KEY: std::sync::LazyLock<String> = std::sync::LazyLock::new(|| {
     std::env::var("STATS_CACHE_KEY").expect("STATS_CACHE_KEY must be set")
+});
+
+static DISCORD_WEBHOOK_URL: std::sync::LazyLock<String> = std::sync::LazyLock::new(|| {
+    std::env::var("DISCORD_WEBHOOK_URL").expect("DISCORD_WEBHOOK_URL must be set")
+});
+
+static OFF_SITE_SECRET_SALT: std::sync::LazyLock<String> = std::sync::LazyLock::new(|| {
+    std::env::var("OFF_SITE_SECRET_SALT").expect("OFF_SITE_SECRET_SALT must be set")
 });
 
 async fn refresh_stats_cache(

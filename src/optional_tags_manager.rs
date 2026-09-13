@@ -1,10 +1,8 @@
-use std::sync::Arc;
-
 use crate::error::Error::TagAlreadyExists;
 use crate::{database, Return};
 
 pub async fn get_tags(
-    db_state: &Arc<database::AppState>,
+    db_state: &database::AppState,
     deck: i64,
 ) -> Result<Vec<String>, Box<dyn std::error::Error>> {
     let query = "SELECT tag_group from optional_tags WHERE deck = $1";
@@ -20,7 +18,7 @@ pub async fn get_tags(
 }
 
 pub async fn add_tag(
-    db_state: &Arc<database::AppState>,
+    db_state: &database::AppState,
     deck: i64,
     tag_group: String,
 ) -> Return<String> {
@@ -49,7 +47,7 @@ pub async fn add_tag(
 }
 
 pub async fn remove_tag(
-    db_state: &Arc<database::AppState>,
+    db_state: &database::AppState,
     deck: i64,
     tag_group: String,
 ) -> Return<String> {

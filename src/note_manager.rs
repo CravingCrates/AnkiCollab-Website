@@ -1,5 +1,3 @@
-use std::sync::Arc;
-
 use crate::cleanser;
 use crate::database;
 use crate::error::Error::{NoteNotFound, Unauthorized};
@@ -16,7 +14,7 @@ use crate::Return;
 extern crate htmldiff;
 
 pub async fn under_review(
-    db_state: &Arc<database::AppState>,
+    db_state: &database::AppState,
     uid: i32,
 ) -> Result<Vec<ReviewOverview>, Box<dyn std::error::Error>> {
     let query = r"
@@ -63,7 +61,7 @@ pub async fn under_review(
 }
 
 pub async fn get_notes_count_in_deck(
-    db_state: &Arc<database::AppState>,
+    db_state: &database::AppState,
     deck: i64,
 ) -> Result<i64, Box<dyn std::error::Error>> {
     let client = database::client(db_state).await?;
@@ -83,7 +81,7 @@ pub async fn get_notes_count_in_deck(
 }
 
 pub async fn get_name_by_hash(
-    db_state: &Arc<database::AppState>,
+    db_state: &database::AppState,
     deck: &String,
 ) -> Result<Option<String>, Box<dyn std::error::Error>> {
     let client = database::client(db_state).await?;
@@ -99,10 +97,7 @@ pub async fn get_name_by_hash(
     Ok(Some(name))
 }
 
-pub async fn get_note_data(
-    db_state: &Arc<database::AppState>,
-    note_id: NoteId,
-) -> Return<NoteData> {
+pub async fn get_note_data(db_state: &database::AppState, note_id: NoteId) -> Return<NoteData> {
     let client = database::client(db_state).await?;
 
     let note_query = "
@@ -399,10 +394,7 @@ pub async fn get_note_data(
 }
 
 // Only show at most 1k cards. everything else is too much for the website to load. TODO Later: add incremental loading instead
-pub async fn retrieve_notes(
-    db_state: &Arc<database::AppState>,
-    deck: &String,
-) -> Return<Vec<Note>> {
+pub async fn retrieve_notes(db_state: &database::AppState, deck: &String) -> Return<Vec<Note>> {
     let query = r"
         SELECT n.id, n.guid,
             CASE
@@ -499,7 +491,7 @@ pub async fn retrieve_notes(
 }
 
 pub async fn deny_note_removal_request(
-    db_state: &Arc<database::AppState>,
+    db_state: &database::AppState,
     note_id: i64,
     user: user::User,
 ) -> Result<String, Box<dyn std::error::Error>> {
@@ -531,7 +523,7 @@ pub async fn deny_note_removal_request(
 // We skip a few steps if the caller is a bulk approve since they handle some stuff
 pub async fn mark_note_deleted(
     tx: &tokio_postgres::Transaction<'_>,
-    db_state: &Arc<database::AppState>,
+    db_state: &database::AppState,
     note_id: i64,
     user: user::User,
     bulk: bool,

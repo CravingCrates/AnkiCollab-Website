@@ -1,10 +1,8 @@
-use std::sync::Arc;
-
 use crate::error::Error::{UserIsAlreadyMaintainer, UserNotFound};
 use crate::{database, Return};
 
 pub async fn get_maintainers(
-    db_state: &Arc<database::AppState>,
+    db_state: &database::AppState,
     deck: i64,
 ) -> Result<Vec<String>, Box<dyn std::error::Error>> {
     let query =
@@ -21,7 +19,7 @@ pub async fn get_maintainers(
 }
 
 pub async fn add_maintainer(
-    db_state: &Arc<database::AppState>,
+    db_state: &database::AppState,
     deck: i64,
     username: String,
 ) -> Return<String> {
@@ -60,7 +58,7 @@ pub async fn add_maintainer(
 }
 
 pub async fn remove_maintainer(
-    db_state: &Arc<database::AppState>,
+    db_state: &database::AppState,
     deck: i64,
     username: String,
 ) -> Return<String> {

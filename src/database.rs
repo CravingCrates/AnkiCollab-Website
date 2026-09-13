@@ -35,7 +35,7 @@ pub async fn establish_pool_connection() -> Result<
 }
 
 pub async fn client(
-    db_state: &Arc<AppState>,
+    db_state: &AppState,
 ) -> Return<PooledConnection<'_, PostgresConnectionManager<NoTls>>> {
     match db_state.db_pool.get().await {
         Ok(pool) => Ok(pool),
@@ -47,7 +47,7 @@ pub async fn client(
 }
 
 pub async fn owned_deck_id(
-    db_state: &Arc<AppState>,
+    db_state: &AppState,
     deck_hash: &DeckHash,
     user_id: UserId,
 ) -> Return<DeckId> {

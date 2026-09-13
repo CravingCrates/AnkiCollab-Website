@@ -141,15 +141,15 @@ impl Reporter {
         Self {
             _sentry: sentry::init((
                 endpoint.as_str(),
-                sentry::ClientOptions {
-                    release: sentry::release_name!(),
-                    traces_sample_rate: 0.0, // Performance monitoring, 0.0 to disable
-                    auto_session_tracking: false,
-                    sample_rate: 1.0, // Error event sampling
-                    send_default_pii: false,
-                    before_send,
-                    ..Default::default()
-                },
+                sentry::ClientOptions::new()
+                    .maybe_release(sentry::release_name!())
+                    .traces_sample_rate(0.0)
+                    .auto_session_tracking(false)
+                    .sample_rate(1.0)
+                    .send_default_pii(false)
+                    .before_send(move |event| {
+                        before_send.as_ref().and_then(|callback| callback(event))
+                    }),
             )),
         }
     }

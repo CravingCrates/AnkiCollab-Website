@@ -9,8 +9,6 @@ use crate::Return;
 
 use std::cmp::min;
 use std::collections::{HashMap, HashSet};
-use std::sync::Arc;
-
 extern crate htmldiff;
 
 const fn get_string_from_rationale(input: i32) -> &'static str {
@@ -41,7 +39,7 @@ fn deck_leaf(deck_path: &str) -> String {
 }
 
 pub async fn get_commit_info(
-    db_state: &Arc<database::AppState>,
+    db_state: &database::AppState,
     commit_id: i32,
 ) -> Return<CommitsOverview> {
     let query = r"    
@@ -87,7 +85,7 @@ fn find_common_prefix(paths: &[&str]) -> String {
 }
 
 pub async fn commits_review(
-    db_state: &Arc<database::AppState>,
+    db_state: &database::AppState,
     uid: i32,
 ) -> Result<Vec<CommitsOverview>, Box<dyn std::error::Error>> {
     let client = database::client(db_state).await?;
@@ -193,7 +191,7 @@ pub async fn commits_review(
     Ok(result)
 }
 
-pub async fn get_field_diff(db_state: &Arc<database::AppState>, field_id: i64) -> Return<String> {
+pub async fn get_field_diff(db_state: &database::AppState, field_id: i64) -> Return<String> {
     let client = database::client(db_state).await?;
     let new_content_row = client
         .query_one(
@@ -225,7 +223,7 @@ pub async fn get_field_diff(db_state: &Arc<database::AppState>, field_id: i64) -
 }
 
 pub async fn notes_by_commit(
-    db_state: &Arc<database::AppState>,
+    db_state: &database::AppState,
     commit_id: i32,
     offset: i64,
     limit: i64,

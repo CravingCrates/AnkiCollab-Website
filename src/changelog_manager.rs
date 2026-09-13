@@ -1,12 +1,10 @@
-use std::sync::Arc;
-
 use crate::cleanser;
 use crate::database;
 use crate::structs::ChangelogInfo;
 use crate::Return;
 
 pub async fn insert_new_changelog(
-    db_state: &Arc<database::AppState>,
+    db_state: &database::AppState,
     deck_hash: &String,
     message: &str,
 ) -> Return<()> {
@@ -21,7 +19,7 @@ pub async fn insert_new_changelog(
 }
 
 pub async fn get_changelogs(
-    db_state: &Arc<database::AppState>,
+    db_state: &database::AppState,
     deck_hash: &String,
 ) -> Return<Vec<ChangelogInfo>> {
     let client = database::client(db_state).await?;
@@ -43,7 +41,7 @@ pub async fn get_changelogs(
 }
 
 pub async fn delete_changelog(
-    db_state: &Arc<database::AppState>,
+    db_state: &database::AppState,
     id: i64,
     user_id: i32,
 ) -> Result<String, Box<dyn std::error::Error>> {

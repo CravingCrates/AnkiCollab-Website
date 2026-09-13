@@ -1,10 +1,8 @@
 use crate::{database, AppState};
-use regex::Regex;
-use std::collections::HashSet;
-use std::sync::Arc;
-
 use bb8_postgres::bb8::PooledConnection;
 use bb8_postgres::PostgresConnectionManager;
+use regex::Regex;
+use std::collections::HashSet;
 use tokio_postgres::Error as PgError;
 
 use crate::media_tokens::DownloadTokenParams;
@@ -147,7 +145,7 @@ pub async fn update_media_references_for_note(
 }
 
 pub async fn update_media_references_note_state(
-    state: &Arc<AppState>,
+    state: &AppState,
     note_id: i64,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let mut client: SharedConn = match state.db_pool.get_owned().await {
@@ -163,7 +161,7 @@ pub async fn update_media_references_note_state(
 
 /// Update media references for an approved note
 pub async fn update_media_references_for_approved_note(
-    state: &Arc<AppState>,
+    state: &AppState,
     note_id: i64,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let mut client: SharedConn = match state.db_pool.get_owned().await {
@@ -180,7 +178,7 @@ pub async fn update_media_references_for_approved_note(
 
 /// Clean up media references for a denied note. deleting notes completely should be handled by postgres itself
 pub async fn cleanup_media_for_denied_note(
-    state: &Arc<AppState>,
+    state: &AppState,
     note_id: i64,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let mut client = database::client(state).await?;
@@ -202,7 +200,7 @@ pub async fn cleanup_media_for_denied_note(
 
 /// Update media references for all notes affected by a commit
 pub async fn update_media_references_for_commit(
-    state: &Arc<AppState>,
+    state: &AppState,
     affected_notes: &Vec<i64>,
 ) -> Result<(), Box<dyn std::error::Error>> {
     if affected_notes.is_empty() {
@@ -226,7 +224,7 @@ pub async fn update_media_references_for_commit(
 }
 
 pub async fn get_presigned_url(
-    state: &Arc<AppState>,
+    state: &AppState,
     filename: &str,
     note_id: i64,
     user_id: i32,

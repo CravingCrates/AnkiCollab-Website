@@ -6,10 +6,8 @@ use crate::structs::{NoteModelFieldInfo, NotetypeOverview, UpdateNotetype};
 use crate::Return;
 
 use std::collections::HashMap;
-use std::sync::Arc;
-
 pub async fn get_protected_fields(
-    db_state: &Arc<database::AppState>,
+    db_state: &database::AppState,
     notetype_id: i64,
 ) -> Return<Vec<NoteModelFieldInfo>> {
     let client = database::client(db_state).await?;
@@ -30,7 +28,7 @@ pub async fn get_protected_fields(
 }
 
 pub async fn notetypes_by_commit(
-    db_state: &Arc<database::AppState>,
+    db_state: &database::AppState,
     commit_id: i32,
 ) -> Return<HashMap<i64, Vec<String>>> {
     // Returns a map of notetypes with a vector of the field names of that notetype
@@ -79,7 +77,7 @@ pub async fn notetypes_by_commit(
 }
 
 pub async fn update_notetype(
-    db_state: &Arc<database::AppState>,
+    db_state: &database::AppState,
     user: &User,
     notetype: &UpdateNotetype,
 ) -> Result<(), Box<dyn std::error::Error>> {
@@ -200,7 +198,7 @@ pub async fn update_notetype(
 }
 
 pub async fn get_notetype_overview(
-    db_state: &Arc<database::AppState>,
+    db_state: &database::AppState,
     user: &User,
 ) -> Result<Vec<NotetypeOverview>, Box<dyn std::error::Error>> {
     let client = database::client(db_state).await?;
