@@ -12,7 +12,7 @@
   --reviews-success: #087443;
 }
 
-.reviews-page { color: var(--reviews-text); padding: 24px; }
+.reviews-page { color: var(--reviews-text); padding: 24px; display: flex; flex-direction: column; min-height: calc(100vh - 5rem); }
 .reviews-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 24px; margin-bottom: 20px; }
 .reviews-title { margin: 0 0 16px; font-size: 28px; font-weight: 600; }
 .reviews-count { display: inline-flex; align-items: center; justify-content: center; min-width: 24px; height: 24px; padding: 0 7px; border-radius: 12px; background: var(--reviews-accent-tint); color: var(--reviews-accent); font-size: 13px; vertical-align: middle; }
@@ -27,7 +27,7 @@
 .reviews-deck-option.selected { background: var(--reviews-accent); border-color: var(--reviews-accent); color: #fff; }
 .reviews-deck-search { display: none; margin-top: 8px; width: 220px; padding: 7px 10px; border: 1px solid var(--reviews-line); border-radius: 6px; }
 .reviews-deck-search.visible { display: block; }
-.reviews-workspace { display: flex; height: 38rem; min-height: 0; border: 1px solid var(--reviews-line); background: var(--reviews-surface); }
+.reviews-workspace { display: flex;  flex: 1 1 0;  height: auto;  min-height: 38rem;  border: 1px solid var(--reviews-line);  background: var(--reviews-surface); }
 .reviews-list-panel { display: flex; min-width: 0; min-height: 0; flex: 55 1 0; flex-direction: column; overflow-y: auto; border-right: 1px solid var(--reviews-line); }
 .reviews-list { min-height: 0; overflow-y: visible; }
 .review-row { display: flex; align-items: center; gap: 12px; min-height: 82px; padding: 14px 16px; border-bottom: 1px solid var(--reviews-line); cursor: pointer; }
@@ -106,10 +106,10 @@
 .review-row.removing { opacity: 0; transform: translateX(-12px); transition: opacity .18s ease, transform .18s ease; }
 
 @media (max-width: 899px) {
-  .reviews-page { padding: 16px; }
+  .reviews-page { padding: 16px; min-height: auto; }
   .reviews-header { flex-direction: column; }
   .reviews-search { width: 100%; }
-  .reviews-workspace { display: block; height: auto; min-height: 0; border: 0; }
+  .reviews-workspace { display: block; flex: 0 0 auto; height: auto; min-height: 0; border: 0; }
   .reviews-list-panel { border: 1px solid var(--reviews-line); }
   .reviews-detail-panel { display: none; height: auto; max-height: 38rem; border: 1px solid var(--reviews-line); }
   .reviews-page.is-detail-open .reviews-list-panel { display: none; }

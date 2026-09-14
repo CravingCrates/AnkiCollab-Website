@@ -8,6 +8,8 @@
     <link href="/static/plugins/trumbowyg/ui/trumbowyg.css" rel="stylesheet">
     <link href="/static/plugins/trumbowyg/plugins/colors/ui/trumbowyg.colors.css" rel="stylesheet">
     <link href="/static/plugins/sweetalert/css/sweetalert.css" rel="stylesheet">
+    <link href="/static/plugins/sweetalert2/dist/sweetalert2.min.css" rel="stylesheet">
+    <link href="/static/css/clipboard.css" rel="stylesheet">
     <script src="/static/js/api_service.js"></script>
    
 </head>
@@ -24,7 +26,8 @@
                             <p>Share this Key with your Subscribers</p>
                             <button
                               type="button"
-                              class="btn btn-primary copy-to-clipboard-btn"
+                                                            class="btn-copy-key"
+                                                            data-subscription-key="{{hash}}"
                               data-toggle="tooltip"
                               data-placement="bottom"
                               title="Copy to clipboard"
@@ -186,6 +189,7 @@
         {% include "layout_footer.html" %}
     
     <script src="/static/plugins/sweetalert/js/sweetalert.min.js"></script>
+    <script src="/static/plugins/sweetalert2/dist/sweetalert2.min.js"></script>
 
     <script src="/static/plugins/trumbowyg/trumbowyg.min.js"></script>
     <script src="/static/plugins/trumbowyg/plugins/colors/trumbowyg.colors.js"></script>

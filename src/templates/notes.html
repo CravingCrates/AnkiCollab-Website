@@ -9,6 +9,8 @@
       rel="stylesheet"
     />
     <link href="/static/css/notes.css" rel="stylesheet" />
+    <link href="/static/plugins/sweetalert2/dist/sweetalert2.min.css" rel="stylesheet" />
+    <link href="/static/css/clipboard.css" rel="stylesheet" />
   </head>
   {% include "layout_header.html" %}
         <!-- End Top layout-->
@@ -21,17 +23,18 @@
                 <div class="card-body">
                   <div class="text-center">
                     <h1 class="card-title m-b-40">
-                      Notes in <i>{{ deck.name }}</i>
+                      <i>{{ deck.name }}</i>
                     </h1>
-                    <p>To Subscribe, use this Key</p>
+                    <p>To subscribe, use this Key</p>
                     <button
                       type="button"
-                      class="btn btn-primary copy-to-clipboard-btn"
+                      class="btn-copy-key"
+                      data-subscription-key="{{ deck.hash }}"
                       data-toggle="tooltip"
                       data-placement="bottom"
                       title="Copy to clipboard"
                     >
-                      {{ deck.hash }}
+                     {{deck.hash}}
                     </button>
                     <a
                       href="https://github.com/CravingCrates/AnkiCollab-Plugin/blob/main/getting_started_subscriber.md#adding-the-key-to-anki"
@@ -142,6 +145,7 @@
 
     <script src="/static/plugins/tables/js/datatable/dataTables.bootstrap4.min.js"></script>
     <script src="/static/plugins/tables/js/datatable-init/datatable-basic.min.js"></script>
+    <script src="/static/plugins/sweetalert2/dist/sweetalert2.min.js"></script>
     <script src="/static/js/clipboard.js"></script>
   </body>
 </html>

@@ -4,52 +4,46 @@
 <head>
     {% set page_title = "Explore Decks" %}
     {% include "header_template.html" %}
-    <!-- Custom Stylesheet -->
     <link href="/static/plugins/tables/css/datatable/dataTables.bootstrap4.min.css" rel="stylesheet">
-   
+    <link href="/static/plugins/sweetalert2/dist/sweetalert2.min.css" rel="stylesheet">
+    <link href="/static/css/clipboard.css" rel="stylesheet">
+    <link href="/static/css/decks.css" rel="stylesheet">
 </head>
 {% include "layout_header.html" %}
-            <!-- End Top layout-->
-           
-            <!-- row -->
-            <div class="container-fluid">
+            <div class="container-fluid decks-page">
                 <div class="row">
                     <div class="col-12">
-                        <div class="card">
+                        <div class="card decks-card">
                             <div class="card-body">
-                                <h1 class="card-title">Explore All Decks</h1>
                                 <div class="table-responsive">
-                                    <table id="deckOverview" class="table table-striped zero-configuration">
-                                        <caption class="visually-hidden">List of all available decks with update date, name, description, note count, and subscriber count</caption>
+                                    <table id="deckOverview" class="table zero-configuration decks-table">
+                                        <caption class="visually-hidden">List of all available decks with descriptions, note counts, subscriber counts, update dates, and subscription key actions</caption>
                                         <thead>
                                             <tr>
-                                                <th scope="col">Last Update</th>
-                                                <th scope="col">Name</th>
-                                                <th scope="col">Description</th>
-                                                <th scope="col">Notes</th>
-                                                <th scope="col">Subscribers</th>
+                                                <th scope="col">Deck</th>
+                                                <th scope="col" class="text-right">Notes</th>
+                                                <th scope="col" class="text-right">Subscribers</th>
+                                                <th scope="col" class="text-right">Updated</th>
+                                                <th scope="col" class="text-right">Action</th>
                                             </tr>
                                         </thead>
                                         <tbody>
                                             {% for deck in decks %}
-                                                <tr>
-                                                    <td><a href="/notes/{{deck.hash}}">{{ deck.last_update }}</a></td>
-                                                    <td><a href="/notes/{{deck.hash}}">{{ deck.name }}</a></td>
-                                                    <td><a href="/notes/{{deck.hash}}">{{ deck.desc | replace(from="&nbsp;", to=" ") | striptags | truncate(length=125) }}</a></td>
-                                                    <td><a href="/notes/{{deck.hash}}">{{ deck.notes }}</a></td>
-                                                    <td><a href="/notes/{{deck.hash}}">{{ deck.subscriptions }}</a></td>
+                                                <tr class="deck-row" data-deck-url="/notes/{{ deck.hash }}" tabindex="0">
+                                                    <td class="deck-summary">
+                                                        <a class="deck-name" href="/notes/{{ deck.hash }}">{{ deck.name }}</a>
+                                                        <span class="deck-description">{{ deck.desc | replace(from="&nbsp;", to=" ") | striptags | truncate(length=115) }}</span>
+                                                    </td>
+                                                    <td class="deck-number">{{ deck.notes }}</td>
+                                                    <td class="deck-number">{{ deck.subscriptions }}</td>
+                                                    <td class="deck-updated" data-last-update="{{ deck.last_update }}" title="{{ deck.last_update }}">{{ deck.last_update }}</td>
+                                                    <td class="deck-action">
+                                                        <button type="button" class="btn-copy-key" data-subscription-key="{{ deck.hash }}">Copy Key</button>
+                                                        <span class="deck-chevron" aria-hidden="true">›</span>
+                                                    </td>
                                                 </tr> 
                                             {% endfor %}
                                         </tbody>
-                                        <tfoot>
-                                            <tr>
-                                                <th scope="col">Last Update</th>
-                                                <th scope="col">Name</th>
-                                                <th scope="col">Description</th>
-                                                <th scope="col">Notes</th>
-                                                <th scope="col">Subscribers</th>
-                                            </tr>
-                                        </tfoot>
                                     </table>
                                 </div>
                             </div>
@@ -57,14 +51,12 @@
                     </div>
                 </div>
             </div>
-        <!--**********************************
-            Content body end
-        ***********************************-->
         {% include "layout_footer.html" %}
         <script src="/static/plugins/jquery/jquery.min.js"></script>
         <script src="/static/plugins/tables/js/datatable/dataTables.bootstrap4.min.js"></script>
+        <script src="/static/plugins/sweetalert2/dist/sweetalert2.min.js"></script>
+        <script src="/static/js/clipboard.js"></script>
         <script src="/static/js/decks.js"></script>
-        <script src="/static/plugins/tables/js/datatable-init/datatable-basic.min.js"></script>
 </body>
 
 </html>
