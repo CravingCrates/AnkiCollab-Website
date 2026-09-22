@@ -2754,9 +2754,12 @@ async fn main() {
     //.layer(ClientIpSource::ConnectInfo.into_extension());
 
     // run it
-    let listener = tokio::net::TcpListener::bind("localhost:1337")
-        .await
-        .unwrap();
+    let listener = tokio::net::TcpListener::bind(
+        std::env::var("BIND_ADDRESS")
+            .unwrap_or_else(|_| "localhost:1337".to_string()),
+    )
+    .await
+    .unwrap();
     tracing::info!("Server listening on {}", listener.local_addr().unwrap());
     axum::serve(
         listener,
