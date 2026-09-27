@@ -87,7 +87,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
         // Reset to empty string to prevent accidental double submits
         $('#changelog-editor').trumbowyg('empty');
-        swal("Success!", "All changes have been saved!", "success");
+        Swal.fire("Success!", "All changes have been saved!", "success");
     });
 });
 
@@ -100,33 +100,30 @@ document.addEventListener('DOMContentLoaded', function() {
     var deckHash = form ? form.dataset.deckHash : '';
     
     deleteBtn.onclick = function () {
-        swal(
+        Swal.fire(
             {
                 title: "Are you sure you want to delete this deck?",
                 text: "This action cannot be undone.",
-                type: "warning",
+                icon: "warning",
                 showCancelButton: true,
                 confirmButtonColor: "#DD6B55",
                 confirmButtonText: "Yes, delete it!",
                 cancelButtonText: "No, cancel!",
-                closeOnConfirm: false,
-                closeOnCancel: false,
-            },
-            function (e) {
-                if (e) {
+            }
+        ).then(function (result) {
+                if (result.isConfirmed) {
                     fetch('/DeleteDeck/' + deckHash, { method: 'POST', credentials: 'same-origin' })
                         .then(function(r) { 
-                            swal("Deleted!", "The deck is scheduled for deletion and will be removed asap, but keep in mind that it won't remove the local installation of users.", "success");
+                            Swal.fire("Deleted!", "The deck is scheduled for deletion and will be removed asap, but keep in mind that it won't remove the local installation of users.", "success");
                             setTimeout(function() {
                                 if (r.redirected) window.location.href = r.url; else window.location.href = '/ManageDecks';
-                            }, 10000);
+                            }, 7000);
                         })
-                        .catch(function() { swal("Error", "Failed to delete deck", "error"); });
+                        .catch(function() { Swal.fire("Error", "Failed to delete deck", "error"); });
                 } else {
-                    swal("Cancelled", "Your deck is safe :)", "error");
+                    Swal.fire("Cancelled", "Your deck is safe :)", "error");
                 }
-            }
-        );
+            });
     };
 });
 
@@ -154,11 +151,11 @@ document.addEventListener('DOMContentLoaded', function() {
                             accordion.remove();
                         }
                     } else {
-                        swal("Error", "Failed to delete changelog. Please try again.", "error");
+                        Swal.fire("Error", "Failed to delete changelog. Please try again.", "error");
                     }
                 })
                 .catch(function() {
-                    swal("Error", "Something went wrong. Please try again.", "error");
+                    Swal.fire("Error", "Something went wrong. Please try again.", "error");
                 });
         });
     });

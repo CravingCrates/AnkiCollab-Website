@@ -59,32 +59,31 @@ document.addEventListener('DOMContentLoaded', function() {
     var deleteBtn = document.getElementById('deleteAccountBtn');
     if (deleteBtn) {
         deleteBtn.addEventListener('click', function() {
-            swal({
+            Swal.fire({
                 title: "Are you sure?",
                 text: "This will permanently delete your account and all associated data. This action cannot be undone!",
-                type: "warning",
+                icon: "warning",
                 showCancelButton: true,
-                confirmButtonClass: "btn-danger",
+                confirmButtonColor: "#d33",
                 confirmButtonText: "Yes, delete my account",
                 cancelButtonText: "Cancel",
-                closeOnConfirm: false,
                 showLoaderOnConfirm: true
-            }, function(isConfirm) {
-                if (isConfirm) {
+            }).then(function(result) {
+                if (result.isConfirmed) {
                     // Fire the request via fetch so we can show a success message
                     fetch("/profile/delete-account", { method: "POST", credentials: "same-origin" })
                         .then(function() {
-                            swal({
+                            Swal.fire({
                                 title: "Account Deleted",
                                 text: "Your account has been scheduled for deletion. Farewell!",
-                                type: "success",
+                                icon: "success",
                                 confirmButtonText: "OK"
-                            }, function() {
+                            }).then(function() {
                                 window.location.href = "/";
                             });
                         })
                         .catch(function() {
-                            swal("Error", "Something went wrong. Please try again.", "error");
+                            Swal.fire("Error", "Something went wrong. Please try again.", "error");
                         });
                 }
             });

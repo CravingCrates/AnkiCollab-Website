@@ -183,6 +183,10 @@ pub struct ErrorResponse {
     pub error: String,
     #[serde(skip)]
     pub category: Option<ErrorCategory>,
+    #[serde(skip)]
+    pub status: StatusCode,
+    #[serde(skip)]
+    pub internal_error: Option<String>,
 }
 
 impl ErrorResponse {
@@ -190,6 +194,8 @@ impl ErrorResponse {
         Self {
             error: err.to_string(),
             category: None,
+            status: StatusCode::BAD_REQUEST,
+            internal_error: None,
         }
     }
 
@@ -197,6 +203,8 @@ impl ErrorResponse {
         Self {
             error: err.to_string(),
             category: Some(category),
+            status: StatusCode::BAD_REQUEST,
+            internal_error: None,
         }
     }
 }
@@ -382,6 +390,7 @@ impl Error {
             Self::DB(_) | Self::BB8(_) | Self::Database(_) | Self::DatabaseConnection => {
                 ErrorCategory::Database
             }
+            Self::Auth(AuthError::Database(_)) => ErrorCategory::Database,
             Self::Unauthorized | Self::Auth(_) => ErrorCategory::Authorization,
             Self::UserNotFound
             | Self::CommitNotFound
@@ -406,6 +415,7 @@ impl Error {
 impl IntoResponse for Error {
     fn into_response(self) -> Response {
         let status_code = match &self {
+            Self::Auth(AuthError::Database(_)) => StatusCode::SERVICE_UNAVAILABLE,
             Self::Unauthorized | Self::Auth(_) => StatusCode::UNAUTHORIZED,
             Self::Redirect(_) => StatusCode::FOUND,
             Self::TagAlreadyExists
@@ -434,13 +444,20 @@ impl IntoResponse for Error {
             return axum::response::Redirect::to(path).into_response();
         }
 
-        let error_message = self.to_string();
+        let internal_error = self.to_string();
         let category = self.category();
+        let error_message = match &self {
+            Self::Auth(auth_error) => auth_error.get_status_and_message().1.to_owned(),
+            _ => internal_error.clone(),
+        };
         let mut response = Response::new(axum::body::Body::empty());
         *response.status_mut() = status_code;
-        response
-            .extensions_mut()
-            .insert(ErrorResponse::with_category(&error_message, category));
+        response.extensions_mut().insert(ErrorResponse {
+            error: error_message,
+            category: Some(category),
+            status: status_code,
+            internal_error: Some(internal_error),
+        });
         response
     }
 }
@@ -521,7 +538,10 @@ impl AuthError {
             ),
             Self::UserNotFound => (StatusCode::NOT_FOUND, "User not found"),
             Self::InvalidCredentials => (StatusCode::UNAUTHORIZED, "Invalid username or password"),
-            Self::Database(_) => (StatusCode::INTERNAL_SERVER_ERROR, "Internal Error 23110"),
+            Self::Database(_) => (
+                StatusCode::SERVICE_UNAVAILABLE,
+                "We couldn't sign you in right now. Please try again later or notify us if the problem persists.",
+            ),
             Self::PasswordHash(_) => (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 "An error occurred while hashing the password",
@@ -571,7 +591,7 @@ impl ErrorTemplate for AuthError {
 
 impl ErrorTemplate for ErrorResponse {
     fn render_error_template(&self, app_state: &Arc<AppState>) -> Response {
-        let status_code = StatusCode::BAD_REQUEST;
+        let status_code = self.status;
         let error_msg = self.error.clone();
         let mut context = Context::new();
         context.insert("message", &error_msg);
@@ -635,7 +655,16 @@ pub async fn pretty_error_middleware(
     if let Some(error_response) = response.extensions().get::<ErrorResponse>() {
         let category = error_response.category;
         if status_code.is_server_error() {
-            capture_server_error(status_code, &method, &path, &error_response.error, category);
+            capture_server_error(
+                status_code,
+                &method,
+                &path,
+                error_response
+                    .internal_error
+                    .as_deref()
+                    .unwrap_or(&error_response.error),
+                category,
+            );
         } else {
             log_client_error(status_code, &method, &path, &error_response.error);
         }
@@ -676,4 +705,19 @@ pub async fn pretty_error_middleware(
     }
 
     response
+}
+
+#[cfg(test)]
+mod tests {
+    use super::AuthError;
+
+    #[test]
+    fn authentication_errors_use_safe_public_messages() {
+        assert_eq!(
+            AuthError::PasswordHash("connection closed".to_string())
+                .get_status_and_message()
+                .1,
+            "An error occurred while hashing the password"
+        );
+    }
 }
