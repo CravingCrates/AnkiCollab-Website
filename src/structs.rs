@@ -146,6 +146,7 @@ pub struct CommitHistoryEvent {
     pub event_type: String,
     pub actor_username: Option<String>,
     pub created_at: String,
+    pub old_value: Option<serde_json::Value>,
     pub old_human: Option<String>,
     pub new_human: Option<String>,
     pub diff_html: Option<String>,

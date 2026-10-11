@@ -11,6 +11,10 @@ use aws_sdk_s3::Client as S3Client;
 use tera::Tera;
 
 use crate::media_tokens::MediaTokenService;
+use crate::pairing::CodeGuessTracker;
+use crate::passkey::{ChallengeStore, PasskeyGuard};
+
+use webauthn_rs::prelude::Webauthn;
 
 #[derive(Debug)]
 pub struct AppState {
@@ -18,6 +22,11 @@ pub struct AppState {
     pub tera: Arc<Tera>,
     pub s3_client: S3Client,
     pub media_token_service: MediaTokenService,
+    pub webauthn: Arc<Webauthn>,
+    pub site_origin: String,
+    pub passkey_challenges: Arc<ChallengeStore>,
+    pub passkey_guard: Arc<PasskeyGuard>,
+    pub pairing_attempts: Arc<CodeGuessTracker>,
 }
 
 pub async fn establish_pool_connection() -> Result<

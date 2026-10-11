@@ -84,6 +84,7 @@ pub async fn get_leaf_decks(
     Ok(leaf_decks)
 }
 
+#[allow(clippy::double_must_use)]
 #[async_recursion]
 pub async fn calculate_average_retention(
     db_state: &database::AppState,
@@ -123,6 +124,7 @@ pub async fn calculate_average_retention(
     Ok(average_retention)
 }
 
+#[allow(clippy::double_must_use)]
 #[async_recursion]
 pub async fn update_deck_and_parent_retention(
     db_state: &database::AppState,

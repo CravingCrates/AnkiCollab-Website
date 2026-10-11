@@ -53,9 +53,17 @@ pub async fn create_commit_notification(
 
     client
         .execute(
-            "INSERT INTO notifications (user_id, commit_id, deck_id, status, reason)
-             VALUES ($1, $2, $3, $4, $5)",
-            &[&user_id, &commit_id, &deck_id, &status, &reason],
+            // The reviewer; rows written before this column existed keep it NULL.
+            "INSERT INTO notifications (user_id, commit_id, deck_id, status, reason, actor_user_id)
+             VALUES ($1, $2, $3, $4, $5, $6)",
+            &[
+                &user_id,
+                &commit_id,
+                &deck_id,
+                &status,
+                &reason,
+                &actor_user_id,
+            ],
         )
         .await?;
 

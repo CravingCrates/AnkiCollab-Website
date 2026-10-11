@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html class="h-100" lang="en">
+
+<head>
+    {% set page_title = "Set up a passkey" %}
+    {% include "header_template.html" %}
+    <link rel="stylesheet" href="/static/css/auth.css">
+
+    <noscript>
+        <style>
+            [data-passkey-action] { display: none !important; }
+            [data-passkey-section] { display: none !important; }
+            [data-passkey-unsupported] { display: block !important; }
+        </style>
+    </noscript>
+</head>
+
+<body class="h-100">
+
+    <!--*******************
+        Preloader start
+    ********************-->
+    <div id="preloader" role="status" aria-label="Loading" aria-hidden="true">
+        <div class="loader">
+            <svg class="circular" viewBox="25 25 50 50" aria-hidden="true" focusable="false">
+                <circle class="path" cx="50" cy="50" r="20" fill="none" stroke-width="3" stroke-miterlimit="10" />
+            </svg>
+        </div>
+    </div>
+    <!--*******************
+        Preloader end
+    ********************-->
+
+    <main id="main-content" class="auth-shell">
+
+      <div class="auth-card">
+        <div class="auth-icon" aria-hidden="true">
+          <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+               stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" focusable="false">
+            <circle cx="7.5" cy="16.5" r="4.25"/>
+            <path d="M10.5 13.5 19.5 4.5"/>
+            <path d="M16.5 7.5l3.2 3.2"/>
+            <path d="M13.7 10.3l2.4 2.4"/>
+          </svg>
+        </div>
+
+        <h1 class="auth-title">One last thing</h1>
+        <p class="auth-sub">
+          Sign in with <span data-passkey-platform>Touch ID</span> instead of your password.
+        </p>
+
+        <p class="auth-hint" data-passkey-unsupported hidden>
+          This browser or device cannot use a passkey yet. Continue and sign in with your
+          password as usual.
+        </p>
+
+        {% if show_passkey_password %}
+        <div class="auth-password" data-passkey-section>
+          <label for="passkey-password" class="visually-hidden">Your password</label>
+          <input type="password" class="form-control" id="passkey-password"
+                 placeholder="Your password, to confirm it's you"
+                 autocomplete="current-password">
+        </div>
+        {% endif %}
+
+        <button type="button" class="auth-btn auth-btn--primary"
+                data-passkey-action="add-onboarding">
+          <span>Set up with <span data-passkey-platform>Touch ID</span></span>
+        </button>
+
+        <a class="auth-skip" href="/">Skip for now</a>
+
+        <p id="passkey-error" class="auth-error" role="alert" hidden></p>
+
+        <p class="auth-footer">
+          Your password still works, and you can add or remove passkeys in your profile.
+        </p>
+      </div>
+
+    </main>
+
+    <!--**********************************
+        Scripts
+    ***********************************-->
+    <script src="/static/plugins/common/common.min.js"></script>
+    <script src="/static/js/custom.min.js"></script>
+    <script src="/static/js/settings.js"></script>
+    <script src="/static/js/gleek.js"></script>
+    <script src="/static/js/styleSwitcher.js"></script>
+
+    <script src="/static/js/passkeys.js"></script>
+</body>
+</html>

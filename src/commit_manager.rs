@@ -11,7 +11,8 @@ use std::cmp::min;
 use std::collections::{HashMap, HashSet};
 extern crate htmldiff;
 
-const fn get_string_from_rationale(input: i32) -> &'static str {
+#[must_use]
+pub const fn get_string_from_rationale(input: i32) -> &'static str {
     match input {
         0 => "None",
         1 => "Deck Creation",

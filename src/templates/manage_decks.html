@@ -28,6 +28,7 @@
                       <th scope="col">Notes</th>
                       <th scope="col">Subscribers</th>
                       <th scope="col">Statistics</th>
+                      <th scope="col">Contributions</th>
                       <th scope="col">Enable Stats</th>
                     </tr>
                   </thead>
@@ -61,6 +62,9 @@
                         {% else %}
                         <button type="button" class="btn mb-1 btn-rounded btn-secondary" disabled="disabled">Statistics</button>
                         {% endif %}
+                      </td>
+                      <td>
+                        <a href="/Contributions/{{deck.hash}}" class="btn mb-1 btn-rounded btn-success" role="button">Contributions</a>
                       </td>
                       <td>
                         <form method="POST" action="/ToggleStats/{{deck.hash}}" style="display:inline">

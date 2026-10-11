@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html class="h-100" lang="en">
+
+<head>
+    {% set page_title = "Link a device" %}
+    {% include "header_template.html" %}
+    <link rel="stylesheet" href="/static/css/auth.css">
+
+</head>
+
+<body class="h-100">
+
+    <!--*******************
+        Preloader start
+    ********************-->
+    <div id="preloader" role="status" aria-label="Loading" aria-hidden="true">
+        <div class="loader">
+            <svg class="circular" viewBox="25 25 50 50" aria-hidden="true" focusable="false">
+                <circle class="path" cx="50" cy="50" r="20" fill="none" stroke-width="3" stroke-miterlimit="10" />
+            </svg>
+        </div>
+    </div>
+    <!--*******************
+        Preloader end
+    ********************-->
+
+    <main id="main-content" class="auth-shell">
+
+      <div class="auth-card">
+
+      {% if state == "approved" %}
+
+        <div class="auth-icon auth-icon--ok" aria-hidden="true">
+          <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+               stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" focusable="false">
+            <circle cx="12" cy="12" r="9"/>
+            <path d="M8 12.4l2.8 2.8L16.2 9.6"/>
+          </svg>
+        </div>
+
+        <h1 class="auth-title">Device linked</h1>
+        <p class="auth-sub">
+          Anki is finishing signing in on its own. You can close this tab and go back to it.
+        </p>
+
+        <a class="auth-btn auth-btn--secondary auth-btn--link" href="/">Back to AnkiCollab</a>
+
+      {% elif state == "denied" %}
+
+        <div class="auth-icon" aria-hidden="true">
+          <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+               stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" focusable="false">
+            <circle cx="12" cy="12" r="9"/>
+            <path d="M9.2 9.2l5.6 5.6"/>
+            <path d="M14.8 9.2l-5.6 5.6"/>
+          </svg>
+        </div>
+
+        <h1 class="auth-title">Request denied</h1>
+        <p class="auth-sub">Nothing was linked, and that code can no longer be used.</p>
+
+        <a class="auth-btn auth-btn--secondary auth-btn--link" href="/">Back to AnkiCollab</a>
+
+      {% else %}
+
+        <div class="auth-icon" aria-hidden="true">
+          <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+               stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" focusable="false">
+            <rect x="2.5" y="5" width="12" height="9" rx="1.5"/>
+            <path d="M5.5 18h5"/>
+            <path d="M8 14v4"/>
+            <rect x="16" y="9" width="5.5" height="10" rx="1.5"/>
+          </svg>
+        </div>
+
+        <h1 class="auth-title">Link a device</h1>
+        <p class="auth-sub">
+          AnkiCollab on another device wants to sign in as
+          <strong>{{ user.username }}</strong>.
+        </p>
+
+        {% if state == "malformed" %}
+          <p class="auth-error" role="alert">
+            A pairing code is six characters, like ABC-234.
+          </p>
+        {% elif state == "unknown" %}
+          <p class="auth-error" role="alert">
+            That code was not recognised. Codes last five minutes and work once.
+          </p>
+        {% endif %}
+
+        <form action="/pair/approve" method="post" class="auth-form">
+          <div>
+            <label for="pair-code" class="visually-hidden">Pairing code</label>
+            <input type="text" class="form-control auth-code" id="pair-code" name="code"
+                   value="{{ code }}" placeholder="ABC-234" maxlength="12"
+                   autocomplete="off" autocapitalize="characters" spellcheck="false" required
+                   {% if not code %}autofocus{% endif %}>
+          </div>
+
+          <button type="submit" name="decision" value="approve"
+                  class="auth-btn auth-btn--primary"
+                  {% if code %}autofocus{% endif %}>Approve</button>
+          <button type="submit" name="decision" value="deny"
+                  class="auth-btn auth-btn--secondary">Deny</button>
+        </form>
+
+        <p class="auth-hint">
+          Only approve a code you can see in Anki right now. Anything else is someone
+          else's device asking for your account.
+        </p>
+
+        <p class="auth-footer">
+          Nothing is typed into Anki, and your password is never shared with it.
+        </p>
+
+      {% endif %}
+
+      </div>
+
+    </main>
+
+    <!--**********************************
+        Scripts
+    ***********************************-->
+    <script src="/static/plugins/common/common.min.js"></script>
+    <script src="/static/js/custom.min.js"></script>
+    <script src="/static/js/settings.js"></script>
+    <script src="/static/js/gleek.js"></script>
+    <script src="/static/js/styleSwitcher.js"></script>
+</body>
+</html>

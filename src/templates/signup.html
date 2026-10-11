@@ -4,7 +4,7 @@
 <head>
     {% set page_title = "Create Account" %}
     {% include "header_template.html" %}
-    <link rel="stylesheet" href="/static/plugins/fontawesome/all.css">
+    <link rel="stylesheet" href="/static/css/auth.css">
 
 </head>
 
@@ -26,41 +26,45 @@
 
     
 
-    <main id="main-content" class="mt-5">
+    <main id="main-content" class="auth-shell">
 
-    <div class="login-form-bg h-100">
-        <div class="container h-100">
-            <div class="row justify-content-center h-100">
-                <div class="col-xl-6">
-                    <div class="form-input-content">
-                        <div class="card login-form mb-0">
-                            <div class="card-body pt-5 form-validation">
-                                <h1 class="text-center">Create account</h1>        
-                                <form class="mt-5 mb-5 login-input form-valide" action="/signup" method="post">
-                                    <div class="form-group">
-                                        <label for="username" class="visually-hidden">Username</label>
-                                        <input type="text" class="form-control" placeholder="Username" name="username" id="username" autocomplete="username" required minlength="3" maxlength="32">
-                                    </div>
-                                    <div class="form-group">
-                                        <label for="password" class="visually-hidden">Password</label>
-                                        <input type="password" class="form-control" placeholder="Password" name="password" id="password" autocomplete="new-password" required minlength="6" maxlength="128">
-                                    </div>
-                                    <div class="form-group">
-                                        <label for="val-terms">
-                                            <input type="checkbox" class="css-control-input" id="val-terms" name="val-terms" value="1" required> <span class="css-control-indicator"></span> I agree to the <a href="/terms">Terms of Service</a> and <a href="/privacy">Privacy Policy</a>
-                                        </label>
-                                        <input type="checkbox" class="css-control-input d-none" id="cookie" name="cookie" value="0" aria-hidden="true" tabindex="-1">
-                                    </div>
-                                    <button class="btn login-form__btn submit w-100" type="submit">Sign up</button>
-                                </form>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-    
+      <div class="auth-card">
+        <h1 class="auth-title">Create account</h1>
+        <p class="auth-sub">Welcome to AnkiCollab.</p>
+
+        <form action="/signup" method="post" class="auth-form form-valide">
+          <!-- The .form-group wrappers are load-bearing: jquery.validate appends
+               each message to the closest .form-group and marks that parent
+               .is-invalid, so removing them would silence every error. -->
+          <div class="form-group">
+            <label for="username" class="visually-hidden">Username</label>
+            <input type="text" class="form-control" placeholder="Username" name="username" id="username" autocomplete="username" required minlength="3" maxlength="32">
+          </div>
+
+          <div class="form-group auth-password">
+            <label for="password" class="visually-hidden">Password</label>
+            <input type="password" class="form-control" placeholder="Password" name="password" id="password" autocomplete="new-password" required minlength="6" maxlength="128">
+            <button type="button" class="auth-reveal" data-password-toggle="password" aria-pressed="false" aria-label="Show password">Show</button>
+          </div>
+
+          <div class="form-group form-check">
+            <input type="checkbox" class="form-check-input" id="val-terms" name="val-terms" value="1" required>
+            <label class="form-check-label" for="val-terms">
+              I agree to the <a href="/terms">Terms of Service</a> and
+              <a href="/privacy">Privacy Policy</a>
+            </label>
+          </div>
+
+          <!-- Kept for the login handler, which reads it as the "remember me"
+               flag. Sign-up does not offer a choice, so it never renders. -->
+          <input type="checkbox" class="d-none" id="cookie" name="cookie" value="0" aria-hidden="true" tabindex="-1">
+
+          <button type="submit" class="auth-btn auth-btn--primary">Create account</button>
+        </form>
+
+        <p class="auth-footer">Already have an account? <a href="/login">Sign in</a></p>
+      </div>
+
     </main>
 
     <!--**********************************
@@ -71,6 +75,7 @@
     <script src="/static/js/settings.js"></script>
     <script src="/static/js/gleek.js"></script>
     <script src="/static/js/styleSwitcher.js"></script>
+    <script src="/static/js/auth.js"></script>
 
     <script src="/static/plugins/validation/jquery.validate.min.js"></script>
     <script src="/static/plugins/validation/jquery.validate-init.js"></script>

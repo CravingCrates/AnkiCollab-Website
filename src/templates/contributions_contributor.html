@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    {% set page_title = "Contributor suggestions" %}
+    {% include "header_template.html" %}
+    <link
+    href="/static/plugins/tables/css/datatable/dataTables.bootstrap4.min.css"
+    rel="stylesheet"
+  />
+  </head>
+  {% include "layout_header.html" %}
+
+        <div class="container-fluid mt-3">
+          <div class="mb-4">
+            <h1 class="mb-1">{{ username }}</h1>
+            <p class="text-muted mb-1">Suggestions on {{ deck_name }}</p>
+            <p class="mb-0"><a href="/Contributions/{{deck_hash}}">&larr; All contributions for {{ deck_name }}</a></p>
+          </div>
+
+          <div class="card">
+            <div class="card-body">
+              <div class="btn-group btn-group-sm mb-3" role="group" aria-label="Which suggestions to show">
+                <a class="btn {% if state == "open" %}btn-secondary{% else %}btn-outline-secondary{% endif %}" href="/Contributions/{{deck_hash}}/contributor/{{username_url}}?state=open"{% if state == "open" %} aria-current="true"{% endif %}>Waiting for review</a>
+                <a class="btn {% if state == "archived" %}btn-secondary{% else %}btn-outline-secondary{% endif %}" href="/Contributions/{{deck_hash}}/contributor/{{username_url}}?state=archived"{% if state == "archived" %} aria-current="true"{% endif %}>Reviewed</a>
+              </div>
+              <p class="text-muted">
+                Reviewed means accepted or given feedback on. Neither is a rejection.
+              </p>
+
+              {% if suggestions | length > 0 %}
+              <div class="table-responsive">
+                <table id="suggestionOverview" class="table table-sm mb-0">
+                  <caption class="visually-hidden">Suggestions from {{ username }} on this deck</caption>
+                  <thead>
+                    <tr>
+                      <th scope="col">Suggestion</th>
+                      <th scope="col">Category</th>
+                      <th scope="col">What</th>
+                      <th scope="col">Submitted</th>
+                      <th scope="col">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {% for suggestion in suggestions %}
+                    <tr>
+                      <th scope="row" class="font-weight-normal"><a href="/commit_history/{{suggestion.commit_id}}">{{ suggestion.commit_id }}</a></th>
+                      <td>{{ suggestion.rationale }}</td>
+                      <td>{% if suggestion.info %}{{ suggestion.info }}{% else %}<span class="text-muted">&mdash;</span>{% endif %}</td>
+                      <td>{{ suggestion.submitted_at }}</td>
+                      <td>
+                        {% if suggestion.accepted %}
+                        <span class="badge badge-success">Accepted</span>
+                        {% elif suggestion.declined %}
+                        <span class="badge badge-secondary">Feedback given</span>
+                        {% else %}
+                        <span class="badge badge-light">Waiting</span>
+                        {% endif %}
+                      </td>
+                    </tr>
+                    {% endfor %}
+                  </tbody>
+                </table>
+              </div>
+              {% else %}
+              <p class="mb-0">
+                {% if state == "open" %}
+                Nothing waiting for review on this deck.
+                {% else %}
+                Nothing has been reviewed yet.
+                {% endif %}
+              </p>
+              {% endif %}
+              {% if suggestions_truncated %}
+              <p class="text-muted mb-0 mt-3">Showing the most recent {{ suggestions | length }}.</p>
+              {% endif %}
+            </div>
+          </div>
+        </div>
+        {% include "layout_footer.html" %}
+        <script src="/static/plugins/jquery/jquery.min.js"></script>
+        <script src="/static/plugins/tables/js/datatable/dataTables.bootstrap4.min.js"></script>
+        <script src="/static/plugins/tables/js/datatable-init/datatable-basic.min.js"></script>
+        <script src="/static/js/contributions.js"></script>
+  </body>
+</html>

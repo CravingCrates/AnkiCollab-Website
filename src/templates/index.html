@@ -10,6 +10,17 @@
            
             <!-- row -->
             <div class="container-fluid">
+                {% if show_passkey_prompt %}
+                <div class="row">
+                    <div class="col-12">
+                        <div class="alert alert-info" role="alert">
+                            <strong>Add a passkey to your account.</strong>
+                            It is faster than typing your password and cannot be phished.
+                            <a href="/profile" class="alert-link">Set one up</a>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
                 <div class="row">
                     <div class="col-12">
                         <div class="card">

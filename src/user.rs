@@ -55,6 +55,10 @@ pub struct Credentials {
     pub username: String,
     pub password: String,
     pub cookie: Option<String>,
+    /// Where to go once signed in. Only the login form sends it, and it is never
+    /// trusted as-is - the caller checks it is a same-site path first.
+    #[serde(default)]
+    pub next: Option<String>,
 }
 impl Clone for Credentials {
     fn clone(&self) -> Self {
@@ -62,6 +66,7 @@ impl Clone for Credentials {
             username: self.username.clone(),
             password: self.password.clone(),
             cookie: self.cookie.clone(),
+            next: self.next.clone(),
         }
     }
 }
@@ -178,7 +183,9 @@ impl Auth {
     }
 
     pub async fn login(&self, creds: Credentials, ip: IpAddr) -> Result<String, AuthError> {
-        let normalized_username = creds.username.to_lowercase();
+        // Trimmed as well as lowercased, matching signup and the passkey path, so a
+        // trailing space from a phone keyboard cannot fail an otherwise correct name.
+        let normalized_username = creds.username.trim().to_lowercase();
         // Find user (exclude soft-deleted accounts)
         let row = self
             .db
@@ -204,7 +211,16 @@ impl Auth {
             return Err(AuthError::InvalidCredentials);
         }
 
-        // Generate JWT
+        self.complete_login(user_id, ip, creds.cookie.unwrap_or_default() == "on")
+            .await
+    }
+
+    pub async fn complete_login(
+        &self,
+        user_id: i32,
+        ip: IpAddr,
+        persistent: bool,
+    ) -> Result<String, AuthError> {
         let now = OffsetDateTime::now_utc();
         let claims = Claims {
             sub: user_id,
@@ -227,26 +243,19 @@ impl Auth {
             )
             .await;
 
-        if creds.cookie.unwrap_or_default() == "on" {
-            let cookie = CookieBuilder::build((AUTH_COOKIE_NAME, token))
-                .path("/")
-                .secure(self.cookie_secure)
-                .http_only(true)
-                .same_site(SameSite::Lax)
-                .max_age(time::Duration::new(COOKIE_MAX_AGE, 0))
-                .to_string();
+        let cookie = CookieBuilder::build((AUTH_COOKIE_NAME, token))
+            .path("/")
+            .secure(self.cookie_secure)
+            .http_only(true)
+            .same_site(SameSite::Lax);
 
-            Ok(cookie)
+        let cookie = if persistent {
+            cookie.max_age(time::Duration::new(COOKIE_MAX_AGE, 0))
         } else {
-            let cookie = CookieBuilder::build((AUTH_COOKIE_NAME, token))
-                .path("/")
-                .secure(self.cookie_secure)
-                .http_only(true)
-                .same_site(SameSite::Lax)
-                .to_string();
+            cookie
+        };
 
-            Ok(cookie)
-        }
+        Ok(cookie.to_string())
     }
 
     #[must_use]
@@ -261,14 +270,14 @@ impl Auth {
             .to_string()
     }
 
-    pub fn verify_token(&self, token: &str) -> Result<i32, AuthError> {
+    pub fn verify_token(&self, token: &str) -> Result<Claims, AuthError> {
         let token_data = decode::<Claims>(
             token,
             &DecodingKey::from_secret(self.jwt_secret.as_bytes()),
             &Validation::default(),
         )?;
 
-        Ok(token_data.claims.sub)
+        Ok(token_data.claims)
     }
 }
 
@@ -294,7 +303,8 @@ impl User {
 
         let user_id = auth
             .verify_token(auth_cookie.value())
-            .map_err(|_| AuthError::InvalidToken)?;
+            .map_err(|_| AuthError::InvalidToken)?
+            .sub;
 
         // Retrieve the user from the database.
         auth.get_user_by_id(user_id)
@@ -332,6 +342,66 @@ where
     }
 }
 
+#[derive(Clone, Copy, Debug)]
+pub struct SessionAge(i64);
+
+impl SessionAge {
+    #[must_use]
+    pub fn is_within(self, window: std::time::Duration) -> bool {
+        u64::try_from(self.0).is_ok_and(|age| age <= window.as_secs())
+    }
+}
+
+impl<S> FromRequestParts<S> for SessionAge
+where
+    S: Send + Sync,
+{
+    type Rejection = AuthError;
+
+    async fn from_request_parts(parts: &mut Parts, state: &S) -> Result<Self, Self::Rejection> {
+        let cookies = CookieJar::from_request_parts(parts, state)
+            .await
+            .map_err(|_| AuthError::InternalError)?;
+
+        let auth_cookie = cookies
+            .get(AUTH_COOKIE_NAME)
+            .ok_or(AuthError::NotAuthenticated)?;
+
+        let auth = parts
+            .extensions
+            .get::<Arc<Auth>>()
+            .ok_or(AuthError::InternalError)?;
+
+        let claims = auth
+            .verify_token(auth_cookie.value())
+            .map_err(|_| AuthError::InvalidToken)?;
+
+        Ok(Self(
+            OffsetDateTime::now_utc().unix_timestamp() - claims.iat,
+        ))
+    }
+}
+
+impl<S> OptionalFromRequestParts<S> for SessionAge
+where
+    S: Send + Sync,
+{
+    type Rejection = AuthError;
+
+    async fn from_request_parts(
+        parts: &mut Parts,
+        state: &S,
+    ) -> Result<Option<Self>, Self::Rejection> {
+        // Same treatment as `User`: to a caller that is only deciding whether to ask for
+        // a password, an unusable cookie is simply "no session".
+        Ok(
+            <Self as FromRequestParts<S>>::from_request_parts(parts, state)
+                .await
+                .ok(),
+        )
+    }
+}
+
 pub fn require_auth(user: Option<User>) -> Result<User, AuthError> {
     user.ok_or(AuthError::Redirect("/login".to_string()))
 }
@@ -344,30 +414,33 @@ pub struct ChangePasswordRequest {
 }
 
 impl Auth {
+    pub async fn verify_password(&self, user_id: i32, password: &str) -> Result<(), AuthError> {
+        let row = self
+            .db
+            .query_opt(
+                "SELECT password FROM users WHERE id = $1 AND deleted_at IS NULL",
+                &[&user_id],
+            )
+            .await?
+            .ok_or(AuthError::UserNotFound)?;
+
+        let password_hash: String = row.get(0);
+        let parsed_hash = PasswordHash::new(&password_hash)
+            .map_err(|e| AuthError::PasswordHash(e.to_string()))?;
+
+        argon2::Argon2::default()
+            .verify_password(password.as_bytes(), &parsed_hash)
+            .map_err(|_| AuthError::InvalidCredentials)
+    }
+
     pub async fn change_password(
         &self,
         user_id: i32,
         current_password: &str,
         new_password: &str,
     ) -> Result<(), AuthError> {
-        // Get current password hash
-        let row = self
-            .db
-            .query_opt("SELECT password FROM users WHERE id = $1", &[&user_id])
-            .await?
-            .ok_or(AuthError::UserNotFound)?;
-
-        let password_hash: String = row.get(0);
-
         // Verify current password
-        let parsed_hash = PasswordHash::new(&password_hash)
-            .map_err(|e| AuthError::PasswordHash(e.to_string()))?;
-        if argon2::Argon2::default()
-            .verify_password(current_password.as_bytes(), &parsed_hash)
-            .is_err()
-        {
-            return Err(AuthError::InvalidCredentials);
-        }
+        self.verify_password(user_id, current_password).await?;
 
         // Validate new password strength
         Self::validate_password(new_password)?;
@@ -395,9 +468,6 @@ impl Auth {
         Ok(())
     }
 
-    /// Fast soft-delete: invalidates the password so the user can no longer log in,
-    /// sets `deleted_at = NOW()`, and clears auth tokens.  Returns the username
-    /// so the caller can hand it to the background purge task.
     pub async fn soft_delete_account(&self, user_id: i32) -> Result<String, AuthError> {
         // Fetch username before we touch anything
         let row = self
@@ -427,8 +497,6 @@ impl Auth {
     }
 }
 
-/// Heavy account data cleanup that can safely run in a background task.
-/// Takes a pooled DB connection so it does not block the request.
 pub async fn purge_deleted_account_data<C: std::ops::Deref<Target = tokio_postgres::Client>>(
     db: &C,
     user_id: i32,
@@ -476,7 +544,6 @@ pub fn hash_user_id(user_id: i32, secret_salt: &str) -> String {
     hex::encode(mac.finalize().into_bytes())
 }
 
-/// Dispatches an offsite webhook notification asynchronously
 pub async fn notify_offsite_deletion(webhook_url: &str, hashed_id: String) {
     let client = reqwest::Client::new();
     let payload = serde_json::json!({
@@ -485,5 +552,33 @@ pub async fn notify_offsite_deletion(webhook_url: &str, hashed_id: String) {
 
     if let Err(e) = client.post(webhook_url).json(&payload).send().await {
         eprintln!("Failed to send offsite deletion webhook: {e:?}");
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::SessionAge;
+    use std::time::Duration;
+
+    #[test]
+    fn a_session_is_old_once_it_leaves_the_window() {
+        let window = Duration::from_mins(10);
+
+        assert!(SessionAge(0).is_within(window), "minted now is recent");
+        assert!(
+            SessionAge(600).is_within(window),
+            "the boundary is inclusive"
+        );
+        assert!(
+            !SessionAge(601).is_within(window),
+            "past the window must not count as a fresh authentication"
+        );
+    }
+
+    #[test]
+    fn a_future_issue_time_is_never_recent() {
+        // This server cannot mint one. Failing closed keeps a backwards clock
+        // adjustment from waiving a step-up for every session at once.
+        assert!(!SessionAge(-1).is_within(Duration::from_mins(10)));
     }
 }

@@ -32,7 +32,21 @@ password.</li>
 <li>When you add cards via AnkiCollab, or use the synchronization feature 
 in the Anki clients to send your data to AnkiCollab, we store the card 
 data, associated media files, (optionally) your review history, the IP Address used to upload the data, your username and device information.</li>
-<li>This personal data is not visible to other users of the service.</li>
+<li>If you set up a passkey, we store the public key and credential identifier that your device creates, a name for it, and when it was last used. Your fingerprint, face or device PIN stays on your device and is never sent to us.</li>
+<li>This personal data is not visible to other users of the service, with the single exception described in the next point.</li>
+<li>Contribution records are a distinct, narrower category of data. When you 
+suggest a change to a deck, we record the suggestion, its outcome (accepted, 
+or reviewed with feedback given), and the public username that is already 
+shown on suggestions you submit. These records are visible to the deck's 
+maintainers, so they can credit the people who improved the deck. A 
+per-contributor breakdown is only shown once at least 5 people have 
+contributed to that deck, so no individual's contribution pattern can be 
+picked out; below that, only totals are shown.</li>
+<li>Contribution records also name the maintainer who accepted a suggestion or 
+gave feedback on it. Deck maintainers see this as a count per person, and a 
+contributor is told who handled their own suggestion ("accepted by alice on 
+6 October 2026"). We did not record this before 8 October 2026, so older 
+reviews show as "not recorded" rather than being attributed to anyone.</li>
 <li>This data is visible to the dev team when investigating problems with the service, and problems you report.</li>
 <li>In the interests of research and product development, we may use your review history, content and options for statistical purposes, such as calculating the average pass rate across all users.</li>
 </ul>
@@ -61,7 +75,15 @@ means to our infrastructure.</li>
 <ul>
 <li>When you use the synchronization feature to transfer data between an
  Anki client and AnkiCollab, the client sends the hashed names of the subscribed decks, the timestamp of your last synchronization, device information (such as unique identifiers or user tokens), and optionally your review history (opt-in).</li>
-<li>AnkiCollab does not store the sync related information for longer than it needs to process the synchronization request. The review history is stored for usage statistics and shared with the deck owners if you choose to upload it.</li>
+<li>AnkiCollab does not store the deck contents exchanged during a 
+synchronization request for longer than it needs to process that request. The 
+review history is stored for usage statistics and shared with the deck owners 
+if you choose to upload it.</li>
+<li>As part of your subscription to a deck, we record the time of your last 
+sync of that deck. This is what lets a deck report how many of its 
+subscribers are active, for example "12 subscribers active in the last 30 
+days". It is only ever reported to the deck's maintainers as a count, never 
+as a list of who synced when.</li>
 <li>Your AnkiCollab login token is stored locally in the addon's configuration file inside Anki's data folder on your device, so that you don't have to log in again every time you sync. Anyone with access to your computer's user account could potentially read this file, so keep your device secured the same way you would for any other locally stored credential.</li>
 </ul>
 <h2>User Support</h2>
@@ -89,8 +111,13 @@ sites, and those remote sites will learn of your IP address and may send
 <ul>
 <li>We will retain your user data while you continue to use the service. Account data may expire if the account has not been used in 6 months or more.</li>
 <li>If you wish to remove your user data, you can delete your AnkiCollab 
-account. Just email us at ankicollab@proton.me, share your username and we will remove the account as soon as we can</li>
+account yourself, from your profile page - your passkeys and every device you have linked go with it. If you would rather we did it, email us at ankicollab@proton.me with your username and we will remove the account as soon as we can.</li>
 <li>If you delete your account, we will delete your user data.</li>
+<li>A review you performed on someone else's suggestion stays with the deck, attributed to no one, because removing it would rewrite the deck's history for everyone else. The same applies to your other contributions.</li>
+<li>Daily aggregate counts for a deck - how many subscribers it had on a given 
+day, and how many suggestions it received - are not linked to any individual. 
+They are kept indefinitely, including after an account is deleted, because they 
+describe the deck rather than a person.</li>
 <li>Some of your user data may remain in backups and logs when your account is deleted.</li>
 <li>We will retain information when legally required to do so.</li>
 </ul>
@@ -124,6 +151,10 @@ interests).</li>
 <li>Access logs are used for diagnostic and analytical purposes, and for
  detecting misuse of the service (servicing a contract, and legitimate 
 interests).</li>
+<li>Contribution records and subscription-activity records are used to credit 
+the people who improve a deck, and to show a deck's maintainers whether their 
+subscribers are still using it (servicing a contract, and legitimate 
+interests).</li>
 </ul>
 <h2>Changes</h2>
 <p>If significant changes to this policy are 
@@ -137,7 +168,7 @@ same way, and notify you if they wish to use your data in a way not
 described here.</p>
 <h2>Contact</h2>
 <p>If you have any questions about this privacy policy, please email us at ankicollab@proton.me</p>
-<p><em>Last updated 2026-09-27.</em></p>
+<p><em>Last updated 2026-10-08.</em></p>
 <p>&nbsp;</p>
                             </div>
                         </div>

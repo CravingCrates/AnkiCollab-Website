@@ -47,6 +47,67 @@
             </div>
           </div>
 
+          <!-- Passkeys Card -->
+          <div class="card">
+            <div class="card-body">
+              <div class="card-title">
+                <h2>Passkeys</h2>
+              </div>
+              <p class="text-muted">
+                A passkey lets you sign in with Touch ID, Face ID, Windows Hello, or a security key
+                instead of typing your password. Your password keeps working, and you can register
+                more than one passkey, for example one per device.
+              </p>
+
+              <p id="passkey-error" class="text-danger" hidden></p>
+
+              <div class="form-group row" data-passkey-section>
+                <label class="col-lg-3 col-form-label" for="passkey-password">Your password <span class="text-danger">*</span></label>
+                <div class="col-lg-6">
+                  <input type="password" class="form-control" id="passkey-password"
+                         placeholder="Confirm your password to add or remove a passkey"
+                         autocomplete="current-password">
+                </div>
+              </div>
+
+              {% if passkeys %}
+              <div class="table-responsive">
+                <table class="table table-sm">
+                  <thead>
+                    <tr>
+                      <th scope="col">Name</th>
+                      <th scope="col">Added</th>
+                      <th scope="col">Last used</th>
+                      <th scope="col"><span class="visually-hidden">Actions</span></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {% for passkey in passkeys %}
+                    <tr>
+                      <td>{{ passkey.name }}</td>
+                      <td>{{ passkey.created_at }}</td>
+                      <td>{{ passkey.last_used_at | default(value="Never") }}</td>
+                      <td class="text-end">
+                        <button type="button" class="btn btn-sm btn-outline-danger"
+                                data-passkey-action="delete"
+                                data-passkey-id="{{ passkey.id }}"
+                                data-passkey-name="{{ passkey.name }}">Remove</button>
+                      </td>
+                    </tr>
+                    {% endfor %}
+                  </tbody>
+                </table>
+              </div>
+              {% else %}
+              <p class="text-muted">You have no passkeys yet.</p>
+              {% endif %}
+
+              <button type="button" class="btn btn-primary" data-passkey-action="add">
+                Add a passkey
+              </button>
+            </div>
+          </div>
+
           <!-- Delete Account Card -->
           <div class="card">
             <div class="card-body">
@@ -64,16 +125,9 @@
         <!-- #/ container -->
   {% include "layout_footer.html" %}
 
-    <!--**********************************
-        Scripts
-    ***********************************-->
-    <script src="/static/plugins/common/common.min.js"></script>
-    <script src="/static/js/custom.min.js"></script>
-    <script src="/static/js/settings.js"></script>
-    <script src="/static/js/gleek.js"></script>
-    <script src="/static/js/styleSwitcher.js"></script>
     <script src="/static/plugins/validation/jquery.validate.min.js"></script>
     <script src="/static/plugins/sweetalert2/dist/sweetalert2.min.js"></script>
     <script src="/static/js/profile.js"></script>
+    <script src="/static/js/passkeys.js"></script>
 </body>
 </html>

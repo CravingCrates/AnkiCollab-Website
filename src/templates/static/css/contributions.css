@@ -1,0 +1,32 @@
+/* The site's CSP forbids inline styles, so the page's rules live here. */
+
+.contributions-chart {
+    position: relative;
+    height: 260px;
+    margin-bottom: 1rem;
+}
+
+.contributions-funnel {
+    display: block;
+    width: 100%;
+    height: 8px;
+    margin-bottom: 1rem;
+    border-radius: 3px;
+    overflow: hidden;
+}
+
+.contributions-funnel .funnel-accepted {
+    fill: #28a745;
+}
+
+.contributions-funnel .funnel-declined {
+    fill: #6c757d;
+}
+
+.contributions-funnel .funnel-pending {
+    fill: #adb5bd;
+}
+
+.contributions-funnel .funnel-unrecorded {
+    fill: #ced4da;
+}

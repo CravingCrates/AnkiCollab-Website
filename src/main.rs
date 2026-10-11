@@ -13,6 +13,7 @@
 pub mod changelog_manager;
 pub mod cleanser;
 pub mod commit_manager;
+pub mod contribution_manager;
 pub mod database;
 pub mod error;
 pub mod maintainer_manager;
@@ -23,6 +24,8 @@ pub mod note_manager;
 pub mod notetype_manager;
 pub mod notification_manager;
 pub mod optional_tags_manager;
+pub mod pairing;
+pub mod passkey;
 pub mod stats_manager;
 pub mod structs;
 pub mod suggestion_manager;
@@ -39,7 +42,7 @@ use tower::ServiceBuilder;
 use tower_governor::{governor::GovernorConfigBuilder, GovernorLayer};
 use user::{
     hash_user_id, notify_offsite_deletion, purge_deleted_account_data, Auth, ChangePasswordRequest,
-    Credentials, User,
+    Credentials, SessionAge, User,
 };
 
 use axum_client_ip::{ClientIp, ClientIpSource};
@@ -88,12 +91,40 @@ fn check_login(user: Option<User>) -> Result<User, Error> {
     }
 }
 
+fn safe_next(raw: Option<&str>) -> String {
+    let Some(value) = raw else {
+        return "/".to_string();
+    };
+
+    let is_local_path = value.starts_with('/')
+        && !value.starts_with("//")
+        && !value.contains('\\')
+        && value.len() <= 512
+        && !value.chars().any(char::is_control);
+
+    if is_local_path {
+        value.to_string()
+    } else {
+        "/".to_string()
+    }
+}
+
 async fn forward_donation() -> impl IntoResponse {
     Redirect::permanent("https://ankiweb.net/shared/review/1957538407")
 }
 
-async fn get_login(State(appstate): State<Arc<AppState>>) -> Result<impl IntoResponse, Error> {
-    let context = tera::Context::new();
+#[derive(Deserialize)]
+struct NextQuery {
+    #[serde(default)]
+    next: Option<String>,
+}
+
+async fn get_login(
+    State(appstate): State<Arc<AppState>>,
+    axum::extract::Query(query): axum::extract::Query<NextQuery>,
+) -> Result<impl IntoResponse, Error> {
+    let mut context = tera::Context::new();
+    context.insert("next", &safe_next(query.next.as_deref()));
     let rendered_template = appstate.tera.render("login.html", &context)?;
     Ok(Html(rendered_template))
 }
@@ -102,15 +133,19 @@ async fn post_login(
     Extension(auth): Extension<Arc<Auth>>,
     axum::Form(form): axum::Form<Credentials>,
 ) -> Result<impl IntoResponse, Error> {
+    let destination = safe_next(form.next.as_deref());
     let res = auth.login(form, ip).await?;
 
-    let mut response = axum::response::Redirect::to("/").into_response();
+    Ok(redirect_with_cookie(&destination, &res))
+}
+
+fn redirect_with_cookie(location: &str, cookie: &str) -> axum::response::Response {
+    let mut response = axum::response::Redirect::to(location).into_response();
     response.headers_mut().insert(
         header::SET_COOKIE,
-        header::HeaderValue::from_str(&res).unwrap(),
+        header::HeaderValue::from_str(cookie).unwrap(),
     );
-
-    Ok(response)
+    response
 }
 
 async fn post_signup(
@@ -118,9 +153,9 @@ async fn post_signup(
     Extension(auth): Extension<Arc<Auth>>,
     axum::Form(form): axum::Form<Credentials>,
 ) -> Result<impl IntoResponse, Error> {
-    auth.signup(form.clone(), ip).await?;
-    // Reuse login flow to set the cookie header
-    post_login(ClientIp(ip), Extension(auth), axum::Form(form)).await
+    let user = auth.signup(form, ip).await?;
+    let cookie = auth.complete_login(user.id(), ip, false).await?;
+    Ok(redirect_with_cookie("/welcome", &cookie))
 }
 
 fn error_page(appstate: &Arc<AppState>, message: &str) -> Result<Html<String>, Error> {
@@ -136,12 +171,38 @@ async fn get_signup(State(appstate): State<Arc<AppState>>) -> Result<impl IntoRe
     Ok(Html(rendered_template))
 }
 
+async fn get_welcome(
+    State(appstate): State<Arc<AppState>>,
+    session: Option<SessionAge>,
+    user: Option<User>,
+) -> Result<axum::response::Response, Error> {
+    let user = check_login(user)?;
+    if passkey::passkey_count(&appstate, user.id()).await? > 0 {
+        return Ok(axum::response::Redirect::to("/").into_response());
+    }
+
+    let show_passkey_password = !session.is_some_and(|age| age.is_within(passkey::STEP_UP_WINDOW));
+
+    let mut context = tera::Context::new();
+    context.insert("user", &user);
+    context.insert("show_passkey_password", &show_passkey_password);
+    let rendered_template = appstate.tera.render("welcome_passkey.html", &context)?;
+    Ok(Html(rendered_template).into_response())
+}
+
 async fn index(
     State(appstate): State<Arc<AppState>>,
     user: Option<User>,
 ) -> Result<impl IntoResponse, Error> {
     let mut context = tera::Context::new();
+
+    let show_passkey_prompt = match &user {
+        Some(signed_in) => passkey::passkey_count(&appstate, signed_in.id()).await? == 0,
+        None => false,
+    };
+
     context.insert("user", &user);
+    context.insert("show_passkey_prompt", &show_passkey_prompt);
     let rendered_template = appstate.tera.render("index.html", &context)?;
     Ok(Html(rendered_template))
 }
@@ -203,6 +264,10 @@ async fn get_profile(
     let user = check_login(user)?;
     let mut context = tera::Context::new();
     context.insert("user", &user);
+    context.insert(
+        "passkeys",
+        &passkey::passkeys_for_profile(&appstate, user.id()).await?,
+    );
     let rendered_template = appstate.tera.render("profile.html", &context)?;
     Ok(Html(rendered_template))
 }
@@ -384,34 +449,6 @@ async fn post_maintainers(
         maintainer_manager::remove_maintainer(&appstate, deck_id, data.username).await
     }
 }
-
-// async fn post_media_manager(
-//     State(appstate): State<Arc<AppState>>,
-//     user: User,
-//     Json(update_media): Json<structs::GDriveInfo>
-// ) -> Result<impl IntoResponse, Error> {
-//     let data = update_media;
-
-//     let deck_id: i64 = owned_deck_id(&appstate, &data.deck, user.id()).await?;
-
-//     gdrive_manager::update_media(&appstate, deck_id, data).await
-// }
-
-// async fn media_manager(
-//     State(appstate): State<Arc<AppState>>,
-//     user: User,
-//     Path(deck_hash): Path<String>,
-// ) -> Result<impl IntoResponse, Error> {
-//     let _ = owned_deck_id(&appstate, &deck_hash, user.id()).await?;
-//     let mut context = tera::Context::new();
-//     context.insert("hash", &deck_hash);
-//     context.insert("user", &user);
-
-//     let rendered_template = appstate.tera
-//         .render("media_manager.html", &context)
-//         .expect("Failed to render template");
-//     Ok(Html(rendered_template))
-// }
 
 async fn show_maintainers(
     State(appstate): State<Arc<AppState>>,
@@ -812,7 +849,6 @@ async fn deny_commit(
     }
 }
 
-/// Bulk approve or deny selected notes within a commit
 async fn bulk_note_action(
     State(appstate): State<Arc<AppState>>,
     user: User,
@@ -1474,45 +1510,6 @@ async fn accept_field(
     }
 }
 
-// async fn update_field(
-//     State(appstate): State<Arc<AppState>>,
-//     user: User,
-//     Json(edit_optional_tag): Json<structs::UpdateFieldSuggestion>,
-// ) -> Result<impl IntoResponse, Error> {
-//     let data = edit_optional_tag;
-//     let deck_id = match get_deck_by_field_id(&appstate, data.field_id).await {
-//         Ok(deck_id) => deck_id,
-//         Err(error) => {
-//             println!("Error: {error}");
-//             return Ok(String::new());
-//         }
-//     };
-
-//     if !access_check(&appstate, deck_id, &user).await? {
-//         return Ok(String::new());
-//     }
-
-//     let mut client = database::client(&appstate).await?;
-//     let tx = client.transaction().await?;
-//     match suggestion_manager::update_field_suggestion(&tx, data.field_id, &data.content).await {
-//         Ok(_res) => {
-//             tx.commit().await?;
-//             match commit_manager::get_field_diff(&appstate, data.field_id).await {
-//                 Ok(diff) => Ok(diff),
-//                 Err(error) => {
-//                     println!("Error: {error}");
-//                     Ok(String::new())
-//                 }
-//             }
-//         }
-//         Err(error) => {
-//             println!("Error: {error}");
-//             let _ = tx.rollback().await;
-//             Ok(String::new())
-//         }
-//     }
-// }
-
 /// Get all fields for a note, for the "Edit All Fields" panel
 async fn get_all_fields_for_edit(
     State(appstate): State<Arc<AppState>>,
@@ -1994,6 +1991,7 @@ async fn show_statistics(
     context.insert("decks", &deck_info);
     context.insert("notes", &notes_info);
     context.insert("base", &deck_base_info);
+    context.insert("deck_hash", &deck_hash);
 
     let rendered_template = appstate
         .tera
@@ -2162,6 +2160,222 @@ async fn deck_overview(
         .expect("Failed to render template");
 
     // Return the rendered HTML as the response
+    Ok(Html(rendered_template))
+}
+
+#[derive(serde::Deserialize)]
+struct ContributionsQuery {
+    bucket: Option<String>,
+    active: Option<String>,
+    days: Option<i64>,
+}
+
+impl ContributionsQuery {
+    fn granularity(&self) -> contribution_manager::Granularity {
+        match self.bucket.as_deref() {
+            Some("weekly") => contribution_manager::Granularity::Weekly,
+            _ => contribution_manager::Granularity::Daily,
+        }
+    }
+
+    fn active_filter(&self) -> &'static str {
+        match self.active.as_deref() {
+            Some("30") => "30",
+            Some("90") => "90",
+            _ => "all",
+        }
+    }
+
+    fn window_days(&self) -> i64 {
+        self.days.unwrap_or(365).clamp(7, 1095)
+    }
+}
+
+async fn contributions_deck(
+    appstate: &Arc<AppState>,
+    deck_hash: &str,
+) -> Return<Option<(i64, String)>> {
+    let client = database::client(appstate).await?;
+    let row = client
+        .query_opt(
+            "SELECT id, COALESCE(NULLIF(BTRIM(full_path), ''), NULLIF(BTRIM(name), ''), '')
+               FROM anki.decks
+              WHERE human_hash = $1 AND deleted_at IS NULL",
+            &[&deck_hash],
+        )
+        .await?;
+    Ok(row.map(|row| {
+        let path: String = row.get(1);
+        let display = contribution_manager::deck_display_name_from_path(&path);
+        (row.get(0), display)
+    }))
+}
+
+async fn show_contributions(
+    State(appstate): State<Arc<AppState>>,
+    Path(deck_hash): Path<String>,
+    Query(params): Query<ContributionsQuery>,
+    user: Option<User>,
+) -> Result<impl IntoResponse, Error> {
+    let user = check_login(user)?;
+
+    let Some((deck_id, deck_name)) = contributions_deck(&appstate, &deck_hash).await? else {
+        return error_page(&appstate, "Deck not found");
+    };
+
+    if !access_check(&appstate, deck_id, &user).await? {
+        return Err(error::Error::Unauthorized);
+    }
+
+    let window_days = params.window_days();
+    let granularity = params.granularity();
+    let active_filter = params.active_filter();
+
+    let funnel = contribution_manager::get_funnel(&appstate, deck_id).await?;
+    let speed = contribution_manager::get_review_speed(&appstate, deck_id).await?;
+    let team = contribution_manager::get_team(&appstate, deck_id).await?;
+    let contributors = contribution_manager::get_contributors(&appstate, deck_id).await?;
+    let top_contributors =
+        contribution_manager::get_top_contributors(&appstate, deck_id, 30).await?;
+    let month_impact = contribution_manager::get_month_impact(&appstate, deck_id).await?;
+    let distinct_contributors =
+        contribution_manager::count_contributors(&appstate, deck_id).await?;
+    let subscribers = contribution_manager::count_subscribers(&appstate, deck_id).await?;
+    let tracking_since = contribution_manager::tracking_since(&appstate, deck_id).await?;
+    let activity_tracked = contribution_manager::activity_tracked(&appstate, deck_id).await?;
+    let (snapshots, new_by_date) =
+        contribution_manager::get_timeline(&appstate, deck_id, window_days).await?;
+
+    let timeline = contribution_manager::build_timeline(&snapshots, &new_by_date, granularity);
+
+    let breakdown_visible = contribution_manager::breakdown_visible(distinct_contributors);
+
+    let digest = contribution_manager::digest_sentences(&contribution_manager::DigestInput {
+        people_this_month: month_impact.people,
+        accepted_this_month: month_impact.accepted,
+        all_time_contributors: distinct_contributors,
+        subscribers,
+        median_review_hours: speed.median_hours,
+        pending: speed.pending,
+        oldest_pending_days: speed.oldest_pending_days,
+    });
+
+    let mut context = tera::Context::new();
+    context.insert("user", &user);
+    context.insert("deck_hash", &deck_hash);
+    context.insert("deck_name", &deck_name);
+    context.insert("digest", &digest);
+    context.insert("funnel", &funnel);
+    context.insert("speed", &speed);
+    context.insert("team", &team);
+    context.insert("contributors", &contributors);
+    context.insert("top_contributors", &top_contributors);
+    context.insert("distinct_contributors", &distinct_contributors);
+    context.insert("contributors_cap", &contribution_manager::MAX_CONTRIBUTORS);
+    context.insert("breakdown_visible", &breakdown_visible);
+    context.insert(
+        "tracking_since",
+        &tracking_since.map(|date| date.format("%Y-%m-%d").to_string()),
+    );
+    context.insert("activity_tracked", &activity_tracked);
+    context.insert("timeline", &timeline);
+    context.insert(
+        "bucket",
+        &match granularity {
+            contribution_manager::Granularity::Daily => "daily",
+            contribution_manager::Granularity::Weekly => "weekly",
+        },
+    );
+    context.insert("active_filter", &active_filter);
+    context.insert("window_days", &window_days);
+    // Chart inputs, kept flat so the page needs no templating gymnastics.
+    context.insert(
+        "chart_labels",
+        &timeline.iter().map(|b| b.label.clone()).collect::<Vec<_>>(),
+    );
+    context.insert(
+        "chart_total",
+        &timeline.iter().map(|b| b.total).collect::<Vec<_>>(),
+    );
+    context.insert(
+        "chart_active_30d",
+        &timeline.iter().map(|b| b.active_30d).collect::<Vec<_>>(),
+    );
+    context.insert(
+        "chart_active_90d",
+        &timeline.iter().map(|b| b.active_90d).collect::<Vec<_>>(),
+    );
+    context.insert(
+        "chart_new",
+        &timeline.iter().map(|b| b.new).collect::<Vec<_>>(),
+    );
+    context.insert(
+        "chart_unsubscribed",
+        &timeline.iter().map(|b| b.unsubscribed).collect::<Vec<_>>(),
+    );
+
+    let rendered_template = appstate.tera.render("contributions.html", &context)?;
+    Ok(Html(rendered_template))
+}
+
+/// Which slice of a contributor's suggestions to list.
+#[derive(serde::Deserialize)]
+struct ContributorSuggestionsQuery {
+    state: Option<String>,
+}
+
+async fn show_contributor_suggestions(
+    State(appstate): State<Arc<AppState>>,
+    Path((deck_hash, username)): Path<(String, String)>,
+    Query(params): Query<ContributorSuggestionsQuery>,
+    user: Option<User>,
+) -> Result<impl IntoResponse, Error> {
+    let user = check_login(user)?;
+
+    let Some((deck_id, deck_name)) = contributions_deck(&appstate, &deck_hash).await? else {
+        return error_page(&appstate, "Deck not found");
+    };
+
+    if !access_check(&appstate, deck_id, &user).await? {
+        return Err(error::Error::Unauthorized);
+    }
+
+    // The same k-anonymity floor the listing applies.
+    if !contribution_manager::breakdown_visible(
+        contribution_manager::count_contributors(&appstate, deck_id).await?,
+    ) {
+        return Err(error::Error::Unauthorized);
+    }
+
+    let state = match params.state.as_deref() {
+        Some("archived") => "archived",
+        _ => "open",
+    };
+
+    let suggestions =
+        contribution_manager::get_contributor_suggestions(&appstate, deck_id, &username, state)
+            .await?;
+
+    let mut context = tera::Context::new();
+    context.insert("user", &user);
+    context.insert("deck_hash", &deck_hash);
+    context.insert("deck_name", &deck_name);
+    context.insert("username", &username);
+    context.insert(
+        "username_url",
+        &contribution_manager::url_path_segment(&username),
+    );
+    context.insert("state", &state);
+    context.insert("suggestions", &suggestions);
+    context.insert(
+        "suggestions_truncated",
+        &(i64::try_from(suggestions.len()).unwrap_or(i64::MAX)
+            == contribution_manager::MAX_CONTRIBUTOR_SUGGESTIONS),
+    );
+
+    let rendered_template = appstate
+        .tera
+        .render("contributions_contributor.html", &context)?;
     Ok(Html(rendered_template))
 }
 
@@ -2524,6 +2738,7 @@ async fn main() {
             ::std::process::exit(1);
         }
     }
+
     tera.autoescape_on(vec![".html", ".sql", ".htm", ".xml"]);
 
     let pool = database::establish_pool_connection()
@@ -2569,11 +2784,25 @@ async fn main() {
     )
     .expect("Failed to initialize media token service");
 
+    // Fails the process rather than falling back to a default: an RP_ID/RP_ORIGIN
+    // mismatch fails silently in the browser, so a misconfigured deployment must
+    // not start. The resolved pair is logged once by webauthn_from_env.
+    let (webauthn, site_origin) = passkey::webauthn_from_env();
+    let webauthn = Arc::new(webauthn);
+
+    // Per-address rate limiting for the unauthenticated passkey sign-in endpoints.
+    let passkey_guard = Arc::new(passkey::PasskeyGuard::new());
+
     let state = Arc::new(database::AppState {
         db_pool: Arc::new(pool),
         tera: Arc::new(tera),
         s3_client,
         media_token_service,
+        webauthn,
+        site_origin,
+        passkey_challenges: Arc::new(passkey::ChallengeStore::new()),
+        passkey_guard,
+        pairing_attempts: Arc::new(pairing::CodeGuessTracker::new()),
     });
 
     // Enable tracing.
@@ -2597,10 +2826,6 @@ async fn main() {
         })
     };
 
-    // Configure sentry tracing layer to only capture breadcrumbs, not events.
-    // We use explicit sentry::capture_message() for real errors in error.rs,
-    // so auto-capturing ERROR level would cause double-capture.
-    // Breadcrumbs still provide useful context for when real errors occur.
     let sentry_layer = sentry::integrations::tracing::layer().event_filter(|metadata| {
         match *metadata.level() {
             // Only capture breadcrumbs for context, not events
@@ -2626,6 +2851,22 @@ async fn main() {
         governor_limiter.retain_recent();
     });
 
+    let challenge_store = state.passkey_challenges.clone();
+    let passkey_guard = state.passkey_guard.clone();
+    let pairing_attempts = state.pairing_attempts.clone();
+    std::thread::spawn(move || loop {
+        std::thread::sleep(std::time::Duration::from_mins(1));
+        challenge_store.retain_recent();
+        passkey_guard.sweep();
+        pairing_attempts.retain_recent();
+        if !challenge_store.is_empty() {
+            tracing::debug!(
+                outstanding = challenge_store.len(),
+                "pruned expired WebAuthn challenges"
+            );
+        }
+    });
+
     // Second db connection for the auth. idk.. should prolly use the pool for this too
     let (client, connection) = tokio_postgres::connect(
         &env::var("DATABASE_URL").expect("DATABASE_URL must be set"),
@@ -2648,15 +2889,36 @@ async fn main() {
         env::var("COOKIE_SECURE").unwrap_or("false".to_string()) == "true",
     ));
 
+    let passkey_routes = Router::new()
+        .route(
+            "/profile/passkeys/register/start",
+            post(passkey::post_register_start),
+        )
+        .route(
+            "/profile/passkeys/register/finish",
+            post(passkey::post_register_finish),
+        )
+        .route(
+            "/profile/passkeys/delete",
+            post(passkey::post_delete_passkey),
+        )
+        .route("/login/passkey/start", post(passkey::post_login_start))
+        .route("/login/passkey/finish", post(passkey::post_login_finish))
+        .layer(GovernorLayer::new(governor_conf.clone()))
+        .layer(axum::middleware::map_response(passkey::no_store));
+
     let auth_routes = Router::new()
         .route("/login", get(get_login).post(post_login))
         .route("/signup", get(get_signup).post(post_signup))
         .route("/profile/change-password", post(post_change_password))
         .route("/profile/delete-account", post(delete_account))
+        .route("/pair", get(pairing::get_pair))
+        .route("/pair/approve", post(pairing::post_pair_approve))
         .layer(GovernorLayer::new(governor_conf.clone()));
 
     let app = Router::new()
         .merge(auth_routes)
+        .merge(passkey_routes)
         .route("/", get(index))
         .route("/terms", get(terms))
         .route("/privacy", get(privacy))
@@ -2664,13 +2926,12 @@ async fn main() {
         .route("/datenschutz", get(datenschutz))
         .route("/accessibility", get(accessibility_page))
         .route("/logout", get(logout))
+        .route("/welcome", get(get_welcome))
         .route("/profile", get(get_profile))
         .route("/OptionalTags", post(post_optional_tags))
         .route("/OptionalTags/{deck_hash}", get(show_optional_tags))
         .route("/Maintainers/{deck_hash}", get(show_maintainers))
         .route("/Maintainers", post(post_maintainers))
-        // .route("/MediaManager/:deck_hash", get(media_manager))
-        // .route("/MediaManager", post(post_media_manager))
         .route("/EditNotetype/{notetype_id}", get(edit_notetype))
         .route(
             "/EditNotetype",
@@ -2695,6 +2956,11 @@ async fn main() {
         .route("/review/{note_id}", get(review_note))
         .route("/ToggleStats/{deck_hash}", post(toggle_stats))
         .route("/Statistics/{deck_hash}", get(show_statistics))
+        .route("/Contributions/{deck_hash}", get(show_contributions))
+        .route(
+            "/Contributions/{deck_hash}/contributor/{username}",
+            get(show_contributor_suggestions),
+        )
         .route("/UpdateStatsPages/{secret}", get(refresh_stats_cache))
         .route("/DenyNoteRemoval/{note_id}", post(deny_note_removal))
         .route("/AcceptNoteRemoval/{note_id}", post(remove_note_from_deck))
@@ -2790,5 +3056,72 @@ async fn shutdown_signal() {
     tokio::select! {
         () = ctrl_c => {},
         () = terminate => {},
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::structs::{CommitHistoryEvent, CommitHistoryNote};
+
+    #[test]
+    fn commit_history_template_renders_without_notes() {
+        let mut tera = Tera::default();
+        tera.register_filter("striptags", tera_contrib::regex::striptags);
+        tera.register_filter("json_encode", tera_contrib::json::json_encode);
+        tera.load_from_glob("src/templates/**/*.html").unwrap();
+        tera.autoescape_on(vec![".html", ".sql", ".htm", ".xml"]);
+
+        let mut context = tera::Context::new();
+        context.insert("commit_id", &1);
+        context.insert("notes", &Vec::<CommitHistoryNote>::new());
+        context.insert("user", &Option::<User>::None);
+
+        let rendered = tera.render("commit_history.html", &context).unwrap();
+
+        assert!(rendered.contains("No Changes Recorded"));
+    }
+
+    #[test]
+    fn commit_history_template_renders_denied_field_changes() {
+        let mut tera = Tera::default();
+        tera.register_filter("striptags", tera_contrib::regex::striptags);
+        tera.register_filter("json_encode", tera_contrib::json::json_encode);
+        tera.load_from_glob("src/templates/**/*.html").unwrap();
+        tera.autoescape_on(vec![".html", ".sql", ".htm", ".xml"]);
+
+        let mut context = tera::Context::new();
+        context.insert("commit_id", &1);
+        context.insert(
+            "notes",
+            &vec![CommitHistoryNote {
+                note_id: 1,
+                min_version: 1,
+                max_version: 1,
+                event_types: vec!["field_change_denied".to_string()],
+                events: vec![CommitHistoryEvent {
+                    id: 1,
+                    version: 1,
+                    event_type: "field_change_denied".to_string(),
+                    actor_username: None,
+                    created_at: "2026-01-01 00:00:00".to_string(),
+                    old_value: None,
+                    old_human: None,
+                    new_human: None,
+                    diff_html: None,
+                    field_name: None,
+                }],
+                field_added: 0,
+                field_updated: 0,
+                field_removed: 0,
+                tag_added: 0,
+                tag_removed: 0,
+                moved: false,
+                deleted: false,
+            }],
+        );
+        context.insert("user", &Option::<User>::None);
+
+        tera.render("commit_history.html", &context).unwrap();
     }
 }

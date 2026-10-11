@@ -5,6 +5,17 @@
 <head>
     {% set page_title = "Sign In" %}
     {% include "header_template.html" %}
+    <link rel="stylesheet" href="/static/css/auth.css">
+
+    <noscript>
+        <style>
+            [data-login-step="verification"] { display: grid !important; }
+            [data-login-continue] { display: none !important; }
+            [data-login-password-reveal] { display: none !important; }
+            [data-login-password-fields] { display: grid !important; }
+            [data-passkey-section] { display: none !important; }
+        </style>
+    </noscript>
 
 </head>
 
@@ -26,42 +37,71 @@
 
     
 
-    <main id="main-content" class="mt-5">
+    <main id="main-content" class="auth-shell">
 
-    <div class="login-form-bg h-100">
-        <div class="container h-100">
-            <div class="row justify-content-center h-100">
-                <div class="col-xl-6">
-                    <div class="form-input-content">
-                        <div class="card login-form mb-0">
-                            <div class="card-body pt-5">
-                                <h1 class="text-center">Sign in</h1>
-        
-                                <form action="/login" method="post" class="mt-5 mb-5 login-input">
-                                    <div class="form-group">
-                                        <label for="login-username" class="visually-hidden">Username</label>
-                                        <input type="text" class="form-control" placeholder="Username" name="username" id="login-username" autocomplete="username" required maxlength="32">
-                                    </div>
-                                    <div class="form-group">
-                                        <label for="login-password" class="visually-hidden">Password</label>
-                                        <input type="password" class="form-control" placeholder="Password" name="password" id="login-password" autocomplete="current-password" required maxlength="128">
-                                    </div>                                    
-                                    <div class="form-group">
-                                        <label for="cookie">
-                                            <input type="checkbox" class="css-control-input" id="cookie" name="cookie"> <span class="css-control-indicator"></span> Stay signed in (uses cookie)
-                                        </label>
-                                    </div>
-                                    <button class="btn login-form__btn submit w-100" type="submit">Sign In</button>
-                                </form>                                
-                                <p class="mt-5 login-form__footer">No account? <a href="/signup" class="text-primary">Create one!</a></p>
-                            </div>
-                        </div>
-                    </div>
-                </div>
+      <div class="auth-card">
+        <h1 class="auth-title">Sign in</h1>
+        <p class="auth-sub">Welcome back to AnkiCollab.</p>
+
+        <form action="/login" method="post" class="auth-form">
+          <input type="hidden" name="next" value="{{ next | default(value="") }}">
+
+          <div class="auth-step" data-login-step="username">
+            <button type="button" class="auth-btn auth-btn--primary" data-passkey-action="sign-in-device" data-passkey-label hidden>
+              Sign in with a passkey
+            </button>
+
+            <div>
+              <label for="login-username" class="visually-hidden">Username</label>
+              <input type="text" class="form-control" placeholder="Username" name="username" id="login-username" autocomplete="username webauthn" required maxlength="32">
             </div>
-        </div>
-    </div>
-    
+
+            <button type="button" class="auth-btn auth-btn--secondary" data-login-continue>Continue</button>
+
+            <p class="auth-error" data-login-error role="alert" hidden></p>
+          </div>
+
+          <div class="form-check">
+            <input type="checkbox" class="form-check-input" id="cookie" name="cookie">
+            <label class="form-check-label" for="cookie">Keep me signed in on this device</label>
+          </div>
+
+          
+          <div class="auth-step" data-login-step="verification" hidden>
+            <p class="auth-identity">
+              <span class="auth-identity-name" data-login-identity></span>
+              <button type="button" class="auth-identity-change" data-login-change>Change</button>
+            </p>
+
+            <div class="auth-alt" data-passkey-section>
+              <button type="button" class="auth-btn auth-btn--primary" data-passkey-action="sign-in" data-passkey-label>
+                Sign in without a password
+              </button>
+            </div>
+
+            <div class="auth-fallback">
+              <button type="button" class="auth-btn auth-btn--secondary" data-login-password-reveal aria-controls="login-password-fields">
+                Use your password instead
+              </button>
+
+              <div class="auth-fallback-fields" id="login-password-fields" data-login-password-fields hidden>
+                <div class="auth-password">
+                  <label for="login-password" class="visually-hidden">Password</label>
+                  <input type="password" class="form-control" placeholder="Password" name="password" id="login-password" autocomplete="current-password" required maxlength="128">
+                  <button type="button" class="auth-reveal" data-password-toggle="login-password" aria-pressed="false" aria-label="Show password">Show</button>
+                </div>
+
+                <button type="submit" class="auth-btn auth-btn--primary">Sign in</button>
+              </div>
+            </div>
+
+            <p id="passkey-error" class="auth-error" role="alert" hidden></p>
+          </div>
+        </form>
+
+        <p class="auth-footer">No account? <a href="/signup">Create one</a></p>
+      </div>
+
     </main>
 
     <!--**********************************
@@ -72,6 +112,8 @@
     <script src="/static/js/settings.js"></script>
     <script src="/static/js/gleek.js"></script>
     <script src="/static/js/styleSwitcher.js"></script>
+    <script src="/static/js/auth.js"></script>
+    <script src="/static/js/passkeys.js"></script>
 </body>
 </html>
 

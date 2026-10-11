@@ -339,6 +339,7 @@ pub async fn fetch_commit_history(
             event_type: event_type.clone(),
             actor_username: row.get(7),
             created_at: row.get(8),
+            old_value,
             old_human,
             new_human,
             diff_html,

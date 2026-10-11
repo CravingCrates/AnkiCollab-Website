@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    {% set page_title = "Contributions" %}
+    {% include "header_template.html" %}
+    <link
+    href="/static/plugins/tables/css/datatable/dataTables.bootstrap4.min.css"
+    rel="stylesheet"
+  />
+    <link href="/static/css/contributions.css" rel="stylesheet" />
+  </head>
+  {% include "layout_header.html" %}
+
+        <div class="container-fluid mt-3">
+          <div class="mb-4">
+            <h1 class="mb-1">Contributions</h1>
+            <p class="text-muted mb-0">
+              {{ deck_name }} &middot;
+              <a href="/Statistics/{{deck_hash}}">Notes statistics</a>
+            </p>
+          </div>
+
+          <div class="row mb-4">
+            <div class="col-lg-10 col-xl-8">
+              {% for sentence in digest %}
+              <p class="lead text-dark mb-2">{{ sentence }}</p>
+              {% endfor %}
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-body">
+              <h2 class="mb-1">Subscriber timeline</h2>
+              <p class="text-muted">
+                {% if tracking_since %}
+                Tracking since {{ tracking_since }}. Nothing before that date was recorded, so the
+                line starts small and grows from there.
+                {% else %}
+                Subscriber history begins with the first daily snapshot, a job that runs once a
+                day. The first one has not run yet.
+                {% endif %}
+                {% if not activity_tracked %}
+                Per-subscriber sync activity is not recorded yet; that begins with the next add-on
+                update. Until then only the subscriber count is shown.
+                {% endif %}
+              </p>
+
+              <div class="mb-3">
+                <div class="btn-group btn-group-sm mb-2" role="group" aria-label="Bucket size">
+                  <a class="btn {% if bucket == "daily" %}btn-secondary{% else %}btn-outline-secondary{% endif %}" href="/Contributions/{{deck_hash}}?bucket=daily&amp;active={{active_filter}}&amp;days={{window_days}}"{% if bucket == "daily" %} aria-current="true"{% endif %}>Daily</a>
+                  <a class="btn {% if bucket == "weekly" %}btn-secondary{% else %}btn-outline-secondary{% endif %}" href="/Contributions/{{deck_hash}}?bucket=weekly&amp;active={{active_filter}}&amp;days={{window_days}}"{% if bucket == "weekly" %} aria-current="true"{% endif %}>Weekly</a>
+                </div>
+                <div class="btn-group btn-group-sm mb-2" role="group" aria-label="Which subscribers to count">
+                  <a class="btn {% if active_filter == "all" or not activity_tracked %}btn-secondary{% else %}btn-outline-secondary{% endif %}" href="/Contributions/{{deck_hash}}?bucket={{bucket}}&amp;active=all&amp;days={{window_days}}"{% if active_filter == "all" or not activity_tracked %} aria-current="true"{% endif %}>All</a>
+                  {% if activity_tracked %}
+                  <a class="btn {% if active_filter == "30" %}btn-secondary{% else %}btn-outline-secondary{% endif %}" href="/Contributions/{{deck_hash}}?bucket={{bucket}}&amp;active=30&amp;days={{window_days}}"{% if active_filter == "30" %} aria-current="true"{% endif %}>Active 30 days</a>
+                  <a class="btn {% if active_filter == "90" %}btn-secondary{% else %}btn-outline-secondary{% endif %}" href="/Contributions/{{deck_hash}}?bucket={{bucket}}&amp;active=90&amp;days={{window_days}}"{% if active_filter == "90" %} aria-current="true"{% endif %}>Active 90 days</a>
+                  {% endif %}
+                </div>
+              </div>
+
+              {% if timeline | length > 0 %}
+              <div class="contributions-chart">
+                <canvas id="subscriberTimelineChart"
+                        role="img"
+                        aria-label="Subscribers over time. The table below lists the same numbers."
+                        data-labels='{{ chart_labels | json_encode }}'
+                        data-series='{{ chart_total | json_encode }}'
+                        data-active-30d='{{ chart_active_30d | json_encode }}'
+                        data-active-90d='{{ chart_active_90d | json_encode }}'
+                        data-new='{{ chart_new | json_encode }}'
+                        data-unsubscribed='{{ chart_unsubscribed | json_encode }}'
+                        data-view="{{ active_filter }}"
+                        data-tracked="{{ activity_tracked }}"></canvas>
+              </div>
+              <div class="table-responsive">
+                <table id="timelineOverview" class="table table-sm">
+                  <caption class="visually-hidden">Subscribers, active subscribers and subscription flows for every bucket</caption>
+                  <thead>
+                    <tr>
+                      <th scope="col">Date</th>
+                      <th scope="col">Subscribers</th>
+                      <th scope="col">Active 30d</th>
+                      <th scope="col">Active 90d</th>
+                      <th scope="col">New</th>
+                      <th scope="col">Unsubscribed</th>
+                      <th scope="col">Net</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {% for point in timeline %}
+                    <tr>
+                      <td>{{ point.label }}</td>
+                      <td>{{ point.total }}</td>
+                      <td>{% if activity_tracked %}{{ point.active_30d }}{% else %}<span title="Not tracked yet">&mdash;</span><span class="visually-hidden">not tracked yet</span>{% endif %}</td>
+                      <td>{% if activity_tracked %}{{ point.active_90d }}{% else %}<span title="Not tracked yet">&mdash;</span><span class="visually-hidden">not tracked yet</span>{% endif %}</td>
+                      <td>{{ point.new }}</td>
+                      <td>{{ point.unsubscribed }}</td>
+                      <td>{{ point.net }}</td>
+                    </tr>
+                    {% endfor %}
+                  </tbody>
+                </table>
+              </div>
+              {% else %}
+              <p class="mb-0">
+                The first daily snapshot has not run yet. Once it has, subscribers, new
+                subscriptions and unsubscribes are charted here.
+              </p>
+              {% endif %}
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-body">
+              <h2 class="mb-1">Suggestion funnel</h2>
+              <p class="text-muted">
+                Every suggestion sent for this deck. "Feedback given" means it was looked at and did
+                not go in as it was, which is a normal part of working on a deck together.
+              </p>
+
+              {% if funnel.submitted == 0 %}
+              <p class="mb-0">No suggestions yet.</p>
+              {% else %}
+              <svg class="contributions-funnel"
+                   viewBox="0 0 {{ funnel.submitted }} 1"
+                   preserveAspectRatio="none"
+                   role="img"
+                   aria-hidden="true"
+                   focusable="false">
+                {% if funnel.accepted > 0 %}<rect class="funnel-accepted" x="0" y="0" width="{{ funnel.accepted }}" height="1"></rect>{% endif %}
+                {% if funnel.declined > 0 %}<rect class="funnel-declined" x="{{ funnel.accepted }}" y="0" width="{{ funnel.declined }}" height="1"></rect>{% endif %}
+                {% if funnel.pending > 0 %}<rect class="funnel-pending" x="{{ funnel.accepted + funnel.declined }}" y="0" width="{{ funnel.pending }}" height="1"></rect>{% endif %}
+                {% if funnel.unrecorded > 0 %}<rect class="funnel-unrecorded" x="{{ funnel.accepted + funnel.declined + funnel.pending }}" y="0" width="{{ funnel.unrecorded }}" height="1"></rect>{% endif %}
+              </svg>
+
+              <div class="table-responsive">
+                <table class="table table-sm mb-0">
+                  <caption class="visually-hidden">What became of every suggestion sent for this deck</caption>
+                  <thead>
+                    <tr>
+                      <th scope="col">Outcome</th>
+                      <th scope="col" class="text-right">Suggestions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <th scope="row" class="font-weight-normal">Accepted</th>
+                      <td class="text-right">{{ funnel.accepted }}</td>
+                    </tr>
+                    <tr>
+                      <th scope="row" class="font-weight-normal">Feedback given</th>
+                      <td class="text-right">{{ funnel.declined }}</td>
+                    </tr>
+                    <tr>
+                      <th scope="row" class="font-weight-normal">Waiting for review</th>
+                      <td class="text-right">{{ funnel.pending }}</td>
+                    </tr>
+                    {% if funnel.unrecorded > 0 %}
+                    <tr>
+                      <th scope="row" class="font-weight-normal">
+                        Reviewed, outcome not recorded
+                      </th>
+                      <td class="text-right">{{ funnel.unrecorded }}</td>
+                    </tr>
+                    {% endif %}
+                    <tr>
+                      <th scope="row" class="font-weight-normal">Submitted in total</th>
+                      <td class="text-right">{{ funnel.submitted }}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+
+              <p class="mb-0 mt-3">
+                {% if funnel.acceptance_ratio is not none %}
+                {{ (funnel.acceptance_ratio * 100) | round(precision=1) }}% of reviewed suggestions
+                were accepted.
+                {% else %}
+                An acceptance rate appears once five suggestions have been reviewed; below that it
+                would be noise rather than information.
+                {% endif %}
+              </p>
+              {% endif %}
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-body">
+              <h2 class="mb-1">Review speed</h2>
+              <p class="text-muted">
+                How long a suggestion waits before a maintainer looks at it.
+              </p>
+              <dl class="row mb-0">
+                <dt class="col-sm-7 font-weight-normal">Median wait</dt>
+                <dd class="col-sm-5 text-sm-right">
+                  {% if speed.median_hours is not none %}{% if speed.median_hours < 48 %}{{ speed.median_hours | round(precision=1) }} hours{% else %}{{ (speed.median_hours / 24) | round(precision=1) }} days{% endif %}{% else %}Not reviewed yet{% endif %}
+                </dd>
+                <dt class="col-sm-7 font-weight-normal">Slowest 10% of reviews</dt>
+                <dd class="col-sm-5 text-sm-right">
+                  {% if speed.p90_hours is not none %}{% if speed.p90_hours < 48 %}{{ speed.p90_hours | round(precision=1) }} hours{% else %}{{ (speed.p90_hours / 24) | round(precision=1) }} days{% endif %}{% else %}Not reviewed yet{% endif %}
+                </dd>
+                <dt class="col-sm-7 font-weight-normal">Waiting now</dt>
+                <dd class="col-sm-5 text-sm-right">
+                  {% if speed.pending == 0 %}
+                  Nothing waiting
+                  {% elif speed.oldest_pending_days is not none %}
+                  {{ speed.pending }}{% if speed.oldest_pending_days == 0 %}, the oldest since today{% else %}, the oldest for {{ speed.oldest_pending_days }}{% if speed.oldest_pending_days == 1 %} day{% else %} days{% endif %}{% endif %}
+                  {% else %}
+                  {{ speed.pending }}
+                  {% endif %}
+                </dd>
+              </dl>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-body">
+              <h2 class="mb-1">Maintainer team</h2>
+              <p class="text-muted">
+                Who has reviewed suggestions here. Reviews recorded before we started naming the
+                reviewer are grouped as one row.
+              </p>
+              {% if team | length > 0 %}
+              <div class="table-responsive">
+                <table id="teamOverview" class="table table-sm">
+                  <caption class="visually-hidden">Reviews performed per maintainer</caption>
+                  <thead>
+                    <tr>
+                      <th scope="col">Maintainer</th>
+                      <th scope="col" class="text-right">Reviewed</th>
+                      <th scope="col" class="text-right">Accepted</th>
+                      <th scope="col" class="text-right">Feedback given</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {% for member in team %}
+                    <tr>
+                      <th scope="row" class="font-weight-normal">
+                        {% if member.name %}{{ member.name }}{% else %}<span class="text-muted">Not recorded</span>{% endif %}
+                      </th>
+                      <td class="text-right">{{ member.reviewed }}</td>
+                      <td class="text-right">{{ member.accepted }}</td>
+                      <td class="text-right">{{ member.declined }}</td>
+                    </tr>
+                    {% endfor %}
+                  </tbody>
+                </table>
+              </div>
+              {% else %}
+              <p class="mb-0">No reviews have been recorded for this deck yet.</p>
+              {% endif %}
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-body">
+              <h2 class="mb-1">Contributors</h2>
+              {% if not breakdown_visible %}
+              <p class="mb-0">
+                {{ distinct_contributors }} {% if distinct_contributors == 1 %}person has{% else %}people have{% endif %}
+                sent suggestions for this deck. A per-person breakdown is withheld below five
+                contributors, because with so few it would say more about an individual than about
+                the deck.
+              </p>
+              {% else %}
+              <p class="text-muted">
+                {{ distinct_contributors }} contributors in total; showing up to {{ contributors_cap }},
+                most accepted suggestions first.
+              </p>
+              <div class="table-responsive">
+                <table id="contributorsOverview" class="table table-sm">
+                  <caption class="visually-hidden">Suggestions per contributor</caption>
+                  <thead>
+                    <tr>
+                      <th scope="col">Contributor</th>
+                      <th scope="col" class="text-right">Submitted</th>
+                      <th scope="col" class="text-right">Accepted</th>
+                      <th scope="col" class="text-right">Feedback given</th>
+                      <th scope="col" class="text-right">Waiting</th>
+                      <th scope="col">Last contribution</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {% for contributor in contributors %}
+                    <tr>
+                      <th scope="row" class="font-weight-normal">
+                        <a href="/Contributions/{{deck_hash}}/contributor/{{contributor.username_url}}">{{ contributor.username }}</a>
+                      </th>
+                      <td class="text-right">{{ contributor.submitted }}</td>
+                      <td class="text-right">{{ contributor.accepted }}</td>
+                      <td class="text-right">{{ contributor.declined }}</td>
+                      <td class="text-right">{{ contributor.pending }}</td>
+                      <td>{% if contributor.last_contribution %}{{ contributor.last_contribution }}{% else %}<span class="text-muted">&mdash;</span>{% endif %}</td>
+                    </tr>
+                    {% endfor %}
+                  </tbody>
+                </table>
+              </div>
+              {% endif %}
+            </div>
+          </div>
+
+          {% if breakdown_visible and top_contributors | length > 0 %}
+          <div class="card">
+            <div class="card-body">
+              <h2 class="mb-1">Top contributors, last 30 days</h2>
+              <p class="text-muted">
+                Accepted suggestions only, so this list cannot be read as a ranking of activity.
+              </p>
+              <div class="table-responsive">
+                <table id="topContributorsOverview" class="table table-sm mb-0">
+                  <caption class="visually-hidden">Contributors with accepted suggestions in the last 30 days</caption>
+                  <thead>
+                    <tr>
+                      <th scope="col">Contributor</th>
+                      <th scope="col" class="text-right">Accepted</th>
+                      <th scope="col">Last accepted</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {% for contributor in top_contributors %}
+                    <tr>
+                      <th scope="row" class="font-weight-normal">
+                        <a href="/Contributions/{{deck_hash}}/contributor/{{contributor.username_url}}">{{ contributor.username }}</a>
+                      </th>
+                      <td class="text-right">{{ contributor.accepted }}</td>
+                      <td>{% if contributor.last_contribution %}{{ contributor.last_contribution }}{% else %}<span class="text-muted">&mdash;</span>{% endif %}</td>
+                    </tr>
+                    {% endfor %}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+          {% endif %}
+        </div>
+        {% include "layout_footer.html" %}
+        <script src="/static/plugins/jquery/jquery.min.js"></script>
+        <script src="/static/plugins/chart.js/Chart.bundle.min.js"></script>
+        <script src="/static/plugins/tables/js/datatable/dataTables.bootstrap4.min.js"></script>
+        <script src="/static/plugins/tables/js/datatable-init/datatable-basic.min.js"></script>
+        <script src="/static/js/contributions.js"></script>
+  </body>
+</html>

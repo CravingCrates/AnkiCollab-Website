@@ -1,0 +1,424 @@
+.auth-shell {
+    /* Matches the theme's body canvas, so the page still looks like the site. */
+    --auth-canvas: #f3f3f9;
+    --auth-surface: #ffffff;
+    --auth-hairline: #e3e3e8;
+    --auth-input-border: #d2d2d7;
+    --auth-ink: #1d1d1f;
+    --auth-ink-soft: #595959;
+    --auth-accent: var(--primary, #006699);
+    --auth-accent-tint: #ebf3f7;
+    --auth-radius: 12px;
+    /* One token for every control, so the reveal button stays centred on the
+       input even when the validator appends a message underneath it. */
+    --auth-control-height: 48px;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    padding: 24px 20px;
+    background-color: var(--auth-canvas);
+}
+
+/* Mobile browsers shrink the visual viewport as the URL bar moves; dvh avoids
+   the card jumping while that happens. */
+@supports (min-height: 100dvh) {
+    .auth-shell {
+        min-height: 100dvh;
+    }
+}
+
+.auth-card {
+    width: 100%;
+    max-width: 400px;
+    padding: 40px 36px;
+    background-color: var(--auth-surface);
+    border: 1px solid var(--auth-hairline);
+    border-radius: 18px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+    color: var(--auth-ink);
+}
+
+@media (max-width: 480px) {
+    .auth-card {
+        padding: 32px 22px;
+        border-radius: 16px;
+    }
+}
+
+/* A single tinted square, the way a system sheet presents a biometric prompt. */
+.auth-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 64px;
+    height: 64px;
+    margin-bottom: 22px;
+    border-radius: 18px;
+    background-color: var(--auth-accent-tint);
+    color: var(--auth-accent);
+}
+
+.auth-title {
+    margin: 0 0 6px;
+    font-size: 1.75rem;
+    font-weight: 600;
+    line-height: 1.15;
+    letter-spacing: -0.022em;
+    color: var(--auth-ink);
+}
+
+.auth-sub {
+    margin: 0 0 28px;
+    font-size: 0.9375rem;
+    line-height: 1.45;
+    color: var(--auth-ink-soft);
+}
+
+/* --------------------------------------------------------------------------
+   Form
+   -------------------------------------------------------------------------- */
+
+.auth-form {
+    display: grid;
+    gap: 16px;
+}
+
+/* The theme makes every input 34px tall with square corners and an underline
+   that is barely visible against white. */
+.auth-form .form-control {
+    height: var(--auth-control-height);
+    padding: 0 15px;
+    font-size: 1rem; /* 16px, so iOS does not zoom the viewport on focus. */
+    color: var(--auth-ink);
+    background-color: var(--auth-surface);
+    border: 1px solid var(--auth-input-border);
+    border-radius: var(--auth-radius);
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.auth-form .form-control::placeholder {
+    color: #6e6e73;
+    opacity: 1;
+}
+
+/* Restores the focus ring the theme removes. The border change alone carries
+   the indicator; the ring only widens it. */
+.auth-form .form-control:focus {
+    border-color: var(--auth-accent);
+    box-shadow: 0 0 0 3px rgba(0, 102, 153, 0.18);
+    outline: none;
+}
+
+.auth-form .form-check-label {
+    font-size: 0.875rem;
+    color: var(--auth-ink-soft);
+    cursor: pointer;
+}
+
+.auth-form .form-check-input:focus-visible {
+    outline: 2px solid var(--auth-accent);
+    outline-offset: 2px;
+}
+
+/* Password field with a reveal control, which is the difference between typing
+   a password on a phone keyboard and not having to. */
+.auth-password {
+    position: relative;
+}
+
+.auth-password .form-control {
+    padding-right: 72px;
+}
+
+.auth-reveal {
+    position: absolute;
+    top: calc(var(--auth-control-height) / 2);
+    right: 8px;
+    padding: 6px 10px;
+    transform: translateY(-50%);
+    border: 0;
+    border-radius: 8px;
+    background: none;
+    font-size: 0.8125rem;
+    font-weight: 500;
+    color: var(--auth-accent);
+    cursor: pointer;
+}
+
+.auth-reveal:hover {
+    background-color: var(--auth-accent-tint);
+}
+
+.auth-reveal:focus-visible {
+    outline: 2px solid var(--auth-accent);
+    outline-offset: 1px;
+}
+
+/* --------------------------------------------------------------------------
+   Buttons
+   -------------------------------------------------------------------------- */
+
+.auth-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    /* A flex container collapses the whitespace between its children, so a button
+       label made of text plus an element must be wrapped in a single element or
+       it renders as one run-together word. See the passkey button. */
+    width: 100%;
+    height: var(--auth-control-height);
+    padding: 0 20px;
+    border: 1px solid transparent;
+    border-radius: var(--auth-radius);
+    font-size: 1rem;
+    font-weight: 500;
+    line-height: 1;
+    cursor: pointer;
+    transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+
+.auth-btn:focus-visible {
+    box-shadow: 0 0 0 3px rgba(0, 102, 153, 0.28);
+    outline: none;
+}
+
+/* Spelled out for the same reason as `.auth-step[hidden]` below: `display: flex` above
+   would otherwise beat the user agent's `[hidden] { display: none }`. Every button the
+   passkey script hides when the browser cannot run a ceremony depends on this, and without
+   it they stayed on screen looking clickable and doing nothing. */
+.auth-btn[hidden] {
+    display: none;
+}
+
+.auth-btn--primary {
+    background-color: var(--auth-accent);
+    color: #ffffff;
+}
+
+.auth-btn--primary:hover {
+    background-color: #00547e;
+    color: #ffffff;
+}
+
+.auth-btn--primary:active {
+    background-color: #004a70;
+}
+
+.auth-btn--secondary {
+    background-color: var(--auth-surface);
+    border-color: var(--auth-input-border);
+    color: var(--auth-accent);
+}
+
+.auth-btn--secondary:hover {
+    background-color: var(--auth-accent-tint);
+    border-color: var(--auth-accent);
+}
+
+/* --------------------------------------------------------------------------
+   Two-step sign-in
+   -------------------------------------------------------------------------- */
+
+/* The form stacks one step at a time, and each step stacks its own contents. */
+.auth-step {
+    display: grid;
+    gap: 16px;
+}
+
+/* Spelled out because `display: grid` above would otherwise beat the user
+   agent's `[hidden] { display: none }`, leaving both steps on screen at once.
+   The page's <noscript> block overrides this again, with `!important`, so a
+   browser without scripting gets the whole form rather than one frozen step. */
+.auth-step[hidden] {
+    display: none;
+}
+
+/* The account named in step one, so step two never re-asks it. A quiet pill
+   rather than a second input: the answer is shown, not edited. */
+.auth-identity {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin: 0;
+    padding: 10px 10px 10px 14px;
+    background-color: var(--auth-canvas);
+    border: 1px solid var(--auth-hairline);
+    border-radius: var(--auth-radius);
+}
+
+.auth-identity-name {
+    font-size: 0.9375rem;
+    font-weight: 600;
+    color: var(--auth-ink);
+    overflow-wrap: anywhere;
+}
+
+.auth-identity-change {
+    flex: 0 0 auto;
+    padding: 4px 8px;
+    font-size: 0.875rem;
+    color: var(--auth-accent);
+    background: none;
+    border: 0;
+    border-radius: 6px;
+    cursor: pointer;
+}
+
+.auth-identity-change:hover {
+    text-decoration: underline;
+}
+
+.auth-identity-change:focus-visible {
+    box-shadow: 0 0 0 3px rgba(0, 102, 153, 0.28);
+    outline: none;
+}
+
+/* --------------------------------------------------------------------------
+   The two ways in, hints and trailing text
+   -------------------------------------------------------------------------- */
+
+/* Passkey first and on its own, so it is the only filled button on the step. Its
+   spacing comes from the grid the step already lays out. */
+.auth-alt {
+    margin-top: 0;
+}
+
+/* The password sits behind this button. Putting it here is the whole point: the
+   step reads as passkey-first until a password is actually wanted. */
+.auth-fallback {
+    display: grid;
+    gap: 16px;
+}
+
+.auth-fallback-fields {
+    display: grid;
+    gap: 16px;
+}
+
+/* Spelled out for the same reason as `.auth-step[hidden]`: a class that sets
+   `display` would otherwise beat the user agent's `[hidden] { display: none }`
+   and leave the password on screen from the start. */
+.auth-fallback-fields[hidden] {
+    display: none;
+}
+
+.auth-hint {
+    margin: 12px 0 0;
+    font-size: 0.8125rem;
+    line-height: 1.45;
+    color: var(--auth-ink-soft);
+}
+
+.auth-error {
+    margin: 14px 0 0;
+    font-size: 0.875rem;
+    line-height: 1.45;
+    color: #c62828;
+}
+
+.auth-skip {
+    display: block;
+    margin-top: 14px;
+    font-size: 0.9375rem;
+    text-align: center;
+    color: var(--auth-ink-soft);
+    text-decoration: none;
+}
+
+.auth-skip:hover {
+    color: var(--auth-accent);
+    text-decoration: underline;
+}
+
+.auth-footer {
+    margin: 26px 0 0;
+    padding-top: 22px;
+    border-top: 1px solid var(--auth-hairline);
+    font-size: 0.875rem;
+    line-height: 1.5;
+    text-align: center;
+    color: var(--auth-ink-soft);
+}
+
+.auth-footer a {
+    font-weight: 500;
+    color: var(--auth-accent);
+    text-decoration: none;
+}
+
+.auth-footer a:hover {
+    text-decoration: underline;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .auth-form .form-control,
+    .auth-btn,
+    .auth-reveal {
+        transition: none;
+    }
+}
+
+/* --------------------------------------------------------------------------
+   Validation messages (sign-up only)
+   -------------------------------------------------------------------------- */
+
+/* jquery.validate appends <div class="invalid-feedback"> to the closest
+   .form-group and puts .is-invalid on that same parent. Bootstrap only reveals a
+   message that is a *sibling* of .is-invalid, and nothing bridges the gap, so
+   without the rules below the sign-up form refuses to submit and says nothing at
+   all. Specificity here beats Bootstrap's `display: none`, so no !important. */
+.auth-form .form-group {
+    margin-bottom: 0; /* the grid gap owns the spacing */
+}
+
+.auth-form .form-group.is-invalid .invalid-feedback {
+    display: block;
+    margin-top: 6px;
+    font-size: 0.8125rem;
+    color: #c62828;
+}
+
+.auth-form .form-group.is-invalid .form-control {
+    border-color: #c62828;
+}
+
+.auth-form .form-group.is-invalid .form-check-label {
+    color: #c62828;
+}
+
+/* --------------------------------------------------------------------------
+   Pairing a device
+   -------------------------------------------------------------------------- */
+
+/* The code is read off another screen and compared character by character, so it
+   is the one field on the site worth setting large and spaced out. The system UI
+   font stays rather than a monospace one: the server's alphabet already leaves out
+   every pair that is hard to tell apart, and switching fonts here would make this
+   look like a different site. */
+.auth-form .auth-code {
+    height: 64px;
+    padding: 0 12px;
+    font-size: 1.75rem;
+    font-weight: 600;
+    /* The trailing letter-space would otherwise pull the text left of centre. */
+    text-indent: 0.18em;
+    letter-spacing: 0.18em;
+    text-align: center;
+    text-transform: uppercase;
+}
+
+/* Success is the one state the accent colour is wrong for, because a sheet reads
+   as "done" in green. #15663c on #e7f4ec is 6.1:1, so the icon stays legible. */
+.auth-icon--ok {
+    background-color: #e7f4ec;
+    color: #15663c;
+}
+
+/* An anchor wearing the button classes needs removing the underline an anchor has
+   and a button never did. */
+.auth-btn--link {
+    text-decoration: none;
+}
