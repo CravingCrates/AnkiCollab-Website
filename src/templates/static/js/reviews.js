@@ -6,6 +6,8 @@ $(function() {
     let selectedRow = null;
     let activeDeck = '';
     let request = null;
+    const SORT_OFF = 0, SORT_ASC = 1, SORT_DESC = 2;
+    const sortState = { author: SORT_OFF, time: SORT_OFF, info: SORT_OFF };
 
     function escapeHtml(value) {
         return $('<div>').text(value || '').html();
@@ -35,9 +37,46 @@ $(function() {
         return String(deck || '').split('::')[0] || '(Unnamed)';
     }
 
+    function sortValue(row, key) {
+        if (key === 'time') return String(row.data('timestamp') || '');
+        const text = key === 'author' ? String(row.data('author') || '') : String(row.data('info') || '');
+        return text.toLowerCase();
+    }
+
+    function sortRows(rows) {
+        const activeKey = Object.keys(sortState).find(key => sortState[key] !== SORT_OFF);
+        if (!activeKey) return rows;
+        const direction = sortState[activeKey];
+        const arr = rows.toArray();
+        arr.sort(function(a, b) {
+            const va = sortValue($(a), activeKey);
+            const vb = sortValue($(b), activeKey);
+            const cmp = va < vb ? -1 : (va > vb ? 1 : 0);
+            return direction === SORT_ASC ? cmp : -cmp;
+        });
+        return $(arr);
+    }
+
+    function updateSortButtons() {
+        $('.reviews-sort-btn').each(function() {
+            const button = $(this);
+            const key = button.data('sort');
+            const state = sortState[key];
+            const icon = button.children('i');
+            const active = state !== SORT_OFF;
+            button.toggleClass('active', active).attr('aria-pressed', String(active));
+            if (key === 'time') {
+                icon.attr('class', state === SORT_ASC ? 'fa fa-sort-asc' : (state === SORT_DESC ? 'fa fa-sort-desc' : 'fa fa-sort'));
+            } else {
+                icon.attr('class', state === SORT_ASC ? 'fa fa-sort-alpha-asc' : (state === SORT_DESC ? 'fa fa-sort-alpha-desc' : 'fa fa-sort'));
+            }
+        });
+    }
+
     function refreshList() {
-        const visible = filteredRows();
+        const visible = sortRows(filteredRows());
         rows().toggle(false);
+        visible.each(function() { list.append(this); });
         visible.toggle(true);
         $('#reviewsEmptyList').prop('hidden', visible.length !== 0);
         $('#reviewsCount').text(visible.length);
@@ -159,6 +198,13 @@ $(function() {
         $('#deckFilterOptions .reviews-deck-option').each(function() { $(this).toggle(!query || !$(this).data('deck') || String($(this).data('deck')).toLowerCase().indexOf(query) !== -1); });
     });
     $('#deckFilterOptions').on('click', '.reviews-deck-option', function() { activeDeck = $(this).data('deck') || ''; updateDeckControl(); refreshList(); });
+    $('.reviews-sort-btn').on('click', function() {
+        const key = $(this).data('sort');
+        sortState[key] = (sortState[key] + 1) % 3;
+        Object.keys(sortState).forEach(function(k) { if (k !== key) sortState[k] = SORT_OFF; });
+        updateSortButtons();
+        refreshList();
+    });
     list.on('click', '.review-row', function() { selectRow($(this), false); });
     list.on('keydown', '.review-row', function(event) {
         if (event.key === 'ArrowUp' || event.key === 'ArrowDown') { event.preventDefault(); moveSelection(event.key === 'ArrowDown' ? 1 : -1, $(this)); }
