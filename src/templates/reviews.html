@@ -13,16 +13,29 @@
         <!-- row -->
         <div class="reviews-page" id="reviewsPage">
           <header class="reviews-header">
-            <div>
+            <div class="reviews-header-start">
               <h1 class="reviews-title">Reviews <span class="reviews-count" id="reviewsCount">{{ commits | length }}</span></h1>
               <div class="reviews-deck-control" id="deckFilterOptions" role="group" aria-label="Filter reviews by deck"></div>
               <input class="reviews-deck-search" id="deckFilterSearch" type="search" placeholder="Search decks" autocomplete="off" aria-label="Search decks">
             </div>
-            <label class="reviews-search">
-              <span class="sr-only">Search reviews</span>
-              <i class="fa fa-search" aria-hidden="true"></i>
-              <input id="reviewsSearch" type="search" placeholder="Search author or deck" autocomplete="off">
-            </label>
+            <div class="reviews-header-actions">
+              <div class="reviews-sort" role="group" aria-label="Sort reviews">
+                <button class="reviews-sort-btn" id="sortAuthorBtn" type="button" data-sort="author" aria-pressed="false" title="Sort by author">
+                  <i class="fa fa-sort" aria-hidden="true"></i> Author
+                </button>
+                <button class="reviews-sort-btn" id="sortTimeBtn" type="button" data-sort="time" aria-pressed="false" title="Sort by time">
+                  <i class="fa fa-sort" aria-hidden="true"></i> Time
+                </button>
+                <button class="reviews-sort-btn" id="sortInfoBtn" type="button" data-sort="info" aria-pressed="false" title="Sort by info">
+                  <i class="fa fa-sort" aria-hidden="true"></i> Info
+                </button>
+              </div>
+              <label class="reviews-search">
+                <span class="sr-only">Search reviews</span>
+                <i class="fa fa-search" aria-hidden="true"></i>
+                <input id="reviewsSearch" type="search" placeholder="Search author or deck" autocomplete="off">
+              </label>
+            </div>
           </header>
 
           <div class="reviews-workspace">
