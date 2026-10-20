@@ -27,8 +27,8 @@
                               type="button"
                                                             class="btn-copy-key"
                                                             data-subscription-key="{{hash}}"
-                              data-toggle="tooltip"
-                              data-placement="bottom"
+                              data-bs-toggle="tooltip"
+                              data-bs-placement="bottom"
                               title="Copy to clipboard"
                             >
                                 {{hash}}
@@ -39,7 +39,7 @@
                               rel="noopener noreferrer"
                               aria-label="How to subscribe - help documentation (opens in new tab)"
                             >
-                              <i class="fa fa-question-circle" aria-hidden="true"></i>
+                              <i class="fa-solid fa-circle-question" aria-hidden="true"></i>
                             </a>
                           </div>
                         </div>
@@ -54,7 +54,7 @@
                                 <div class="d-inline-block">
                                     <p class="text-white mb-0">Give others Maintainer privileges</p>
                                 </div>
-                                <span class="float-right display-5 opacity-5"><i class="fa fa-users" aria-hidden="true"></i></span>
+                                <span class="float-end display-5 opacity-5"><i class="fa-solid fa-users" aria-hidden="true"></i></span>
                             </a>
                         </div>
                     </div>
@@ -65,7 +65,7 @@
                                 <div class="d-inline-block">
                                     <p class="text-white mb-0">Manage your optional tags</p>
                                 </div>
-                                <span class="float-right display-5 opacity-5"><i class="fa fa-tag" aria-hidden="true"></i></span>
+                                <span class="float-end display-5 opacity-5"><i class="fa-solid fa-tag" aria-hidden="true"></i></span>
                             </a>
                         </div>
                     </div>                    
@@ -76,7 +76,7 @@
                                 <div class="d-inline-block">
                                     <p class="text-white mb-0">Explore Your Deck's Performance Metrics</p>
                                 </div>
-                                <span class="float-right display-5 opacity-5"><i class="fa fa-bar-chart" aria-hidden="true"></i></span>
+                                <span class="float-end display-5 opacity-5"><i class="fa-solid fa-chart-bar" aria-hidden="true"></i></span>
                             </a>                            
                         </div>
                     </div>                    
@@ -91,7 +91,7 @@
                                 <div class="mt-2">
                                     {% for base in base_links %}
                                     <a class="btn btn-light btn-sm m-1" href="/DeckSubscriptionPolicy/{{hash}}/{{base.human_hash}}" title="{{base.name}}">
-                                        <i class="fa fa-link" aria-hidden="true"></i> {{base.name}}
+                                        <i class="fa-solid fa-link" aria-hidden="true"></i> {{base.name}}
                                     </a>
                                     {% endfor %}
                                 </div>
@@ -147,11 +147,11 @@
                             {% for changelog in changelogs %}
                             <div class="card">
                                 <div class="card-header">
-                                    <h5 class="mb-0"><button type="button" class="btn btn-link" data-toggle="collapse" data-target="#collapseOne{{changelog.id}}" aria-expanded="true" aria-controls="collapseOne{{changelog.id}}">{{changelog.timestamp}} <i class="fa" aria-hidden="true"></i></button></h5>
+                                    <h5 class="mb-0"><button type="button" class="btn btn-link" data-bs-toggle="collapse" data-bs-target="#collapseOne{{changelog.id}}" aria-expanded="true" aria-controls="collapseOne{{changelog.id}}">{{changelog.timestamp}} <i class="fa-solid" aria-hidden="true"></i></button></h5>
                                 </div>
-                                <div id="collapseOne{{changelog.id}}" class="collapse show" data-parent="#accordion-three">
+                                <div id="collapseOne{{changelog.id}}" class="collapse show" data-bs-parent="#accordion-three">
                                     <div class="card-body">
-                                        <button class="changelog-delete-btn" data-changelog-id="{{changelog.id}}" aria-label="Delete changelog from {{changelog.timestamp}}"><i class="fa fa-trash" aria-hidden="true"></i></button>
+                                        <button class="changelog-delete-btn" data-changelog-id="{{changelog.id}}" aria-label="Delete changelog from {{changelog.timestamp}}"><i class="fa-solid fa-trash" aria-hidden="true"></i></button>
                                         {{changelog.message | newlines_to_br | safe }}
                                     </div>
                                 </div>
@@ -165,7 +165,7 @@
                     <div class="card-body">
                         <div class="sweetalert m-t-30">
                             <form data-deck-hash="{{hash}}">
-                                <button type="submit" class="btn mb-1 btn-success sweet-success">Save all Changes <span class="btn-icon-right"><i class="fa fa-check" aria-hidden="true"></i></span>
+                                <button type="submit" class="btn mb-1 btn-success sweet-success">Save all Changes <span class="btn-icon-right"><i class="fa-solid fa-check" aria-hidden="true"></i></span>
                                 </button>
                             </form>                            
                         </div>

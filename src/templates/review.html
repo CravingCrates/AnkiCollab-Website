@@ -9,7 +9,6 @@
     <link href="/static/plugins/trumbowyg/plugins/colors/ui/trumbowyg.colors.css" rel="stylesheet">
     <link href="/static/css/commit_styling.css" rel="stylesheet">
     <link href="/static/css/review.css" rel="stylesheet">
-    <script src="/static/plugins/jquery/jquery.min.js"></script>
     <script src="/static/js/html_diff_utils.js"></script>
     <script src="/static/js/image_handling.js"></script>
     <script src="/static/js/api_service.js"></script>
@@ -21,7 +20,7 @@
             
             {% if note.is_inherited %}
             <div class="inherited-alert">
-                <i class="fa fa-link" aria-hidden="true"></i>
+                <i class="fa-solid fa-link" aria-hidden="true"></i>
                 <div>
                     <strong>Inherited Content:</strong> This note inherits content from a base note. Protected fields remain local. Tags are managed locally.
                 </div>
@@ -46,13 +45,13 @@
                         </div>
                         <div class="header-actions action-buttons">
                             <a href="/note_history/{{note.id}}" class="icon-btn history-btn" title="History" aria-label="View note history">
-                                <i class="fa fa-history" aria-hidden="true"></i>
+                                <i class="fa-solid fa-clock-rotate-left" aria-hidden="true"></i>
                             </a>
                             
                             {% if access and note.reviewed == false %}
                             <button class="merge-btn" data-action="accept-note" data-note-id="{{note.id}}">Publish</button>
                             <button class="icon-btn deny-btn" data-action="delete-note" data-note-id="{{note.id}}" title="Delete note" aria-label="Delete note">
-                                <i class="fa fa-trash" aria-hidden="true"></i>
+                                <i class="fa-solid fa-trash" aria-hidden="true"></i>
                             </button>
                             {% elif access and note.delete_req %}
                             <button class="merge-btn merge-btn-danger" data-action="accept-note-removal" data-note-id="{{note.id}}">Delete</button>
@@ -72,7 +71,7 @@
                                 <div class="field-name">{{ note.note_model_fields[field.position] }}</div>
                                 {% if field.inherited %}
                                 <span class="inherited-badge" title="Inherited from base note">
-                                    <i class="fa fa-link" aria-hidden="true"></i>
+                                    <i class="fa-solid fa-link" aria-hidden="true"></i>
                                     Inherited
                                 </span>
                                 {% endif %}
@@ -95,7 +94,7 @@
                         <div class="tag-edit-container">
                             {% for tag in note.reviewed_tags %}
                             <span class="tag-chip-editable reviewed-tag {% if tag.inherited %}tag-chip-inherited{% endif %}">
-                                {% if tag.inherited %}<i class="fa fa-link tag-icon-sm" aria-hidden="true"></i>{% endif %}
+                                {% if tag.inherited %}<i class="fa-solid fa-link tag-icon-sm" aria-hidden="true"></i>{% endif %}
                                 <span class="tag-text">{{ tag.content }}</span>
                             </span>
                             {% endfor %}
@@ -116,7 +115,7 @@
                             {% if access %}
                             <div class="tag_actions">
                                 <button class="revert-btn" title="Deny move" aria-label="Deny move" data-action="deny-move" data-move-id="{{req.id}}">
-                                    <i class="fa fa-undo" aria-hidden="true"></i>
+                                    <i class="fa-solid fa-rotate-left" aria-hidden="true"></i>
                                 </button>
                             </div>
                             {% endif %}
@@ -136,10 +135,10 @@
                                 {% if access and note.reviewed %}
                                 <div class="review-field-actions">
                                     <button class="icon-btn" data-action="accept-field" data-field-id="{{field_suggestion.id}}" title="Accept" aria-label="Accept field change">
-                                        <i class="fa fa-check" aria-hidden="true"></i>
+                                        <i class="fa-solid fa-check" aria-hidden="true"></i>
                                     </button>
                                     <button class="revert-btn" data-action="deny-field" data-field-id="{{field_suggestion.id}}" title="Deny" aria-label="Deny field change">
-                                        <i class="fa fa-undo" aria-hidden="true"></i>
+                                        <i class="fa-solid fa-rotate-left" aria-hidden="true"></i>
                                     </button>
                                 </div>
                                 {% endif %}
@@ -162,7 +161,7 @@
                                     <span class="tag-text">{{ tag.content }}</span>
                                     {% if access and note.reviewed %}
                                     <button class="tag-revert-btn" data-action="deny-tag" data-tag-id="{{tag.id}}" title="Undo removal">
-                                        <i class="fa fa-undo" aria-hidden="true"></i>
+                                        <i class="fa-solid fa-rotate-left" aria-hidden="true"></i>
                                     </button>
                                     {% endif %}
                                 </span>
@@ -176,7 +175,7 @@
                                     <span class="tag-text">{{ tag.content }}</span>
                                     {% if access and note.reviewed %}
                                     <button class="tag-revert-btn" data-action="deny-tag" data-tag-id="{{tag.id}}" title="Remove this tag">
-                                        <i class="fa fa-times" aria-hidden="true"></i>
+                                        <i class="fa-solid fa-xmark" aria-hidden="true"></i>
                                     </button>
                                     {% endif %}
                                 </span>

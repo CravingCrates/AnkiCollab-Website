@@ -4,7 +4,7 @@
     {% set page_title = "Contributor suggestions" %}
     {% include "header_template.html" %}
     <link
-    href="/static/plugins/tables/css/datatable/dataTables.bootstrap4.min.css"
+    href="/static/plugins/tables/css/datatable/dataTables.bootstrap5.min.css"
     rel="stylesheet"
   />
   </head>
@@ -20,8 +20,8 @@
           <div class="card">
             <div class="card-body">
               <div class="btn-group btn-group-sm mb-3" role="group" aria-label="Which suggestions to show">
-                <a class="btn {% if state == "open" %}btn-secondary{% else %}btn-outline-secondary{% endif %}" href="/Contributions/{{deck_hash}}/contributor/{{username_url}}?state=open"{% if state == "open" %} aria-current="true"{% endif %}>Waiting for review</a>
-                <a class="btn {% if state == "archived" %}btn-secondary{% else %}btn-outline-secondary{% endif %}" href="/Contributions/{{deck_hash}}/contributor/{{username_url}}?state=archived"{% if state == "archived" %} aria-current="true"{% endif %}>Reviewed</a>
+                <a class="btn {% if state =="open" %}btn-secondary{% else %}btn-outline-secondary{% endif %}" href="/Contributions/{{deck_hash}}/contributor/{{username_url}}?state=open"{% if state == "open" %} aria-current="true"{% endif %}>Waiting for review</a>
+                <a class="btn {% if state =="archived" %}btn-secondary{% else %}btn-outline-secondary{% endif %}" href="/Contributions/{{deck_hash}}/contributor/{{username_url}}?state=archived"{% if state == "archived" %} aria-current="true"{% endif %}>Reviewed</a>
               </div>
               <p class="text-muted">
                 Reviewed means accepted or given feedback on. Neither is a rejection.
@@ -43,7 +43,7 @@
                   <tbody>
                     {% for suggestion in suggestions %}
                     <tr>
-                      <th scope="row" class="font-weight-normal"><a href="/commit_history/{{suggestion.commit_id}}">{{ suggestion.commit_id }}</a></th>
+                      <th scope="row" class="fw-normal"><a href="/commit_history/{{suggestion.commit_id}}">{{ suggestion.commit_id }}</a></th>
                       <td>{{ suggestion.rationale }}</td>
                       <td>{% if suggestion.info %}{{ suggestion.info }}{% else %}<span class="text-muted">&mdash;</span>{% endif %}</td>
                       <td>{{ suggestion.submitted_at }}</td>
@@ -77,8 +77,7 @@
           </div>
         </div>
         {% include "layout_footer.html" %}
-        <script src="/static/plugins/jquery/jquery.min.js"></script>
-        <script src="/static/plugins/tables/js/datatable/dataTables.bootstrap4.min.js"></script>
+        <script src="/static/plugins/tables/js/datatable/dataTables.bootstrap5.min.js"></script>
         <script src="/static/plugins/tables/js/datatable-init/datatable-basic.min.js"></script>
         <script src="/static/js/contributions.js"></script>
   </body>

@@ -56,7 +56,7 @@ $(function () {
                     data: primary,
                     borderColor: '#4a6fd4',
                     fill: false,
-                    lineTension: 0,
+                    tension: 0,
                     pointRadius: 0,
                     borderWidth: 2
                 },
@@ -65,7 +65,7 @@ $(function () {
                     data: series('new'),
                     borderColor: '#28a745',
                     fill: false,
-                    lineTension: 0,
+                    tension: 0,
                     pointRadius: 0,
                     borderWidth: 1
                 },
@@ -74,7 +74,7 @@ $(function () {
                     data: series('unsubscribed'),
                     borderColor: '#adb5bd',
                     fill: false,
-                    lineTension: 0,
+                    tension: 0,
                     pointRadius: 0,
                     borderWidth: 1,
                     borderDash: [3, 3]
@@ -85,23 +85,23 @@ $(function () {
             responsive: true,
             maintainAspectRatio: false,
             animation: false,
-            legend: {
-                position: 'bottom',
-                labels: { boxWidth: 12, fontSize: 11, usePointStyle: true }
+            plugins: {
+                legend: {
+                    position: 'bottom',
+                    labels: { boxWidth: 12, usePointStyle: true, font: { size: 11 } }
+                }
             },
             scales: {
-                yAxes: [{ ticks: { beginAtZero: true, precision: 0 } }],
-                xAxes: [
-                    {
-                        gridLines: { display: false },
-                        ticks: {
-                            autoSkip: true,
-                            maxTicksLimit: 8,
-                            maxRotation: 0,
-                            minRotation: 0
-                        }
+                y: { beginAtZero: true, ticks: { precision: 0 } },
+                x: {
+                    grid: { display: false },
+                    ticks: {
+                        autoSkip: true,
+                        maxTicksLimit: 8,
+                        maxRotation: 0,
+                        minRotation: 0
                     }
-                ]
+                }
             }
         }
     });

@@ -4,7 +4,7 @@
     {% set page_title = "Statistics" %}
     {% include "header_template.html" %}
     <link
-    href="/static/plugins/tables/css/datatable/dataTables.bootstrap4.min.css"
+    href="/static/plugins/tables/css/datatable/dataTables.bootstrap5.min.css"
     rel="stylesheet"
   />
   </head>
@@ -14,7 +14,7 @@
         <!-- row -->
         <div class="container-fluid mt-3"> 
           <div class="alert alert-primary alert-dismissible fade show">
-            <button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span>
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close">
             </button>It takes 24h before new statistics are included in these calculations.</div>
           <p class="text-muted mb-2">
             This page is about how well the deck teaches. Looking for the people behind it and who
@@ -25,7 +25,7 @@
                 <div class="card card-widget">
                     <div class="card-body gradient-1">
                         <div class="media">
-                            <span class="card-widget__icon"><i class="icon-docs" aria-hidden="true"></i></span>
+                            <span class="card-widget__icon"><i class="fa-solid fa-file-lines" aria-hidden="true"></i></span>
                             <div class="media-body">
                                 <h2 class="card-widget__title">{{base.note_count}}</h2>
                                 <h5 class="card-widget__subtitle">Notes Included</h5>
@@ -39,7 +39,7 @@
                 <div class="card card-widget">
                     <div class="card-body gradient-4">
                         <div class="media">
-                            <span class="card-widget__icon"><i class="icon-loop" aria-hidden="true"></i></span>
+                            <span class="card-widget__icon"><i class="fa-solid fa-arrows-rotate" aria-hidden="true"></i></span>
                             <div class="media-body">
                                 <h2 class="card-widget__title">{{base.lapses_avg | round(precision=1)}}</h2>
                                 <h5 class="card-widget__subtitle">Average Lapses</h5>
@@ -53,7 +53,7 @@
                 <div class="card card-widget">
                     <div class="card-body gradient-4">
                         <div class="media">
-                            <span class="card-widget__icon"><i class="icon-layers" aria-hidden="true"></i></span>
+                            <span class="card-widget__icon"><i class="fa-solid fa-cubes" aria-hidden="true"></i></span>
                             <div class="media-body">
                                 <h2 class="card-widget__title">{{base.reps_avg | round(precision=1)}}</h2>
                                 <h5 class="card-widget__subtitle">Average Reps</h5>
@@ -67,7 +67,7 @@
                 <div class="card card-widget">
                     <div class="card-body gradient-3">
                         <div class="media">
-                            <span class="card-widget__icon"><i class="icon-chart" aria-hidden="true"></i></span>
+                            <span class="card-widget__icon"><i class="fa-solid fa-chart-bar" aria-hidden="true"></i></span>
                             <div class="media-body">
                                 <h2 class="card-widget__title">{{ base.retention_avg | round(precision=1)}}%</h2>
                                 <h5 class="card-widget__subtitle">Average Retention</h5>
@@ -81,7 +81,7 @@
                 <div class="card card-widget">
                     <div class="card-body gradient-2">
                         <div class="media">
-                            <span class="card-widget__icon"><i class="icon-user" aria-hidden="true"></i></span>
+                            <span class="card-widget__icon"><i class="fa-solid fa-user" aria-hidden="true"></i></span>
                             <div class="media-body">
                                 <h2 class="card-widget__title">{{base.contributor_count}}</h2>
                                 <h5 class="card-widget__subtitle">Contributors</h5>
@@ -115,15 +115,7 @@
                         >
                       </td>
                       <td>
-                        <a href="/Statistics/{{deck.hash}}"><span class="label btn-rounded 
-                          {% if deck.retention > 85 %}
-                            gradient-1
-                          {% elif deck.retention > 75 %}
-                            gradient-3
-                          {% else %}
-                            gradient-2
-                          {% endif %}
-                          ">{{ deck.retention | round(precision=1) }}%{% if deck.retention > 85 %}<span class="visually-hidden"> (Good)</span>{% elif deck.retention > 75 %}<span class="visually-hidden"> (Average)</span>{% else %}<span class="visually-hidden"> (Needs improvement)</span>{% endif %}</span></a>
+                        <a href="/Statistics/{{deck.hash}}"><span class="label btn-rounded {% if deck.retention > 85 %} gradient-1 {% elif deck.retention > 75 %} gradient-3 {% else %} gradient-2 {% endif %}">{{ deck.retention | round(precision=1) }}%{% if deck.retention > 85 %}<span class="visually-hidden"> (Good)</span>{% elif deck.retention > 75 %}<span class="visually-hidden"> (Average)</span>{% else %}<span class="visually-hidden"> (Needs improvement)</span>{% endif %}</span></a>
                       </td>
                     </tr>
                     {% endfor %}
@@ -164,7 +156,7 @@
                         <a href="/review/{{note.id}}">
                           {{ note.sample_size }}
                           {% if note.sample_size < 5 %}
-                          <i class="icon-info" title="Low sample size — retention estimate may be unreliable" aria-hidden="true"></i>
+                          <i class="fa-solid fa-circle-info" title="Low sample size — retention estimate may be unreliable" aria-hidden="true"></i>
                           <span class="visually-hidden">(low sample size, low confidence)</span>
                           {% endif %}
                         </a>
@@ -182,8 +174,7 @@
             Content body end
         ***********************************-->
         {% include "layout_footer.html" %}
-        <script src="/static/plugins/jquery/jquery.min.js"></script>
-        <script src="/static/plugins/tables/js/datatable/dataTables.bootstrap4.min.js"></script>
+        <script src="/static/plugins/tables/js/datatable/dataTables.bootstrap5.min.js"></script>
         <script src="/static/plugins/tables/js/datatable-init/datatable-basic.min.js"></script>
         <script src="/static/js/statistics.js"></script>
   </body>

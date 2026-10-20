@@ -33,12 +33,12 @@
         {% endfor %}
         {% if has_denied_effect %}
           <span class="commit-status denied">
-            <i class="fa fa-times-circle" aria-hidden="true"></i>
+            <i class="fa-solid fa-circle-xmark" aria-hidden="true"></i>
             Commit Denied
           </span>
         {% elif has_approved_effect %}
           <span class="commit-status approved">
-            <i class="fa fa-check-circle" aria-hidden="true"></i>
+            <i class="fa-solid fa-circle-check" aria-hidden="true"></i>
             Commit Approved
           </span>
         {% else %}
@@ -46,7 +46,7 @@
         {% endif %}
       </div>
       <a href="/reviews" class="back-button">
-        <i class="fa fa-arrow-left" aria-hidden="true"></i>
+        <i class="fa-solid fa-arrow-left" aria-hidden="true"></i>
         Back to Reviews
       </a>
     </div>
@@ -108,11 +108,11 @@
             
             <div class="note-actions">
               <a href="/review/{{ n.note_id }}" class="action-button">
-                <i class="fa fa-eye" aria-hidden="true"></i>
+                <i class="fa-solid fa-eye" aria-hidden="true"></i>
                 Review
               </a>
               <a href="/note_history/{{ n.note_id }}" class="action-button secondary">
-                <i class="fa fa-history" aria-hidden="true"></i>
+                <i class="fa-solid fa-clock-rotate-left" aria-hidden="true"></i>
                 History
               </a>
               <button class="toggle-button toggle-events-btn" data-note-id="{{ n.note_id }}">
@@ -149,9 +149,9 @@
                       {% if status_badge %}
                         <span class="commit-status {{ status_badge }} commit-status-inline">
                           {% if status_badge == 'approved' %}
-                            <i class="fa fa-check" aria-hidden="true"></i> Approved
+                            <i class="fa-solid fa-check" aria-hidden="true"></i> Approved
                           {% else %}
-                            <i class="fa fa-times" aria-hidden="true"></i> Denied
+                            <i class="fa-solid fa-xmark" aria-hidden="true"></i> Denied
                           {% endif %}
                         </span>
                       {% endif %}
@@ -159,7 +159,7 @@
                     <span class="event-meta">
                       v{{ e.version }} • {{ e.created_at }}
                       {% if e.actor_username is defined and e.actor_username %}
-                        <span class="actor-chip"><i class="fa fa-user" aria-hidden="true"></i> @{{ e.actor_username }}</span>
+                        <span class="actor-chip"><i class="fa-solid fa-user" aria-hidden="true"></i> @{{ e.actor_username }}</span>
                       {% endif %}
                     </span>
                   </div>

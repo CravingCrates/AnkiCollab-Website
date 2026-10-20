@@ -371,7 +371,7 @@ window.SharedUI = (function() {
                         var $chip = $('<span class="tag-chip-editable tag-chip-add" data-tag-id="' + result.tag_id + '">' +
                             '<span class="tag-text">' + $('<span>').text(tagContent).html() + '</span>' +
                             '<button class="tag-revert-btn" data-action="deny-tag" data-tag-id="' + result.tag_id + '" title="Remove this tag">' +
-                            '<i class="fa fa-times"></i></button></span>');
+                            '<i class="fa-solid fa-xmark"></i></button></span>');
                         $editContainer.find('.tag-edit-toggle').before($chip);
                         $input.val('');
                     }
@@ -401,7 +401,7 @@ window.SharedUI = (function() {
                         var $removalChip = $('<span class="tag-chip-editable tag-chip-remove" data-tag-id="' + result.tag_id + '">' +
                             '<span class="tag-text">' + $('<span>').text(tagContent).html() + '</span>' +
                             '<button class="tag-revert-btn" data-action="deny-tag" data-tag-id="' + result.tag_id + '" title="Undo removal">' +
-                            '<i class="fa fa-undo"></i></button></span>');
+                            '<i class="fa-solid fa-rotate-left"></i></button></span>');
                         $editContainer.find('.tag-edit-toggle').before($removalChip);
                         // Hide the row in the edit panel
                         $row.slideUp(150);

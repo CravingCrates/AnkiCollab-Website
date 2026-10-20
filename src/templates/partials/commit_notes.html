@@ -21,13 +21,13 @@
         <div class="note-header-actions">
             {% if commit %}
             <button class="icon-btn edit-btn" data-action="edit-all-fields" data-note-id="{{note.id}}" data-commit-id="{{commit.id}}" title="Edit suggestion" aria-label="Edit suggestion">
-                <i class="fa fa-pencil" aria-hidden="true"></i>
+                <i class="fa-solid fa-pen" aria-hidden="true"></i>
             </button>
             {% endif %}
             {% if note.reviewed == false %}
                 <button class="merge-btn" data-action="accept-note" data-note-id="{{note.id}}">Publish</button>
                 <button class="icon-btn deny-btn" data-action="delete-note" data-note-id="{{note.id}}" title="Delete note" aria-label="Delete note">
-                    <i class="fa fa-trash" aria-hidden="true"></i>
+                    <i class="fa-solid fa-trash" aria-hidden="true"></i>
                 </button>
             {% elif note.delete_req %}
                 <button class="merge-btn merge-btn-danger" data-action="accept-note-removal" data-note-id="{{note.id}}">Delete</button>
@@ -59,11 +59,11 @@
             <details class="collapsible-panel reviewed-fields-panel">
                 <summary>
                     <div class="collapsible-title">
-                        <i class="fa fa-layer-group" aria-hidden="true"></i>
+                        <i class="fa-solid fa-layer-group" aria-hidden="true"></i>
                         <span>Reviewed Fields</span>
                         <span class="pill">{{ note.reviewed_fields | length }}</span>
                     </div>
-                    <i class="fa fa-chevron-down" aria-hidden="true"></i>
+                    <i class="fa-solid fa-chevron-down" aria-hidden="true"></i>
                 </summary>
                 <div class="collapsible-body">
                     {% for field in note.reviewed_fields %}
@@ -74,7 +74,7 @@
                                 {{notemodels[note.note_model][field.position]}}
                                 {% if field.inherited is defined and field.inherited %}
                                 <span class="inherited-badge" title="Inherited from base note">
-                                    <i class="fa fa-link" aria-hidden="true"></i>
+                                    <i class="fa-solid fa-link" aria-hidden="true"></i>
                                     Inherited
                                 </span>
                                 {% endif %}
@@ -94,16 +94,16 @@
             <details class="collapsible-panel reviewed-tags-panel">
                 <summary>
                     <div class="collapsible-title">
-                        <i class="fa fa-tags" aria-hidden="true"></i>
+                        <i class="fa-solid fa-tags" aria-hidden="true"></i>
                         <span>Current Tags</span>
                         <span class="pill">{{ note.reviewed_tags | length }}</span>
                     </div>
-                    <i class="fa fa-chevron-down" aria-hidden="true"></i>
+                    <i class="fa-solid fa-chevron-down" aria-hidden="true"></i>
                 </summary>
                 <div class="collapsible-body tag-list">
                     {% for tag in note.reviewed_tags %}
                     <span class="tag-chip {% if tag.inherited is defined and tag.inherited %}inherited{% endif %} reviewed-tag-chip">
-                        {% if tag.inherited is defined and tag.inherited %}<i class="fa fa-link tag-icon-sm" aria-hidden="true"></i>{% endif %}
+                        {% if tag.inherited is defined and tag.inherited %}<i class="fa-solid fa-link tag-icon-sm" aria-hidden="true"></i>{% endif %}
                         {{ tag.content }}
                     </span>
                     {% endfor %}
@@ -124,7 +124,7 @@
                 {% if user and owned == true %}
                 <div class="tag_actions">
                     <button class="revert-btn" title="Revert move" aria-label="Revert move" data-action="deny-move" data-move-id="{{note.move_req.id}}">
-                        <i class="fa fa-undo" aria-hidden="true"></i>
+                        <i class="fa-solid fa-rotate-left" aria-hidden="true"></i>
                     </button>
                 </div>
                 {% endif %}
@@ -138,7 +138,7 @@
                     <div class="field-name">{{notemodels[note.note_model][field.position]}}</div>
                     {% if user and owned == true and note.reviewed %}
                     <button class="revert-btn" data-action="deny-field" data-field-id="{{field.id}}" title="Revert this change">
-                        <i class="fa fa-undo" aria-hidden="true"></i>
+                        <i class="fa-solid fa-rotate-left" aria-hidden="true"></i>
                     </button>
                     {% endif %}
                 </div>
@@ -161,7 +161,7 @@
                         <span class="tag-text">{{ tag.content }}</span>
                         {% if user and owned == true %}
                         <button class="tag-revert-btn" data-action="deny-tag" data-tag-id="{{tag.id}}" title="Undo removal">
-                            <i class="fa fa-undo" aria-hidden="true"></i>
+                            <i class="fa-solid fa-rotate-left" aria-hidden="true"></i>
                         </button>
                         {% endif %}
                     </span>
@@ -171,14 +171,14 @@
                         <span class="tag-text">{{ tag.content }}</span>
                         {% if user and owned == true %}
                         <button class="tag-revert-btn" data-action="deny-tag" data-tag-id="{{tag.id}}" title="Remove this tag">
-                            <i class="fa fa-times" aria-hidden="true"></i>
+                            <i class="fa-solid fa-xmark" aria-hidden="true"></i>
                         </button>
                         {% endif %}
                     </span>
                     {% endfor %}
                     {% if user and owned == true and commit %}
                     <button class="tag-edit-toggle" type="button">
-                        <i class="fa fa-pencil" aria-hidden="true"></i> Edit Tags
+                        <i class="fa-solid fa-pen" aria-hidden="true"></i> Edit Tags
                     </button>
                     <div class="tag-edit-panel" data-note-id="{{note.id}}" data-commit-id="{{commit.id}}">
                         {% if note.reviewed_tags is defined and note.reviewed_tags %}
@@ -189,7 +189,7 @@
                             <div class="tag-edit-row" data-tag-content="{{ tag.content }}">
                                 <span class="tag-edit-label">{{ tag.content }}</span>
                                 <button class="tag-suggest-remove-btn" data-note-id="{{note.id}}" data-commit-id="{{commit.id}}" data-tag-content="{{ tag.content }}" title="Suggest removing this tag" type="button">
-                                    <i class="fa fa-times" aria-hidden="true"></i>
+                                    <i class="fa-solid fa-xmark" aria-hidden="true"></i>
                                 </button>
                             </div>
                             {% endif %}
@@ -207,7 +207,7 @@
         </div>
         {% else %}
         <div class="deletion-message">
-            <i class="fa fa-trash deletion-icon" aria-hidden="true"></i>
+            <i class="fa-solid fa-trash deletion-icon" aria-hidden="true"></i>
             <div>This note has been requested for deletion.</div>
         </div>
         {% endif %}

@@ -1,0 +1,90 @@
+
+:root {
+    --bs-blue: #324cdd;
+    --bs-blue-rgb: 50,76,221;
+    --bs-indigo: #6610f2;
+    --bs-indigo-rgb: 102,16,242;
+    --bs-purple: #6f42c1;
+    --bs-purple-rgb: 111,66,193;
+    --bs-pink: #e83e8c;
+    --bs-pink-rgb: 232,62,140;
+    --bs-red: #ec0c38;
+    --bs-red-rgb: 236,12,56;
+    --bs-orange: #fd7e14;
+    --bs-orange-rgb: 253,126,20;
+    --bs-yellow: #fa3a0e;
+    --bs-yellow-rgb: 250,58,14;
+    --bs-green: #2dce89;
+    --bs-green-rgb: 45,206,137;
+    --bs-teal: #00A9A2;
+    --bs-teal-rgb: 0,169,162;
+    --bs-cyan: #11cdef;
+    --bs-cyan-rgb: 17,205,239;
+    --bs-white: #fff;
+    --bs-white-rgb: 255,255,255;
+    --bs-gray: #f7fafc;
+    --bs-gray-rgb: 247,250,252;
+    --bs-gray-dark: #333333;
+    --bs-gray-dark-rgb: 51,51,51;
+    --bs-primary: #006699;
+    --bs-primary-rgb: 0,102,153;
+    --bs-secondary: #9097c4;
+    --bs-secondary-rgb: 144,151,196;
+    --bs-success: #6fd96f;
+    --bs-success-rgb: 111,217,111;
+    --bs-info: #4d7cff;
+    --bs-info-rgb: 77,124,255;
+    --bs-warning: #f29d56;
+    --bs-warning-rgb: 242,157,86;
+    --bs-danger: #ff5e5e;
+    --bs-danger-rgb: 255,94,94;
+    --bs-light: #f8f9fa;
+    --bs-light-rgb: 248,249,250;
+    --bs-dark: #333333;
+    --bs-dark-rgb: 51,51,51;
+    --bs-font-sans-serif: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    --bs-body-font-family: var(--bs-font-sans-serif);
+    --bs-body-color: #76838f;
+    --bs-body-color-rgb: 118,131,143;
+    --bs-body-bg: #fff;
+    --bs-body-bg-rgb: 255,255,255;
+    --bs-link-color: #006699;
+    --bs-link-color-rgb: 0,102,153;
+    --bs-link-hover-color: #2e28f6;
+    --bs-link-hover-color-rgb: 46,40,246;
+}
+
+.form-group {
+    margin-bottom: 1rem;
+}
+
+.card {
+    --bs-card-title-color: #222222;
+}
+
+.table {
+    --bs-table-bg: transparent;
+    --bs-table-striped-bg: transparent;
+    --bs-table-hover-bg: rgba(0, 0, 0, 0.02);
+    background-color: transparent;
+}
+
+input[type="checkbox"]:checked:after,
+.tdl-holder input[type=checkbox]:checked + i::after {
+    font-family: "Font Awesome 7 Free";
+    font-weight: 900;
+}
+
+.nk-nav-scroll {
+    overflow-y: auto;
+    overflow-x: hidden;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(0, 0, 0, 0.2) transparent;
+}
+.nk-nav-scroll::-webkit-scrollbar {
+    width: 5px;
+}
+.nk-nav-scroll::-webkit-scrollbar-thumb {
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 3px;
+}

@@ -524,12 +524,7 @@ button[disabled],
     border: 0;
 }
 
-/* --- 6. Toastr Accessibility: ensure toast container acts as live region --- */
-#toast-container {
-    /* role="alert" is set via JS; ensure it stays visible for enough time */
-}
-
-/* --- 7. Reduced Motion Preference (SC 2.3.3) --- */
+/* --- 6. Reduced Motion Preference (SC 2.3.3) --- */
 @media (prefers-reduced-motion: reduce) {
     *,
     *::before,
@@ -541,7 +536,7 @@ button[disabled],
     }
 }
 
-/* --- 8. High Contrast Mode Support --- */
+/* --- 7. High Contrast Mode Support --- */
 @media (forced-colors: active) {
     .skip-link:focus {
         outline: 2px solid ButtonText;
@@ -554,7 +549,7 @@ button[disabled],
     }
 }
 
-/* --- 9. User-content image fallback (SC 1.1.1) ---
+/* --- 8. User-content image fallback (SC 1.1.1) ---
    Broken images show alt text visually.
 */
 img {
@@ -565,4 +560,15 @@ img {
 /* Ensure decorative images marked with empty alt don't show broken icon */
 img[alt=""] {
     border: none;
+}
+
+/* Stands in for animate.css, which the site loaded (56 KiB) for this one effect:
+   jquery.validate is configured with errorClass "invalid-feedback animated fadeInDown". */
+.animated.fadeInDown {
+    animation: fadeInDown 1s both;
+}
+
+@keyframes fadeInDown {
+    from { opacity: 0; transform: translate3d(0, -100%, 0); }
+    to { opacity: 1; transform: none; }
 }

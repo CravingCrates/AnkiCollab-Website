@@ -427,7 +427,7 @@ $(document).ready(function() {
         var $loadedCount = $('#notes-loaded-count');
         
         // Show loading indicator
-        $loadMoreStatus.html('<i class="fa fa-spinner fa-spin"></i> Restoring your position...');
+        $loadMoreStatus.html('<i class="fa-solid fa-spinner fa-spin"></i> Restoring your position...');
         $loadMoreBtn.addClass('loading');
         
         var nextOffset = $notesContainer.data('nextOffset');

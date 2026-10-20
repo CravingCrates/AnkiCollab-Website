@@ -6,48 +6,28 @@ $(document).ready(function () {
     var pageElement = document.getElementById('optional-tags-page');
     var deckHash = pageElement ? pageElement.dataset.deckHash : '';
 
+    // SweetAlert2 replaces toastr. The mixin mirrors the pattern already used in
+    // clipboard.js for the copy-key confirmation.
+    var SwalToast = Swal.mixin({
+        toast: true,
+        position: 'top-end',
+        showConfirmButton: false,
+        timer: 5000,
+        timerProgressBar: true,
+        didOpen: function (toast) {
+            toast.onmouseenter = Swal.stopTimer;
+            toast.onmouseleave = Swal.resumeTimer;
+        }
+    });
+
     function toast_error(msg) {
         if (window.a11yAnnounce) { window.a11yAnnounce('Error: ' + msg, 'assertive'); }
-        toastr.error(msg, "Oh no!", {
-            positionClass: "toast-top-right",
-            timeOut: 5e3,
-            closeButton: !0,
-            debug: !1,
-            newestOnTop: !0,
-            progressBar: !0,
-            preventDuplicates: !0,
-            onclick: null,
-            showDuration: "300",
-            hideDuration: "1000",
-            extendedTimeOut: "1000",
-            showEasing: "swing",
-            hideEasing: "linear",
-            showMethod: "fadeIn",
-            hideMethod: "fadeOut",
-            tapToDismiss: !1,
-        });
+        SwalToast.fire({ icon: 'error', title: msg });
     }
 
     function toast_success(msg) {
         if (window.a11yAnnounce) { window.a11yAnnounce(msg, 'polite'); }
-        toastr.success(msg, "Success!", {
-            timeOut: 5e3,
-            closeButton: !0,
-            debug: !1,
-            newestOnTop: !0,
-            progressBar: !0,
-            positionClass: "toast-top-right",
-            preventDuplicates: !0,
-            onclick: null,
-            showDuration: "300",
-            hideDuration: "1000",
-            extendedTimeOut: "1000",
-            showEasing: "swing",
-            hideEasing: "linear",
-            showMethod: "fadeIn",
-            hideMethod: "fadeOut",
-            tapToDismiss: !1,
-        });
+        SwalToast.fire({ icon: 'success', title: msg });
     }
 
     var ACTION_ADD = 1;
@@ -81,7 +61,7 @@ $(document).ready(function () {
                     '<li>' +
                     '<label>' +
                     '<span>' + taggroup + '</span>' +
-                    '<a href="#" class="ti-trash"></a>' +
+                    '<a href="#" class="fa-solid fa-trash js-remove-tag"></a>' +
                     '</label>' +
                     '</li>'
                 );
@@ -122,7 +102,7 @@ $(document).ready(function () {
         }
     });
 
-    $(document).on("click", ".ti-trash", function () {
+    $(document).on("click", ".js-remove-tag", function () {
         var taggroup = $(this).siblings("span").text().trim();
         removeTag(taggroup);
         var _li = $(this).parent().parent("li");

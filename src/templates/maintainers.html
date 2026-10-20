@@ -3,7 +3,7 @@
   <head>
     {% set page_title = "Manage Maintainers" %}
     {% include "header_template.html" %}
-    <link href="/static/plugins/toastr/css/toastr.min.css" rel="stylesheet">
+    <link href="/static/plugins/sweetalert2/dist/sweetalert2.min.css" rel="stylesheet">
   </head>
   {% include "layout_header.html" %}
         <!-- End Top layout-->
@@ -29,7 +29,7 @@
                       <li>
                         <label
                           ><span>{{ username }}</span
-                          ><a href="#" class="ti-close" aria-label="Remove maintainer {{ username }}" role="button"></a>
+                          ><a href="#" class="fa-solid fa-xmark js-remove-maintainer" aria-label="Remove maintainer {{ username }}" role="button"></a>
                         </label>
                       </li>
                       {% endfor %}
@@ -53,7 +53,7 @@
             Content body end
         ***********************************-->
         {% include "layout_footer.html" %}
-        <script src="/static/plugins/toastr/js/toastr.min.js"></script>
+        <script src="/static/plugins/sweetalert2/dist/sweetalert2.min.js"></script>
         <script src="/static/js/maintainers.js"></script>
   </body>
 </html>

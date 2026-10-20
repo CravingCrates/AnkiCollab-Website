@@ -24,9 +24,9 @@
                         <div id="accordion-three" class="accordion">
                             <div class="card">
                                 <div class="card-header">
-                                    <h5 class="mb-0"><button type="button" class="btn btn-link" data-toggle="collapse" data-target="#collapseOne1" aria-expanded="true" aria-controls="collapseOne1">Select the protected fields</button></h5>
+                                    <h5 class="mb-0"><button type="button" class="btn btn-link" data-bs-toggle="collapse" data-bs-target="#collapseOne1" aria-expanded="true" aria-controls="collapseOne1">Select the protected fields</button></h5>
                                 </div>
-                                <div id="collapseOne1" class="collapse show" data-parent="#accordion-three">
+                                <div id="collapseOne1" class="collapse show" data-bs-parent="#accordion-three">
                                     <div class="card-body">
                                         <div class="form-group">
                                             {% for fieldInfo in protected_fields %}
@@ -56,8 +56,8 @@
                             <h6>{{ template.name }}</h6>
                             <div class="default-tab">
                                 <ul class="nav nav-tabs mb-3" role="tablist">
-                                    <li class="nav-item" role="presentation"><a class="nav-link active" data-toggle="tab" href="#front-{{ template.template_id }}" role="tab" aria-selected="true" aria-controls="front-{{ template.template_id }}" id="tab-front-{{ template.template_id }}">Front</a></li>
-                                    <li class="nav-item" role="presentation"><a class="nav-link" data-toggle="tab" href="#back-{{ template.template_id }}" role="tab" aria-selected="false" aria-controls="back-{{ template.template_id }}" id="tab-back-{{ template.template_id }}">Back</a></li>
+                                    <li class="nav-item" role="presentation"><a class="nav-link active" data-bs-toggle="tab" href="#front-{{ template.template_id }}" role="tab" aria-selected="true" aria-controls="front-{{ template.template_id }}" id="tab-front-{{ template.template_id }}">Front</a></li>
+                                    <li class="nav-item" role="presentation"><a class="nav-link" data-bs-toggle="tab" href="#back-{{ template.template_id }}" role="tab" aria-selected="false" aria-controls="back-{{ template.template_id }}" id="tab-back-{{ template.template_id }}">Back</a></li>
                                 </ul>
                                 <div class="tab-content">
                                     <div id="front-{{ template.template_id }}" class="tab-pane fade show active" role="tabpanel" aria-labelledby="tab-front-{{ template.template_id }}">
@@ -81,7 +81,7 @@
                     <div class="card-body">
                         <form id="submitForm" data-notetype-id="{{ notetype_id }}">
                             <div class="button-icon">                            
-                                <button type="submit" class="btn mb-1 btn-success">Save all changes <span class="btn-icon-right"><i class="fa fa-check" aria-hidden="true"></i></span>
+                                <button type="submit" class="btn mb-1 btn-success">Save all changes <span class="btn-icon-right"><i class="fa-solid fa-check" aria-hidden="true"></i></span>
                                 </button>
                                 <p id="confirmation" class="confirmation-message">Changes saved!</p>
                             </div>

@@ -4,7 +4,7 @@
     {% set page_title = "Contributions" %}
     {% include "header_template.html" %}
     <link
-    href="/static/plugins/tables/css/datatable/dataTables.bootstrap4.min.css"
+    href="/static/plugins/tables/css/datatable/dataTables.bootstrap5.min.css"
     rel="stylesheet"
   />
     <link href="/static/css/contributions.css" rel="stylesheet" />
@@ -47,14 +47,14 @@
 
               <div class="mb-3">
                 <div class="btn-group btn-group-sm mb-2" role="group" aria-label="Bucket size">
-                  <a class="btn {% if bucket == "daily" %}btn-secondary{% else %}btn-outline-secondary{% endif %}" href="/Contributions/{{deck_hash}}?bucket=daily&amp;active={{active_filter}}&amp;days={{window_days}}"{% if bucket == "daily" %} aria-current="true"{% endif %}>Daily</a>
-                  <a class="btn {% if bucket == "weekly" %}btn-secondary{% else %}btn-outline-secondary{% endif %}" href="/Contributions/{{deck_hash}}?bucket=weekly&amp;active={{active_filter}}&amp;days={{window_days}}"{% if bucket == "weekly" %} aria-current="true"{% endif %}>Weekly</a>
+                  <a class="btn {% if bucket =="daily" %}btn-secondary{% else %}btn-outline-secondary{% endif %}" href="/Contributions/{{deck_hash}}?bucket=daily&amp;active={{active_filter}}&amp;days={{window_days}}"{% if bucket == "daily" %} aria-current="true"{% endif %}>Daily</a>
+                  <a class="btn {% if bucket =="weekly" %}btn-secondary{% else %}btn-outline-secondary{% endif %}" href="/Contributions/{{deck_hash}}?bucket=weekly&amp;active={{active_filter}}&amp;days={{window_days}}"{% if bucket == "weekly" %} aria-current="true"{% endif %}>Weekly</a>
                 </div>
                 <div class="btn-group btn-group-sm mb-2" role="group" aria-label="Which subscribers to count">
-                  <a class="btn {% if active_filter == "all" or not activity_tracked %}btn-secondary{% else %}btn-outline-secondary{% endif %}" href="/Contributions/{{deck_hash}}?bucket={{bucket}}&amp;active=all&amp;days={{window_days}}"{% if active_filter == "all" or not activity_tracked %} aria-current="true"{% endif %}>All</a>
+                  <a class="btn {% if active_filter =="all" or not activity_tracked %}btn-secondary{% else %}btn-outline-secondary{% endif %}" href="/Contributions/{{deck_hash}}?bucket={{bucket}}&amp;active=all&amp;days={{window_days}}"{% if active_filter == "all" or not activity_tracked %} aria-current="true"{% endif %}>All</a>
                   {% if activity_tracked %}
-                  <a class="btn {% if active_filter == "30" %}btn-secondary{% else %}btn-outline-secondary{% endif %}" href="/Contributions/{{deck_hash}}?bucket={{bucket}}&amp;active=30&amp;days={{window_days}}"{% if active_filter == "30" %} aria-current="true"{% endif %}>Active 30 days</a>
-                  <a class="btn {% if active_filter == "90" %}btn-secondary{% else %}btn-outline-secondary{% endif %}" href="/Contributions/{{deck_hash}}?bucket={{bucket}}&amp;active=90&amp;days={{window_days}}"{% if active_filter == "90" %} aria-current="true"{% endif %}>Active 90 days</a>
+                  <a class="btn {% if active_filter =="30" %}btn-secondary{% else %}btn-outline-secondary{% endif %}" href="/Contributions/{{deck_hash}}?bucket={{bucket}}&amp;active=30&amp;days={{window_days}}"{% if active_filter == "30" %} aria-current="true"{% endif %}>Active 30 days</a>
+                  <a class="btn {% if active_filter =="90" %}btn-secondary{% else %}btn-outline-secondary{% endif %}" href="/Contributions/{{deck_hash}}?bucket={{bucket}}&amp;active=90&amp;days={{window_days}}"{% if active_filter == "90" %} aria-current="true"{% endif %}>Active 90 days</a>
                   {% endif %}
                 </div>
               </div>
@@ -140,33 +140,33 @@
                   <thead>
                     <tr>
                       <th scope="col">Outcome</th>
-                      <th scope="col" class="text-right">Suggestions</th>
+                      <th scope="col" class="text-end">Suggestions</th>
                     </tr>
                   </thead>
                   <tbody>
                     <tr>
-                      <th scope="row" class="font-weight-normal">Accepted</th>
-                      <td class="text-right">{{ funnel.accepted }}</td>
+                      <th scope="row" class="fw-normal">Accepted</th>
+                      <td class="text-end">{{ funnel.accepted }}</td>
                     </tr>
                     <tr>
-                      <th scope="row" class="font-weight-normal">Feedback given</th>
-                      <td class="text-right">{{ funnel.declined }}</td>
+                      <th scope="row" class="fw-normal">Feedback given</th>
+                      <td class="text-end">{{ funnel.declined }}</td>
                     </tr>
                     <tr>
-                      <th scope="row" class="font-weight-normal">Waiting for review</th>
-                      <td class="text-right">{{ funnel.pending }}</td>
+                      <th scope="row" class="fw-normal">Waiting for review</th>
+                      <td class="text-end">{{ funnel.pending }}</td>
                     </tr>
                     {% if funnel.unrecorded > 0 %}
                     <tr>
-                      <th scope="row" class="font-weight-normal">
+                      <th scope="row" class="fw-normal">
                         Reviewed, outcome not recorded
                       </th>
-                      <td class="text-right">{{ funnel.unrecorded }}</td>
+                      <td class="text-end">{{ funnel.unrecorded }}</td>
                     </tr>
                     {% endif %}
                     <tr>
-                      <th scope="row" class="font-weight-normal">Submitted in total</th>
-                      <td class="text-right">{{ funnel.submitted }}</td>
+                      <th scope="row" class="fw-normal">Submitted in total</th>
+                      <td class="text-end">{{ funnel.submitted }}</td>
                     </tr>
                   </tbody>
                 </table>
@@ -192,15 +192,15 @@
                 How long a suggestion waits before a maintainer looks at it.
               </p>
               <dl class="row mb-0">
-                <dt class="col-sm-7 font-weight-normal">Median wait</dt>
+                <dt class="col-sm-7 fw-normal">Median wait</dt>
                 <dd class="col-sm-5 text-sm-right">
                   {% if speed.median_hours is not none %}{% if speed.median_hours < 48 %}{{ speed.median_hours | round(precision=1) }} hours{% else %}{{ (speed.median_hours / 24) | round(precision=1) }} days{% endif %}{% else %}Not reviewed yet{% endif %}
                 </dd>
-                <dt class="col-sm-7 font-weight-normal">Slowest 10% of reviews</dt>
+                <dt class="col-sm-7 fw-normal">Slowest 10% of reviews</dt>
                 <dd class="col-sm-5 text-sm-right">
                   {% if speed.p90_hours is not none %}{% if speed.p90_hours < 48 %}{{ speed.p90_hours | round(precision=1) }} hours{% else %}{{ (speed.p90_hours / 24) | round(precision=1) }} days{% endif %}{% else %}Not reviewed yet{% endif %}
                 </dd>
-                <dt class="col-sm-7 font-weight-normal">Waiting now</dt>
+                <dt class="col-sm-7 fw-normal">Waiting now</dt>
                 <dd class="col-sm-5 text-sm-right">
                   {% if speed.pending == 0 %}
                   Nothing waiting
@@ -228,20 +228,20 @@
                   <thead>
                     <tr>
                       <th scope="col">Maintainer</th>
-                      <th scope="col" class="text-right">Reviewed</th>
-                      <th scope="col" class="text-right">Accepted</th>
-                      <th scope="col" class="text-right">Feedback given</th>
+                      <th scope="col" class="text-end">Reviewed</th>
+                      <th scope="col" class="text-end">Accepted</th>
+                      <th scope="col" class="text-end">Feedback given</th>
                     </tr>
                   </thead>
                   <tbody>
                     {% for member in team %}
                     <tr>
-                      <th scope="row" class="font-weight-normal">
+                      <th scope="row" class="fw-normal">
                         {% if member.name %}{{ member.name }}{% else %}<span class="text-muted">Not recorded</span>{% endif %}
                       </th>
-                      <td class="text-right">{{ member.reviewed }}</td>
-                      <td class="text-right">{{ member.accepted }}</td>
-                      <td class="text-right">{{ member.declined }}</td>
+                      <td class="text-end">{{ member.reviewed }}</td>
+                      <td class="text-end">{{ member.accepted }}</td>
+                      <td class="text-end">{{ member.declined }}</td>
                     </tr>
                     {% endfor %}
                   </tbody>
@@ -274,23 +274,23 @@
                   <thead>
                     <tr>
                       <th scope="col">Contributor</th>
-                      <th scope="col" class="text-right">Submitted</th>
-                      <th scope="col" class="text-right">Accepted</th>
-                      <th scope="col" class="text-right">Feedback given</th>
-                      <th scope="col" class="text-right">Waiting</th>
+                      <th scope="col" class="text-end">Submitted</th>
+                      <th scope="col" class="text-end">Accepted</th>
+                      <th scope="col" class="text-end">Feedback given</th>
+                      <th scope="col" class="text-end">Waiting</th>
                       <th scope="col">Last contribution</th>
                     </tr>
                   </thead>
                   <tbody>
                     {% for contributor in contributors %}
                     <tr>
-                      <th scope="row" class="font-weight-normal">
+                      <th scope="row" class="fw-normal">
                         <a href="/Contributions/{{deck_hash}}/contributor/{{contributor.username_url}}">{{ contributor.username }}</a>
                       </th>
-                      <td class="text-right">{{ contributor.submitted }}</td>
-                      <td class="text-right">{{ contributor.accepted }}</td>
-                      <td class="text-right">{{ contributor.declined }}</td>
-                      <td class="text-right">{{ contributor.pending }}</td>
+                      <td class="text-end">{{ contributor.submitted }}</td>
+                      <td class="text-end">{{ contributor.accepted }}</td>
+                      <td class="text-end">{{ contributor.declined }}</td>
+                      <td class="text-end">{{ contributor.pending }}</td>
                       <td>{% if contributor.last_contribution %}{{ contributor.last_contribution }}{% else %}<span class="text-muted">&mdash;</span>{% endif %}</td>
                     </tr>
                     {% endfor %}
@@ -314,17 +314,17 @@
                   <thead>
                     <tr>
                       <th scope="col">Contributor</th>
-                      <th scope="col" class="text-right">Accepted</th>
+                      <th scope="col" class="text-end">Accepted</th>
                       <th scope="col">Last accepted</th>
                     </tr>
                   </thead>
                   <tbody>
                     {% for contributor in top_contributors %}
                     <tr>
-                      <th scope="row" class="font-weight-normal">
+                      <th scope="row" class="fw-normal">
                         <a href="/Contributions/{{deck_hash}}/contributor/{{contributor.username_url}}">{{ contributor.username }}</a>
                       </th>
-                      <td class="text-right">{{ contributor.accepted }}</td>
+                      <td class="text-end">{{ contributor.accepted }}</td>
                       <td>{% if contributor.last_contribution %}{{ contributor.last_contribution }}{% else %}<span class="text-muted">&mdash;</span>{% endif %}</td>
                     </tr>
                     {% endfor %}
@@ -336,9 +336,8 @@
           {% endif %}
         </div>
         {% include "layout_footer.html" %}
-        <script src="/static/plugins/jquery/jquery.min.js"></script>
-        <script src="/static/plugins/chart.js/Chart.bundle.min.js"></script>
-        <script src="/static/plugins/tables/js/datatable/dataTables.bootstrap4.min.js"></script>
+        <script src="/static/plugins/chart.js/chart.umd.js"></script>
+        <script src="/static/plugins/tables/js/datatable/dataTables.bootstrap5.min.js"></script>
         <script src="/static/plugins/tables/js/datatable-init/datatable-basic.min.js"></script>
         <script src="/static/js/contributions.js"></script>
   </body>

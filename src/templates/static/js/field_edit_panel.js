@@ -75,7 +75,7 @@ window.FieldEditPanel = (function() {
         const $trigger = $(triggerElement);
         $trigger.prop('disabled', true).addClass('loading');
         const originalHtml = $trigger.html();
-        $trigger.html('<i class="fa fa-spinner fa-spin"></i>');
+        $trigger.html('<i class="fa-solid fa-spinner fa-spin"></i>');
 
         // Helper to restore button state
         const restoreButton = () => {
@@ -207,7 +207,7 @@ window.FieldEditPanel = (function() {
         $saveBtn.prop('disabled', true).addClass('loading');
         $cancelBtn.prop('disabled', true);
         const originalBtnHtml = $saveBtn.html();
-        $saveBtn.html('<i class="fa fa-spinner fa-spin"></i> Saving...');
+        $saveBtn.html('<i class="fa-solid fa-spinner fa-spin"></i> Saving...');
         $status.html('<span class="text-info">Saving changes...</span>');
 
         try {
@@ -223,7 +223,7 @@ window.FieldEditPanel = (function() {
 
             // Show success
             const changeCount = response.updated_count + response.created_count;
-            $status.html('<span class="text-success"><i class="fa fa-check"></i> Saved ' + changeCount + ' field(s)!</span>');
+            $status.html('<span class="text-success"><i class="fa-solid fa-check"></i> Saved ' + changeCount + ' field(s)!</span>');
 
             // Update the note card's diff views in-place using the returned diff HTML
             if (response.fields && response.fields.length > 0) {
@@ -344,7 +344,7 @@ window.FieldEditPanel = (function() {
 
         } catch (error) {
             console.error('Failed to save fields:', error);
-            $status.html('<span class="text-danger"><i class="fa fa-exclamation-circle"></i> Failed to save. Please try again.</span>');
+            $status.html('<span class="text-danger"><i class="fa-solid fa-circle-exclamation"></i> Failed to save. Please try again.</span>');
             // Re-enable buttons only on error
             $saveBtn.prop('disabled', false).removeClass('loading').html(originalBtnHtml);
             $cancelBtn.prop('disabled', false);
@@ -379,15 +379,15 @@ window.FieldEditPanel = (function() {
                 // Build status badge
                 let statusBadge = '';
                 if (field.inherited) {
-                    statusBadge = '<span class="field-status-badge inherited"><i class="fa fa-link"></i> Inherited (Read-only)</span>';
+                    statusBadge = '<span class="field-status-badge inherited"><i class="fa-solid fa-link"></i> Inherited (Read-only)</span>';
                 } else if (hasChange) {
-                    statusBadge = '<span class="field-status-badge has-suggestion"><i class="fa fa-pencil"></i> Has suggestion</span>';
+                    statusBadge = '<span class="field-status-badge has-suggestion"><i class="fa-solid fa-pen"></i> Has suggestion</span>';
                 } else if (field.has_other_suggestions) {
-                    statusBadge = '<span class="field-status-badge other-suggestion"><i class="fa fa-info-circle"></i> Other commits have changes</span>';
+                    statusBadge = '<span class="field-status-badge other-suggestion"><i class="fa-solid fa-circle-info"></i> Other commits have changes</span>';
                 } else if (isEmpty) {
-                    statusBadge = '<span class="field-status-badge empty"><i class="fa fa-circle-o"></i> Empty</span>';
+                    statusBadge = '<span class="field-status-badge empty"><i class="fa-regular fa-circle"></i> Empty</span>';
                 } else {
-                    statusBadge = '<span class="field-status-badge unchanged"><i class="fa fa-check"></i> Unchanged</span>';
+                    statusBadge = '<span class="field-status-badge unchanged"><i class="fa-solid fa-check"></i> Unchanged</span>';
                 }
 
                 const readOnlyClass = field.inherited ? 'inherited readonly' : '';
@@ -419,13 +419,13 @@ window.FieldEditPanel = (function() {
                 <div class="edit-panel-header">
                     <div>
                         <div class="edit-panel-title">
-                            <i class="fa fa-pencil"></i>
+                            <i class="fa-solid fa-pen"></i>
                             <span>Edit Fields</span>
                         </div>
                         <div class="edit-panel-hint">Note #${response.note_id} &middot; Commit #${commitId}</div>
                     </div>
                     <button class="edit-panel-close cancel-all-fields-btn" data-note-id="${response.note_id}" title="Close">
-                        <i class="fa fa-times"></i>
+                        <i class="fa-solid fa-xmark"></i>
                     </button>
                 </div>
                 <div class="edit-fields-container">
@@ -438,7 +438,7 @@ window.FieldEditPanel = (function() {
                             Cancel
                         </button>
                         <button class="modern-btn btn-success save-all-fields-btn" data-note-id="${response.note_id}">
-                            <i class="fa fa-check"></i> Save
+                            <i class="fa-solid fa-check"></i> Save
                         </button>
                     </div>
                 </div>
@@ -979,7 +979,7 @@ window.FieldEditPanel = (function() {
     function showError(message) {
         const $status = $('.edit-all-fields-panel .edit-panel-status');
         if ($status.length) {
-            $status.html('<span class="text-danger"><i class="fa fa-exclamation-triangle"></i> ' + escapeHtml(message) + '</span>');
+            $status.html('<span class="text-danger"><i class="fa-solid fa-triangle-exclamation"></i> ' + escapeHtml(message) + '</span>');
             setTimeout(() => $status.html(''), 5000);
         }
     }

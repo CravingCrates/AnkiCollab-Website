@@ -4,7 +4,7 @@
 <head>
     {% set page_title = "Explore Decks" %}
     {% include "header_template.html" %}
-    <link href="/static/plugins/tables/css/datatable/dataTables.bootstrap4.min.css" rel="stylesheet">
+    <link href="/static/plugins/tables/css/datatable/dataTables.bootstrap5.min.css" rel="stylesheet">
     <link href="/static/plugins/sweetalert2/dist/sweetalert2.min.css" rel="stylesheet">
     <link href="/static/css/clipboard.css" rel="stylesheet">
     <link href="/static/css/decks.css" rel="stylesheet">
@@ -21,10 +21,10 @@
                                         <thead>
                                             <tr>
                                                 <th scope="col">Deck</th>
-                                                <th scope="col" class="text-right">Notes</th>
-                                                <th scope="col" class="text-right">Subscribers</th>
-                                                <th scope="col" class="text-right">Updated</th>
-                                                <th scope="col" class="text-right">Action</th>
+                                                <th scope="col" class="text-end">Notes</th>
+                                                <th scope="col" class="text-end">Subscribers</th>
+                                                <th scope="col" class="text-end">Updated</th>
+                                                <th scope="col" class="text-end">Action</th>
                                             </tr>
                                         </thead>
                                         <tbody>
@@ -52,8 +52,7 @@
                 </div>
             </div>
         {% include "layout_footer.html" %}
-        <script src="/static/plugins/jquery/jquery.min.js"></script>
-        <script src="/static/plugins/tables/js/datatable/dataTables.bootstrap4.min.js"></script>
+        <script src="/static/plugins/tables/js/datatable/dataTables.bootstrap5.min.js"></script>
         <script src="/static/plugins/sweetalert2/dist/sweetalert2.min.js"></script>
         <script src="/static/js/clipboard.js"></script>
         <script src="/static/js/decks.js"></script>

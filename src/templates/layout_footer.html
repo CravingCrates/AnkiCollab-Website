@@ -21,15 +21,14 @@ Main wrapper end
 
 <div id="global-cookie-banner" class="alert alert-primary alert-dismissible fade show fixed-bottom m-0 rounded-0" role="alert" aria-live="assertive" style="display: none; z-index: 9999;">
     We use strictly necessary cookies to ensure our site functions securely and correctly. By continuing to browse this site, you agree to this use of cookies.  <a href="/privacy" class="alert-link">Learn more in our Privacy Policy</a>.
-    <button type="button" class="close" data-dismiss="alert" aria-label="Close" id="global-cookie-banner-close">
-        <span aria-hidden="true">&times;</span>
+    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close" id="global-cookie-banner-close">
     </button>
 </div>
 
 <!--**********************************
 Scripts
 ***********************************-->
-<script src="/static/plugins/common/common.min.js"></script>
+<script src="/static/plugins/bootstrap/js/bootstrap.bundle.min.js"></script>
 <script src="/static/js/custom.min.js"></script>
 <script src="/static/js/settings.js"></script>
 <script src="/static/js/gleek.js"></script>
@@ -44,11 +43,6 @@ window.a11yAnnounce = function(message, priority) {
         setTimeout(function() { el.textContent = message; }, 100);
     }
 };
-/* Configure toastr accessibility if loaded */
-if (typeof toastr !== 'undefined') {
-    toastr.options.closeHtml = '<button type="button" aria-label="Close notification">&times;</button>';
-}
-
 (function() {
     var cookieDismissKey = 'ankicollab_cookie_dismissed';
     var banner = document.getElementById('global-cookie-banner');

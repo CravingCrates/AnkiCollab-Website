@@ -66,9 +66,9 @@ $(function() {
             const active = state !== SORT_OFF;
             button.toggleClass('active', active).attr('aria-pressed', String(active));
             if (key === 'time') {
-                icon.attr('class', state === SORT_ASC ? 'fa fa-sort-asc' : (state === SORT_DESC ? 'fa fa-sort-desc' : 'fa fa-sort'));
+                icon.attr('class', state === SORT_ASC ? 'fa-solid fa-sort-up' : (state === SORT_DESC ? 'fa-solid fa-sort-down' : 'fa-solid fa-sort'));
             } else {
-                icon.attr('class', state === SORT_ASC ? 'fa fa-sort-alpha-asc' : (state === SORT_DESC ? 'fa fa-sort-alpha-desc' : 'fa fa-sort'));
+                icon.attr('class', state === SORT_ASC ? 'fa-solid fa-arrow-down-a-z' : (state === SORT_DESC ? 'fa-solid fa-arrow-up-a-z' : 'fa-solid fa-sort'));
             }
         });
     }

@@ -5,7 +5,7 @@
     {% include "header_template.html" %}
     <!-- Custom Stylesheet -->
     <link
-      href="/static/plugins/tables/css/datatable/dataTables.bootstrap4.min.css"
+      href="/static/plugins/tables/css/datatable/dataTables.bootstrap5.min.css"
       rel="stylesheet"
     />
     <link href="/static/css/notes.css" rel="stylesheet" />
@@ -30,8 +30,8 @@
                       type="button"
                       class="btn-copy-key"
                       data-subscription-key="{{ deck.hash }}"
-                      data-toggle="tooltip"
-                      data-placement="bottom"
+                      data-bs-toggle="tooltip"
+                      data-bs-placement="bottom"
                       title="Copy to clipboard"
                     >
                      {{deck.hash}}
@@ -42,7 +42,7 @@
                       rel="noopener noreferrer"
                       aria-label="How to subscribe - help documentation (opens in new tab)"
                     >
-                      <i class="fa fa-question-circle" aria-hidden="true"></i>
+                      <i class="fa-solid fa-circle-question" aria-hidden="true"></i>
                     </a>
                   </div>
                   <hr />
@@ -143,7 +143,7 @@
         ***********************************-->
         {% include "layout_footer.html" %}
 
-    <script src="/static/plugins/tables/js/datatable/dataTables.bootstrap4.min.js"></script>
+    <script src="/static/plugins/tables/js/datatable/dataTables.bootstrap5.min.js"></script>
     <script src="/static/plugins/tables/js/datatable-init/datatable-basic.min.js"></script>
     <script src="/static/plugins/sweetalert2/dist/sweetalert2.min.js"></script>
     <script src="/static/js/clipboard.js"></script>

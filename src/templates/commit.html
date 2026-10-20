@@ -11,7 +11,6 @@
     <link href="/static/css/commit_styling.css" rel="stylesheet">
     <link href="/static/css/commit_page.css" rel="stylesheet">
 
-    <script src="/static/plugins/jquery/jquery.min.js"></script>
     <script src="/static/js/html_diff_utils.js"></script>
     <script src="/static/js/image_handling.js"></script>
     <script src="/static/js/api_service.js"></script>
@@ -30,19 +29,19 @@
             <div class="commit-meta">
                 <div class="meta-item">
                     <div class="meta-icon">
-                        <i class="fa fa-clock-o" aria-hidden="true"></i>
+                        <i class="fa-regular fa-clock" aria-hidden="true"></i>
                     </div>
                     <span>{{ commit.timestamp }}</span>
                 </div>
                 <div class="meta-item">
                     <div class="meta-icon">
-                        <i class="fa fa-user" aria-hidden="true"></i>
+                        <i class="fa-solid fa-user" aria-hidden="true"></i>
                     </div>
                     <span>{{ commit.user }}</span>
                 </div>
                 <div class="meta-item">
                     <div class="meta-icon">
-                        <i class="fa fa-folder" aria-hidden="true"></i>
+                        <i class="fa-solid fa-folder" aria-hidden="true"></i>
                     </div>
                     <span>{{ commit.deck }}</span>
                 </div>
@@ -74,11 +73,11 @@
                         <span class="group-label">All Changes</span>
                         <div class="btn-group">
                             <button class="modern-btn btn-success global-action-btn" data-global-action="approve" data-commit-id="{{commit.id}}" title="Merges ALL notes in this commit, including notes not yet loaded">
-                                <i class="fa fa-check-circle" aria-hidden="true"></i>
+                                <i class="fa-solid fa-circle-check" aria-hidden="true"></i>
                                 Accept All
                             </button>
                             <button class="modern-btn btn-danger global-action-btn" data-global-action="deny" data-commit-id="{{commit.id}}" title="Denies ALL notes in this commit, including notes not yet loaded">
-                                <i class="fa fa-times-circle" aria-hidden="true"></i>
+                                <i class="fa-solid fa-circle-xmark" aria-hidden="true"></i>
                                 Deny All
                             </button>
                         </div>
@@ -91,12 +90,12 @@
                         <span class="group-label">Selected (<span id="selection-count">0</span>)</span>
                         <div class="btn-group">
                             <button type="button" class="modern-btn btn-success-outline" id="bulk-approve-btn" disabled title="Approve only selected notes">
-                                <i class="fa fa-check" aria-hidden="true"></i>
+                                <i class="fa-solid fa-check" aria-hidden="true"></i>
                                 Accept
                                 <span class="bulk-btn-spinner" aria-hidden="true"></span>
                             </button>
                             <button type="button" class="modern-btn btn-danger-outline" id="bulk-deny-btn" disabled title="Deny only selected notes">
-                                <i class="fa fa-times" aria-hidden="true"></i>
+                                <i class="fa-solid fa-xmark" aria-hidden="true"></i>
                                 Deny
                                 <span class="bulk-btn-spinner" aria-hidden="true"></span>
                             </button>
@@ -106,10 +105,10 @@
                 
                 <div class="actions-secondary-row">
                     <button type="button" class="text-action-btn" id="select-all-visible-btn">
-                        <i class="fa fa-check-square-o" aria-hidden="true"></i> Select All Visible
+                        <i class="fa-regular fa-square-check" aria-hidden="true"></i> Select All Visible
                     </button>
                     <button type="button" class="text-action-btn hidden" id="deselect-all-btn">
-                        <i class="fa fa-square-o" aria-hidden="true"></i> Deselect All
+                        <i class="fa-regular fa-square" aria-hidden="true"></i> Deselect All
                     </button>
                 </div>
             </div>

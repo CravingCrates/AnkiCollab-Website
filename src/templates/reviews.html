@@ -21,18 +21,18 @@
             <div class="reviews-header-actions">
               <div class="reviews-sort" role="group" aria-label="Sort reviews">
                 <button class="reviews-sort-btn" id="sortAuthorBtn" type="button" data-sort="author" aria-pressed="false" title="Sort by author">
-                  <i class="fa fa-sort" aria-hidden="true"></i> Author
+                  <i class="fa-solid fa-sort" aria-hidden="true"></i> Author
                 </button>
                 <button class="reviews-sort-btn" id="sortTimeBtn" type="button" data-sort="time" aria-pressed="false" title="Sort by time">
-                  <i class="fa fa-sort" aria-hidden="true"></i> Time
+                  <i class="fa-solid fa-sort" aria-hidden="true"></i> Time
                 </button>
                 <button class="reviews-sort-btn" id="sortInfoBtn" type="button" data-sort="info" aria-pressed="false" title="Sort by info">
-                  <i class="fa fa-sort" aria-hidden="true"></i> Info
+                  <i class="fa-solid fa-sort" aria-hidden="true"></i> Info
                 </button>
               </div>
               <label class="reviews-search">
-                <span class="sr-only">Search reviews</span>
-                <i class="fa fa-search" aria-hidden="true"></i>
+                <span class="visually-hidden">Search reviews</span>
+                <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
                 <input id="reviewsSearch" type="search" placeholder="Search author or deck" autocomplete="off">
               </label>
             </div>
@@ -52,7 +52,7 @@
                     <span class="review-rationale">{{ commit.rationale or "No rationale provided" }}</span>
                     <span class="review-deck" title="{{ commit.deck }}">{{ commit.deck }}</span>
                   </span>
-                  <i class="fa fa-chevron-right review-chevron" aria-hidden="true"></i>
+                  <i class="fa-solid fa-chevron-right review-chevron" aria-hidden="true"></i>
                 </article>
                 {% endfor %}
               </div>
@@ -60,7 +60,7 @@
             </section>
 
             <section class="reviews-detail-panel" id="reviewsDetailPanel" aria-live="polite">
-              <button class="reviews-back-button" id="reviewsBack" type="button"><i class="fa fa-chevron-left" aria-hidden="true"></i> Back to reviews</button>
+              <button class="reviews-back-button" id="reviewsBack" type="button"><i class="fa-solid fa-chevron-left" aria-hidden="true"></i> Back to reviews</button>
               <div class="reviews-detail-empty" id="reviewsDetailEmpty">Select a review to inspect its changes.</div>
               <div class="reviews-detail detail-pane" id="reviewsDetail" hidden>
                 <header class="reviews-detail-header detail-header">
@@ -70,19 +70,19 @@
                     <p class="reviews-detail-info" id="detailInfo"></p>
                   </div>
                   <div class="reviews-detail-nav">
-                    <button class="reviews-icon-button" id="btnPrev" type="button" aria-label="Previous review" title="Previous review"><i class="fa fa-chevron-up" aria-hidden="true"></i></button>
-                    <button class="reviews-icon-button" id="btnNext" type="button" aria-label="Next review" title="Next review"><i class="fa fa-chevron-down" aria-hidden="true"></i></button>
+                    <button class="reviews-icon-button" id="btnPrev" type="button" aria-label="Previous review" title="Previous review"><i class="fa-solid fa-chevron-up" aria-hidden="true"></i></button>
+                    <button class="reviews-icon-button" id="btnNext" type="button" aria-label="Next review" title="Next review"><i class="fa-solid fa-chevron-down" aria-hidden="true"></i></button>
                   </div>
                 </header>
                 <div class="reviews-detail-body detail-scroll" id="drawerBody"></div>
                 <footer class="reviews-detail-footer detail-actions">
                   <div class="reviews-summary-panel">
                     <div id="detailChangeSummary"></div>
-                    <a class="reviews-full-editor" id="btnFullEditor" href="#"><span>View full suggestion</span> <i class="fa fa-external-link" aria-hidden="true"></i></a>
+                    <a class="reviews-full-editor" id="btnFullEditor" href="#"><span>View full suggestion</span> <i class="fa-solid fa-up-right-from-square" aria-hidden="true"></i></a>
                   </div>
                   <div class="reviews-actions">
                     <button class="reviews-action reviews-reject" type="button" data-review-action="deny">Reject</button>
-                    <button class="reviews-action reviews-approve" type="button" data-review-action="approve">Approve <i class="fa fa-check" aria-hidden="true"></i></button>
+                    <button class="reviews-action reviews-approve" type="button" data-review-action="approve">Approve <i class="fa-solid fa-check" aria-hidden="true"></i></button>
                   </div>
                 </footer>
               </div>
@@ -95,7 +95,6 @@
 
         {% include "layout_footer.html" %}
 
-        <script src="/static/plugins/jquery/jquery.min.js"></script>
         <script src="/static/js/html_diff_utils.js"></script>
         <script src="/static/js/image_handling.js"></script>
         <script src="/static/js/api_service.js"></script>

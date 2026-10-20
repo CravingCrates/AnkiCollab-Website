@@ -77,7 +77,7 @@ function groupSuggestionsByCommit() {
                 '<div class="commit-group">' +
                 '<div class="commit-header">' +
                 '<a href="/commit/' + commitId + '" class="commit-badge" title="View Source Commit">' +
-                '<i class="fa fa-code-fork"></i> Commit #' + commitId +
+                '<i class="fa-solid fa-code-branch"></i> Commit #' + commitId +
                 '</a>' +
                 '<span style="color: #6b7280; font-size: 0.9rem;">' +
                 items.length + ' ' + (items.length === 1 ? 'change' : 'changes') +
