@@ -28,6 +28,12 @@ static ALLOWED_CSS_PROPERTIES: std::sync::LazyLock<HashSet<&'static str>> =
             "list-style-type",
             "list-style",
             "vertical-align",
+            // Layout of images, blocks and tables
+            "width",
+            "max-width",
+            "height",
+            "border-bottom",
+            "border-collapse",
         ]
         .iter()
         .copied()
@@ -324,4 +330,36 @@ pub fn clean(src: &str) -> String {
 
     // Restore pitch accent comments
     restore_pitch_accent_comments(&style_sanitized, &pitch_accent_comments)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn keeps_layout_styles() {
+        let html = r#"<span style="width: 100%; max-width: 330px; height: 2em">x</span>"#;
+        let expected = r#"<span style="width: 100%;max-width: 330px;height: 2em;">x</span>"#;
+        assert_eq!(clean(html), expected);
+    }
+
+    #[test]
+    fn keeps_table_borders() {
+        let html = r#"<table style="border-collapse: collapse"></table>"#;
+        assert_eq!(
+            clean(html),
+            r#"<table style="border-collapse: collapse;"></table>"#
+        );
+        let html = r#"<p style="border-bottom: 1px solid #ccc">x</p>"#;
+        assert_eq!(
+            clean(html),
+            r#"<p style="border-bottom: 1px solid #ccc;">x</p>"#
+        );
+    }
+
+    #[test]
+    fn still_drops_unknown_styles() {
+        let html = r#"<img src="a.jpg" style="height: auto; position: absolute">"#;
+        assert_eq!(clean(html), r#"<img src="a.jpg" style="height: auto;">"#);
+    }
 }
