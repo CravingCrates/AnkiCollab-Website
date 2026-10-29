@@ -31,7 +31,8 @@ password.</li>
 <ul>
 <li>When you add cards via AnkiCollab, or use the synchronization feature 
 in the Anki clients to send your data to AnkiCollab, we store the card 
-data, associated media files, (optionally) your review history, the IP Address used to upload the data, your username and device information.</li>
+data, associated media files, (optionally) your review history, which is linked to your account, the IP Address used to upload the data, your username and device information.</li>
+<li>When you answer the review-statistics prompt, we store the decision itself: the answer, the date and time, the version of the wording you were shown, and a hash of your account. We keep this so we can demonstrate that consent was given, and for no other purpose.</li>
 <li>If you set up a passkey, we store the public key and credential identifier that your device creates, a name for it, and when it was last used. Your fingerprint, face or device PIN stays on your device and is never sent to us.</li>
 <li>This personal data is not visible to other users of the service, with the single exception described in the next point.</li>
 <li>Contribution records are a distinct, narrower category of data. When you 
@@ -74,11 +75,11 @@ means to our infrastructure.</li>
 <h2>Syncing</h2>
 <ul>
 <li>When you use the synchronization feature to transfer data between an
- Anki client and AnkiCollab, the client sends the hashed names of the subscribed decks, the timestamp of your last synchronization, device information (such as unique identifiers or user tokens), and optionally your review history (opt-in).</li>
-<li>AnkiCollab does not store the deck contents exchanged during a 
-synchronization request for longer than it needs to process that request. The 
-review history is stored for usage statistics and shared with the deck owners 
-if you choose to upload it.</li>
+ Anki client and AnkiCollab, the client sends the hashed names of the subscribed decks, the timestamp of your last synchronization, device information (such as unique identifiers or user tokens), and, if you have opted in for that deck, your review history.</li>
+<li>AnkiCollab does not store the deck contents exchanged during a synchronization request for longer than it needs to process that request.</li>
+<li>Review history is only sent if you opt in, and you opt in per deck. The add-on asks you the first time a deck would share statistics, and you can change your answer at any time under <strong>Manage Subscriptions → ⋯ → Configure → Review data</strong> for that deck.</li>
+<li>When you opt in, the add-on sends per-note retention, lapse and repetition counts (averaged per deck), the names of the decks and subdecks you reviewed in, and an identifier for each note. It is sent with your access token, so it is linked to your AnkiCollab account: the deck's maintainers see the statistics, not your username, but the data is not anonymous and we can identify which account uploaded it.</li>
+<li>We keep the statistics for as long as you share them. Turning sharing off stops future uploads immediately and schedules the statistics you have already shared for deletion; the deletion is complete within 24 hours, and cached copies of statistics pages may take up to that long to disappear. If you remove a subscription, we offer to delete them at the same time. Erased data no longer contributes to the deck's statistics from that point on.</li>
 <li>As part of your subscription to a deck, we record the time of your last 
 sync of that deck. This is what lets a deck report how many of its 
 subscribers are active, for example "12 subscribers active in the last 30 
@@ -90,6 +91,14 @@ as a list of who synced when.</li>
 <ul>
 <li>For support requests, please&nbsp;<a href="https://discord.gg/9x4DRxzqwM" rel="noopener noreferrer">join our discord server</a>.</li>
 </ul>
+<h2>Review statistics and your rights</h2>
+<p>Review statistics are entirely opt-in and are never a condition of using AnkiCollab.</p>
+<ul>
+<li><strong>Withdraw:</strong> <strong>Manage Subscriptions → ⋯ → Configure → Review data</strong>, per deck. You can also do this when you remove a subscription.</li>
+<li><strong>Effect:</strong> future uploads stop immediately, and we schedule the stats you already shared for deletion. The deletion is carried out within 24 hours, after which the data no longer appears in deck statistics; cached pages may take up to that long to refresh.</li>
+<li><strong>Refuse:</strong> saying no once is enough; the add-on will not ask again. You can change your mind later from the same settings screen.</li>
+<li><strong>Other rights:</strong> access, rectification, restriction, objection, portability, and complaint to a supervisory authority. Contact us via <a href="https://discord.gg/9x4DRxzqwM" rel="noopener noreferrer">Discord</a> or the contact route already listed on this page.</li>
+</ul>
 <h2><strong>Locations</strong></h2>
 <ul>
 <li>We use servers and cloud services located inside secure data centers in the European Union to store your data.</li>
@@ -100,6 +109,7 @@ as a list of who synced when.</li>
 <li>The cards and associated media files you add to AnkiCollab are public by default.</li>
 <li>We may share your data with law enforcement authorities when required to do so by law.</li>
 <li>We may extract the review history of your cards to share with others for academic research purposes. This may include the contents of your cards (such as text).</li>
+<li>That research use covers review history you opted in to share as well. Where we have shared review history for academic research before you withdrew consent, the copy already provided to researchers cannot be recalled, but no further data is shared, and our own stored copy is deleted.</li>
 <li>As decks are contributed by other Anki users, they may contain links
  to third-party servers not under our control. This includes any images 
 embedded in the deck or add-on descriptions - when you view a deck on 
@@ -110,6 +120,7 @@ sites, and those remote sites will learn of your IP address and may send
 <h2>Data Retention</h2>
 <ul>
 <li>We will retain your user data while you continue to use the service. Account data may expire if the account has not been used in 6 months or more.</li>
+<li>Review statistics are kept only for as long as you share them for that deck. Withdrawing sharing stops future uploads immediately and deletes the statistics already shared within 24 hours; cached statistics pages may lag by up to that long, and removing a subscription offers to delete them at the same time.</li>
 <li>If you wish to remove your user data, you can delete your AnkiCollab 
 account yourself, from your profile page - your passkeys and every device you have linked go with it. If you would rather we did it, email us at ankicollab@proton.me with your username and we will remove the account as soon as we can.</li>
 <li>If you delete your account, we will delete your user data.</li>
@@ -138,7 +149,7 @@ more secure.</li>
 <h2>Data Usage for Academic Research</h2>
 <ul>
     <li>All data provided by users on AnkiCollab, including but not limited to review history, note data, and other behavior statistics, may be used for academic research.</li>
-    <li>This usage is permitted as long as the privacy of users is never breached. All data used for research will be anonymized to protect user privacy.</li>
+    <li>This usage is permitted as long as the privacy of users is never breached. Review statistics that you opted in to sharing are linked to your AnkiCollab account and are not anonymous: they are deleted when you withdraw consent, but copies already provided to researchers cannot be recalled.</li>
 </ul>
 <h2>Lawful Basis</h2>
 <p>Data processing laws require us to state the lawful basis we use for processing your data.</p>
@@ -148,6 +159,7 @@ is necessary for providing the service to you (servicing a contract).</li>
 <li>Statistics that we collect from your data are used to improve the 
 service, and for research (servicing a contract, and legitimate 
 interests).</li>
+<li>Review statistics you opt in to sharing are processed on the basis of your consent, which you give per deck and can withdraw at any time (see Review statistics and your rights).</li>
 <li>Access logs are used for diagnostic and analytical purposes, and for
  detecting misuse of the service (servicing a contract, and legitimate 
 interests).</li>
@@ -168,7 +180,7 @@ same way, and notify you if they wish to use your data in a way not
 described here.</p>
 <h2>Contact</h2>
 <p>If you have any questions about this privacy policy, please email us at ankicollab@proton.me</p>
-<p><em>Last updated 2026-10-08.</em></p>
+<p><em>Last updated 2026-10-29.</em></p>
 <p>&nbsp;</p>
                             </div>
                         </div>

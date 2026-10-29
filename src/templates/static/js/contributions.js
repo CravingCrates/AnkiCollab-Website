@@ -3,7 +3,7 @@
 $(function () {
     var timeline = $('#timelineOverview');
     if (timeline.length) {
-        timeline.DataTable({ pageLength: 10, order: [], searching: false });
+        timeline.DataTable({ pageLength: 10, order: [[0, 'desc']], searching: false });
     }
 
     var contributors = $('#contributorsOverview');

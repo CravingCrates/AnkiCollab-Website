@@ -540,7 +540,7 @@ impl AuthError {
             Self::InvalidCredentials => (StatusCode::UNAUTHORIZED, "Invalid username or password"),
             Self::Database(_) => (
                 StatusCode::SERVICE_UNAVAILABLE,
-                "We couldn't sign you in right now. Please try again later or notify us if the problem persists.",
+                "We could not sign you in right now. Please try again later or notify us if the problem persists.",
             ),
             Self::PasswordHash(_) => (
                 StatusCode::INTERNAL_SERVER_ERROR,

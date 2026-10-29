@@ -117,7 +117,7 @@ document.addEventListener('DOMContentLoaded', function() {
                             Swal.fire("Deleted!", "The deck is scheduled for deletion and will be removed asap, but keep in mind that it won't remove the local installation of users.", "success");
                             setTimeout(function() {
                                 if (r.redirected) window.location.href = r.url; else window.location.href = '/ManageDecks';
-                            }, 7000);
+                            }, 3000);
                         })
                         .catch(function() { Swal.fire("Error", "Failed to delete deck", "error"); });
                 } else {
