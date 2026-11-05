@@ -48,7 +48,9 @@ use user::{
 use axum_client_ip::{ClientIp, ClientIpSource};
 use tower_http::services::ServeDir;
 use tower_http::trace::TraceLayer;
-use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
+use tracing_subscriber::{
+    filter::LevelFilter, layer::SubscriberExt, util::SubscriberInitExt, Layer,
+};
 
 use axum::{
     extract::{Path, Query, State},
@@ -59,7 +61,7 @@ use axum::{
     Extension, Json, Router,
 };
 
-use sentry::integrations::tracing::EventFilter;
+use sentry::integrations::tracing::BreadcrumbLayer;
 use structs::{
     BasicDeckInfo, DeckHash, DeckId, DeckOverview, FieldId, NoteId, Return, UpdateNotetype,
     UpdateNotetypeTemplate, UserId,
@@ -2826,14 +2828,9 @@ async fn main() {
         })
     };
 
-    let sentry_layer = sentry::integrations::tracing::layer().event_filter(|metadata| {
-        match *metadata.level() {
-            // Only capture breadcrumbs for context, not events
-            // Real errors are captured explicitly via sentry::capture_message in error.rs
-            tracing::Level::ERROR | tracing::Level::WARN => EventFilter::Breadcrumb,
-            _ => EventFilter::Ignore,
-        }
-    });
+    // Only capture breadcrumbs for context, not events.
+    // Real errors are captured explicitly via sentry::capture_message in error.rs
+    let sentry_layer = BreadcrumbLayer::new().with_filter(LevelFilter::WARN);
 
     tracing_subscriber::registry()
         .with(env_filter)

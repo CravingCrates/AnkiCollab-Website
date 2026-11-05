@@ -19,10 +19,10 @@ appveyor = { repository = "seikichi/htmldiff" }
 
 [dependencies]
 kuchiki = "0.8.1"
-rand = "0.10.2"
+rand = "0.10.3"
 unicode-segmentation = "1.13.3"
 
 [dev-dependencies]
-proptest = "1.11.0"
-rand = "0.10.2" # reuse same version
+proptest = "1.12.0"
+rand = "0.10.3" # reuse same version
 kuchiki = "0.8.1"

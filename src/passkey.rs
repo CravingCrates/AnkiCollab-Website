@@ -388,7 +388,7 @@ pub fn finish_discoverable_authentication(
     key: &DiscoverableKey,
 ) -> Result<AuthenticationResult, PasskeyError> {
     webauthn
-        .finish_discoverable_authentication(credential, state, std::slice::from_ref(key))
+        .finish_discoverable_authentication_v2(credential, state, key)
         .map_err(|e| PasskeyError::from_webauthn(&e))
 }
 
