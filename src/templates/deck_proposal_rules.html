@@ -1,0 +1,905 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    {% set page_title = "Proposal Automation" %}
+    {% include "header_template.html" %}
+    <link href="/static/plugins/toastr/css/toastr.min.css" rel="stylesheet" />
+    <link href="/static/plugins/sweetalert2/dist/sweetalert2.min.css" rel="stylesheet" />
+    <style>
+      .rule-section-title {
+        font-size: 1.15rem;
+        font-weight: 600;
+        letter-spacing: -0.01em;
+        margin-bottom: 0.35rem;
+        color: #2d3748;
+      }
+      .rule-desc {
+        color: #718096;
+        font-size: 0.875rem;
+        margin-bottom: 1rem;
+      }
+      .rule-check-item {
+        padding: 0.65rem 0;
+        border-bottom: 1px solid #edf2f7;
+      }
+      .rule-check-item:last-child {
+        border-bottom: none;
+      }
+      .rule-check-label {
+        font-weight: 500;
+        color: #2d3748;
+        margin-bottom: 0.15rem;
+        cursor: pointer;
+      }
+      .rule-check-subtext {
+        font-size: 0.8125rem;
+        color: #718096;
+        margin-bottom: 0;
+      }
+      .rule-pattern-badge {
+        font-family: SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+        font-size: 0.8125rem;
+        background-color: #f1f5f9;
+        padding: 0.15rem 0.4rem;
+        border-radius: 3px;
+        border: 1px solid #e2e8f0;
+        color: #334155;
+      }
+      .rules-action-bar {
+        position: sticky;
+        bottom: 1rem;
+        z-index: 100;
+        background: rgba(255, 255, 255, 0.95);
+        backdrop-filter: blur(8px);
+        padding: 1rem 1.5rem;
+        border-radius: 8px;
+        box-shadow: 0 4px 18px rgba(0, 0, 0, 0.08);
+        border: 1px solid #e2e8f0;
+      }
+      .font-weight-500 {
+        font-weight: 500;
+      }
+      .font-weight-600 {
+        font-weight: 600;
+      }
+
+      /* Collapsible Advanced Accordion */
+      details.proposal-rules-accordion {
+        border: 1px solid #e2e8f0;
+        border-radius: 6px;
+        background: #f8fafc;
+        margin-top: 1rem;
+        transition: all 0.2s ease;
+      }
+      details.proposal-rules-accordion[open] {
+        background: #ffffff;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.03);
+      }
+      details.proposal-rules-accordion > summary {
+        padding: 0.75rem 1rem;
+        font-weight: 600;
+        font-size: 0.875rem;
+        color: #334155;
+        cursor: pointer;
+        list-style: none;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        user-select: none;
+      }
+      details.proposal-rules-accordion > summary::-webkit-details-marker {
+        display: none;
+      }
+      details.proposal-rules-accordion > summary::after {
+        content: "[+] Expand";
+        font-size: 0.75rem;
+        font-family: inherit;
+        font-weight: 500;
+        color: #64748b;
+      }
+      details.proposal-rules-accordion[open] > summary::after {
+        content: "[-] Collapse";
+        color: #475569;
+      }
+      .proposal-accordion-body {
+        padding: 1rem;
+        border-top: 1px solid #e2e8f0;
+      }
+
+      /* Config Editor Styles */
+      .config-editor-area {
+        font-family: SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+        font-size: 0.82rem;
+        line-height: 1.5;
+        background: #1e222b;
+        color: #e2e8f0;
+        border-radius: 6px;
+        border: 1px solid #161920;
+        padding: 10px 12px;
+        tab-size: 2;
+        width: 100%;
+        resize: vertical;
+      }
+      .config-editor-area:focus {
+        border-color: #4b6cb7;
+        outline: none;
+      }
+      .config-doc-box {
+        background: #f8fafc;
+        border: 1px solid #e2e8f0;
+        border-radius: 6px;
+        padding: 0.75rem 1rem;
+        margin-top: 0.75rem;
+      }
+      .config-doc-title {
+        font-weight: 600;
+        font-size: 0.8125rem;
+        color: #334155;
+        margin-bottom: 0.35rem;
+      }
+      .config-doc-table {
+        font-size: 0.78rem;
+        width: 100%;
+        margin-top: 0.25rem;
+        margin-bottom: 0;
+      }
+      .config-doc-table th {
+        font-weight: 600;
+        color: #475569;
+        border-bottom: 1px solid #cbd5e1;
+        padding: 3px 6px;
+      }
+      .config-doc-table td {
+        padding: 3px 6px;
+        border-bottom: 1px solid #f1f5f9;
+        vertical-align: top;
+      }
+      .config-doc-code {
+        font-family: SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+        font-size: 0.75rem;
+        background: #e2e8f0;
+        color: #0f172a;
+        padding: 1px 4px;
+        border-radius: 3px;
+        white-space: nowrap;
+      }
+
+      /* Alert Callout */
+      .alert-policy-notice {
+        background: #f8fafc;
+        border-left: 3px solid #3b82f6;
+        border-radius: 4px;
+        padding: 0.75rem 1rem;
+        font-size: 0.8125rem;
+        color: #334155;
+        margin-bottom: 1rem;
+      }
+
+      /* Anki Playground Editor Styles */
+      .anki-toolbar {
+        background: #f8f9fa;
+        border: 1px solid #dcdfe6;
+        border-bottom: none;
+        border-top-left-radius: 6px;
+        border-top-right-radius: 6px;
+        padding: 6px 10px;
+        display: flex;
+        gap: 6px;
+        align-items: center;
+        flex-wrap: wrap;
+      }
+      .anki-btn {
+        background: #ffffff;
+        border: 1px solid #dcdfe6;
+        border-radius: 4px;
+        padding: 4px 10px;
+        font-size: 0.8125rem;
+        color: #495057;
+        cursor: pointer;
+        transition: all 0.15s ease;
+        line-height: 1.4;
+      }
+      .anki-btn:hover {
+        background: #e9ecef;
+        color: #212529;
+      }
+      .anki-btn:active, .anki-btn.active {
+        background: #4b6cb7;
+        color: #ffffff;
+        border-color: #4b6cb7;
+      }
+      .anki-toolbar .toolbar-divider {
+        width: 1px;
+        height: 18px;
+        background: #dee2e6;
+        margin: 0 4px;
+      }
+      .rich-text-input.svelte-1dm1bxr {
+        min-height: 120px;
+        max-height: 220px;
+        overflow-y: auto;
+        border: 1px solid #dcdfe6;
+        border-bottom-left-radius: 6px;
+        border-bottom-right-radius: 6px;
+        padding: 12px 14px;
+        background: #ffffff;
+        outline: none;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+        font-size: 0.9375rem;
+        color: #212529;
+        line-height: 1.6;
+      }
+      .rich-text-input.svelte-1dm1bxr:focus {
+        border-color: #4b6cb7;
+        box-shadow: 0 0 0 2px rgba(75, 108, 183, 0.15);
+      }
+      .CodeMirror-lines {
+        font-family: SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+        font-size: 0.84rem;
+        background: #1e222b;
+        color: #abb2bf;
+        padding: 12px 14px;
+        border-radius: 6px;
+        min-height: 120px;
+        max-height: 220px;
+        overflow-y: auto;
+        border: 1px solid #161920;
+        outline: none;
+        white-space: pre-wrap;
+        line-height: 1.5;
+      }
+      .anki-preview-card {
+        border: 1px solid #e2e8f0;
+        border-radius: 8px;
+        background: #ffffff;
+        padding: 18px 20px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+        min-height: 90px;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+        color: #2d3748;
+        font-size: 0.95rem;
+        line-height: 1.6;
+      }
+      .anki-preview-cloze {
+        color: #0056b3;
+        font-weight: 600;
+        background: #ebf5fb;
+        padding: 1px 5px;
+        border-radius: 3px;
+        border-bottom: 2px solid #3498db;
+      }
+      .badge-tag-kept {
+        background-color: #f0fdf4;
+        color: #166534;
+        border: 1px solid #bbf7d0;
+        font-size: 0.75rem;
+        font-family: SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+        padding: 0.2rem 0.5rem;
+        border-radius: 4px;
+        margin-right: 4px;
+        margin-bottom: 4px;
+        display: inline-block;
+      }
+      .badge-tag-auto {
+        background-color: #eff6ff;
+        color: #1e40af;
+        border: 1px solid #bfdbfe;
+        font-size: 0.75rem;
+        font-family: SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+        padding: 0.2rem 0.5rem;
+        border-radius: 4px;
+        margin-right: 4px;
+        margin-bottom: 4px;
+        display: inline-block;
+      }
+      .badge-tag-stripped {
+        background-color: #fef2f2;
+        color: #991b1b;
+        border: 1px solid #fecaca;
+        font-size: 0.75rem;
+        font-family: SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+        padding: 0.2rem 0.5rem;
+        border-radius: 4px;
+        text-decoration: line-through;
+        margin-right: 4px;
+        margin-bottom: 4px;
+        display: inline-block;
+      }
+      .media-controls-disabled {
+        opacity: 0.6;
+        pointer-events: none;
+      }
+      .media-controls-transition {
+        transition: opacity 0.2s ease;
+      }
+      .playground-input-sm {
+        font-size: 0.84rem;
+      }
+      .anki-color-picker {
+        width: 26px;
+        height: 26px;
+        border: 1px solid #dcdfe6;
+        padding: 0;
+        cursor: pointer;
+        border-radius: 4px;
+      }
+      .anki-btn-danger {
+        color: #c53030;
+      }
+      .playground-code-hidden {
+        display: none;
+      }
+      .playground-tags-box {
+        min-height: 28px;
+      }
+      .playground-footer-text {
+        font-size: 0.8125rem;
+      }
+      .preview-section-label {
+        font-size: 0.75rem;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+      }
+    </style>
+  </head>
+  {% include "layout_header.html" %}
+        <!-- row -->
+        <div id="deck-proposal-rules-page" data-deck-hash="{{ hash }}" class="container-fluid mt-3">
+          <div class="row">
+            <div class="col-12">
+              <div class="card">
+                <div class="card-body">
+                  <div class="d-flex justify-content-between align-items-center flex-wrap">
+                    <div>
+                      <h1 class="card-title mb-1">Proposal Automation & Formatting Rules</h1>
+                      <p class="rule-desc mb-0">Configure automated sanitization, lifecycle tagging, and quality policies for incoming community proposals.</p>
+                    </div>
+                    <div class="mt-2 mt-sm-0">
+                      <a href="/EditDeck/{{ hash }}" class="btn btn-outline-secondary btn-rounded btn-sm">
+                        <i class="fa fa-arrow-left" aria-hidden="true"></i> Back to Deck
+                      </a>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <form id="deckProposalRulesForm">
+            <div class="row">
+              <!-- Column 1: HTML Sanitization & Media Optimization -->
+              <div class="col-lg-6 col-12">
+                <!-- Card: HTML Normalization -->
+                <div class="card">
+                  <div class="card-body">
+                    <h2 class="rule-section-title">
+                      <i class="fa fa-code text-muted mr-1" aria-hidden="true"></i> HTML & Content Sanitization
+                    </h2>
+                    <p class="rule-desc">Cleans contributor quirks upon ingestion while preserving textual knowledge. All rules are natively disabled by default.</p>
+
+                    <!-- Core Toggles (Clean & Essential) -->
+                    <div class="rule-check-item">
+                      <div class="form-check">
+                        <input type="checkbox" class="form-check-input" id="strip_colors" name="strip_colors" {% if rules.strip_colors %}checked{% endif %} />
+                        <label class="form-check-label rule-check-label" for="strip_colors">Remove custom colors</label>
+                        <p class="rule-check-subtext">Strips text color and background-color declarations, preserving general deck typography.</p>
+                      </div>
+                    </div>
+
+                    <div class="rule-check-item">
+                      <div class="form-check">
+                        <input type="checkbox" class="form-check-input" id="strip_span" name="strip_span" {% if rules.strip_span %}checked{% endif %} />
+                        <label class="form-check-label rule-check-label" for="strip_span">Unwrap &lt;span&gt; tags</label>
+                        <p class="rule-check-subtext">Strips opening and closing span elements while retaining the inner text, preventing formatting collisions.</p>
+                      </div>
+                    </div>
+
+                    <div class="rule-check-item">
+                      <div class="form-check">
+                        <input type="checkbox" class="form-check-input" id="prevent_center_on_back" name="prevent_center_on_back" {% if rules.prevent_center_on_back %}checked{% endif %} />
+                        <label class="form-check-label rule-check-label" for="prevent_center_on_back">Prevent text centering on Verso</label>
+                        <p class="rule-check-subtext">Strips centering tags and text-align: center on answer fields, ensuring clear left-aligned readability.</p>
+                      </div>
+                    </div>
+
+                    <div class="rule-check-item">
+                      <div class="form-check">
+                        <input type="checkbox" class="form-check-input" id="auto_repair_cloze" name="auto_repair_cloze" {% if rules.auto_repair_cloze %}checked{% endif %} />
+                        <label class="form-check-label rule-check-label" for="auto_repair_cloze">Auto-repair cloze formatting</label>
+                        <p class="rule-check-subtext">Automatically repairs cloze typos like single colons &#123;&#123;c1:text&#125;&#125; into valid &#123;&#123;c1::text&#125;&#125;.</p>
+                      </div>
+                    </div>
+
+                    <!-- Expandable Advanced Section with .config editor -->
+                    <details class="proposal-rules-accordion" id="accordion_html_rules">
+                      <summary>Advanced HTML Settings & Custom .config Rules</summary>
+                      <div class="proposal-accordion-body">
+                        <!-- Secondary Toggles -->
+                        <div class="row">
+                          <div class="col-md-6 col-12">
+                            <div class="rule-check-item">
+                              <div class="form-check">
+                                <input type="checkbox" class="form-check-input" id="strip_font_tags" name="strip_font_tags" {% if rules.strip_font_tags %}checked{% endif %} />
+                                <label class="form-check-label rule-check-label" for="strip_font_tags">Strip obsolete &lt;font&gt; tags</label>
+                                <p class="rule-check-subtext">Removes legacy font tags while preserving their internal text.</p>
+                              </div>
+                            </div>
+                          </div>
+                          <div class="col-md-6 col-12">
+                            <div class="rule-check-item">
+                              <div class="form-check">
+                                <input type="checkbox" class="form-check-input" id="strip_inline_styles" name="strip_inline_styles" {% if rules.strip_inline_styles %}checked{% endif %} />
+                                <label class="form-check-label rule-check-label" for="strip_inline_styles">Strip all inline CSS styles</label>
+                                <p class="rule-check-subtext">Enforces 100% adherence to the deck stylesheet.</p>
+                              </div>
+                            </div>
+                          </div>
+                          <div class="col-md-6 col-12">
+                            <div class="rule-check-item">
+                              <div class="form-check">
+                                <input type="checkbox" class="form-check-input" id="trim_trailing_breaks" name="trim_trailing_breaks" {% if rules.trim_trailing_breaks %}checked{% endif %} />
+                                <label class="form-check-label rule-check-label" for="trim_trailing_breaks">Trim trailing linebreaks</label>
+                                <p class="rule-check-subtext">Removes residual &lt;br&gt; and empty div breaks at end of fields.</p>
+                              </div>
+                            </div>
+                          </div>
+                          <div class="col-md-6 col-12">
+                            <div class="rule-check-item">
+                              <div class="form-check">
+                                <input type="checkbox" class="form-check-input" id="normalize_spaces" name="normalize_spaces" {% if rules.normalize_spaces %}checked{% endif %} />
+                                <label class="form-check-label rule-check-label" for="normalize_spaces">Normalize whitespace</label>
+                                <p class="rule-check-subtext">Collapses multiple spaces and &amp;nbsp; sequences into standard spaces.</p>
+                              </div>
+                            </div>
+                          </div>
+                          <div class="col-md-6 col-12">
+                            <div class="rule-check-item">
+                              <div class="form-check">
+                                <input type="checkbox" class="form-check-input" id="strip_empty_elements" name="strip_empty_elements" {% if rules.strip_empty_elements %}checked{% endif %} />
+                                <label class="form-check-label rule-check-label" for="strip_empty_elements">Remove empty formatting tags</label>
+                                <p class="rule-check-subtext">Cleans empty ghost tags like &lt;b&gt;&lt;/b&gt; left by pasting.</p>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+
+                        <!-- Custom HTML Rules .config -->
+                        <div class="mt-3">
+                          <label for="custom_html_rules" class="font-weight-600 mb-1 d-block">Handwritten HTML Rules (.config file format)</label>
+                          <small class="text-muted d-block mb-2">Define custom sanitization directives one per line. Lines starting with # are comments.</small>
+                          <textarea class="config-editor-area" id="custom_html_rules" name="custom_html_rules" rows="6" placeholder="# Example custom rules&#10;strip-tags: span, em&#10;strip-styles: color, font-family&#10;remove-elements: script, iframe&#10;replace: &quot;bad_term&quot; =&gt; &quot;good_term&quot;">{{ rules.custom_html_rules }}</textarea>
+                        </div>
+
+                        <!-- Documentation & Quick Reference -->
+                        <div class="config-doc-box">
+                          <div class="config-doc-title">HTML Directives Reference</div>
+                          <table class="config-doc-table">
+                            <thead>
+                              <tr>
+                                <th>Directive</th>
+                                <th>Syntax Example</th>
+                                <th>Action</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              <tr>
+                                <td><span class="config-doc-code">strip-tags:</span></td>
+                                <td><span class="config-doc-code">strip-tags: span, font, em</span></td>
+                                <td>Unwraps the outer tags, keeping inner text intact</td>
+                              </tr>
+                              <tr>
+                                <td><span class="config-doc-code">remove-elements:</span></td>
+                                <td><span class="config-doc-code">remove-elements: script, iframe</span></td>
+                                <td>Completely deletes the tags and everything inside them</td>
+                              </tr>
+                              <tr>
+                                <td><span class="config-doc-code">strip-styles:</span></td>
+                                <td><span class="config-doc-code">strip-styles: color, font-family</span></td>
+                                <td>Removes specific CSS properties from style attributes</td>
+                              </tr>
+                              <tr>
+                                <td><span class="config-doc-code">strip-attributes:</span></td>
+                                <td><span class="config-doc-code">strip-attributes: class, id, dir</span></td>
+                                <td>Removes unwanted attributes across all HTML elements</td>
+                              </tr>
+                              <tr>
+                                <td><span class="config-doc-code">strip-empty:</span></td>
+                                <td><span class="config-doc-code">strip-empty: span, div, b, i</span></td>
+                                <td>Deletes empty tags that contain only whitespace</td>
+                              </tr>
+                              <tr>
+                                <td><span class="config-doc-code">replace:</span></td>
+                                <td><span class="config-doc-code">replace: &quot;old&quot; =&gt; &quot;new&quot;</span></td>
+                                <td>Performs exact literal string substitution</td>
+                              </tr>
+                              <tr>
+                                <td><span class="config-doc-code">regex-replace:</span></td>
+                                <td><span class="config-doc-code">regex-replace: /foo\d+/ =&gt; &quot;bar&quot;</span></td>
+                                <td>Performs regex pattern search and replacement</td>
+                              </tr>
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    </details>
+                  </div>
+                </div>
+
+                <!-- Card: Media Optimization -->
+                <div class="card">
+                  <div class="card-body">
+                    <h2 class="rule-section-title">
+                      <i class="fa fa-image text-muted mr-1" aria-hidden="true"></i> Media Optimization & Compression
+                    </h2>
+                    <p class="rule-desc">Prevents deck bloat by automatically optimizing and compressing contributor media upon upload.</p>
+
+                    <div class="rule-check-item">
+                      <div class="form-check">
+                        <input type="checkbox" class="form-check-input" id="enable_media_compression" name="enable_media_compression" {% if rules.enable_media_compression %}checked{% endif %} />
+                        <label class="form-check-label rule-check-label" for="enable_media_compression">Enable automatic media compression</label>
+                        <p class="rule-check-subtext">Processes image uploads through the compression pipeline to conserve bandwidth and storage.</p>
+                      </div>
+                    </div>
+
+                    <div id="media-controls-group" class="{% if not rules.enable_media_compression %}media-controls-disabled{% endif %} media-controls-transition">
+                      <div class="form-group mt-3">
+                        <label for="max_image_dimension" class="font-weight-500">Max image dimension (width / height)</label>
+                        <select class="form-control" id="max_image_dimension" name="max_image_dimension">
+                          <option value="0" {% if rules.max_image_dimension == 0 %}selected{% endif %}>Original resolution (No resize)</option>
+                          <option value="1200" {% if rules.max_image_dimension == 1200 %}selected{% endif %}>1200 px (Ultra-compact)</option>
+                          <option value="1600" {% if rules.max_image_dimension == 1600 %}selected{% endif %}>1600 px (Recommended balance)</option>
+                          <option value="1920" {% if rules.max_image_dimension == 1920 %}selected{% endif %}>1920 px (High definition)</option>
+                        </select>
+                      </div>
+
+                      <div class="form-group">
+                        <label for="image_quality" class="font-weight-500">Compression quality</label>
+                        <select class="form-control" id="image_quality" name="image_quality">
+                          <option value="0" {% if rules.image_quality == 0 %}selected{% endif %}>Disabled (No recompression)</option>
+                          <option value="75" {% if rules.image_quality == 75 %}selected{% endif %}>75% (Maximum compression)</option>
+                          <option value="80" {% if rules.image_quality == 80 %}selected{% endif %}>80% (Compact)</option>
+                          <option value="85" {% if rules.image_quality == 85 %}selected{% endif %}>85% (Optimal quality / size)</option>
+                          <option value="90" {% if rules.image_quality == 90 %}selected{% endif %}>90% (Near lossless)</option>
+                        </select>
+                      </div>
+
+                      <div class="rule-check-item">
+                        <div class="form-check">
+                          <input type="checkbox" class="form-check-input" id="auto_convert_heavy_images" name="auto_convert_heavy_images" {% if rules.auto_convert_heavy_images %}checked{% endif %} />
+                          <label class="form-check-label rule-check-label" for="auto_convert_heavy_images">Convert heavy image formats</label>
+                          <p class="rule-check-subtext">Converts large uncompressed BMP or opaque PNG files to optimized WebP or JPEG.</p>
+                        </div>
+                      </div>
+
+                      <div class="rule-check-item">
+                        <div class="form-check">
+                          <input type="checkbox" class="form-check-input" id="strip_exif_metadata" name="strip_exif_metadata" {% if rules.strip_exif_metadata %}checked{% endif %} />
+                          <label class="form-check-label rule-check-label" for="strip_exif_metadata">Strip EXIF privacy metadata</label>
+                          <p class="rule-check-subtext">Removes GPS coordinates, device models, and timestamps embedded in photo files.</p>
+                        </div>
+                      </div>
+
+                      <div class="form-group mt-3">
+                        <label for="max_media_file_size_mb" class="font-weight-500">Max media file size threshold (MB)</label>
+                        <input type="number" class="form-control" id="max_media_file_size_mb" name="max_media_file_size_mb" value="{{ rules.max_media_file_size_mb }}" min="0" max="50" />
+                        <small class="form-text text-muted">Uploads exceeding this threshold are blocked (set 0 to disable limit).</small>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Column 2: Tag Lifecycle & PR Quality Gates -->
+              <div class="col-lg-6 col-12">
+                <!-- Card: Tag Lifecycle -->
+                <div class="card">
+                  <div class="card-body">
+                    <h2 class="rule-section-title">
+                      <i class="fa fa-tags text-muted mr-1" aria-hidden="true"></i> Tag Lifecycle & Automation
+                    </h2>
+                    <p class="rule-desc">Automatically applies versioning tags upon PR approval and cleans obsolete historical markers.</p>
+
+                    <!-- Core Controls -->
+                    <div class="rule-check-item">
+                      <div class="form-check">
+                        <input type="checkbox" class="form-check-input" id="auto_tag_new_cards" name="auto_tag_new_cards" {% if rules.auto_tag_new_cards %}checked{% endif %} />
+                        <label class="form-check-label rule-check-label" for="auto_tag_new_cards">Auto-tag newly created cards</label>
+                        <p class="rule-check-subtext">Applies an automated tag when a brand-new card is approved by maintainers.</p>
+                      </div>
+                    </div>
+
+                    <div class="form-group mt-2">
+                      <label for="new_card_tag_pattern" class="font-weight-500">New card tag pattern</label>
+                      <input type="text" class="form-control font-monospace" id="new_card_tag_pattern" name="new_card_tag_pattern" value="{{ rules.new_card_tag_pattern }}" placeholder="e.g. NEW::{MM/YY}" />
+                      <small class="form-text text-muted">
+                        Dynamic tokens:
+                        <span class="rule-pattern-badge">{YYYY}</span>
+                        <span class="rule-pattern-badge">{YY}</span>
+                        <span class="rule-pattern-badge">{MM}</span>
+                        <span class="rule-pattern-badge">{DD}</span>
+                        <span class="rule-pattern-badge">{YYYY-MM}</span>
+                        <span class="rule-pattern-badge">{MM/YY}</span>
+                      </small>
+                    </div>
+
+                    <div class="rule-check-item mt-2">
+                      <div class="form-check">
+                        <input type="checkbox" class="form-check-input" id="auto_tag_updated_cards" name="auto_tag_updated_cards" {% if rules.auto_tag_updated_cards %}checked{% endif %} />
+                        <label class="form-check-label rule-check-label" for="auto_tag_updated_cards">Auto-tag modified cards</label>
+                        <p class="rule-check-subtext">Applies a version tag when edits on an existing card are approved.</p>
+                      </div>
+                    </div>
+
+                    <div class="form-group mt-2">
+                      <label for="updated_card_tag_pattern" class="font-weight-500">Updated card tag pattern</label>
+                      <input type="text" class="form-control font-monospace" id="updated_card_tag_pattern" name="updated_card_tag_pattern" value="{{ rules.updated_card_tag_pattern }}" placeholder="e.g. UPDATED::{MM/YY}" />
+                    </div>
+
+                    <!-- Expandable Advanced Section for Tags -->
+                    <details class="proposal-rules-accordion" id="accordion_tag_rules">
+                      <summary>Advanced Tag Settings & Custom .config Rules</summary>
+                      <div class="proposal-accordion-body">
+                        <div class="rule-check-item">
+                          <div class="form-check">
+                            <input type="checkbox" class="form-check-input" id="prune_old_update_tags" name="prune_old_update_tags" {% if rules.prune_old_update_tags %}checked{% endif %} />
+                            <label class="form-check-label rule-check-label" for="prune_old_update_tags">Prune obsolete update tags</label>
+                            <p class="rule-check-subtext">Deletes prior revision tags on the card when a new update tag is added.</p>
+                          </div>
+                        </div>
+
+                        <div class="form-group mt-2">
+                          <label for="old_update_tag_pattern" class="font-weight-500">Pattern of old tags to prune</label>
+                          <input type="text" class="form-control font-monospace" id="old_update_tag_pattern" name="old_update_tag_pattern" value="{{ rules.old_update_tag_pattern }}" placeholder="e.g. UPDATED::*" />
+                        </div>
+
+                        <div class="form-group mt-3">
+                          <label for="forbidden_tags" class="font-weight-500">Blacklisted contributor tags</label>
+                          <input type="text" class="form-control font-monospace" id="forbidden_tags" name="forbidden_tags" value="{{ rules.forbidden_tags }}" placeholder="e.g. marked, leech, flag*, todo*" />
+                          <small class="form-text text-muted">Comma-separated tags or wildcards automatically stripped from proposals without rejecting card content.</small>
+                        </div>
+
+                        <div class="form-group">
+                          <label for="protected_tag_namespaces" class="font-weight-500">Protected tag namespaces</label>
+                          <input type="text" class="form-control" id="protected_tag_namespaces" name="protected_tag_namespaces" value="{{ rules.protected_tag_namespaces }}" placeholder="e.g. Official::*, Tier::*, Source::*" />
+                          <small class="form-text text-muted">Comma-separated prefixes that non-maintainers cannot alter or delete.</small>
+                        </div>
+
+                        <div class="form-group">
+                          <label for="normalize_tag_casing" class="font-weight-500">Tag casing normalization</label>
+                          <select class="form-control" id="normalize_tag_casing" name="normalize_tag_casing">
+                            <option value="none" {% if rules.normalize_tag_casing == "none" %}selected{% endif %}>Preserve original casing</option>
+                            <option value="lower" {% if rules.normalize_tag_casing == "lower" %}selected{% endif %}>Force lowercase</option>
+                            <option value="upper" {% if rules.normalize_tag_casing == "upper" %}selected{% endif %}>Force UPPERCASE</option>
+                            <option value="slugify" {% if rules.normalize_tag_casing == "slugify" %}selected{% endif %}>Slugify (kebab-case)</option>
+                          </select>
+                        </div>
+
+                        <!-- Custom Tag Rules .config -->
+                        <div class="mt-3">
+                          <label for="custom_tag_rules" class="font-weight-600 mb-1 d-block">Handwritten Tag Rules (.config file format)</label>
+                          <small class="text-muted d-block mb-2">Define custom tag lifecycle directives one per line. Lines starting with # are comments.</small>
+                          <textarea class="config-editor-area" id="custom_tag_rules" name="custom_tag_rules" rows="5" placeholder="# Example custom tag rules&#10;block: marked, leech, flag*, personal*&#10;allow-only: Official::*, Core::*, Tier::*&#10;replace: &quot;old_tag&quot; =&gt; &quot;new_tag&quot;&#10;prefix-all: &quot;Deck::&quot;&#10;case: lower">{{ rules.custom_tag_rules }}</textarea>
+                        </div>
+
+                        <!-- Documentation & Quick Reference -->
+                        <div class="config-doc-box">
+                          <div class="config-doc-title">Tag Directives Reference</div>
+                          <table class="config-doc-table">
+                            <thead>
+                              <tr>
+                                <th>Directive</th>
+                                <th>Syntax Example</th>
+                                <th>Action</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              <tr>
+                                <td><span class="config-doc-code">block:</span></td>
+                                <td><span class="config-doc-code">block: marked, flag*, todo*</span></td>
+                                <td>Strips matching tags from proposals without rejecting card content</td>
+                              </tr>
+                              <tr>
+                                <td><span class="config-doc-code">allow-only:</span></td>
+                                <td><span class="config-doc-code">allow-only: EDN::*, DFASM::*</span></td>
+                                <td>Only permits tags matching one of the specified namespace prefixes</td>
+                              </tr>
+                              <tr>
+                                <td><span class="config-doc-code">replace:</span></td>
+                                <td><span class="config-doc-code">replace: &quot;old&quot; =&gt; &quot;new&quot;</span></td>
+                                <td>Renames or migrates a specific tag to a new canonical name</td>
+                              </tr>
+                              <tr>
+                                <td><span class="config-doc-code">prefix-all:</span></td>
+                                <td><span class="config-doc-code">prefix-all: &quot;EDN::&quot;</span></td>
+                                <td>Prefixes all incoming tags with the given namespace if missing</td>
+                              </tr>
+                              <tr>
+                                <td><span class="config-doc-code">case:</span></td>
+                                <td><span class="config-doc-code">case: lower | upper</span></td>
+                                <td>Forces all incoming tags into lowercase or UPPERCASE</td>
+                              </tr>
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    </details>
+                  </div>
+                </div>
+
+                <!-- Card: Workflow Policies -->
+                <div class="card">
+                  <div class="card-body">
+                    <h2 class="rule-section-title">
+                      <i class="fa fa-shield text-muted mr-1" aria-hidden="true"></i> PR Quality Gates & Policies
+                    </h2>
+                    <p class="rule-desc">Define submission criteria to maintain high signal-to-noise across contributor pull requests.</p>
+
+                    <!-- Alert Notice regarding Add-on Error Display -->
+                    <div class="alert-policy-notice">
+                      <strong>Add-on Quality Feedback:</strong> When a gate policy is enabled, suggestions violating it are rejected at the server level. Contributors immediately receive an explicit, informative error dialog inside their Anki Desktop add-on explaining the requirement.
+                    </div>
+
+                    <div class="rule-check-item">
+                      <div class="form-check">
+                        <input type="checkbox" class="form-check-input" id="require_rationale" name="require_rationale" {% if rules.require_rationale %}checked{% endif %} />
+                        <label class="form-check-label rule-check-label" for="require_rationale">Require non-empty rationale / explanation</label>
+                        <p class="rule-check-subtext">Blocks suggestions that do not provide an informative comment explaining the proposed edits.</p>
+                      </div>
+                    </div>
+
+                    <div class="rule-check-item">
+                      <div class="form-check">
+                        <input type="checkbox" class="form-check-input" id="disallow_deletion_suggestions" name="disallow_deletion_suggestions" {% if rules.disallow_deletion_suggestions %}checked{% endif %} />
+                        <label class="form-check-label rule-check-label" for="disallow_deletion_suggestions">Disallow card deletion suggestions</label>
+                        <p class="rule-check-subtext">Restricts card deletions to deck maintainers only (subscribers can only propose additions or revisions).</p>
+                      </div>
+                    </div>
+
+                    <div class="form-group mt-3">
+                      <label for="max_cards_per_proposal" class="font-weight-500">Max cards per proposal</label>
+                      <input type="number" class="form-control" id="max_cards_per_proposal" name="max_cards_per_proposal" value="{{ rules.max_cards_per_proposal }}" min="0" max="1000" />
+                      <small class="form-text text-muted">Limits the number of cards in a single PR to ensure manageable atomic reviews (set 0 to disable limit).</small>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Row: Interactive Proposal Simulator & Playground -->
+            <div class="row mt-2" id="playground-section">
+              <div class="col-12">
+                <div class="card">
+                  <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center flex-wrap mb-3 pb-2 border-bottom">
+                      <div>
+                        <h2 class="rule-section-title mb-1">
+                          <i class="fa fa-sliders text-muted mr-1" aria-hidden="true"></i> Interactive Proposal Simulator & Playground
+                        </h2>
+                        <p class="rule-desc mb-0">Test in real-time how contributor suggestions are automatically sanitized and tagged according to your active toggles and custom .config rules.</p>
+                      </div>
+                      <div class="btn-group mt-2 mt-sm-0" role="group" aria-label="Playground sample presets">
+                        <button type="button" class="btn btn-outline-secondary btn-sm" id="btnLoadDirtySample">
+                          Load Dirty HTML Sample
+                        </button>
+                        <button type="button" class="btn btn-outline-secondary btn-sm" id="btnLoadClozeSample">
+                          Load Cloze & Colors Sample
+                        </button>
+                        <button type="button" class="btn btn-outline-secondary btn-sm" id="btnResetSample">
+                          Reset
+                        </button>
+                      </div>
+                    </div>
+
+                    <div class="row">
+                      <!-- Left Panel: Raw Contributor Proposal Input -->
+                      <div class="col-lg-6 col-12">
+                        <div class="p-3 bg-light rounded border mb-3">
+                          <label for="playground_raw_html" class="font-weight-600 mb-1">Contributor Raw HTML Input</label>
+                          <small class="d-block text-muted mb-2">Simulate messy contributor HTML containing custom fonts, colors, spans, broken clozes, or centered verso.</small>
+                          <textarea id="playground_raw_html" class="form-control font-monospace playground-input-sm" rows="6"></textarea>
+
+                          <div class="mt-3">
+                            <label for="playground_raw_tags" class="font-weight-600 mb-1">Contributor Proposed Tags</label>
+                            <input type="text" id="playground_raw_tags" class="form-control font-monospace playground-input-sm" value="Cardiology, Topic-232, marked, leech, flag1, HighYield" />
+                            <small class="text-muted">Comma-separated tags submitted by the contributor.</small>
+                          </div>
+
+                          <div class="mt-3">
+                            <label for="playground_proposal_type" class="font-weight-600 mb-1">Proposal Operation Type</label>
+                            <select id="playground_proposal_type" class="form-control">
+                              <option value="new">New Card Addition (Simulate Auto-Tag NEW)</option>
+                              <option value="update" selected>Card Modification (Simulate Auto-Tag MAJ & Pruning)</option>
+                              <option value="deletion">Card Deletion Request</option>
+                            </select>
+                          </div>
+
+                          <div class="mt-3">
+                            <label for="playground_rationale" class="font-weight-600 mb-1">Contributor Rationale / Comment</label>
+                            <input type="text" id="playground_rationale" class="form-control" value="Correction posologie et ajout de couleur explicative." />
+                          </div>
+                        </div>
+                      </div>
+
+                      <!-- Right Panel: Live Sanitized & Tagged Result -->
+                      <div class="col-lg-6 col-12">
+                        <div class="p-3 bg-light rounded border mb-3">
+                          <div class="d-flex justify-content-between align-items-center mb-2">
+                            <label class="font-weight-600 mb-0">Sanitized Output (What AnkiCollab Stores)</label>
+                            <div class="btn-group" role="group">
+                              <button type="button" class="btn btn-sm btn-outline-primary active" id="btnPlaygroundModeVisual">
+                                Visual WYSIWYG
+                              </button>
+                              <button type="button" class="btn btn-sm btn-outline-primary" id="btnPlaygroundModeCode">
+                                Raw HTML Code
+                              </button>
+                            </div>
+                          </div>
+
+                          <!-- Visual WYSIWYG Mode (Anki Desktop Mirror) -->
+                          <div id="playground-visual-container">
+                            <div class="anki-toolbar">
+                              <button type="button" class="anki-btn" data-cmd="bold" title="Bold"><i class="fa fa-bold"></i></button>
+                              <button type="button" class="anki-btn" data-cmd="italic" title="Italic"><i class="fa fa-italic"></i></button>
+                              <button type="button" class="anki-btn" data-cmd="underline" title="Underline"><i class="fa fa-underline"></i></button>
+                              <div class="toolbar-divider"></div>
+                              <button type="button" class="anki-btn" data-cmd="insertUnorderedList" title="Unordered List"><i class="fa fa-list-ul"></i></button>
+                              <button type="button" class="anki-btn" data-cmd="insertOrderedList" title="Ordered List"><i class="fa fa-list-ol"></i></button>
+                              <div class="toolbar-divider"></div>
+                              <button type="button" class="anki-btn" id="btnAnkiCloze" title="Cloze Deletion"><b>[...]</b></button>
+                              <input type="color" id="ankiColorPicker" title="Text Color" value="#333333" class="anki-color-picker" />
+                              <button type="button" class="anki-btn anki-btn-danger" data-cmd="removeFormat" title="Clear Formatting"><i class="fa fa-eraser"></i></button>
+                            </div>
+                            <div class="rich-text-input svelte-1dm1bxr" contenteditable="true" id="playground_rich_editor" spellcheck="false"></div>
+                          </div>
+
+                          <!-- Raw Code Mode -->
+                          <div id="playground-code-container" class="playground-code-hidden">
+                            <div class="CodeMirror-lines" contenteditable="true" id="playground_code_editor" spellcheck="false"></div>
+                          </div>
+
+                          <!-- Live Simulated Tags -->
+                          <div class="mt-3">
+                            <label class="font-weight-600 mb-1 d-block">Resulting Tags in Anki Database:</label>
+                            <div id="playground_tags_preview" class="d-flex flex-wrap align-items-center playground-tags-box">
+                              <!-- Rendered tag badges -->
+                            </div>
+                          </div>
+
+                          <!-- PR Gate Status -->
+                          <div class="mt-3 p-2 bg-white rounded border d-flex justify-content-between align-items-center text-muted playground-footer-text">
+                            <span>PR Quality Gate Evaluation:</span>
+                            <span id="playground_gate_badge" class="badge badge-success font-weight-normal px-2 py-1">All criteria pass</span>
+                          </div>
+
+                          <!-- Anki Flashcard Live Preview -->
+                          <div class="mt-3">
+                            <label class="font-weight-600 mb-1 d-block text-muted preview-section-label">Anki Flashcard Live Preview</label>
+                            <div class="anki-preview-card" id="playground_card_preview">
+                              <!-- Live rendered card -->
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Sticky Save Bar -->
+            <div class="rules-action-bar d-flex justify-content-between align-items-center mb-4">
+              <span class="text-muted" id="rulesSaveStatus">Configure deck proposal rules above and click Save.</span>
+              <button type="submit" id="saveRulesBtn" class="btn btn-success btn-rounded px-4">
+                <i class="fa fa-check mr-1" aria-hidden="true"></i> Save Automation Rules
+              </button>
+            </div>
+          </form>
+        </div>
+        <!-- end container fluid -->
+
+        {% include "layout_footer.html" %}
+        <script src="/static/plugins/toastr/js/toastr.min.js"></script>
+        <script src="/static/plugins/sweetalert2/dist/sweetalert2.min.js"></script>
+        <script src="/static/js/deck_proposal_rules.js"></script>
+  </body>
+</html>

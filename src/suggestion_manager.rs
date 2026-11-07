@@ -364,6 +364,20 @@ pub async fn approve_card(
         }
     }
 
+    // Apply deck automated proposal tagging rules using existing transaction
+    if let Ok(rules) = crate::deck_proposal_rules_manager::get_rules_with_client(tx, deck_id).await
+    {
+        let commit_id = derive_commit_id(tx, note_id).await.unwrap_or(None);
+        let _ = crate::deck_proposal_rules_manager::apply_tagging_rules_on_approval(
+            tx,
+            note_id,
+            !was_reviewed,
+            &rules,
+            commit_id,
+        )
+        .await;
+    }
+
     if bulk {
         // bulk path still needs to handle subscriber timestamp bump outside (caller responsibility)
     } else {
@@ -1436,11 +1450,15 @@ pub async fn approve_field_change_with_commit(
         return Err(FirstFieldEmpty);
     }
 
-    // Determine note review state to tailor invariants for new vs reviewed notes
-    let note_reviewed: bool = tx
-        .query_one("SELECT reviewed FROM notes WHERE id = $1", &[&note_id])
-        .await?
-        .get(0);
+    // Determine note review state and deck to tailor invariants for new vs reviewed notes
+    let note_meta = tx
+        .query_one(
+            "SELECT reviewed, deck FROM notes WHERE id = $1",
+            &[&note_id],
+        )
+        .await?;
+    let note_reviewed: bool = note_meta.get(0);
+    let note_deck_id: i64 = note_meta.get(1);
 
     // We'll capture old reviewed field (if any) before mutation for event logging
     let prior_reviewed_same_pos = tx.query(
@@ -1593,6 +1611,23 @@ pub async fn approve_field_change_with_commit(
             Some(true),
         )
         .await?;
+
+        // When approving an individual field update on an already-reviewed note outside bulk commit merge,
+        // apply the deck's automated update tagging and pruning rules.
+        if note_reviewed && update_timestamp {
+            if let Ok(rules) =
+                crate::deck_proposal_rules_manager::get_rules_with_client(tx, note_deck_id).await
+            {
+                let _ = crate::deck_proposal_rules_manager::apply_tagging_rules_on_approval(
+                    tx,
+                    note_id,
+                    false,
+                    &rules,
+                    effective_commit_id,
+                )
+                .await;
+            }
+        }
     }
 
     // Timestamp bumps (note + subscribers) collected then updated in bulk
@@ -1847,6 +1882,25 @@ async fn process_single_note_merge(
         // If note is unreviewed, approve it
         if !is_reviewed {
             approve_card(tx, db_state, note_id, user, true).await?;
+        } else {
+            let note_deck_row = tx
+                .query_opt("SELECT deck FROM notes WHERE id = $1", &[&note_id])
+                .await?;
+            if let Some(ndr) = note_deck_row {
+                let note_deck_id: i64 = ndr.get(0);
+                if let Ok(rules) =
+                    crate::deck_proposal_rules_manager::get_rules_with_client(tx, note_deck_id).await
+                {
+                    let _ = crate::deck_proposal_rules_manager::apply_tagging_rules_on_approval(
+                        tx,
+                        note_id,
+                        false,
+                        &rules,
+                        Some(commit_id),
+                    )
+                    .await;
+                }
+            }
         }
 
         // Collect and update timestamps
@@ -2202,6 +2256,12 @@ pub async fn merge_by_commit(
                 .await?;
             }
 
+            // Fetch deck proposal rules for automated tagging using existing transaction
+            let deck_rules =
+                crate::deck_proposal_rules_manager::get_rules_with_client(&tx, deck_id)
+                    .await
+                    .unwrap_or_default();
+
             // Collect note IDs to bump timestamps (notes + their subscribers)
             let mut bump: Vec<i64> = Vec::new();
             for row in &affected_notes {
@@ -2209,6 +2269,16 @@ pub async fn merge_by_commit(
                 let reviewed: bool = row.get(1);
                 if !reviewed {
                     let _ = approve_card(&tx, db_state, note_id, &user, true).await?;
+                } else {
+                    // Updated existing card - apply update tagging rules and prune obsolete tags
+                    let _ = crate::deck_proposal_rules_manager::apply_tagging_rules_on_approval(
+                        &tx,
+                        note_id,
+                        false,
+                        &deck_rules,
+                        Some(commit_id),
+                    )
+                    .await;
                 }
                 bump.push(note_id);
             }

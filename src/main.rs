@@ -15,6 +15,7 @@ pub mod cleanser;
 pub mod commit_manager;
 pub mod contribution_manager;
 pub mod database;
+pub mod deck_proposal_rules_manager;
 pub mod error;
 pub mod maintainer_manager;
 pub mod media_reference_manager;
@@ -458,6 +459,59 @@ async fn show_maintainers(
     let deck_id: i64 = owned_deck_id(&appstate, &deck_hash, user.id()).await?;
 
     Ok(render_maintainers(&appstate, &deck_hash, deck_id, user).await)
+}
+
+async fn render_deck_proposal_rules(
+    appstate: &Arc<AppState>,
+    deck_hash: &str,
+    deck_id: i64,
+    user: User,
+) -> impl IntoResponse {
+    let rules = match deck_proposal_rules_manager::get_rules(appstate, deck_id).await {
+        Ok(r) => r,
+        Err(e) => {
+            tracing::warn!(error = %e, deck_id = deck_id, "Failed to get deck proposal rules");
+            let mut def = deck_proposal_rules_manager::DeckProposalRules::default();
+            def.deck = deck_id;
+            def
+        }
+    };
+
+    let mut context = tera::Context::new();
+    context.insert("rules", &rules);
+    context.insert("hash", &deck_hash);
+    context.insert("user", &user);
+
+    let rendered_template = appstate
+        .tera
+        .render("deck_proposal_rules.html", &context)
+        .expect("Failed to render deck_proposal_rules template");
+    Html(rendered_template)
+}
+
+async fn show_deck_proposal_rules(
+    State(appstate): State<Arc<AppState>>,
+    user: User,
+    Path(deck_hash): Path<String>,
+) -> Result<impl IntoResponse, Error> {
+    let deck_id: i64 = owned_deck_id(&appstate, &deck_hash, user.id()).await?;
+    Ok(render_deck_proposal_rules(&appstate, &deck_hash, deck_id, user).await)
+}
+
+async fn post_deck_proposal_rules(
+    State(appstate): State<Arc<AppState>>,
+    user: User,
+    Path(deck_hash): Path<String>,
+    Json(rules): Json<deck_proposal_rules_manager::DeckProposalRules>,
+) -> Result<impl IntoResponse, Error> {
+    let deck_id: i64 = owned_deck_id(&appstate, &deck_hash, user.id()).await?;
+    deck_proposal_rules_manager::save_rules(&appstate, deck_id, &rules)
+        .await
+        .map_err(|e| {
+            tracing::error!(error = %e, deck_id = deck_id, "Failed to save proposal rules");
+            Error::Unknown
+        })?;
+    Ok("ok")
 }
 
 async fn edit_notetype(
@@ -2931,6 +2985,10 @@ async fn main() {
         .route("/OptionalTags", post(post_optional_tags))
         .route("/OptionalTags/{deck_hash}", get(show_optional_tags))
         .route("/Maintainers/{deck_hash}", get(show_maintainers))
+        .route(
+            "/DeckProposalRules/{deck_hash}",
+            get(show_deck_proposal_rules).post(post_deck_proposal_rules),
+        )
         .route("/Maintainers", post(post_maintainers))
         .route("/EditNotetype/{notetype_id}", get(edit_notetype))
         .route(
