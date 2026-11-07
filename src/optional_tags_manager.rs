@@ -1,3 +1,5 @@
+// UNUSED FEATURE until further notice
+
 use crate::error::Error::TagAlreadyExists;
 use crate::{database, Return};
 

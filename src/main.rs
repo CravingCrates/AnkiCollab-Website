@@ -350,63 +350,6 @@ async fn delete_account(
     Ok(response)
 }
 
-async fn render_optional_tags(
-    appstate: &Arc<AppState>,
-    deck_hash: &String,
-    deck_id: i64,
-    user: User,
-) -> Result<impl IntoResponse, Error> {
-    // Get Tags by deck id
-    let tags = match optional_tags_manager::get_tags(appstate, deck_id).await {
-        Ok(tags) => tags,
-        Err(e) => {
-            tracing::warn!(error = %e, deck_id = deck_id, "Failed to retrieve optional tags");
-            return Ok(Html(
-                "Error retrieving optional tags. Please notify us.".to_string(),
-            ));
-        }
-    };
-
-    let mut context = tera::Context::new();
-    context.insert("optional_tags", &tags);
-    context.insert("hash", &deck_hash);
-    context.insert("user", &user);
-
-    let rendered_template = appstate
-        .tera
-        .render("optional_tags.html", &context)
-        .expect("Failed to render template");
-    Ok(Html(rendered_template))
-}
-
-async fn post_optional_tags(
-    State(appstate): State<Arc<AppState>>,
-    user: User,
-    Json(edit_optional_tag): Json<structs::UpdateOptionalTag>,
-) -> Result<impl IntoResponse, Error> {
-    let data = edit_optional_tag;
-
-    let deck_id: i64 = owned_deck_id(&appstate, &data.deck, user.id()).await?;
-
-    // Add new tag
-    if data.action == 1 {
-        optional_tags_manager::add_tag(&appstate, deck_id, cleanser::clean(&data.taggroup)).await
-    } else {
-        // Delete existing optional_tag
-        optional_tags_manager::remove_tag(&appstate, deck_id, cleanser::clean(&data.taggroup)).await
-    }
-}
-
-async fn show_optional_tags(
-    State(appstate): State<Arc<AppState>>,
-    user: User,
-    Path(deck_hash): Path<DeckHash>,
-) -> Result<impl IntoResponse, Error> {
-    let deck_id: i64 = owned_deck_id(&appstate, &deck_hash, user.id()).await?;
-
-    Ok(render_optional_tags(&appstate, &deck_hash, deck_id, user).await)
-}
-
 async fn render_maintainers(
     appstate: &Arc<AppState>,
     deck_hash: &String,
@@ -560,7 +503,7 @@ async fn edit_deck(
         return error_page(&appstate, &error::Error::Unauthorized.to_string());
     }
 
-    let desc: String = owned_info[0].get(1);
+    let desc: String = cleanser::clean(owned_info[0].get(1));
     let is_private: bool = owned_info[0].get(2);
     let prevent_subdecks: bool = owned_info[0].get(3);
     let restrict_notetypes: bool = owned_info[0].get(4);
@@ -2048,7 +1991,7 @@ async fn get_notes_from_deck(
         owner: deck_info[0].get(4),
         id,
         name: deck_info[0].get(1),
-        desc: cleanser::clean(deck_info[0].get(2)),
+        desc: cleanser::strip_style_tags(&cleanser::clean(deck_info[0].get(2))),
         hash: deck_info[0].get(3),
         last_update: deck_info[0].get(5),
         notes: "0".to_string(),
@@ -2133,7 +2076,7 @@ async fn deck_overview(
             owner: row.get(4),
             id: row.get(0),
             name: row.get(1),
-            desc: cleanser::clean(row.get(2)),
+            desc: cleanser::strip_style_tags(&cleanser::clean(row.get(2))),
             hash: row.get(3),
             last_update: row.get(5),
             notes: row.get(7),
@@ -2642,7 +2585,7 @@ async fn manage_decks(
             owner: row.get(4),
             id: row.get(0),
             name: row.get(1),
-            desc: cleanser::clean(row.get(2)),
+            desc: cleanser::strip_style_tags(&cleanser::clean(row.get(2))),
             hash: row.get(3),
             last_update: row.get(5),
             notes: note_manager::get_notes_count_in_deck(&appstate, row.get(0))
@@ -2925,8 +2868,6 @@ async fn main() {
         .route("/logout", get(logout))
         .route("/welcome", get(get_welcome))
         .route("/profile", get(get_profile))
-        .route("/OptionalTags", post(post_optional_tags))
-        .route("/OptionalTags/{deck_hash}", get(show_optional_tags))
         .route("/Maintainers/{deck_hash}", get(show_maintainers))
         .route("/Maintainers", post(post_maintainers))
         .route("/EditNotetype/{notetype_id}", get(edit_notetype))

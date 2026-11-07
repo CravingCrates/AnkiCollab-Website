@@ -193,6 +193,12 @@ pub async fn update_notetype(
         .await?;
     }
 
+    crate::media_reference_manager::update_media_references_for_notetype_tx(
+        &tx,
+        notetype.notetype_id,
+    )
+    .await?;
+
     tx.commit().await?;
     Ok(())
 }
