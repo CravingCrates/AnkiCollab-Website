@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    {% set page_title = "Democracy Audit & Retroactive Control" %}
+    {% include "header_template.html" %}
+    <link href="/static/plugins/toastr/css/toastr.min.css" rel="stylesheet">
+    <style>
+      .audit-diff ins {
+        background-color: #d4edda;
+        color: #155724;
+        text-decoration: none;
+        padding: 2px 4px;
+        border-radius: 3px;
+      }
+      .audit-diff del {
+        background-color: #f8d7da;
+        color: #721c24;
+        text-decoration: line-through;
+        padding: 2px 4px;
+        border-radius: 3px;
+      }
+      .metric-card {
+        border-left: 4px solid #ced4da;
+        background: #ffffff;
+      }
+      .metric-card.border-success { border-left-color: #28a745 !important; }
+      .metric-card.border-warning { border-left-color: #ffc107 !important; }
+      .metric-card.border-danger { border-left-color: #dc3545 !important; }
+      .metric-card.border-info { border-left-color: #17a2b8 !important; }
+      .voter-badge-approve { background-color: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+      .voter-badge-reject { background-color: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+      .voter-badge-flag { background-color: #fff3cd; color: #856404; border: 1px solid #ffeeba; }
+      .filter-btn.active {
+        background-color: #4b6cb7;
+        color: #ffffff;
+        border-color: #4b6cb7;
+      }
+      .audit-pre {
+        white-space: pre-wrap;
+      }
+      .voters-drawer {
+        display: none;
+      }
+    </style>
+  </head>
+  {% include "layout_header.html" %}
+
+  <div id="democracy-audit-page" data-deck-hash="{{hash}}" class="container-fluid mt-3">
+    <!-- Header Navigation -->
+    <div class="row mb-3">
+      <div class="col-12 d-flex justify-content-between align-items-center">
+        <div>
+          <h1 class="h3 font-weight-bold mb-1">Community Governance & Audit Log</h1>
+          <p class="text-muted mb-0">
+            Supervision and audit log of community moderation decisions for deck <code>{{hash}}</code>.
+          </p>
+        </div>
+        <div>
+          <a href="/Democracy/{{hash}}" class="btn btn-outline-secondary mr-2">
+            Democracy Settings
+          </a>
+          <a href="/EditDeck/{{hash}}" class="btn btn-outline-primary">
+            Back to Deck
+          </a>
+        </div>
+      </div>
+    </div>
+
+    <!-- Summary Metrics -->
+    <div class="row mb-4">
+      <div class="col-md-3 col-sm-6 mb-3">
+        <div class="card metric-card border-info h-100 shadow-sm">
+          <div class="card-body">
+            <h6 class="text-muted text-uppercase font-weight-bold mb-2">Total Decisions</h6>
+            <div class="h2 font-weight-bold mb-0">{{ total_count }}</div>
+            <small class="text-muted">Moderated suggestions</small>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-3 col-sm-6 mb-3">
+        <div class="card metric-card border-success h-100 shadow-sm">
+          <div class="card-body">
+            <h6 class="text-muted text-uppercase font-weight-bold mb-2">Adopted</h6>
+            <div class="h2 font-weight-bold text-success mb-0">{{ approved_count }}</div>
+            <small class="text-muted">Via consensus or maintainer action</small>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-3 col-sm-6 mb-3">
+        <div class="card metric-card border-warning h-100 shadow-sm">
+          <div class="card-body">
+            <h6 class="text-muted text-uppercase font-weight-bold mb-2">Pending / Disputed</h6>
+            <div class="h2 font-weight-bold text-warning mb-0">{{ flagged_count }}</div>
+            <small class="text-muted">Requires maintainer review</small>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-3 col-sm-6 mb-3">
+        <div class="card metric-card border-danger h-100 shadow-sm">
+          <div class="card-body">
+            <h6 class="text-muted text-uppercase font-weight-bold mb-2">Reverted (Audit)</h6>
+            <div class="h2 font-weight-bold text-danger mb-0">{{ reverted_count }}</div>
+            <small class="text-muted">Adoptions revoked by maintainer</small>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Filters and Search Toolbar -->
+    <div class="row mb-3">
+      <div class="col-md-8 col-12 mb-2">
+        <div class="btn-group" role="group" aria-label="Status filters">
+          <button type="button" class="btn btn-outline-secondary filter-btn active" data-filter="all">
+            All ({{ total_count }})
+          </button>
+          <button type="button" class="btn btn-outline-secondary filter-btn" data-filter="approved">
+            Adopted ({{ approved_count }})
+          </button>
+          <button type="button" class="btn btn-outline-secondary filter-btn" data-filter="flagged">
+            Disputed / Pending ({{ flagged_count }})
+          </button>
+          <button type="button" class="btn btn-outline-secondary filter-btn" data-filter="reverted">
+            Reverted ({{ reverted_count }})
+          </button>
+          <button type="button" class="btn btn-outline-secondary filter-btn" data-filter="rejected">
+            Rejected ({{ rejected_count }})
+          </button>
+        </div>
+      </div>
+      <div class="col-md-4 col-12 mb-2">
+        <input type="text" id="audit-search-input" class="form-control" placeholder="Search by note ID, field, tag, voter...">
+      </div>
+    </div>
+
+    <!-- Suggestions List -->
+    <div class="row">
+      <div class="col-12">
+        {% if items|length == 0 %}
+        <div class="card shadow-sm">
+          <div class="card-body text-center py-5">
+            <h4 class="text-muted font-weight-bold mb-2">No moderated suggestions yet</h4>
+            <p class="text-muted mb-0">
+              Community proposals resolved or queued for voting will appear here for audit and supervision.
+            </p>
+          </div>
+        </div>
+        {% else %}
+        <div class="audit-list">
+          {% for item in items %}
+          <div class="card shadow-sm mb-3 audit-card" data-status="{{ item.status }}" data-suggestion-type="{{ item.suggestion_type }}" data-suggestion-id="{{ item.suggestion_id }}">
+            <div class="card-header bg-light d-flex justify-content-between align-items-center py-2">
+              <div class="d-flex align-items-center flex-wrap">
+                <span class="font-weight-bold mr-3">
+                  Suggestion #{{ item.suggestion_id }} ({{ item.suggestion_type }})
+                </span>
+                {% if item.note_id %}
+                <span class="text-muted mr-3">
+                  Note ID: <strong>{{ item.note_id }}</strong>
+                  {% if item.note_guid %}
+                  <small class="text-muted">({{ item.note_guid }})</small>
+                  {% endif %}
+                </span>
+                {% endif %}
+                {% if item.field_name %}
+                <span class="badge badge-light border mr-2">Field: {{ item.field_name }}</span>
+                {% elif item.tag_name %}
+                <span class="badge badge-light border mr-2">
+                  Tag: {{ item.tag_name }} ({% if item.tag_action %}Added{% else %}Removed{% endif %})
+                </span>
+                {% endif %}
+              </div>
+
+              <div>
+                {% if item.status == "approved" %}
+                <span class="badge badge-success px-2 py-1">Adopted by consensus</span>
+                {% elif item.status == "approved_by_admin" %}
+                <span class="badge badge-primary px-2 py-1">Approved by maintainer</span>
+                {% elif item.status == "flagged_for_maintainer" %}
+                <span class="badge badge-warning px-2 py-1">Disputed - Awaiting maintainer</span>
+                {% elif item.status == "reverted_by_admin" %}
+                <span class="badge badge-danger px-2 py-1">Reverted by maintainer</span>
+                {% elif item.status == "rejected_by_admin" %}
+                <span class="badge badge-secondary px-2 py-1">Rejected by maintainer</span>
+                {% elif item.status == "rejected" %}
+                <span class="badge badge-dark px-2 py-1">Rejected by consensus</span>
+                {% else %}
+                <span class="badge badge-info px-2 py-1">{{ item.status }}</span>
+                {% endif %}
+              </div>
+            </div>
+
+            <div class="card-body">
+              <!-- Content and Diff Section -->
+              <div class="row mb-3">
+                <div class="col-12">
+                  <h6 class="font-weight-bold text-muted text-uppercase mb-2">Content and Diff</h6>
+                  {% if item.diff_html %}
+                  <div class="audit-diff p-3 border rounded bg-light mb-2">
+                    {{ item.diff_html | safe }}
+                  </div>
+                  {% elif item.new_content %}
+                  <div class="p-3 border rounded bg-light mb-2">
+                    <pre class="mb-0 audit-pre">{{ item.new_content }}</pre>
+                  </div>
+                  {% elif item.tag_name %}
+                  <div class="p-2 border rounded bg-light mb-2">
+                    Tag: <code>{{ item.tag_name }}</code> ({% if item.tag_action %}Proposed Addition{% else %}Proposed Removal{% endif %})
+                  </div>
+                  {% else %}
+                  <div class="text-muted font-italic">No content details available.</div>
+                  {% endif %}
+                </div>
+              </div>
+
+              <!-- Reversal details if reverted -->
+              {% if item.status == "reverted_by_admin" %}
+              <div class="alert alert-danger py-2 px-3 mb-3">
+                <strong>Maintainer revert applied:</strong> This adoption was revoked
+                {% if item.reverted_by_username %}by <strong>{{ item.reverted_by_username }}</strong>{% endif %}
+                {% if item.reverted_at %}on {{ item.reverted_at }}{% endif %}.
+                {% if item.override_reason %}
+                <br><em>Reason: {{ item.override_reason }}</em>
+                {% endif %}
+              </div>
+              {% endif %}
+
+              <!-- Democratic Votes & Audit Trail -->
+              <div class="row align-items-center mb-2">
+                <div class="col-md-7 col-12 mb-2">
+                  <span class="text-muted mr-3">
+                    Votes: <strong>{{ item.approve_count }}</strong> approve, <strong>{{ item.reject_count }}</strong> reject
+                  </span>
+                  <button type="button" class="btn btn-sm btn-outline-info toggle-voters-btn" data-target="#voters-{{ item.suggestion_type }}-{{ item.suggestion_id }}">
+                    Inspect voters ({{ item.votes|length }})
+                  </button>
+                </div>
+
+                <div class="col-md-5 col-12 text-md-right mb-2">
+                  <!-- Action Controls -->
+                  {% if item.status == "approved" or item.status == "approved_by_admin" %}
+                  <button type="button" class="btn btn-sm btn-outline-danger btn-revert-action"
+                          data-type="{{ item.suggestion_type }}"
+                          data-id="{{ item.suggestion_id }}">
+                    Revert adoption
+                  </button>
+                  {% elif item.status == "flagged_for_maintainer" %}
+                  <button type="button" class="btn btn-sm btn-success mr-2 btn-confirm-action"
+                          data-type="{{ item.suggestion_type }}"
+                          data-id="{{ item.suggestion_id }}">
+                    Confirm approval
+                  </button>
+                  <button type="button" class="btn btn-sm btn-outline-danger btn-reject-action"
+                          data-type="{{ item.suggestion_type }}"
+                          data-id="{{ item.suggestion_id }}">
+                    Reject permanently
+                  </button>
+                  {% endif %}
+                </div>
+              </div>
+
+              <!-- Collapsible Voter Audit Table -->
+              <div id="voters-{{ item.suggestion_type }}-{{ item.suggestion_id }}" class="voters-drawer mt-3 pt-3 border-top">
+                <h6 class="font-weight-bold text-muted mb-2">Recorded Voter Register</h6>
+                {% if item.votes|length == 0 %}
+                <p class="text-muted small mb-0">No individual votes recorded for this suggestion.</p>
+                {% else %}
+                <div class="table-responsive">
+                  <table class="table table-sm table-bordered mb-0">
+                    <thead class="thead-light">
+                      <tr>
+                        <th>Voter</th>
+                        <th>Vote</th>
+                        <th>Early Local Adoption</th>
+                        <th>Timestamp</th>
+                        <th>Action</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {% for vote in item.votes %}
+                      <tr>
+                        <td class="font-weight-bold">{{ vote.username }}</td>
+                        <td>
+                          {% if vote.vote == "approve" %}
+                          <span class="badge voter-badge-approve">Approve</span>
+                          {% elif vote.vote == "reject" %}
+                          <span class="badge voter-badge-reject">Reject</span>
+                          {% else %}
+                          <span class="badge voter-badge-flag">Flag / Dispute</span>
+                          {% endif %}
+                        </td>
+                        <td>
+                          {% if vote.early_adopted %}
+                          <span class="badge badge-light border text-primary">Yes (Applied locally)</span>
+                          {% else %}
+                          <span class="text-muted small">No</span>
+                          {% endif %}
+                        </td>
+                        <td class="text-muted small">{{ vote.voted_at }}</td>
+                        <td>
+                          <button type="button" class="btn btn-xs btn-outline-danger btn-blacklist-voter"
+                                  data-username="{{ vote.username }}">
+                            Blacklist this voter
+                          </button>
+                        </td>
+                      </tr>
+                      {% endfor %}
+                    </tbody>
+                  </table>
+                </div>
+                {% endif %}
+              </div>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  {% include "layout_footer.html" %}
+  <script src="/static/plugins/toastr/js/toastr.min.js"></script>
+  <script src="/static/js/democracy_audit.js"></script>
+  </body>
+</html>

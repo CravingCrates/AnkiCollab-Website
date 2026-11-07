@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    {% set page_title = "Community Moderation & Democracy" %}
+    {% include "header_template.html" %}
+    <link href="/static/plugins/toastr/css/toastr.min.css" rel="stylesheet">
+  </head>
+  {% include "layout_header.html" %}
+
+  <div id="democracy-page" data-deck-hash="{{hash}}" class="container-fluid mt-3">
+    <div class="row">
+      <div class="col-12">
+        <div class="card">
+          <div class="card-body d-flex justify-content-between align-items-center flex-wrap">
+            <div>
+              <h1 class="card-title m-b-10">Community Moderation & Democratic Voting</h1>
+              <p class="text-muted mb-0">
+                Configure decentralized community moderation policies, thresholds, and voting quotas for this deck.
+                Approved suggestions are automatically adopted or flagged for maintainer verification according to your chosen democratic governance model.
+              </p>
+            </div>
+            <div class="mt-2 mt-md-0">
+              <a href="/Democracy/Audit/{{hash}}" class="btn btn-outline-info font-weight-bold">
+                Audit & Governance Log
+              </a>
+              <a href="/EditDeck/{{hash}}" class="btn btn-outline-secondary ml-2">
+                Back to Deck
+              </a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="col-lg-6 col-12">
+        <div class="card">
+          <div class="card-body">
+            <h2 class="card-title m-b-20">Governance & Scrutiny Settings</h2>
+            <form id="democracy-config-form">
+              <div class="form-group form-check mb-3">
+                <input type="checkbox" class="form-check-input" id="democracy-enabled" {% if config.enabled %}checked{% endif %}>
+                <label class="form-check-label font-weight-bold" for="democracy-enabled">Enable Community Moderation on this deck</label>
+              </div>
+
+              <div class="form-group mb-3">
+                <label for="democracy-mode" class="font-weight-bold">Democratic Governance Model</label>
+                <select class="form-control" id="democracy-mode">
+                  <option value="consensus_strict" {% if config.mode == "consensus_strict" %}selected{% endif %}>
+                    Strict Consensus / Unanimity (N approvals without any objection)
+                  </option>
+                  <option value="qualified_majority" {% if config.mode == "qualified_majority" %}selected{% endif %}>
+                    Qualified Majority with Quorum (80% approval threshold)
+                  </option>
+                  <option value="lazy_consensus" {% if config.mode == "lazy_consensus" %}selected{% endif %}>
+                    Optimistic Approval with Veto (Fast-track unless vetoed)
+                  </option>
+                </select>
+                <small class="form-text text-muted">
+                  Strict Consensus freezes disputed suggestions for maintainer verification upon any negative vote.
+                </small>
+              </div>
+
+              <div class="form-group mb-3">
+                <label for="approval-threshold" class="font-weight-bold">Approval Threshold (Number of Votes)</label>
+                <input type="number" class="form-control" id="approval-threshold" value="{{config.approval_threshold}}" min="1" max="100">
+                <small class="form-text text-muted">Number of positive votes required for automatic community adoption.</small>
+              </div>
+
+              <div class="form-group form-check mb-3">
+                <input type="checkbox" class="form-check-input" id="require-unanimity" {% if config.require_unanimity %}checked{% endif %}>
+                <label class="form-check-label" for="require-unanimity">
+                  Require Unanimity (Flag and hold suggestion for maintainer verification if a negative vote occurs)
+                </label>
+              </div>
+
+              <div class="form-group mb-3">
+                <label for="weekly-vote-limit" class="font-weight-bold">Weekly Voting Quota per User</label>
+                <input type="number" class="form-control" id="weekly-vote-limit" value="{{config.weekly_vote_limit}}" min="1" max="500">
+                <small class="form-text text-muted">Sliding 7-day window limit to prevent ballot stuffing (default: 20 votes/week).</small>
+              </div>
+
+              <hr class="my-4">
+
+              <h3 class="h5 m-b-15">Eligibility & Reviewer Qualification</h3>
+
+              <div class="form-group mb-3">
+                <label for="min-days-subscribed" class="font-weight-bold">Minimum Subscription Duration (Days)</label>
+                <input type="number" class="form-control" id="min-days-subscribed" value="{{config.min_days_subscribed}}" min="0" max="365">
+                <small class="form-text text-muted">Days since subscription before granting voting rights.</small>
+              </div>
+
+              <div class="form-group mb-3">
+                <label for="min-cards-reviewed" class="font-weight-bold">Minimum Cards Reviewed (Anki Local Revlog)</label>
+                <input type="number" class="form-control" id="min-cards-reviewed" value="{{config.min_cards_reviewed}}" min="0" max="50000">
+                <small class="form-text text-muted">Number of reviewed cards on this deck required to be eligible.</small>
+              </div>
+
+              <div class="form-group form-check mb-4">
+                <input type="checkbox" class="form-check-input" id="notifications-enabled" {% if config.notifications_enabled %}checked{% endif %}>
+                <label class="form-check-label" for="notifications-enabled">
+                  Enable Proactive Reviewer Invitations and Notifications in Anki client
+                </label>
+              </div>
+
+              <button type="button" id="save-config-btn" class="btn btn-primary">Save Governance Policy</button>
+            </form>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-lg-6 col-12">
+        <div class="card">
+          <div class="card-body">
+            <h2 class="card-title m-b-20">Reviewer Whitelist, Blacklist & Tag Scopes</h2>
+            <p class="text-muted">
+              Designate trusted reviewers directly (overriding standard requirements), assign specific tag domains, or exclude problematic accounts.
+            </p>
+
+            <div class="table-responsive mb-4">
+              <table class="table table-bordered">
+                <thead>
+                  <tr>
+                    <th>Username</th>
+                    <th>Status</th>
+                    <th>Allowed Tags</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="roster-table-body">
+                  {% for member in roster %}
+                  <tr>
+                    <td>{{ member.username }}</td>
+                    <td>
+                      {% if member.status == "whitelist" %}
+                      <span class="badge badge-success">Whitelist</span>
+                      {% elif member.status == "auto_qualified" %}
+                      <span class="badge badge-info">Auto-Qualified</span>
+                      {% elif member.status == "blacklist" %}
+                      <span class="badge badge-danger">Blacklist</span>
+                      {% else %}
+                      <span class="badge badge-secondary">{{ member.status }}</span>
+                      {% endif %}
+                    </td>
+                    <td>
+                      {% if member.allowed_tags %}
+                        {{ member.allowed_tags | join(sep=", ") }}
+                      {% else %}
+                        <span class="text-muted">All deck tags</span>
+                      {% endif %}
+                    </td>
+                    <td>
+                      <button type="button" class="btn btn-sm btn-outline-danger btn-remove-roster" data-username="{{ member.username }}">
+                        Remove
+                      </button>
+                    </td>
+                  </tr>
+                  {% else %}
+                  <tr>
+                    <td colspan="4" class="text-center text-muted">No explicit roster entries. Default eligibility rules apply.</td>
+                  </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+
+            <h3 class="h6 font-weight-bold m-b-15">Add User to Roster</h3>
+            <div class="form-row">
+              <div class="col-md-5 mb-2">
+                <input type="text" id="roster-username" class="form-control" placeholder="Username" required>
+              </div>
+              <div class="col-md-4 mb-2">
+                <select id="roster-status" class="form-control">
+                  <option value="whitelist">Whitelist (Grant voting)</option>
+                  <option value="auto_qualified">Auto-Qualified (Promoted by tenure/reviews)</option>
+                  <option value="blacklist">Blacklist (Revoke voting)</option>
+                </select>
+              </div>
+              <div class="col-md-12 mb-2">
+                <input type="text" id="roster-tags" class="form-control" placeholder="Restricted tag scopes (e.g. Cardio, Neuro) or empty for all">
+              </div>
+              <div class="col-md-12">
+                <button type="button" id="add-roster-btn" class="btn btn-secondary btn-block">Add to Roster</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  {% include "layout_footer.html" %}
+  <script src="/static/plugins/toastr/js/toastr.min.js"></script>
+  <script src="/static/js/democracy.js"></script>
+  </body>
+</html>

@@ -16,6 +16,7 @@ pub mod commit_manager;
 pub mod contribution_manager;
 pub mod database;
 pub mod deck_proposal_rules_manager;
+pub mod democracy_manager;
 pub mod error;
 pub mod maintainer_manager;
 pub mod media_reference_manager;
@@ -459,6 +460,160 @@ async fn show_maintainers(
     let deck_id: i64 = owned_deck_id(&appstate, &deck_hash, user.id()).await?;
 
     Ok(render_maintainers(&appstate, &deck_hash, deck_id, user).await)
+}
+
+async fn render_democracy_settings(
+    appstate: &Arc<AppState>,
+    deck_hash: &str,
+    deck_id: i64,
+    user: User,
+) -> impl IntoResponse {
+    let config = match democracy_manager::get_democracy_config(appstate, deck_id).await {
+        Ok(c) => c,
+        Err(e) => {
+            tracing::warn!(error = %e, deck_id = deck_id, "Failed to get democracy config");
+            democracy_manager::DemocracyConfig::default()
+        }
+    };
+
+    let roster = match democracy_manager::get_roster(appstate, deck_id).await {
+        Ok(r) => r,
+        Err(e) => {
+            tracing::warn!(error = %e, deck_id = deck_id, "Failed to get roster");
+            Vec::new()
+        }
+    };
+
+    let mut context = tera::Context::new();
+    context.insert("config", &config);
+    context.insert("roster", &roster);
+    context.insert("hash", &deck_hash);
+    context.insert("user", &user);
+
+    let rendered_template = appstate
+        .tera
+        .render("democracy.html", &context)
+        .expect("Failed to render democracy template");
+    Html(rendered_template)
+}
+
+async fn show_democracy_settings(
+    State(appstate): State<Arc<AppState>>,
+    user: User,
+    Path(deck_hash): Path<String>,
+) -> Result<impl IntoResponse, Error> {
+    let deck_id: i64 = owned_deck_id(&appstate, &deck_hash, user.id()).await?;
+    Ok(render_democracy_settings(&appstate, &deck_hash, deck_id, user).await)
+}
+
+async fn post_democracy_settings(
+    State(appstate): State<Arc<AppState>>,
+    user: User,
+    Json(cfg): Json<democracy_manager::UpdateDemocracyConfig>,
+) -> Result<impl IntoResponse, Error> {
+    let deck_id: i64 = owned_deck_id(&appstate, &cfg.deck, user.id()).await?;
+    democracy_manager::update_democracy_config(&appstate, deck_id, &cfg).await?;
+    Ok("ok")
+}
+
+async fn post_democracy_roster(
+    State(appstate): State<Arc<AppState>>,
+    user: User,
+    Json(req): Json<democracy_manager::UpdateRosterRequest>,
+) -> Result<impl IntoResponse, Error> {
+    let deck_id: i64 = owned_deck_id(&appstate, &req.deck, user.id()).await?;
+    democracy_manager::update_roster(&appstate, deck_id, &req).await?;
+    Ok("ok")
+}
+
+async fn show_democracy_audit(
+    State(appstate): State<Arc<AppState>>,
+    user: User,
+    Path(deck_hash): Path<String>,
+) -> Result<impl IntoResponse, Error> {
+    let deck_id: i64 = owned_deck_id(&appstate, &deck_hash, user.id()).await?;
+    let items = match democracy_manager::get_audit_items(&appstate, deck_id).await {
+        Ok(it) => it,
+        Err(e) => {
+            tracing::warn!(error = %e, deck_id = deck_id, "Failed to get democracy audit items");
+            Vec::new()
+        }
+    };
+
+    let config = match democracy_manager::get_democracy_config(&appstate, deck_id).await {
+        Ok(c) => c,
+        Err(_) => democracy_manager::DemocracyConfig::default(),
+    };
+
+    let total_count = items.len();
+    let approved_count = items
+        .iter()
+        .filter(|i| i.status == "approved" || i.status == "approved_by_admin")
+        .count();
+    let flagged_count = items
+        .iter()
+        .filter(|i| i.status == "flagged_for_maintainer")
+        .count();
+    let reverted_count = items
+        .iter()
+        .filter(|i| i.status == "reverted_by_admin")
+        .count();
+    let rejected_count = items
+        .iter()
+        .filter(|i| i.status == "rejected" || i.status == "rejected_by_admin")
+        .count();
+
+    let mut context = tera::Context::new();
+    context.insert("hash", &deck_hash);
+    context.insert("user", &user);
+    context.insert("items", &items);
+    context.insert("config", &config);
+    context.insert("total_count", &total_count);
+    context.insert("approved_count", &approved_count);
+    context.insert("flagged_count", &flagged_count);
+    context.insert("reverted_count", &reverted_count);
+    context.insert("rejected_count", &rejected_count);
+
+    let rendered_template = appstate.tera.render("democracy_audit.html", &context)?;
+    Ok(Html(rendered_template))
+}
+
+async fn post_democracy_audit_action(
+    State(appstate): State<Arc<AppState>>,
+    user: User,
+    Json(req): Json<democracy_manager::AdminOverrideRequest>,
+) -> Result<impl IntoResponse, Error> {
+    let deck_id: i64 = owned_deck_id(&appstate, &req.deck, user.id()).await?;
+    match democracy_manager::execute_admin_override(&appstate, deck_id, user.id(), &req).await {
+        Ok(new_status) => Ok(Json(serde_json::json!({
+            "success": true,
+            "new_status": new_status,
+            "message": "Action executed successfully."
+        }))),
+        Err(e) => Ok(Json(serde_json::json!({
+            "success": false,
+            "message": e.to_string()
+        }))),
+    }
+}
+
+async fn post_democracy_audit_blacklist(
+    State(appstate): State<Arc<AppState>>,
+    user: User,
+    Json(req): Json<democracy_manager::AdminBlacklistRequest>,
+) -> Result<impl IntoResponse, Error> {
+    let deck_id: i64 = owned_deck_id(&appstate, &req.deck, user.id()).await?;
+    democracy_manager::blacklist_voter_from_audit(
+        &appstate,
+        deck_id,
+        &req.username,
+        req.reason.as_deref(),
+    )
+    .await?;
+    Ok(Json(serde_json::json!({
+        "success": true,
+        "message": format!("User '{}' blacklisted from community moderation.", req.username)
+    })))
 }
 
 async fn render_deck_proposal_rules(
@@ -2988,6 +3143,20 @@ async fn main() {
         .route(
             "/DeckProposalRules/{deck_hash}",
             get(show_deck_proposal_rules).post(post_deck_proposal_rules),
+        )
+        .route(
+            "/Democracy/{deck_hash}",
+            get(show_democracy_settings).post(post_democracy_settings),
+        )
+        .route("/Democracy/Roster", post(post_democracy_roster))
+        .route("/Democracy/Audit/{deck_hash}", get(show_democracy_audit))
+        .route(
+            "/Democracy/Audit/Action",
+            post(post_democracy_audit_action),
+        )
+        .route(
+            "/Democracy/Audit/Blacklist",
+            post(post_democracy_audit_blacklist),
         )
         .route("/Maintainers", post(post_maintainers))
         .route("/EditNotetype/{notetype_id}", get(edit_notetype))
