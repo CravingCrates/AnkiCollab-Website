@@ -347,8 +347,54 @@ static STYLE_TAG_REGEX: std::sync::LazyLock<Regex> =
     std::sync::LazyLock::new(|| Regex::new(r"(?is)<style\b[^>]*>(.*?)</style>").unwrap());
 
 #[allow(dead_code)]
+#[must_use]
 pub fn strip_style_tags(html: &str) -> String {
     STYLE_TAG_REGEX.replace_all(html, "").to_string()
+}
+
+/// Return whether the provided HTML contains any `<style>...</style>` block.
+#[allow(dead_code)]
+#[must_use]
+pub fn has_style_tags(html: &str) -> bool {
+    STYLE_TAG_REGEX.is_match(html)
+}
+
+/// Extract sanitized CSS rules from any `<style>` blocks in `html`, joined by newlines
+/// without surrounding `<style>` tags. Returns an empty string if no valid CSS rules exist.
+#[allow(dead_code)]
+#[must_use]
+pub fn extract_sanitized_css(html: &str) -> String {
+    let cleaned = clean_with_styles(html);
+    STYLE_TAG_REGEX
+        .captures_iter(&cleaned)
+        .filter_map(|caps| caps.get(1).map(|m| m.as_str().trim()))
+        .filter(|s| !s.is_empty())
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
+/// Sanitize raw CSS input (either bare CSS rules or `<style>...</style>` blocks) into
+/// either an empty string or a single sanitized `<style>...</style>` element. Any HTML
+/// outside `<style>` tags is discarded.
+#[allow(dead_code)]
+#[must_use]
+pub fn sanitize_style_input(raw_css: &str) -> String {
+    let trimmed = raw_css.trim();
+    if trimmed.is_empty() {
+        return String::new();
+    }
+
+    let inner_css = if STYLE_TAG_REGEX.is_match(trimmed) {
+        STYLE_TAG_REGEX
+            .captures_iter(trimmed)
+            .filter_map(|caps| caps.get(1).map(|m| m.as_str()))
+            .collect::<Vec<_>>()
+            .join("\n")
+    } else {
+        trimmed.to_string()
+    };
+
+    sanitize_stylesheet(&inner_css)
 }
 
 fn strip_css_comments(css: &str) -> String {
@@ -468,12 +514,10 @@ fn extract_pitch_accent_comments(html: &str) -> Vec<String> {
 static PITCH_ACCENT_PLACEHOLDER_REGEX: std::sync::LazyLock<Regex> =
     std::sync::LazyLock::new(|| Regex::new(r"(?i)__pitch_accent_comment_").unwrap());
 
-/// The ammonia builder, allowing the "style" attribute.
-static CLEANSER: std::sync::LazyLock<Builder<'static>> = std::sync::LazyLock::new(|| {
+/// Shared ammonia builder configuration; `<style>` tags are disallowed by default
+/// and only enabled explicitly in `CLEANSER_WITH_STYLES`.
+fn base_builder() -> Builder<'static> {
     let mut builder = Builder::default();
-
-    builder.rm_clean_content_tags(&["style"]);
-    builder.add_tags(&["style"]);
 
     // Allow common attributes plugin uses, plus Yomitan metadata attributes.
     // We will special-case `onclick` in the attribute_filter.
@@ -567,7 +611,17 @@ static CLEANSER: std::sync::LazyLock<Builder<'static>> = std::sync::LazyLock::ne
         }
     });
     builder
-});
+}
+
+static CLEANSER: std::sync::LazyLock<Builder<'static>> = std::sync::LazyLock::new(base_builder);
+
+static CLEANSER_WITH_STYLES: std::sync::LazyLock<Builder<'static>> =
+    std::sync::LazyLock::new(|| {
+        let mut builder = base_builder();
+        builder.rm_clean_content_tags(&["style"]);
+        builder.add_tags(&["style"]);
+        builder
+    });
 
 /// Restore pitch accent comments to cleaned HTML.
 fn restore_pitch_accent_comments(cleaned_html: &str, comments: &[String]) -> String {
@@ -582,8 +636,7 @@ fn restore_pitch_accent_comments(cleaned_html: &str, comments: &[String]) -> Str
     result
 }
 
-/// Clean the provided HTML and then sanitize inline style declarations.
-pub fn clean(src: &str) -> String {
+fn clean_with_builder(src: &str, builder: &Builder<'static>, keep_styles: bool) -> String {
     if src.trim().is_empty() {
         return String::new();
     }
@@ -609,15 +662,35 @@ pub fn clean(src: &str) -> String {
         html_with_placeholders = html_with_placeholders.replace(comment, &placeholder);
     }
 
-    let sanitized_html = CLEANSER.clean(&html_with_placeholders).to_string();
+    let sanitized_html = builder.clean(&html_with_placeholders).to_string();
 
-    let style_sanitized = STYLE_TAG_REGEX.replace_all(&sanitized_html, |caps: &regex::Captures| {
-        let inner_css = caps.get(1).map_or("", |m| m.as_str());
-        sanitize_stylesheet(inner_css)
-    });
+    let style_sanitized = if keep_styles {
+        STYLE_TAG_REGEX
+            .replace_all(&sanitized_html, |caps: &regex::Captures| {
+                let inner_css = caps.get(1).map_or("", |m| m.as_str());
+                sanitize_stylesheet(inner_css)
+            })
+            .into_owned()
+    } else {
+        sanitized_html
+    };
 
     // Restore pitch accent comments
     restore_pitch_accent_comments(&style_sanitized, &pitch_accent_comments)
+}
+
+/// Clean the provided HTML (stripping `<style>` tags) and sanitize inline style declarations.
+#[must_use]
+pub fn clean(src: &str) -> String {
+    clean_with_builder(src, &CLEANSER, false)
+}
+
+/// Clean the provided HTML while preserving sanitized `<style>` stylesheets (used for
+/// Anki deck descriptions; never render un-stripped output directly on the website).
+#[allow(dead_code)]
+#[must_use]
+pub fn clean_with_styles(src: &str) -> String {
+    clean_with_builder(src, &CLEANSER_WITH_STYLES, true)
 }
 
 #[cfg(test)]
@@ -688,11 +761,19 @@ Die Karteikarten wurden mit größtmöglicher Sorgfalt erstellt, jedoch kann fü
 
         let expected_style = "<style>.container { max-width: 950px;margin: auto; }\n.amboss-ankiphil { text-align: center;border-radius: 22px;box-shadow: 0 8px 10px -1px hsl(220deg 25% 2% / 0.45), 0 2px 4px -2px hsl(220deg 25% 2% / 0.4);background-color: #09464D;padding: 7px 10px 0px 10px !important;width: 100%; }\n.nightMode .amboss-ankiphil { background-color: #1B5B65;box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.1), 0 10px 30px -5px rgba(0, 0, 0, 0.4); }\n.amboss-ankiphil:hover { background-color: #0e7b88;cursor: pointer; }\n.license { font-size: 10px;text-align: right; }</style>";
 
-        let cleaned = clean(input);
+        let cleaned = clean_with_styles(input);
         assert!(cleaned.contains(expected_style));
         assert!(cleaned.contains(r#"style="width: 900px;max-width: 100%;""#));
         assert!(cleaned.contains(r#"<div class="container">"#));
         assert!(cleaned.contains("<b>Viel Erfolg mit Ankiphil :)</b>"));
+    }
+
+    #[test]
+    fn clean_strips_style_tags_by_default() {
+        let malicious =
+            r"<style>.container { display: none; } .navbar { opacity: 0; }</style><p>Safe diff</p>";
+        assert_eq!(clean(malicious), "<p>Safe diff</p>");
+        assert_eq!(clean("<style>.a { color: red; }</style>"), "");
     }
 
     #[test]
@@ -714,7 +795,7 @@ Die Karteikarten wurden mit größtmöglicher Sorgfalt erstellt, jedoch kann fü
             "<span>x</span>"
         );
         assert_eq!(
-            clean(r"<style>.a { box-shadow: image-set('a.png'); }</style>"),
+            clean_with_styles(r"<style>.a { box-shadow: image-set('a.png'); }</style>"),
             ""
         );
 
@@ -724,7 +805,7 @@ Die Karteikarten wurden mit größtmöglicher Sorgfalt erstellt, jedoch kann fü
             "<span>x</span>"
         );
         assert_eq!(
-            clean(r"<style>.a { box-shadow: src('a.png'); }</style>"),
+            clean_with_styles(r"<style>.a { box-shadow: src('a.png'); }</style>"),
             ""
         );
 
@@ -734,7 +815,7 @@ Die Karteikarten wurden mit größtmöglicher Sorgfalt erstellt, jedoch kann fü
             "<span>x</span>"
         );
         assert_eq!(
-            clean(r"<style>.a { color: u&Tab;rl('javascript:alert(1)'); }</style>"),
+            clean_with_styles(r"<style>.a { color: u&Tab;rl('javascript:alert(1)'); }</style>"),
             ""
         );
 
@@ -743,7 +824,10 @@ Die Karteikarten wurden mit größtmöglicher Sorgfalt erstellt, jedoch kann fü
             clean(r#"<span style="color: var(--danger)">x</span>"#),
             "<span>x</span>"
         );
-        assert_eq!(clean(r"<style>.a { color: var(--danger); }</style>"), "");
+        assert_eq!(
+            clean_with_styles(r"<style>.a { color: var(--danger); }</style>"),
+            ""
+        );
     }
 
     #[test]
@@ -765,26 +849,38 @@ Die Karteikarten wurden mit größtmöglicher Sorgfalt erstellt, jedoch kann fü
             "<span>x</span>"
         );
         assert_eq!(
-            clean(r"<style>.a { cursor: wait; cursor: invalid; }</style>"),
+            clean_with_styles(r"<style>.a { cursor: wait; cursor: invalid; }</style>"),
             "<style>.a { cursor: wait; }</style>"
         );
     }
 
     #[test]
     fn global_selectors_rejected() {
-        assert_eq!(clean("<style>body { color: red; }</style>"), "");
-        assert_eq!(clean("<style>html { color: red; }</style>"), "");
-        assert_eq!(clean("<style>:root { color: red; }</style>"), "");
-        assert_eq!(clean("<style>* { color: red; }</style>"), "");
-        assert_eq!(clean("<style>button { color: red; }</style>"), "");
-        assert_eq!(clean("<style>body.main { color: red; }</style>"), "");
+        assert_eq!(clean_with_styles("<style>body { color: red; }</style>"), "");
+        assert_eq!(clean_with_styles("<style>html { color: red; }</style>"), "");
         assert_eq!(
-            clean("<style>html body .container { color: red; }</style>"),
+            clean_with_styles("<style>:root { color: red; }</style>"),
             ""
         );
-        assert_eq!(clean("<style>:root .container { color: red; }</style>"), "");
+        assert_eq!(clean_with_styles("<style>* { color: red; }</style>"), "");
         assert_eq!(
-            clean("<style>.container button { color: red; }</style>"),
+            clean_with_styles("<style>button { color: red; }</style>"),
+            ""
+        );
+        assert_eq!(
+            clean_with_styles("<style>body.main { color: red; }</style>"),
+            ""
+        );
+        assert_eq!(
+            clean_with_styles("<style>html body .container { color: red; }</style>"),
+            ""
+        );
+        assert_eq!(
+            clean_with_styles("<style>:root .container { color: red; }</style>"),
+            ""
+        );
+        assert_eq!(
+            clean_with_styles("<style>.container button { color: red; }</style>"),
             "<style>.container button { color: red; }</style>"
         );
     }
@@ -792,7 +888,7 @@ Die Karteikarten wurden mit größtmöglicher Sorgfalt erstellt, jedoch kann fü
     #[test]
     fn pitch_accent_placeholder_injection() {
         let payload = r"<style>.a { color: __PITCH_ACCENT_COMMENT_0__; }</style><!-- user_accent_start -->red<!-- user_accent_end -->";
-        let cleaned = clean(payload);
+        let cleaned = clean_with_styles(payload);
         assert!(!cleaned.contains("__PITCH_ACCENT_COMMENT_0__"));
         assert_eq!(
             cleaned,
@@ -807,7 +903,7 @@ Die Karteikarten wurden mit größtmöglicher Sorgfalt erstellt, jedoch kann fü
     fn ac2_malicious_style_payloads_neutralized() {
         // Breakout attempt
         let breakout = "<style></style><script>alert(1)</script><style></style>";
-        let cleaned = clean(breakout);
+        let cleaned = clean_with_styles(breakout);
         assert!(!cleaned.contains("script"));
         assert!(!cleaned.contains("alert"));
 
@@ -821,25 +917,70 @@ Die Karteikarten wurden mit größtmöglicher Sorgfalt erstellt, jedoch kann fü
             .e\escape { color: blue; }
             input[value^=a] { color: green; }
             </style>"#;
-        assert_eq!(clean(bad_rules), "");
+        assert_eq!(clean_with_styles(bad_rules), "");
 
         // Empty <style></style> or blocks where all rules are invalid are stripped completely
-        assert_eq!(clean("<style></style>"), "");
-        assert_eq!(clean("<style>   \n  </style>"), "");
-        assert_eq!(clean("<style>/* only comment */</style>"), "");
-        assert_eq!(clean("<style>.bad { unknown-prop: 123; }</style>"), "");
+        assert_eq!(clean_with_styles("<style></style>"), "");
+        assert_eq!(clean_with_styles("<style>   \n  </style>"), "");
+        assert_eq!(clean_with_styles("<style>/* only comment */</style>"), "");
+        assert_eq!(
+            clean_with_styles("<style>.bad { unknown-prop: 123; }</style>"),
+            ""
+        );
 
         // Attributes on <style> tags are stripped
         let with_attrs = r#"<style onclick="alert(1)" id="my-style" style="display:none">.valid { color: red; }</style>"#;
-        assert_eq!(clean(with_attrs), "<style>.valid { color: red; }</style>");
+        assert_eq!(
+            clean_with_styles(with_attrs),
+            "<style>.valid { color: red; }</style>"
+        );
     }
 
     #[test]
     fn ac3_strip_style_tags_removes_style_blocks() {
         let html_with_style = r"<p>Hello</p><style>.foo { color: red; }</style><span>World</span>";
-        let cleaned = clean(html_with_style);
-        assert!(cleaned.contains("<style>"));
+        let cleaned = clean_with_styles(html_with_style);
+        assert!(has_style_tags(&cleaned));
         let stripped = strip_style_tags(&cleaned);
         assert_eq!(stripped, "<p>Hello</p><span>World</span>");
+        assert!(!has_style_tags(&stripped));
+    }
+
+    #[test]
+    fn extract_and_sanitize_style_input_round_trip() {
+        let stored = r"<p>Deck intro</p>
+<style>
+.container { max-width: 950px; }
+body { color: red; }
+.badge { color: #09464D; }
+</style>";
+        assert_eq!(clean(stored), "<p>Deck intro</p>\n");
+        let extracted = extract_sanitized_css(stored);
+        assert_eq!(
+            extracted,
+            ".container { max-width: 950px; }\n.badge { color: #09464D; }"
+        );
+        assert!(!extracted.contains("<style"));
+        assert!(!extracted.contains("body"));
+
+        // Bare CSS input
+        assert_eq!(
+            sanitize_style_input(&extracted),
+            "<style>.container { max-width: 950px; }\n.badge { color: #09464D; }</style>"
+        );
+
+        // User pasted <style>...</style> wrapper + malicious breakout attempt
+        let pasted_with_breakout = "</style><script>alert(1)</script><style>.container { max-width: 950px; }</style><p>inject</p>";
+        assert_eq!(
+            sanitize_style_input(pasted_with_breakout),
+            "<style>.container { max-width: 950px; }</style>"
+        );
+
+        // Unclosed breakout without matching <style>
+        assert_eq!(
+            sanitize_style_input("</style><script>alert(1)</script> .evil { color: red; }"),
+            ""
+        );
+        assert_eq!(sanitize_style_input("   \n  "), "");
     }
 }

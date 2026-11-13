@@ -228,6 +228,8 @@ pub struct NoteModel {
 #[derive(Deserialize, Serialize)]
 pub struct EditDecksData {
     pub description: String,
+    #[serde(default)]
+    pub custom_css: Option<String>,
     pub hash: String,
     pub is_private: bool,
     pub prevent_subdecks: bool,
@@ -483,4 +485,43 @@ pub struct SubscriptionPolicyPostRequest {
     pub subscriber_deck_hash: String,
     pub base_deck_hash: String,
     pub policies: Vec<SubscriptionPolicyItem>,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn edit_decks_data_deserializes_with_optional_custom_css() {
+        let with_custom_css = r#"{
+            "description": "<p>Updated</p>",
+            "custom_css": ".container { max-width: 950px; }",
+            "hash": "abc123",
+            "is_private": false,
+            "prevent_subdecks": true,
+            "restrict_notetypes": false,
+            "changelog": ""
+        }"#;
+        let parsed: EditDecksData = serde_json::from_str(with_custom_css).unwrap();
+        assert_eq!(parsed.description, "<p>Updated</p>");
+        assert_eq!(
+            parsed.custom_css.as_deref(),
+            Some(".container { max-width: 950px; }")
+        );
+        assert!(parsed.prevent_subdecks);
+
+        let without_custom_css = r#"{
+            "description": "<p>Legacy</p>",
+            "hash": "abc123",
+            "is_private": true,
+            "prevent_subdecks": false,
+            "restrict_notetypes": true,
+            "changelog": "Updated settings"
+        }"#;
+        let parsed_legacy: EditDecksData = serde_json::from_str(without_custom_css).unwrap();
+        assert_eq!(parsed_legacy.description, "<p>Legacy</p>");
+        assert_eq!(parsed_legacy.custom_css, None);
+        assert!(parsed_legacy.is_private);
+        assert!(parsed_legacy.restrict_notetypes);
+    }
 }

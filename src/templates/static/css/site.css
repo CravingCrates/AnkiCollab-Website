@@ -3679,6 +3679,7 @@ svg.pulse-svg .third-circle {-webkit-animation-delay: 2s;
       cursor: pointer;}
 .wysihtml5-toolbar {height: 50px;}
 .textarea_editor {min-height: 300px;}
+#desc-css-editor {height: 10rem;}
 .bootstrap-touchspin .input-group-btn, .bootstrap-touchspin .input-group-prepend, .bootstrap-touchspin .input-group-append, .bootstrap-touchspin .form-control {margin: 10px 0px 0px;}
 input[type="checkbox"]:after {line-height: 1.5em;
   content: '';

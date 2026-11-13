@@ -300,6 +300,11 @@ pub async fn approve_card(
         )
         .await?;
         tx.query(
+            "DELETE FROM tags a USING tags b WHERE a.note = $1 AND b.note = $1 AND a.content IS NOT DISTINCT FROM b.content AND a.id > b.id",
+            &[&note_id],
+        )
+        .await?;
+        tx.query(
             "UPDATE tags SET reviewed = true WHERE note = $1",
             &[&note_id],
         )
@@ -799,11 +804,15 @@ pub async fn approve_tag_change_with_commit(
             }
         } else {
             // removal on base or standalone
-            // Delete both the suggestion row and any existing reviewed tag rows of same content
-            tx.execute(
-                "WITH hit AS (SELECT content, note FROM tags WHERE id = $1 AND action = false) DELETE FROM tags WHERE (note, content) IN (SELECT note, content FROM hit)",
-                &[&tag_id]
-            ).await?;
+            if has_local_reviewed {
+                tx.execute(
+                    "DELETE FROM tags WHERE note = $1 AND content = $2 AND reviewed = true AND action = true",
+                    &[&note_id, &content],
+                )
+                .await?;
+            }
+            tx.execute("DELETE FROM tags WHERE id = $1", &[&tag_id])
+                .await?;
         }
     }
 
@@ -1087,6 +1096,7 @@ pub async fn create_tag_suggestion(
 
     // Sanitize: replace whitespace with underscores (Anki tags cannot contain spaces)
     let content: String = content.split_whitespace().collect::<Vec<&str>>().join("_");
+    let content = cleanser::clean(&content);
     if content.is_empty() {
         return Err(NoteNotFound(NoteNotFoundContext::TagUpdate));
     }

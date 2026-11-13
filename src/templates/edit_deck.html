@@ -105,6 +105,11 @@
                         <h1 class="card-title m-b-40">Edit your Deck Description:</h1>
                         <p>You can select content and edit inline</p><hr>
                         <div id="desc-editor" class="trumbowyg-editor" aria-label="Deck description"></div>
+                        <br>
+                        <h4 class="card-title">Custom CSS</h4>
+                        <p class="text-muted">Optional CSS rules applied to your deck description inside Anki </p>
+                        <textarea id="desc-css-editor" name="custom_css" class="form-control" rows="20" aria-label="Custom CSS for Anki deck description">{{ custom_css | default(value="") }}</textarea>
+                    
                     </div>
                 </div>
                 <div class="card">

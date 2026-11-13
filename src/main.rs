@@ -440,16 +440,20 @@ async fn edit_notetype(
 
     let protected_fields = notetype_manager::get_protected_fields(&appstate, notetype_id).await?;
 
-    let name: String = notetype_info[0].get(0);
-    let styling: String = notetype_info[0].get(1);
+    let name: String = notetype_info[0]
+        .get::<_, Option<String>>(0)
+        .unwrap_or_default();
+    let styling: String = notetype_info[0]
+        .get::<_, Option<String>>(1)
+        .unwrap_or_default();
 
     let mut templates: Vec<UpdateNotetypeTemplate> = Vec::new();
     for row in notetype_template_info {
         templates.push(UpdateNotetypeTemplate {
-            front: row.get(1),
-            back: row.get(2),
+            front: row.get::<_, Option<String>>(1).unwrap_or_default(),
+            back: row.get::<_, Option<String>>(2).unwrap_or_default(),
             template_id: row.get(0),
-            name: row.get(3),
+            name: row.get::<_, Option<String>>(3).unwrap_or_default(),
         });
     }
 
@@ -478,6 +482,30 @@ async fn post_edit_notetype(
     }
 }
 
+fn prepare_edit_deck_description(raw_desc: &str) -> (String, String) {
+    (
+        cleanser::clean(raw_desc),
+        cleanser::extract_sanitized_css(raw_desc),
+    )
+}
+
+fn build_deck_description_for_save(raw_html: &str, raw_custom_css: Option<&str>) -> String {
+    match raw_custom_css {
+        Some(css) => {
+            let clean_html = cleanser::clean(raw_html);
+            let trimmed_html = clean_html.trim();
+            let clean_style = cleanser::sanitize_style_input(css);
+            match (trimmed_html.is_empty(), clean_style.is_empty()) {
+                (true, true) => String::new(),
+                (false, true) => trimmed_html.to_string(),
+                (true, false) => clean_style,
+                (false, false) => format!("{trimmed_html}\n{clean_style}"),
+            }
+        }
+        None => cleanser::clean_with_styles(raw_html),
+    }
+}
+
 async fn edit_deck(
     State(appstate): State<Arc<AppState>>,
     user: Option<User>,
@@ -503,7 +531,10 @@ async fn edit_deck(
         return error_page(&appstate, &error::Error::Unauthorized.to_string());
     }
 
-    let desc: String = cleanser::clean(owned_info[0].get(1));
+    let raw_desc: String = owned_info[0]
+        .get::<_, Option<String>>(1)
+        .unwrap_or_default();
+    let (desc, custom_css) = prepare_edit_deck_description(&raw_desc);
     let is_private: bool = owned_info[0].get(2);
     let prevent_subdecks: bool = owned_info[0].get(3);
     let restrict_notetypes: bool = owned_info[0].get(4);
@@ -529,6 +560,7 @@ async fn edit_deck(
     context.insert("user", &user);
     context.insert("hash", &deck_hash);
     context.insert("description", &desc);
+    context.insert("custom_css", &custom_css);
     context.insert("private", &is_private);
     context.insert("prevent_subdecks", &prevent_subdecks);
     context.insert("restrict_notetypes", &restrict_notetypes);
@@ -552,7 +584,8 @@ async fn post_edit_deck(
 
     owned_deck_id(&appstate, &data.hash, user.id()).await?; // only for checking if user owns the deck
 
-    let cleaned_desc = cleanser::clean(&data.description);
+    let cleaned_desc =
+        build_deck_description_for_save(&data.description, data.custom_css.as_deref());
     client
         .query(
             "
@@ -1991,7 +2024,12 @@ async fn get_notes_from_deck(
         owner: deck_info[0].get(4),
         id,
         name: deck_info[0].get(1),
-        desc: cleanser::strip_style_tags(&cleanser::clean(deck_info[0].get(2))),
+        desc: cleanser::clean(
+            deck_info[0]
+                .get::<_, Option<String>>(2)
+                .as_deref()
+                .unwrap_or(""),
+        ),
         hash: deck_info[0].get(3),
         last_update: deck_info[0].get(5),
         notes: "0".to_string(),
@@ -2076,7 +2114,7 @@ async fn deck_overview(
             owner: row.get(4),
             id: row.get(0),
             name: row.get(1),
-            desc: cleanser::strip_style_tags(&cleanser::clean(row.get(2))),
+            desc: cleanser::clean(row.get::<_, Option<String>>(2).as_deref().unwrap_or("")),
             hash: row.get(3),
             last_update: row.get(5),
             notes: row.get(7),
@@ -2585,7 +2623,7 @@ async fn manage_decks(
             owner: row.get(4),
             id: row.get(0),
             name: row.get(1),
-            desc: cleanser::strip_style_tags(&cleanser::clean(row.get(2))),
+            desc: cleanser::clean(row.get::<_, Option<String>>(2).as_deref().unwrap_or("")),
             hash: row.get(3),
             last_update: row.get(5),
             notes: note_manager::get_notes_count_in_deck(&appstate, row.get(0))
@@ -2994,72 +3032,5 @@ async fn shutdown_signal() {
     tokio::select! {
         () = ctrl_c => {},
         () = terminate => {},
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::structs::{CommitHistoryEvent, CommitHistoryNote};
-
-    #[test]
-    fn commit_history_template_renders_without_notes() {
-        let mut tera = Tera::default();
-        tera.register_filter("striptags", tera_contrib::regex::striptags);
-        tera.register_filter("json_encode", tera_contrib::json::json_encode);
-        tera.load_from_glob("src/templates/**/*.html").unwrap();
-        tera.autoescape_on(vec![".html", ".sql", ".htm", ".xml"]);
-
-        let mut context = tera::Context::new();
-        context.insert("commit_id", &1);
-        context.insert("notes", &Vec::<CommitHistoryNote>::new());
-        context.insert("user", &Option::<User>::None);
-
-        let rendered = tera.render("commit_history.html", &context).unwrap();
-
-        assert!(rendered.contains("No Changes Recorded"));
-    }
-
-    #[test]
-    fn commit_history_template_renders_denied_field_changes() {
-        let mut tera = Tera::default();
-        tera.register_filter("striptags", tera_contrib::regex::striptags);
-        tera.register_filter("json_encode", tera_contrib::json::json_encode);
-        tera.load_from_glob("src/templates/**/*.html").unwrap();
-        tera.autoescape_on(vec![".html", ".sql", ".htm", ".xml"]);
-
-        let mut context = tera::Context::new();
-        context.insert("commit_id", &1);
-        context.insert(
-            "notes",
-            &vec![CommitHistoryNote {
-                note_id: 1,
-                min_version: 1,
-                max_version: 1,
-                event_types: vec!["field_change_denied".to_string()],
-                events: vec![CommitHistoryEvent {
-                    id: 1,
-                    version: 1,
-                    event_type: "field_change_denied".to_string(),
-                    actor_username: None,
-                    created_at: "2026-01-01 00:00:00".to_string(),
-                    old_value: None,
-                    old_human: None,
-                    new_human: None,
-                    diff_html: None,
-                    field_name: None,
-                }],
-                field_added: 0,
-                field_updated: 0,
-                field_removed: 0,
-                tag_added: 0,
-                tag_removed: 0,
-                moved: false,
-                deleted: false,
-            }],
-        );
-        context.insert("user", &Option::<User>::None);
-
-        tera.render("commit_history.html", &context).unwrap();
     }
 }

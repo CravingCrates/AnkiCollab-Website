@@ -15,7 +15,7 @@ jQuery(document).ready(function() {
                 ['fullscreen']
             ],
             autogrow: true,
-            tagsToRemove: ['script'], // Basic security
+            tagsToRemove: ['script', 'style', 'link'], // Basic security: keep <style>/<link> out of editor & DOM
             removeformatPasted: true, // Clean pasted content
             resetCss: true, // Helps in isolating editor styling
             changeActiveDropdownIcon: true,
@@ -64,6 +64,8 @@ document.addEventListener('DOMContentLoaded', function() {
         event.preventDefault();
 
         var description = $('#desc-editor').trumbowyg('html').replace(/<p><br><\/p>/g, '').trim();
+        var customCssElement = document.getElementById('desc-css-editor');
+        var customCss = customCssElement ? customCssElement.value : '';
         var isPrivate = document.querySelector('input[name="private"]').checked;
         var preventSubdecks = document.querySelector('input[name="prevent_subdecks"]').checked;
         var restrictNotetypes = document.querySelector('input[name="restrict_notetypes"]').checked;
@@ -76,6 +78,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
         var data = {
             description: description,
+            custom_css: customCss,
             hash: deckHash,
             is_private: isPrivate,
             prevent_subdecks: preventSubdecks,

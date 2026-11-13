@@ -39,7 +39,11 @@ pub async fn establish_pool_connection() -> Result<
     )
     .unwrap();
 
-    let pool = Pool::builder().max_size(15).build(conn_manager).await?;
+    let pool = Pool::builder()
+        .min_idle(Some(1))
+        .max_size(12)
+        .build(conn_manager)
+        .await?;
     Ok(pool)
 }
 
