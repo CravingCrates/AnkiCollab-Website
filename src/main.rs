@@ -793,7 +793,7 @@ async fn deny_commit(
     payload: Option<Json<CommitDecisionRequest>>,
 ) -> Result<impl IntoResponse, Error> {
     let actor_user_id = user.id();
-    let decision = payload.map(|Json(p)| p).unwrap_or_default();
+    let decision = payload.map_or_default(|Json(p)| p);
     let silent = decision.silent.unwrap_or(false);
     let sanitized_reason = decision
         .reason
@@ -1241,11 +1241,7 @@ async fn access_check(appstate: &Arc<AppState>, deck_id: i64, user: &User) -> Re
         Err(_error) => return Ok(false),
     };
 
-    if !access {
-        return Ok(false);
-    }
-
-    Ok(true)
+    Ok(access)
 }
 
 async fn get_deck_id(

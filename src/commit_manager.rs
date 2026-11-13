@@ -444,8 +444,7 @@ pub async fn notes_by_commit(
             owner: row.get::<_, Option<i32>>(6).unwrap_or_default(),
             deck: row
                 .get::<_, Option<String>>(7)
-                .map(|name| deck_leaf(&name))
-                .unwrap_or_default(),
+                .map_or_default(|name| deck_leaf(&name)),
             note_model: row.get::<_, Option<i64>>(8).unwrap_or_default(),
             delete_req,
             move_req: None,
@@ -558,8 +557,7 @@ pub async fn notes_by_commit(
                 let clean_content = field_data
                     .get("content")
                     .and_then(|v| v.as_str())
-                    .map(cleanser::clean)
-                    .unwrap_or_default();
+                    .map_or_default(cleanser::clean);
                 current_note.reviewed_fields.push(FieldsInfo {
                     id: field_data
                         .get("id")
@@ -631,8 +629,7 @@ pub async fn notes_by_commit(
                     let clean_content = field_data
                         .get("content")
                         .and_then(|v| v.as_str())
-                        .map(cleanser::clean)
-                        .unwrap_or_default();
+                        .map_or_default(cleanser::clean);
 
                     if let Some(idx) = position_index.get(&position_u32).copied() {
                         current_note.reviewed_fields[idx]

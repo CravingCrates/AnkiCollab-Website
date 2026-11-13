@@ -555,7 +555,7 @@ pub async fn deny_field_change(
     // Log the denial with both current and denied content
     let old_value = serde_json::json!({
         "position": position,
-        "current_content": current_content.as_ref().map(|c| cleanser::clean(c)).unwrap_or_default(),
+        "current_content": current_content.as_ref().map_or_default(|c| cleanser::clean(c)),
         "denied_content": cleanser::clean(&denied_content),
         "had_current": current_content.is_some()
     });

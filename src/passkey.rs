@@ -1874,8 +1874,7 @@ mod tests {
             if let Some(found) = refused_attribute().captures(line) {
                 let name = found
                     .get(1)
-                    .map(|group| group.as_str().to_lowercase())
-                    .unwrap_or_default();
+                    .map_or_default(|group| group.as_str().to_lowercase());
                 let kind = if name == "style" {
                     "style attribute"
                 } else {
