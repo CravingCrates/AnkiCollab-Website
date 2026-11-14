@@ -414,3 +414,189 @@ fn char_highlight_skipped_for_short_word() {
         "2-char word change should not get char highlight"
     );
 }
+
+// --- MathJax intra-formula & atomic fallback diffing tests ---
+
+#[test]
+fn test_mathjax_inline_intra_diff() {
+    let old = r"Calculate the derivative of \( \frac{x^2 + 1}{2} \) with respect to x.";
+    let new = r"Calculate the derivative of \( \frac{x^3 + 1}{2} \) with respect to x.";
+    let diff = htmldiff(old, new);
+    assert_eq!(
+        diff,
+        r"Calculate the derivative of \( \frac{x^<del data-diff>2</del><ins data-diff>3</ins> + 1}{2} \) with respect to x."
+    );
+}
+
+#[test]
+fn test_mathjax_display_intra_diff() {
+    let old = r"The formula is \[ E = mc^2 \].";
+    let new = r"The formula is \[ E = mc^3 \].";
+    let diff = htmldiff(old, new);
+    assert_eq!(
+        diff,
+        r"The formula is \[ E = mc^<del data-diff>2</del><ins data-diff>3</ins> \]."
+    );
+}
+
+#[test]
+fn test_mathjax_trig_fraction_intra_diff() {
+    let old = r"\[\cos x\ \cos y={\frac{1}{2}}{\Big(}\cos(x-y)+\cos(x+y){\Big)}\] ";
+    let new = r"\[\cos x\ \cos y={\frac{1}{3}}{\Big(}\cos(x-y)+\cos(x+y){\Big)}\] ";
+    let diff = htmldiff(old, new);
+    assert_eq!(
+        diff,
+        r"\[\cos x\ \cos y={\frac{1}{<del data-diff>2</del><ins data-diff>3</ins>}}{\Big(}\cos(x-y)+\cos(x+y){\Big)}\] "
+    );
+}
+
+#[test]
+fn test_mathjax_unclosed_fallback() {
+    let old = r"Broken \( x + 1 text";
+    let new = r"Broken \( x + 2 text";
+    let diff = htmldiff(old, new);
+    assert!(
+        diff.contains("<del data-diff>1</del><ins data-diff>2</ins>"),
+        "expected unclosed fallback diff, got: {}",
+        diff
+    );
+}
+
+#[test]
+fn test_mathjax_multiline_br_intra_diff() {
+    let old = r"\[ a = 1 \\<br> b = 2 \]";
+    let new = r"\[ a = 1 \\<br> b = 3 \]";
+    let diff = htmldiff(old, new);
+    assert_eq!(
+        diff,
+        r"\[ a = 1 \\<br> b = <del data-diff>2</del><ins data-diff>3</ins> \]"
+    );
+}
+
+#[test]
+fn test_mathjax_structural_tag_aborts_atomic() {
+    let old = r"<div>\( \text{long prefix text} + 1</div><p>y + 2 \)</p>";
+    let new = r"<div>\( \text{long prefix text} + 9</div><p>y + 2 \)</p>";
+    let diff = htmldiff(old, new);
+    assert!(
+        diff.contains("<del data-diff>1</del><ins data-diff>9</ins>")
+            && diff.contains("<p>y + 2 \\)</p>"),
+        "structural tag should abort atomic MathJax span, got: {}",
+        diff
+    );
+}
+
+#[test]
+fn test_mathjax_mhchem_and_cloze_intra_diff() {
+    let old = r"Reaction: \( \ce{2H2 + O2 -> 2H2O} \) with \( {{c1::x^2}} \).";
+    let new = r"Reaction: \( \ce{2H2 + O2 <-> 2H2O} \) with \( {{c1::x^2}} \).";
+    let diff = htmldiff(old, new);
+    assert_eq!(
+        diff,
+        r"Reaction: \( \ce{2H2 + O2 <del data-diff>-></del><ins data-diff><-></ins> 2H2O} \) with \( {{c1::x^2}} \)."
+    );
+
+    let old_cloze = r"Solve \( {{c1::x^2}} \) here.";
+    let new_cloze = r"Solve \( {{c1::x^3}} \) here.";
+    let diff_cloze = htmldiff(old_cloze, new_cloze);
+    assert_eq!(
+        diff_cloze,
+        r"Solve \( {{c1::x^<del data-diff>2</del><ins data-diff>3</ins>}} \) here."
+    );
+
+    // Changing the cloze index must expand to keep {{cN::...}} intact.
+    let old_cnum = r"Solve \( {{c1::x^2}} \) here.";
+    let new_cnum = r"Solve \( {{c2::x^2}} \) here.";
+    let diff_cnum = htmldiff(old_cnum, new_cnum);
+    assert_eq!(
+        diff_cnum,
+        r"Solve <del data-diff>\( {{c1::x^2}} \)</del><ins data-diff>\( {{c2::x^2}} \)</ins> here."
+    );
+}
+
+#[test]
+fn test_mathjax_latex_linebreak_spacing_not_delimiter() {
+    let old = r"\[ a = 1 \\[4pt]<br> b = 2 \]";
+    let new = r"\[ a = 1 \\[4pt]<br> b = 3 \]";
+    let diff = htmldiff(old, new);
+    assert_eq!(
+        diff,
+        r"\[ a = 1 \\[4pt]<br> b = <del data-diff>2</del><ins data-diff>3</ins> \]"
+    );
+}
+
+#[test]
+fn test_mathjax_inequality_less_than_multiline_br() {
+    // Valid HTML encodes '<y' as '&lt;y' or separates it with whitespace ('< y');
+    // htmldiff's text serializer preserves the decoded text without introducing a stray HTML tag split on <br>.
+    let old_ent = r"\( x&lt;y<br> + 1 \)";
+    let new_ent = r"\( x&lt;y<br> + 2 \)";
+    assert_eq!(
+        htmldiff(old_ent, new_ent),
+        r"\( x<y<br> + <del data-diff>1</del><ins data-diff>2</ins> \)"
+    );
+
+    let old_spaced = r"\( x< y<br> + 1 \)";
+    let new_spaced = r"\( x< y<br> + 2 \)";
+    assert_eq!(
+        htmldiff(old_spaced, new_spaced),
+        r"\( x< y<br> + <del data-diff>1</del><ins data-diff>2</ins> \)"
+    );
+}
+
+#[test]
+fn test_mathjax_command_boundary_and_brace_balancing() {
+    // Control sequences must never split inside `\alpha` / `\beta`.
+    let diff_cmd = htmldiff(r"\( \alpha + x = 1 \)", r"\( \beta + x = 1 \)");
+    assert_eq!(
+        diff_cmd,
+        r"\( <del data-diff>\alpha</del><ins data-diff>\beta</ins> + x = 1 \)"
+    );
+
+    // Unbalanced `{` insertion (`2` -> `{2+1}`) expands symmetrically to keep valid TeX group.
+    let diff_brace = htmldiff(r"\( x^2 + y = 0 \)", r"\( x^{2+1} + y = 0 \)");
+    assert_eq!(
+        diff_brace,
+        r"\( x^<del data-diff>2</del><ins data-diff>{2+1}</ins> + y = 0 \)"
+    );
+
+    // Command taking arguments (`\frac` -> `\dfrac`) keeps arguments intact.
+    let diff_frac_cmd = htmldiff(
+        r"\( f(x) + \frac{1}{2} = 0 \)",
+        r"\( f(x) + \dfrac{1}{2} = 0 \)",
+    );
+    assert_eq!(
+        diff_frac_cmd,
+        r"\( f(x) + <del data-diff>\frac{1}{2}</del><ins data-diff>\dfrac{1}{2}</ins> = 0 \)"
+    );
+
+    // Two changed formulas in the same paragraph highlight each locally.
+    let diff_multi = htmldiff(
+        r"Compare \( x^2 + a \) with \( y^2 + b \).",
+        r"Compare \( x^3 + a \) with \( y^4 + b \).",
+    );
+    assert_eq!(
+        diff_multi,
+        r"Compare \( x^<del data-diff>2</del><ins data-diff>3</ins> + a \) with \( y^<del data-diff>2</del><ins data-diff>4</ins> + b \)."
+    );
+}
+
+#[test]
+fn test_mathjax_full_rewrite_and_delimiter_swap_fallback() {
+    // Completely different equations fall back to whole-formula diff instead of noisy token confetti.
+    let old_rewrite = r"\[ \int_0^\infty e^{-x^2}\,dx = \frac{\sqrt{\pi}}{2} \]";
+    let new_rewrite = r"\[ \sum_{n=1}^{\infty} \frac{1}{n^2} = \frac{\pi^2}{6} \]";
+    assert_eq!(
+        htmldiff(old_rewrite, new_rewrite),
+        format!(
+            "<del data-diff>{}</del><ins data-diff>{}</ins>",
+            old_rewrite, new_rewrite
+        )
+    );
+
+    // Inline <-> display delimiter change stays whole-formula.
+    assert_eq!(
+        htmldiff(r"\( x^2 + 1 \)", r"\[ x^2 + 1 \]"),
+        r"<del data-diff>\( x^2 + 1 \)</del><ins data-diff>\[ x^2 + 1 \]</ins>"
+    );
+}

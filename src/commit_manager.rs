@@ -107,37 +107,34 @@ pub async fn commits_review(
 
         relevant_commits AS MATERIALIZED (
             SELECT c.commit_id
-            FROM (
-                SELECT DISTINCT commit AS commit_id FROM fields    WHERE reviewed = false
-                UNION
-                SELECT DISTINCT commit               FROM tags     WHERE reviewed = false
-                UNION
-                SELECT DISTINCT commit               FROM card_deletion_suggestions
-                UNION
-                SELECT DISTINCT commit               FROM note_move_suggestions
-            ) uc
-            JOIN commits c ON c.commit_id = uc.commit_id
+            FROM commits c
             WHERE c.deck IN (SELECT id FROM accessible)
+              AND (
+                  EXISTS (SELECT 1 FROM fields f WHERE f.commit = c.commit_id AND f.reviewed = false)
+                  OR EXISTS (SELECT 1 FROM tags t WHERE t.commit = c.commit_id AND t.reviewed = false)
+                  OR EXISTS (SELECT 1 FROM card_deletion_suggestions cds WHERE cds.commit = c.commit_id)
+                  OR EXISTS (SELECT 1 FROM note_move_suggestions nms WHERE nms.commit = c.commit_id)
+              )
         ),
 
         distinct_decks AS (
             SELECT DISTINCT src.commit, n.deck
             FROM (
-                SELECT f.commit, f.note
+                SELECT DISTINCT f.commit, f.note
                 FROM fields f
                 WHERE f.reviewed = false
-                AND f.commit IN (SELECT commit_id FROM relevant_commits)
-                UNION ALL
-                SELECT t.commit, t.note
+                  AND f.commit IN (SELECT commit_id FROM relevant_commits)
+                UNION
+                SELECT DISTINCT t.commit, t.note
                 FROM tags t
                 WHERE t.reviewed = false
-                AND t.commit IN (SELECT commit_id FROM relevant_commits)
-                UNION ALL
-                SELECT cds.commit, cds.note
+                  AND t.commit IN (SELECT commit_id FROM relevant_commits)
+                UNION
+                SELECT DISTINCT cds.commit, cds.note
                 FROM card_deletion_suggestions cds
                 WHERE cds.commit IN (SELECT commit_id FROM relevant_commits)
-                UNION ALL
-                SELECT nms.commit, nms.note
+                UNION
+                SELECT DISTINCT nms.commit, nms.note
                 FROM note_move_suggestions nms
                 WHERE nms.commit IN (SELECT commit_id FROM relevant_commits)
             ) src
@@ -221,6 +218,124 @@ pub async fn get_field_diff(db_state: &database::AppState, field_id: i64) -> Ret
     let clean_content = cleanser::clean(&current_content);
     let diff = htmldiff::htmldiff(&clean_content, &clean_new_content);
     Ok(diff)
+}
+
+/// Parses unreviewed fields JSON array from Postgres and calculates HTML diffs.
+pub fn parse_unreviewed_fields_json(json: &serde_json::Value) -> Vec<FieldsReviewInfo> {
+    let mut fields = Vec::new();
+    if let Some(fields_array) = json.as_array() {
+        for field_data in fields_array {
+            let content = field_data
+                .get("content")
+                .and_then(|v| v.as_str())
+                .unwrap_or("");
+            let reviewed_content = field_data
+                .get("reviewed_content")
+                .and_then(|v| v.as_str())
+                .unwrap_or("");
+
+            let clean_content = cleanser::clean(content);
+            let clean_reviewed = cleanser::clean(reviewed_content);
+            let diff_string = htmldiff::htmldiff(&clean_reviewed, &clean_content);
+
+            fields.push(FieldsReviewInfo {
+                id: field_data
+                    .get("id")
+                    .and_then(serde_json::Value::as_i64)
+                    .unwrap_or(0),
+                position: field_data
+                    .get("position")
+                    .and_then(serde_json::Value::as_i64)
+                    .and_then(|v| u32::try_from(v).ok())
+                    .unwrap_or(0),
+                content: clean_content,
+                reviewed_content: clean_reviewed,
+                diff: diff_string,
+            });
+        }
+    }
+    fields
+}
+
+/// Parses first fields JSON array (used for deleted notes representation).
+pub fn parse_first_fields_json(json: &serde_json::Value) -> Vec<FieldsReviewInfo> {
+    let mut fields = Vec::new();
+    if let Some(fields_array) = json.as_array() {
+        for field_data in fields_array {
+            let content = field_data
+                .get("content")
+                .and_then(|v| v.as_str())
+                .unwrap_or("");
+            let clean_content = cleanser::clean(content);
+            fields.push(FieldsReviewInfo {
+                id: field_data
+                    .get("id")
+                    .and_then(serde_json::Value::as_i64)
+                    .unwrap_or(0),
+                position: field_data
+                    .get("position")
+                    .and_then(serde_json::Value::as_i64)
+                    .and_then(|v| u32::try_from(v).ok())
+                    .unwrap_or(0),
+                content: clean_content.clone(),
+                reviewed_content: clean_content.clone(),
+                diff: clean_content,
+            });
+        }
+    }
+    fields
+}
+
+/// Parses tags changes JSON array from Postgres into (`new_tags`, `removed_tags`).
+pub fn parse_tags_changes_json(
+    json: &serde_json::Value,
+    commit_id: i32,
+) -> (Vec<TagsInfo>, Vec<TagsInfo>) {
+    let mut new_tags = Vec::new();
+    let mut removed_tags = Vec::new();
+    if let Some(tags_array) = json.as_array() {
+        for tag_data in tags_array {
+            if let (Some(id), Some(content), Some(action)) = (
+                tag_data.get("id").and_then(serde_json::Value::as_i64),
+                tag_data.get("content").and_then(|v| v.as_str()),
+                tag_data.get("action").and_then(serde_json::Value::as_bool),
+            ) {
+                let tag_info = TagsInfo {
+                    id,
+                    content: cleanser::clean(content),
+                    inherited: false,
+                    commit_id,
+                };
+                if action {
+                    new_tags.push(tag_info);
+                } else {
+                    removed_tags.push(tag_info);
+                }
+            }
+        }
+    }
+    (new_tags, removed_tags)
+}
+
+/// Parses move request JSON object from Postgres.
+pub fn parse_move_req_json(json: Option<&serde_json::Value>) -> Option<NoteMoveReq> {
+    let move_data = json?;
+    let id = move_data.get("id").and_then(serde_json::Value::as_i64)?;
+    let path = move_data.get("path").and_then(|v| v.as_str())?;
+    Some(NoteMoveReq {
+        id: i32::try_from(id).unwrap_or(0),
+        path: path.to_string(),
+    })
+}
+
+/// Determines whether a note should be included in the review / preview results.
+#[must_use]
+pub fn should_include_note(note: &CommitData) -> bool {
+    note.delete_req
+        || !note.fields.is_empty()
+        || !note.new_tags.is_empty()
+        || !note.removed_tags.is_empty()
+        || note.move_req.is_some()
 }
 
 pub async fn notes_by_commit(
@@ -457,99 +572,19 @@ pub async fn notes_by_commit(
 
         if delete_req {
             let first_fields_json: serde_json::Value = row.get(11);
-            if let Some(fields_array) = first_fields_json.as_array() {
-                for field_data in fields_array {
-                    let content = field_data
-                        .get("content")
-                        .and_then(|v| v.as_str())
-                        .unwrap_or("");
-                    let clean_content = cleanser::clean(content);
-                    current_note.fields.push(FieldsReviewInfo {
-                        id: field_data
-                            .get("id")
-                            .and_then(serde_json::Value::as_i64)
-                            .unwrap_or(0),
-                        position: field_data
-                            .get("position")
-                            .and_then(serde_json::Value::as_i64)
-                            .and_then(|v| u32::try_from(v).ok())
-                            .unwrap_or(0),
-                        content: clean_content.clone(),
-                        reviewed_content: clean_content.clone(),
-                        diff: clean_content,
-                    });
-                }
-            }
+            current_note.fields = parse_first_fields_json(&first_fields_json);
         } else {
             let unreviewed_fields_json: serde_json::Value = row.get(10);
-            if let Some(fields_array) = unreviewed_fields_json.as_array() {
-                for field_data in fields_array {
-                    let content = field_data
-                        .get("content")
-                        .and_then(|v| v.as_str())
-                        .unwrap_or("");
-                    let reviewed_content = field_data
-                        .get("reviewed_content")
-                        .and_then(|v| v.as_str())
-                        .unwrap_or("");
-
-                    let clean_content = cleanser::clean(content);
-                    let clean_reviewed = cleanser::clean(reviewed_content);
-                    let diff_string = htmldiff::htmldiff(&clean_reviewed, &clean_content);
-
-                    current_note.fields.push(FieldsReviewInfo {
-                        id: field_data
-                            .get("id")
-                            .and_then(serde_json::Value::as_i64)
-                            .unwrap_or(0),
-                        position: field_data
-                            .get("position")
-                            .and_then(serde_json::Value::as_i64)
-                            .and_then(|v| u32::try_from(v).ok())
-                            .unwrap_or(0),
-                        content: clean_content,
-                        reviewed_content: clean_reviewed,
-                        diff: diff_string,
-                    });
-                }
-            }
+            current_note.fields = parse_unreviewed_fields_json(&unreviewed_fields_json);
 
             let tags_changes_json: serde_json::Value = row.get(12);
-            if let Some(tags_array) = tags_changes_json.as_array() {
-                for tag_data in tags_array {
-                    if let (Some(id), Some(content), Some(action)) = (
-                        tag_data.get("id").and_then(serde_json::Value::as_i64),
-                        tag_data.get("content").and_then(|v| v.as_str()),
-                        tag_data.get("action").and_then(serde_json::Value::as_bool),
-                    ) {
-                        let tag_info = TagsInfo {
-                            id,
-                            content: cleanser::clean(content),
-                            inherited: false,
-                            commit_id,
-                        };
-                        if action {
-                            current_note.new_tags.push(tag_info);
-                        } else {
-                            current_note.removed_tags.push(tag_info);
-                        }
-                    }
-                }
-            }
+            let (new_tags, removed_tags) = parse_tags_changes_json(&tags_changes_json, commit_id);
+            current_note.new_tags = new_tags;
+            current_note.removed_tags = removed_tags;
         }
 
         let move_req_json: Option<serde_json::Value> = row.get(13);
-        if let Some(move_data) = move_req_json {
-            if let (Some(id), Some(path)) = (
-                move_data.get("id").and_then(serde_json::Value::as_i64),
-                move_data.get("path").and_then(|v| v.as_str()),
-            ) {
-                current_note.move_req = Some(NoteMoveReq {
-                    id: i32::try_from(id).unwrap_or(0),
-                    path: path.to_string(),
-                });
-            }
-        }
+        current_note.move_req = parse_move_req_json(move_req_json.as_ref());
 
         let reviewed_fields_json: serde_json::Value = row.get(14);
         if let Some(fields_array) = reviewed_fields_json.as_array() {
@@ -690,11 +725,7 @@ pub async fn notes_by_commit(
             .reviewed_fields
             .sort_by_key(|field| field.position);
 
-        if !current_note.fields.is_empty()
-            || !current_note.new_tags.is_empty()
-            || !current_note.removed_tags.is_empty()
-            || current_note.move_req.is_some()
-        {
+        if should_include_note(&current_note) {
             commit_info.push(current_note);
         }
     }
@@ -718,4 +749,356 @@ pub async fn notes_by_commit(
         next_offset,
         notes: commit_info,
     })
+}
+
+/// Lightweight version of `notes_by_commit` tailored for the preview drawer.
+///
+/// Skips `first_fields_data`, `reviewed_fields_data`, `reviewed_tags_data`,
+/// `inheritance_meta`, `base_reviewed_fields`, and `base_reviewed_tags`, while
+/// preserving total count, `delete_req` notes, fields diffs, tags changes,
+/// and move requests filtering.
+pub async fn preview_notes_by_commit(
+    db_state: &database::AppState,
+    commit_id: i32,
+    offset: i64,
+    limit: i64,
+) -> Return<CommitNotesPage> {
+    let client = database::client(db_state).await?;
+
+    let sanitized_offset = offset.max(0);
+    let sanitized_limit = limit.clamp(1, 200);
+    let upper_bound = sanitized_offset.saturating_add(sanitized_limit);
+
+    let preview_query = r"
+        WITH affected_notes AS MATERIALIZED (
+            SELECT note FROM (
+                SELECT note FROM fields WHERE commit = $1 AND reviewed = false
+                UNION ALL
+                SELECT note FROM tags WHERE commit = $1 AND reviewed = false
+                UNION ALL
+                SELECT note FROM card_deletion_suggestions WHERE commit = $1
+                UNION ALL
+                SELECT note FROM note_move_suggestions WHERE commit = $1
+            ) AS n
+            GROUP BY note
+        ),
+        ordered_notes AS MATERIALIZED (
+            SELECT
+                note,
+                ROW_NUMBER() OVER (ORDER BY note) AS rn
+            FROM affected_notes
+        ),
+        page_notes AS (
+            SELECT note, rn
+            FROM ordered_notes
+            WHERE rn > $2 AND rn <= $3
+        ),
+        note_data AS (
+            SELECT 
+                n.id,
+                n.guid,
+                TO_CHAR(n.last_update, 'MM/DD/YYYY HH12:MI AM') AS last_update,
+                n.reviewed,
+                d.owner,
+                d.full_path,
+                n.notetype,
+                (cds.note IS NOT NULL) AS delete_req,
+                pn.rn
+            FROM notes n
+            JOIN page_notes pn ON n.id = pn.note
+            JOIN decks d ON d.id = n.deck
+            LEFT JOIN card_deletion_suggestions cds ON cds.note = n.id AND cds.commit = $1
+        ),
+        fields_data AS (
+            SELECT 
+                f1.note,
+                json_agg(json_build_object(
+                    'id', f1.id,
+                    'position', f1.position::int,
+                    'content', f1.content,
+                    'reviewed_content', COALESCE(f2.content, '')
+                ) ORDER BY f1.position) AS unreviewed_fields
+            FROM fields f1
+            LEFT JOIN fields f2 ON f1.note = f2.note AND f1.position = f2.position AND f2.reviewed = true
+            WHERE f1.reviewed = false AND f1.commit = $1 AND f1.note IN (SELECT note FROM page_notes)
+            GROUP BY f1.note
+        ),
+        tags_data AS (
+            SELECT 
+                t.note,
+                json_agg(json_build_object('id', t.id, 'content', t.content, 'action', t.action)) AS tags_changes
+            FROM tags t
+            WHERE t.commit = $1 AND t.note IN (SELECT note FROM page_notes) AND t.reviewed = false
+            GROUP BY t.note
+        ),
+        move_data AS (
+            SELECT 
+                nms.note,
+                json_build_object('id', nms.id, 'path', d.full_path) AS move_req
+            FROM note_move_suggestions nms
+            JOIN decks d ON d.id = nms.target_deck
+            WHERE nms.note IN (SELECT note FROM page_notes) AND nms.commit = $1
+        ),
+        total AS (
+            SELECT COUNT(*)::BIGINT AS total_count FROM affected_notes
+        )
+        SELECT 
+            total.total_count,
+            nd.rn,
+            nd.id,
+            nd.guid,
+            nd.last_update,
+            nd.reviewed,
+            nd.owner,
+            nd.full_path,
+            nd.notetype,
+            nd.delete_req,
+            COALESCE(fd.unreviewed_fields, '[]'::json) AS unreviewed_fields,
+            COALESCE(td.tags_changes, '[]'::json) AS tags_changes,
+            md.move_req
+        FROM total
+        LEFT JOIN note_data nd ON TRUE
+        LEFT JOIN fields_data fd ON nd.id = fd.note
+        LEFT JOIN tags_data td ON nd.id = td.note
+        LEFT JOIN move_data md ON nd.id = md.note
+        ORDER BY nd.rn;
+    ";
+
+    let rows = client
+        .query(
+            preview_query,
+            &[&commit_id, &sanitized_offset, &upper_bound],
+        )
+        .await?;
+
+    let mut total_count: i64 = 0;
+    let mut commit_info: Vec<CommitData> = Vec::new();
+
+    for row in rows {
+        let row_total: i64 = row.get(0);
+        if total_count == 0 {
+            total_count = row_total;
+        }
+
+        let note_id: Option<i64> = row.get(2);
+        if note_id.is_none() {
+            continue;
+        }
+
+        let delete_req = row.get::<_, Option<bool>>(9).unwrap_or(false);
+
+        let mut current_note = CommitData {
+            commit_id,
+            id: note_id.unwrap(),
+            guid: row.get::<_, Option<String>>(3).unwrap_or_default(),
+            last_update: row.get::<_, Option<String>>(4).unwrap_or_default(),
+            reviewed: row.get::<_, Option<bool>>(5).unwrap_or(false),
+            owner: row.get::<_, Option<i32>>(6).unwrap_or_default(),
+            deck: row
+                .get::<_, Option<String>>(7)
+                .map_or_default(|name| deck_leaf(&name)),
+            note_model: row.get::<_, Option<i64>>(8).unwrap_or_default(),
+            delete_req,
+            move_req: None,
+            fields: Vec::new(),
+            new_tags: Vec::new(),
+            removed_tags: Vec::new(),
+            reviewed_fields: Vec::new(),
+            reviewed_tags: Vec::new(),
+        };
+
+        if !delete_req {
+            let unreviewed_fields_json: serde_json::Value = row.get(10);
+            current_note.fields = parse_unreviewed_fields_json(&unreviewed_fields_json);
+
+            let tags_changes_json: serde_json::Value = row.get(11);
+            let (new_tags, removed_tags) = parse_tags_changes_json(&tags_changes_json, commit_id);
+            current_note.new_tags = new_tags;
+            current_note.removed_tags = removed_tags;
+        }
+
+        let move_req_json: Option<serde_json::Value> = row.get(12);
+        current_note.move_req = parse_move_req_json(move_req_json.as_ref());
+
+        if should_include_note(&current_note) {
+            commit_info.push(current_note);
+        }
+    }
+
+    if total_count == 0 {
+        return Err(NoNotesAffected);
+    }
+
+    let increment = sanitized_limit;
+    let candidate_next = sanitized_offset.saturating_add(increment);
+    let next_offset = if candidate_next < total_count {
+        Some(candidate_next)
+    } else {
+        None
+    };
+
+    Ok(CommitNotesPage {
+        total: total_count,
+        offset: sanitized_offset,
+        limit: sanitized_limit,
+        next_offset,
+        notes: commit_info,
+    })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_parse_unreviewed_fields_json() {
+        let json = serde_json::json!([
+            {
+                "id": 10,
+                "position": 0,
+                "content": "Hello World",
+                "reviewed_content": "Hello"
+            },
+            {
+                "id": 11,
+                "position": 1,
+                "content": "<script>alert(1)</script>Safe",
+                "reviewed_content": ""
+            }
+        ]);
+        let fields = parse_unreviewed_fields_json(&json);
+        assert_eq!(fields.len(), 2);
+        assert_eq!(fields[0].id, 10);
+        assert_eq!(fields[0].position, 0);
+        assert_eq!(fields[0].content, "Hello World");
+        assert_eq!(fields[0].reviewed_content, "Hello");
+        assert!(fields[0].diff.contains("World"));
+
+        assert_eq!(fields[1].id, 11);
+        assert_eq!(fields[1].position, 1);
+        assert!(!fields[1].content.contains("<script>"));
+    }
+
+    #[test]
+    fn test_parse_first_fields_json() {
+        let json = serde_json::json!([
+            {
+                "id": 20,
+                "position": 0,
+                "content": "Front Content"
+            }
+        ]);
+        let fields = parse_first_fields_json(&json);
+        assert_eq!(fields.len(), 1);
+        assert_eq!(fields[0].id, 20);
+        assert_eq!(fields[0].content, "Front Content");
+        assert_eq!(fields[0].reviewed_content, "Front Content");
+        assert_eq!(fields[0].diff, "Front Content");
+    }
+
+    #[test]
+    fn test_parse_tags_changes_json() {
+        let json = serde_json::json!([
+            {
+                "id": 1,
+                "content": "tag_new",
+                "action": true
+            },
+            {
+                "id": 2,
+                "content": "tag_removed",
+                "action": false
+            }
+        ]);
+        let (new_tags, removed_tags) = parse_tags_changes_json(&json, 123);
+        assert_eq!(new_tags.len(), 1);
+        assert_eq!(new_tags[0].id, 1);
+        assert_eq!(new_tags[0].content, "tag_new");
+        assert_eq!(new_tags[0].commit_id, 123);
+
+        assert_eq!(removed_tags.len(), 1);
+        assert_eq!(removed_tags[0].id, 2);
+        assert_eq!(removed_tags[0].content, "tag_removed");
+        assert_eq!(removed_tags[0].commit_id, 123);
+    }
+
+    #[test]
+    fn test_parse_move_req_json() {
+        let json = serde_json::json!({
+            "id": 5,
+            "path": "Deck::Subdeck"
+        });
+        let move_req = parse_move_req_json(Some(&json)).expect("should parse");
+        assert_eq!(move_req.id, 5);
+        assert_eq!(move_req.path, "Deck::Subdeck");
+
+        assert!(parse_move_req_json(None).is_none());
+    }
+
+    #[test]
+    fn test_should_include_note() {
+        let mut note = CommitData {
+            commit_id: 1,
+            id: 10,
+            guid: String::new(),
+            last_update: String::new(),
+            reviewed: false,
+            owner: 0,
+            deck: String::new(),
+            note_model: 0,
+            delete_req: false,
+            move_req: None,
+            fields: Vec::new(),
+            new_tags: Vec::new(),
+            removed_tags: Vec::new(),
+            reviewed_fields: Vec::new(),
+            reviewed_tags: Vec::new(),
+        };
+
+        // Initially no changes
+        assert!(!should_include_note(&note));
+
+        // Delete request note must be included even if fields empty
+        note.delete_req = true;
+        assert!(should_include_note(&note));
+        note.delete_req = false;
+
+        // Note with fields
+        note.fields.push(FieldsReviewInfo {
+            id: 1,
+            position: 0,
+            content: "a".into(),
+            reviewed_content: String::new(),
+            diff: "a".into(),
+        });
+        assert!(should_include_note(&note));
+        note.fields.clear();
+
+        // Note with new tags
+        note.new_tags.push(TagsInfo {
+            id: 1,
+            content: "tag".into(),
+            inherited: false,
+            commit_id: 1,
+        });
+        assert!(should_include_note(&note));
+        note.new_tags.clear();
+
+        // Note with removed tags
+        note.removed_tags.push(TagsInfo {
+            id: 1,
+            content: "tag".into(),
+            inherited: false,
+            commit_id: 1,
+        });
+        assert!(should_include_note(&note));
+        note.removed_tags.clear();
+
+        // Note with move req
+        note.move_req = Some(NoteMoveReq {
+            id: 1,
+            path: "p".into(),
+        });
+        assert!(should_include_note(&note));
+    }
 }

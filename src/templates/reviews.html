@@ -19,6 +19,10 @@
               <input class="reviews-deck-search" id="deckFilterSearch" type="search" placeholder="Search decks" autocomplete="off" aria-label="Search decks">
             </div>
             <div class="reviews-header-actions">
+              <button type="button" class="mathjax-toggle-btn mathjax-toggle-btn-light" aria-pressed="false" title="Toggle MathJax rendering" hidden>
+                <i class="fa-solid fa-square-root-variable" aria-hidden="true"></i>
+                <span>MathJax</span>
+              </button>
               <div class="reviews-sort" role="group" aria-label="Sort reviews">
                 <button class="reviews-sort-btn" id="sortAuthorBtn" type="button" data-sort="author" aria-pressed="false" title="Sort by author">
                   <i class="fa-solid fa-sort" aria-hidden="true"></i> Author
@@ -98,7 +102,7 @@
         <script src="/static/js/html_diff_utils.js"></script>
         <script src="/static/js/image_handling.js"></script>
         <script src="/static/js/api_service.js"></script>
-        <script src="/static/js/field_edit_panel.js"></script>
+        <script src="/static/js/mathjax_engine.js"></script>
         <script src="/static/js/shared_ui.js"></script>
         <script src="/static/js/reviews.js"></script>
   </body>

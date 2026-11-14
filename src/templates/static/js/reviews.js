@@ -8,53 +8,80 @@ $(function() {
     let request = null;
     const SORT_OFF = 0, SORT_ASC = 1, SORT_DESC = 2;
     const sortState = { author: SORT_OFF, time: SORT_OFF, info: SORT_OFF };
-
-    function escapeHtml(value) {
-        return $('<div>').text(value || '').html();
-    }
+    let currentDomSortKey = null;
+    let currentDomSortDirection = SORT_OFF;
 
     function initials(name) {
         const parts = String(name || '').trim().split(/\s+/).filter(Boolean);
         return (parts.length > 1 ? parts[0][0] + parts[parts.length - 1][0] : (parts[0] || '?').slice(0, 2)).toUpperCase();
     }
 
-    $('.review-avatar').each(function() { $(this).text(initials($(this).data('author'))); });
-
-    function rows() { return list.children('.review-row'); }
-
-    function filteredRows() {
-        const query = $('#reviewsSearch').val().toLowerCase().trim();
-        return rows().filter(function() {
-            const row = $(this);
-            const deck = String(row.data('deck') || '').toLowerCase();
-            const author = String(row.data('author') || '').toLowerCase();
-            const deckMatch = !activeDeck || deck === activeDeck.toLowerCase() || deck.indexOf(activeDeck.toLowerCase() + '::') === 0;
-            return deckMatch && (!query || author.indexOf(query) !== -1 || deck.indexOf(query) !== -1);
-        });
-    }
-
     function topLevelDeck(deck) {
         return String(deck || '').split('::')[0] || '(Unnamed)';
     }
 
-    function sortValue(row, key) {
-        if (key === 'time') return String(row.data('timestamp') || '');
-        const text = key === 'author' ? String(row.data('author') || '') : String(row.data('info') || '');
-        return text.toLowerCase();
+    const rowMetaMap = new WeakMap();
+    let rowItems = [];
+
+    const rawRows = list[0] ? list[0].querySelectorAll('.review-row') : [];
+    for (let i = 0; i < rawRows.length; i++) {
+        const el = rawRows[i];
+        const author = el.getAttribute('data-author') || '';
+        const deck = el.getAttribute('data-deck') || '';
+        const info = el.getAttribute('data-info') || '';
+        const timestamp = el.getAttribute('data-timestamp') || '';
+        const commitId = el.getAttribute('data-commit-id') || '';
+        const topDeck = topLevelDeck(deck);
+
+        const avatar = el.querySelector('.review-avatar');
+        if (avatar) {
+            avatar.textContent = initials(author);
+        }
+
+        const meta = {
+            element: el,
+            commitId: commitId,
+            author: author,
+            authorLower: author.toLowerCase(),
+            deck: deck,
+            deckLower: deck.toLowerCase(),
+            info: info,
+            infoLower: info.toLowerCase(),
+            timestamp: timestamp,
+            topDeck: topDeck,
+            originalIndex: i
+        };
+        rowMetaMap.set(el, meta);
+        rowItems.push(meta);
     }
 
-    function sortRows(rows) {
-        const activeKey = Object.keys(sortState).find(key => sortState[key] !== SORT_OFF);
-        if (!activeKey) return rows;
-        const direction = sortState[activeKey];
-        const arr = rows.toArray();
-        arr.sort(function(a, b) {
-            const va = sortValue($(a), activeKey);
-            const vb = sortValue($(b), activeKey);
-            const cmp = va < vb ? -1 : (va > vb ? 1 : 0);
-            return direction === SORT_ASC ? cmp : -cmp;
-        });
-        return $(arr);
+    function getRowMeta(el) {
+        if (!el) return null;
+        let meta = rowMetaMap.get(el);
+        if (!meta) {
+            const author = el.getAttribute('data-author') || '';
+            const deck = el.getAttribute('data-deck') || '';
+            const info = el.getAttribute('data-info') || '';
+            meta = {
+                element: el,
+                commitId: el.getAttribute('data-commit-id') || '',
+                author: author,
+                authorLower: author.toLowerCase(),
+                deck: deck,
+                deckLower: deck.toLowerCase(),
+                info: info,
+                infoLower: info.toLowerCase(),
+                timestamp: el.getAttribute('data-timestamp') || '',
+                topDeck: topLevelDeck(deck),
+                originalIndex: rowItems.length
+            };
+            rowMetaMap.set(el, meta);
+        }
+        return meta;
+    }
+
+    function filteredRows() {
+        return list.children('.review-row:not([hidden])');
     }
 
     function updateSortButtons() {
@@ -74,38 +101,119 @@ $(function() {
     }
 
     function refreshList() {
-        const visible = sortRows(filteredRows());
-        rows().toggle(false);
-        visible.each(function() { list.append(this); });
-        visible.toggle(true);
-        $('#reviewsEmptyList').prop('hidden', visible.length !== 0);
-        $('#reviewsCount').text(visible.length);
-        if (selectedRow && visible.filter(selectedRow).length === 0) selectRow(visible.first(), false);
-        if (!visible.length) clearDetail();
+        const activeKey = Object.keys(sortState).find(key => sortState[key] !== SORT_OFF);
+        const direction = activeKey ? sortState[activeKey] : SORT_OFF;
+        const sortChanged = activeKey !== currentDomSortKey || direction !== currentDomSortDirection;
+
+        if (sortChanged) {
+            if (activeKey) {
+                const sorted = rowItems.slice().sort(function(a, b) {
+                    let cmp = 0;
+                    if (activeKey === 'time') {
+                        cmp = a.timestamp < b.timestamp ? -1 : (a.timestamp > b.timestamp ? 1 : 0);
+                    } else if (activeKey === 'author') {
+                        cmp = a.authorLower < b.authorLower ? -1 : (a.authorLower > b.authorLower ? 1 : 0);
+                    } else if (activeKey === 'info') {
+                        cmp = a.infoLower < b.infoLower ? -1 : (a.infoLower > b.infoLower ? 1 : 0);
+                    }
+                    if (cmp === 0) return a.originalIndex - b.originalIndex;
+                    return direction === SORT_ASC ? cmp : -cmp;
+                });
+                const fragment = document.createDocumentFragment();
+                for (let i = 0; i < sorted.length; i++) {
+                    fragment.appendChild(sorted[i].element);
+                }
+                if (list[0]) list[0].appendChild(fragment);
+                currentDomSortKey = activeKey;
+                currentDomSortDirection = direction;
+            } else if (currentDomSortKey !== null) {
+                const sorted = rowItems.slice().sort(function(a, b) {
+                    return a.originalIndex - b.originalIndex;
+                });
+                const fragment = document.createDocumentFragment();
+                for (let i = 0; i < sorted.length; i++) {
+                    fragment.appendChild(sorted[i].element);
+                }
+                if (list[0]) list[0].appendChild(fragment);
+                currentDomSortKey = null;
+                currentDomSortDirection = SORT_OFF;
+            }
+        }
+
+        const query = ($('#reviewsSearch').val() || '').toLowerCase().trim();
+        const activeDeckLower = activeDeck.toLowerCase();
+        let visibleCount = 0;
+
+        for (let i = 0; i < rowItems.length; i++) {
+            const item = rowItems[i];
+            const deckMatch = !activeDeck || item.deckLower === activeDeckLower || item.deckLower.startsWith(activeDeckLower + '::');
+            const queryMatch = !query || item.authorLower.includes(query) || item.deckLower.includes(query);
+            const isVisible = Boolean(deckMatch && queryMatch);
+            item.element.hidden = !isVisible;
+            if (isVisible) {
+                visibleCount++;
+            }
+        }
+
+        $('#reviewsEmptyList').prop('hidden', visibleCount !== 0);
+        $('#reviewsCount').text(visibleCount);
+
+        const visible = filteredRows();
+        if (selectedRow && (!visible.length || selectedRow[0].hidden)) {
+            selectRow(visible.first(), false);
+        } else if (!visibleCount) {
+            clearDetail();
+        }
         updateNavigation();
     }
 
     function buildDeckControl() {
         const names = {};
-        rows().each(function() { names[topLevelDeck($(this).data('deck'))] = true; });
+        for (let i = 0; i < rowItems.length; i++) {
+            names[rowItems[i].topDeck] = true;
+        }
         const decks = Object.keys(names).sort((a, b) => a.localeCompare(b));
         const visibleDecks = decks.slice(0, 5);
-        let html = '<button class="reviews-deck-option selected" type="button" data-deck="">All decks</button>';
-        visibleDecks.forEach(deck => { html += `<button class="reviews-deck-option" type="button" data-deck="${escapeHtml(deck)}" title="${escapeHtml(deck)}">${escapeHtml(deck)}</button>`; });
-        $('#deckFilterOptions').html(html);
+        const $container = $('#deckFilterOptions').empty();
+        $container.append($('<button>', {
+            class: 'reviews-deck-option' + (!activeDeck ? ' selected' : ''),
+            type: 'button',
+            'data-deck': '',
+            text: 'All decks'
+        }));
+        visibleDecks.forEach(deck => {
+            $container.append($('<button>', {
+                class: 'reviews-deck-option' + (deck === activeDeck ? ' selected' : ''),
+                type: 'button',
+                'data-deck': deck,
+                title: deck,
+                text: deck
+            }));
+        });
         $('#deckFilterSearch').toggleClass('visible', decks.length > visibleDecks.length);
     }
 
     function updateDeckControl() {
-        $('#deckFilterOptions .reviews-deck-option').each(function() { $(this).toggleClass('selected', $(this).data('deck') === activeDeck); });
+        $('#deckFilterOptions .reviews-deck-option').each(function() {
+            const deck = this.getAttribute('data-deck') || '';
+            $(this).toggleClass('selected', deck === activeDeck);
+        });
+    }
+
+    function syncMathJaxVisibility() {
+        if (window.MathJaxEngine && typeof window.MathJaxEngine.updateToggleVisibility === 'function') {
+            window.MathJaxEngine.updateToggleVisibility();
+        }
     }
 
     function clearDetail() {
         selectedRow = null;
-        rows().removeClass('selected').attr('aria-selected', 'false');
+        list.children('.review-row.selected').removeClass('selected').attr('aria-selected', 'false');
+        $('#drawerBody').empty();
         $('#reviewsDetail').prop('hidden', true);
         $('#reviewsDetailEmpty').show();
         page.removeClass('is-detail-open');
+        syncMathJaxVisibility();
     }
 
     function updateNavigation() {
@@ -116,40 +224,62 @@ $(function() {
     }
 
     function renderDetail(row) {
-        const commitId = row.data('commit-id');
-        $('#detailAuthor').text(row.data('author'));
-        $('#detailDeck').text(row.data('deck'));
-        $('#detailInfo').text(row.data('info') || '').toggle(Boolean(row.data('info')));
+        const meta = getRowMeta(row[0]);
+        const commitId = meta ? meta.commitId : row.data('commit-id');
+        const author = meta ? meta.author : row.data('author');
+        const deck = meta ? meta.deck : row.data('deck');
+        const info = meta ? meta.info : (row.data('info') || '');
+
+        $('#detailAuthor').text(author);
+        $('#detailDeck').text(deck);
+        $('#detailInfo').text(info).toggle(Boolean(info));
         $('#btnFullEditor').attr('href', `/commit/${commitId}`);
         $('#drawerBody').html('<p class="text-secondary">Loading changes...</p>');
+        syncMathJaxVisibility();
         if (request) request.abort();
         request = $.ajax({ url: `/commit_preview/${commitId}`, method: 'GET' })
             .done(function(response) {
+                const drawerBodyEl = document.getElementById('drawerBody');
                 $('#drawerBody').html(response);
                 const moreChanges = $('#drawerBody .reviews-more-count').detach();
                 $('#detailChangeSummary').empty().append(moreChanges);
-                if (window.SharedUI) $('#drawerBody').find('.note-context').each(function() { window.SharedUI.initializeNoteCard(this); });
+                if (window.SharedUI) {
+                    $('#drawerBody').find('.note-context').each(function() {
+                        window.SharedUI.initializeNoteCard(this, { skipVisibilityUpdate: true, skipMathJax: true });
+                    });
+                }
+                if (window.MathJaxEngine && window.MathJaxEngine.isEnabled() && drawerBodyEl) {
+                    window.MathJaxEngine.renderInElement(drawerBodyEl);
+                }
+                syncMathJaxVisibility();
             })
-            .fail(function(xhr, status) { if (status !== 'abort') $('#drawerBody').html('<p class="text-danger">Failed to load this preview.</p>'); });
+            .fail(function(xhr, status) {
+                if (status !== 'abort') {
+                    $('#drawerBody').html('<p class="text-danger">Failed to load this preview.</p>');
+                    syncMathJaxVisibility();
+                }
+            });
     }
 
     function selectRow(row, focus) {
-        if (!row || !row.length) { clearDetail(); return; }
-        selectedRow = row;
-        rows().removeClass('selected').attr('aria-selected', 'false');
-        row.addClass('selected').attr('aria-selected', 'true');
+        const $row = row && (row instanceof $ ? row : $(row));
+        if (!$row || !$row.length) { clearDetail(); return; }
+        selectedRow = $row;
+        list.children('.review-row.selected').removeClass('selected').attr('aria-selected', 'false');
+        $row.addClass('selected').attr('aria-selected', 'true');
         $('#reviewsDetailEmpty').hide();
         $('#reviewsDetail').prop('hidden', false);
         page.addClass('is-detail-open');
-        renderDetail(row);
+        renderDetail($row);
         updateNavigation();
-        if (focus) row.trigger('focus');
+        if (focus) $row.trigger('focus');
     }
 
     function moveSelection(direction, origin) {
         const visible = filteredRows().toArray();
         if (!visible.length) return;
-        let index = origin ? visible.indexOf(origin[0]) : (selectedRow ? visible.indexOf(selectedRow[0]) : (direction > 0 ? -1 : visible.length));
+        const originEl = origin ? (origin[0] || origin) : null;
+        let index = originEl ? visible.indexOf(originEl) : (selectedRow ? visible.indexOf(selectedRow[0]) : (direction > 0 ? -1 : visible.length));
         index = Math.max(0, Math.min(visible.length - 1, index + direction));
         selectRow($(visible[index]), true);
     }
@@ -161,7 +291,9 @@ $(function() {
         const row = selectedRow;
         row.addClass('removing');
         setTimeout(function() {
+            const rowEl = row[0];
             row.remove();
+            rowItems = rowItems.filter(item => item.element !== rowEl);
             selectedRow = null;
             clearDetail();
             buildDeckControl();
@@ -172,7 +304,8 @@ $(function() {
 
     async function actOnSelected(action) {
         if (!selectedRow) return;
-        const commitId = selectedRow.data('commit-id');
+        const meta = getRowMeta(selectedRow[0]);
+        const commitId = meta ? meta.commitId : selectedRow.data('commit-id');
         const buttons = $('.reviews-action').prop('disabled', true);
         try {
             const response = await fetch(`/${action === 'approve' ? 'ApproveCommit' : 'DenyCommit'}/${commitId}`, {
@@ -181,6 +314,7 @@ $(function() {
                 body: action === 'deny' ? JSON.stringify({ silent: true }) : undefined
             });
             if (response.type !== 'opaqueredirect' && !response.ok) throw new Error(`Request failed: ${response.status}`);
+            try { sessionStorage.removeItem(`commit_select::${commitId}`); } catch (e) {}
             removeSelectedRow();
         } catch (error) {
             console.error('Review action failed:', error);
@@ -195,9 +329,16 @@ $(function() {
     $('#reviewsSearch').on('input', refreshList);
     $('#deckFilterSearch').on('input', function() {
         const query = $(this).val().toLowerCase().trim();
-        $('#deckFilterOptions .reviews-deck-option').each(function() { $(this).toggle(!query || !$(this).data('deck') || String($(this).data('deck')).toLowerCase().indexOf(query) !== -1); });
+        $('#deckFilterOptions .reviews-deck-option').each(function() {
+            const optionDeck = (this.getAttribute('data-deck') || '').toLowerCase();
+            $(this).toggle(!query || !optionDeck || optionDeck.indexOf(query) !== -1);
+        });
     });
-    $('#deckFilterOptions').on('click', '.reviews-deck-option', function() { activeDeck = $(this).data('deck') || ''; updateDeckControl(); refreshList(); });
+    $('#deckFilterOptions').on('click', '.reviews-deck-option', function() {
+        activeDeck = this.getAttribute('data-deck') || '';
+        updateDeckControl();
+        refreshList();
+    });
     $('.reviews-sort-btn').on('click', function() {
         const key = $(this).data('sort');
         sortState[key] = (sortState[key] + 1) % 3;

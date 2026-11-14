@@ -86,11 +86,27 @@ document.addEventListener('DOMContentLoaded', function() {
             changelog: changelog
         };
 
-        window.ApiService.apiCall('/EditDeck', 'POST', data);
+        var submitBtn = form.querySelector('button[type="submit"]');
+        if (submitBtn) {
+            if (submitBtn.disabled) return;
+            submitBtn.disabled = true;
+        }
 
-        // Reset to empty string to prevent accidental double submits
-        $('#changelog-editor').trumbowyg('empty');
-        Swal.fire("Success!", "All changes have been saved!", "success");
+        window.ApiService.apiCall('/EditDeck', 'POST', data)
+            .then(function() {
+                // Reset changelog editor only after a confirmed save
+                $('#changelog-editor').trumbowyg('empty');
+                Swal.fire("Success!", "All changes have been saved!", "success");
+            })
+            .catch(function(error) {
+                console.error('Failed to save deck changes:', error);
+                Swal.fire("Error", (error && error.message) || "Failed to save changes. Please try again.", "error");
+            })
+            .finally(function() {
+                if (submitBtn) {
+                    submitBtn.disabled = false;
+                }
+            });
     });
 });
 

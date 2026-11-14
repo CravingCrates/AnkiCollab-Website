@@ -27,53 +27,62 @@ pub async fn get_protected_fields(
     Ok(rows)
 }
 
+/// Groups (`notetype_id`, `Option<field_name>`) rows into a map of `notetype_id` -> field names.
+///
+/// Returns `Err(NoNoteTypesAffected)` if `rows` is empty.
+/// For notetypes with no fields (`field_name` is `None` due to LEFT JOIN), an empty `Vec` is inserted.
+/// Preserves the order of fields as given by the query rows.
+pub fn group_notetype_fields(
+    rows: impl IntoIterator<Item = (i64, Option<String>)>,
+) -> Return<HashMap<i64, Vec<String>>> {
+    let mut iter = rows.into_iter().peekable();
+    if iter.peek().is_none() {
+        return Err(NoNoteTypesAffected);
+    }
+
+    let mut notetype_map: HashMap<i64, Vec<String>> = HashMap::new();
+    for (notetype, field_name) in iter {
+        let entry = notetype_map.entry(notetype).or_default();
+        if let Some(name) = field_name {
+            entry.push(name);
+        }
+    }
+
+    Ok(notetype_map)
+}
+
 pub async fn notetypes_by_commit(
     db_state: &database::AppState,
     commit_id: i32,
 ) -> Return<HashMap<i64, Vec<String>>> {
     // Returns a map of notetypes with a vector of the field names of that notetype
     let client = database::client(db_state).await?;
-    let get_notetypes = "
-        SELECT DISTINCT notetype FROM notes
-        WHERE notes.id IN 
-        (
-            SELECT fields.note FROM fields WHERE fields.commit = $1 
-            UNION 
-            SELECT tags.note FROM tags WHERE tags.commit = $1
-            UNION
-            SELECT card_deletion_suggestions.note FROM card_deletion_suggestions WHERE card_deletion_suggestions.commit = $1
-            UNION
-            SELECT note_move_suggestions.note FROM note_move_suggestions WHERE note_move_suggestions.commit = $1
+    let query = r"
+        WITH affected_notetypes AS (
+            SELECT DISTINCT notetype FROM notes
+            WHERE notes.id IN 
+            (
+                SELECT fields.note FROM fields WHERE fields.commit = $1 
+                UNION 
+                SELECT tags.note FROM tags WHERE tags.commit = $1
+                UNION
+                SELECT card_deletion_suggestions.note FROM card_deletion_suggestions WHERE card_deletion_suggestions.commit = $1
+                UNION
+                SELECT note_move_suggestions.note FROM note_move_suggestions WHERE note_move_suggestions.commit = $1
+            )
         )
+        SELECT an.notetype, nf.name
+        FROM affected_notetypes an
+        LEFT JOIN notetype_field nf ON nf.notetype = an.notetype
+        ORDER BY an.notetype, nf.position
     ";
-    let affected_notetypes = client
-        .query(get_notetypes, &[&commit_id])
-        .await?
+    let rows = client.query(query, &[&commit_id]).await?;
+
+    let mapped = rows
         .into_iter()
-        .map(|row| row.get::<_, i64>("notetype"))
-        .collect::<Vec<i64>>();
+        .map(|row| (row.get::<_, i64>(0), row.get::<_, Option<String>>(1)));
 
-    if affected_notetypes.is_empty() {
-        return Err(NoNoteTypesAffected);
-    }
-
-    let mut notetype_map = HashMap::new();
-
-    for notetype in affected_notetypes {
-        let get_fields = "
-            SELECT name FROM notetype_field
-            WHERE notetype = $1 order by position
-        ";
-        let fields = client
-            .query(get_fields, &[&notetype])
-            .await?
-            .into_iter()
-            .map(|row| row.get::<_, String>("name"))
-            .collect::<Vec<String>>();
-        notetype_map.insert(notetype, fields);
-    }
-
-    Ok(notetype_map)
+    group_notetype_fields(mapped)
 }
 
 pub async fn update_notetype(
@@ -233,4 +242,63 @@ pub async fn get_notetype_overview(
         .collect::<Vec<_>>();
 
     Ok(rows)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_group_notetype_fields_empty() {
+        let rows: Vec<(i64, Option<String>)> = Vec::new();
+        let result = group_notetype_fields(rows);
+        assert!(matches!(
+            result,
+            Err(crate::error::Error::NoNoteTypesAffected)
+        ));
+    }
+
+    #[test]
+    fn test_group_notetype_fields_zero_fields() {
+        let rows = vec![(42, None)];
+        let result = group_notetype_fields(rows).expect("should succeed");
+        assert_eq!(result.len(), 1);
+        assert_eq!(result.get(&42), Some(&Vec::<String>::new()));
+    }
+
+    #[test]
+    fn test_group_notetype_fields_ordered() {
+        let rows = vec![
+            (1, Some("Front".to_string())),
+            (1, Some("Back".to_string())),
+            (1, Some("Extra".to_string())),
+        ];
+        let result = group_notetype_fields(rows).expect("should succeed");
+        assert_eq!(
+            result.get(&1),
+            Some(&vec![
+                "Front".to_string(),
+                "Back".to_string(),
+                "Extra".to_string()
+            ])
+        );
+    }
+
+    #[test]
+    fn test_group_notetype_fields_mixed() {
+        let rows = vec![
+            (1, Some("Front".to_string())),
+            (1, Some("Back".to_string())),
+            (2, None), // notetype 2 has 0 fields
+            (3, Some("Cloze".to_string())),
+        ];
+        let result = group_notetype_fields(rows).expect("should succeed");
+        assert_eq!(result.len(), 3);
+        assert_eq!(
+            result.get(&1),
+            Some(&vec!["Front".to_string(), "Back".to_string()])
+        );
+        assert_eq!(result.get(&2), Some(&Vec::<String>::new()));
+        assert_eq!(result.get(&3), Some(&vec!["Cloze".to_string()]));
+    }
 }

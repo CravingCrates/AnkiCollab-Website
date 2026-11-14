@@ -15,6 +15,7 @@
     <script src="/static/js/image_handling.js"></script>
     <script src="/static/js/api_service.js"></script>
     <script src="/static/js/field_edit_panel.js"></script>
+    <script src="/static/js/mathjax_engine.js"></script>
     <script src="/static/js/shared_ui.js"></script>
 
 </head>
@@ -24,7 +25,13 @@
     <div class="container-fluid">
     <div class="page-header">
         <div class="header-content">
-            <h1 class="page-title">Review Commit</h1>
+            <div class="commit-header-top">
+                <h1 class="page-title">Review Commit</h1>
+                <button type="button" class="mathjax-toggle-btn" aria-pressed="false" title="Toggle MathJax rendering" hidden>
+                    <i class="fa-solid fa-square-root-variable" aria-hidden="true"></i>
+                    <span>MathJax</span>
+                </button>
+            </div>
             
             <div class="commit-meta">
                 <div class="meta-item">

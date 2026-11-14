@@ -3,7 +3,7 @@ use kuchiki::parse_html;
 use kuchiki::traits::*;
 use proptest::prelude::*;
 use rand::rngs::StdRng;
-use rand::{Rng, SeedableRng};
+use rand::SeedableRng;
 use std::fmt::Write as FmtWrite;
 
 #[derive(Debug)]
@@ -90,7 +90,7 @@ fn apply_random_edits(
                 // Delete: remove the first occurrence of a whole paragraph containing a chosen token
                 let token = pick_random_existing_token(rng, max_tokens);
                 // find "<p>...token..." and try to remove from "<p" to "</p>"
-                if let Some(start) = s.find(&format!("<p>")) {
+                if let Some(start) = s.find("<p>") {
                     // naive: find token occurrence position
                     if let Some(tokpos) = s.find(&token) {
                         // find the opening "<p" before token
@@ -192,7 +192,7 @@ fn apply_random_edits(
                     // insert a split: replace the first occurrence of token with e.g. "Wk wor<b>d</b>"
                     // we create a tail token so we can check presence
                     let tail_token = format!("TAIL{}", eidx);
-                    if let Some(_word_pos) = s[tokpos..].find(&format!("word-")) {
+                    if let Some(_word_pos) = s[tokpos..].find("word-") {
                         // naive transform: replace "word-N" with "wor<b>d</b>"
                         let full_word = format!(
                             "word-{}",

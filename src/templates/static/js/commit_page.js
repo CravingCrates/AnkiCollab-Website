@@ -3,536 +3,275 @@
  * Reads commit_id from data-commit-id attribute on #notes-container element
  */
 
-// Mark that this page handles its own state restoration
-window.commitPageRestoreHandled = true;
-
 // Initialize the shared UI components after the page loads
 $(document).ready(function() {
     SharedUI.initializePage();
     initButtonFeatures();
     initPaginationControls();
     initBulkSelectionControls();
-    initStateRestoration(); // Must come after pagination controls
 
-    function showSimpleConfirmModal(title, message) {
+    var isReducedMotion = function() {
+        return window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    };
+
+    function openModalDialog(options) {
         return new Promise(function(resolve) {
-            // Remember the element that was focused before opening the modal
-            var lastFocusedElement = document.activeElement;
-
-            var overlay = document.createElement('div');
-            overlay.className = 'ac-modal-overlay';
+            var settled = false;
+            var isClosing = false;
+            var closeTimer = null;
+            var dialog = document.createElement('dialog');
+            dialog.className = 'ac-modal-card';
 
             var headingId = 'ac-modal-heading-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2);
-
-            var modal = document.createElement('div');
-            modal.className = 'ac-modal-card';
-            modal.setAttribute('role', 'dialog');
-            modal.setAttribute('aria-modal', 'true');
-            modal.setAttribute('aria-labelledby', headingId);
+            dialog.setAttribute('aria-labelledby', headingId);
 
             var heading = document.createElement('h3');
             heading.className = 'ac-modal-title';
             heading.id = headingId;
-            heading.textContent = title;
+            heading.textContent = options.title;
 
             var body = document.createElement('p');
             body.className = 'ac-modal-body';
-            body.textContent = message;
+            body.textContent = options.message;
 
-            var footer = document.createElement('div');
-            footer.className = 'ac-modal-footer';
+            dialog.appendChild(heading);
+            dialog.appendChild(body);
 
-            var footerLeft = document.createElement('div');
-            footerLeft.className = 'ac-modal-footer-left';
-
-            var footerRight = document.createElement('div');
-            footerRight.className = 'ac-modal-footer-right';
-
-            var cancelBtn = document.createElement('button');
-            cancelBtn.className = 'ac-modal-btn ac-modal-btn-secondary';
-            cancelBtn.type = 'button';
-            cancelBtn.textContent = 'Cancel';
-
-            var confirmBtn = document.createElement('button');
-            confirmBtn.className = 'ac-modal-btn ac-modal-btn-primary';
-            confirmBtn.type = 'button';
-            confirmBtn.textContent = 'Confirm';
-
-            footerLeft.appendChild(cancelBtn);
-            footerRight.appendChild(confirmBtn);
-            footer.appendChild(footerLeft);
-            footer.appendChild(footerRight);
-            modal.appendChild(heading);
-            modal.appendChild(body);
-            modal.appendChild(footer);
-            overlay.appendChild(modal);
-            document.body.appendChild(overlay);
-
-            // Collect focusable elements inside the modal for focus trapping
-            var focusableSelectors = 'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])';
-            var focusableElements = Array.prototype.slice.call(
-                modal.querySelectorAll(focusableSelectors)
-            );
-
-            requestAnimationFrame(function() {
-                overlay.classList.add('is-visible');
-                // Move focus to the primary action, if available
-                if (confirmBtn && typeof confirmBtn.focus === 'function') {
-                    confirmBtn.focus();
-                } else if (focusableElements.length > 0 && typeof focusableElements[0].focus === 'function') {
-                    focusableElements[0].focus();
+            function finish(value) {
+                if (settled) return;
+                settled = true;
+                if (closeTimer) {
+                    clearTimeout(closeTimer);
+                    closeTimer = null;
                 }
-            });
-
-            function closeModal(result) {
-                overlay.classList.remove('is-visible');
-                setTimeout(function() {
-                    if (overlay.parentNode) {
-                        overlay.parentNode.removeChild(overlay);
-                    }
-                    // Restore focus to the element that triggered the modal, if still in the document
-                    if (lastFocusedElement && document.contains(lastFocusedElement) && typeof lastFocusedElement.focus === 'function') {
-                        lastFocusedElement.focus();
-                    }
-                    resolve(result);
-                }, 200);
+                dialog.returnValue = '';
+                if (dialog.parentNode) {
+                    dialog.parentNode.removeChild(dialog);
+                }
+                resolve(value);
             }
 
-            overlay.addEventListener('click', function(event) {
-                if (event.target === overlay) {
-                    closeModal(false);
-                }
-            });
-
-            overlay.addEventListener('keydown', function(event) {
-                if (event.key === 'Escape' || event.key === 'Esc') {
-                    event.stopPropagation();
-                    closeModal(false);
-                    return;
-                }
-
-                if (event.key === 'Tab') {
-                    if (!focusableElements || focusableElements.length === 0) {
-                        return;
-                    }
-                    var currentIndex = focusableElements.indexOf(document.activeElement);
-                    if (currentIndex === -1) {
-                        currentIndex = 0;
-                    }
-
-                    event.preventDefault();
-                    var nextIndex;
-                    if (event.shiftKey) {
-                        nextIndex = currentIndex - 1;
-                        if (nextIndex < 0) {
-                            nextIndex = focusableElements.length - 1;
-                        }
+            function closeWithValue(value, returnCode) {
+                if (settled || isClosing) return;
+                isClosing = true;
+                dialog._pendingResult = value;
+                dialog.classList.remove('is-visible');
+                var delay = isReducedMotion() ? 0 : 200;
+                closeTimer = setTimeout(function() {
+                    closeTimer = null;
+                    if (dialog.open) {
+                        dialog.close(returnCode || '');
                     } else {
-                        nextIndex = currentIndex + 1;
-                        if (nextIndex >= focusableElements.length) {
-                            nextIndex = 0;
-                        }
+                        finish(value);
                     }
+                }, delay);
+            }
 
-                    var nextElement = focusableElements[nextIndex];
-                    if (nextElement && typeof nextElement.focus === 'function') {
-                        nextElement.focus();
-                    }
+            if (typeof options.buildContent === 'function') {
+                options.buildContent(dialog, closeWithValue);
+            }
+
+            function isOutsideDialog(event) {
+                var rect = dialog.getBoundingClientRect();
+                return (
+                    event.clientX < rect.left ||
+                    event.clientX > rect.right ||
+                    event.clientY < rect.top ||
+                    event.clientY > rect.bottom
+                );
+            }
+
+            var pressedOutside = false;
+            dialog.addEventListener('pointerdown', function(event) {
+                pressedOutside = isOutsideDialog(event);
+            });
+            dialog.addEventListener('pointerup', function(event) {
+                if (pressedOutside && isOutsideDialog(event)) {
+                    closeWithValue(options.dismissValue);
+                }
+                pressedOutside = false;
+            });
+
+            dialog.addEventListener('cancel', function(event) {
+                // Pressing Escape during a closing fade-out should always cancel rather than confirm.
+                event.preventDefault();
+                if (closeTimer) {
+                    clearTimeout(closeTimer);
+                    closeTimer = null;
+                }
+                isClosing = false;
+                if (dialog.open) {
+                    dialog.close('');
+                } else {
+                    finish(options.dismissValue);
                 }
             });
 
-            cancelBtn.addEventListener('click', function() {
-                closeModal(false);
+            dialog.addEventListener('close', function() {
+                var result = isClosing ? dialog._pendingResult : options.dismissValue;
+                finish(result);
             });
 
-            confirmBtn.addEventListener('click', function() {
-                closeModal(true);
+            document.body.appendChild(dialog);
+            dialog.showModal();
+            requestAnimationFrame(function() {
+                dialog.classList.add('is-visible');
             });
+        });
+    }
+
+    function showSimpleConfirmModal(title, message) {
+        return openModalDialog({
+            title: title,
+            message: message,
+            dismissValue: false,
+            buildContent: function(dialog, closeWithValue) {
+                var footer = document.createElement('div');
+                footer.className = 'ac-modal-footer';
+
+                var footerLeft = document.createElement('div');
+                footerLeft.className = 'ac-modal-footer-left';
+
+                var footerRight = document.createElement('div');
+                footerRight.className = 'ac-modal-footer-right';
+
+                var cancelBtn = document.createElement('button');
+                cancelBtn.className = 'ac-modal-btn ac-modal-btn-secondary';
+                cancelBtn.type = 'button';
+                cancelBtn.textContent = 'Cancel';
+                // Focus the safe action by default on confirmation dialogs
+                cancelBtn.autofocus = true;
+
+                var confirmBtn = document.createElement('button');
+                confirmBtn.className = 'ac-modal-btn ac-modal-btn-primary';
+                confirmBtn.type = 'button';
+                confirmBtn.textContent = 'Confirm';
+
+                cancelBtn.addEventListener('click', function() {
+                    closeWithValue(false, 'cancel');
+                });
+                confirmBtn.addEventListener('click', function() {
+                    closeWithValue(true, 'confirm');
+                });
+
+                footerLeft.appendChild(cancelBtn);
+                footerRight.appendChild(confirmBtn);
+                footer.appendChild(footerLeft);
+                footer.appendChild(footerRight);
+                dialog.appendChild(footer);
+            }
         });
     }
 
     function showInfoModal(title, message) {
-        return new Promise(function(resolve) {
-            var overlay = document.createElement('div');
-            overlay.className = 'ac-modal-overlay';
+        return openModalDialog({
+            title: title,
+            message: message,
+            dismissValue: undefined,
+            buildContent: function(dialog, closeWithValue) {
+                var footer = document.createElement('div');
+                footer.className = 'ac-modal-footer';
 
-            var modal = document.createElement('div');
-            modal.className = 'ac-modal-card';
-            modal.setAttribute('role', 'dialog');
-            modal.setAttribute('aria-modal', 'true');
-            var headingId = 'ac-info-heading-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2);
-            modal.setAttribute('aria-labelledby', headingId);
+                var footerRight = document.createElement('div');
+                footerRight.className = 'ac-modal-footer-right';
+                footerRight.style.marginLeft = 'auto';
 
-            var heading = document.createElement('h3');
-            heading.className = 'ac-modal-title';
-            heading.id = headingId;
-            heading.textContent = title;
+                var okBtn = document.createElement('button');
+                okBtn.className = 'ac-modal-btn ac-modal-btn-primary';
+                okBtn.type = 'button';
+                okBtn.textContent = 'OK';
+                okBtn.autofocus = true;
 
-            var body = document.createElement('p');
-            body.className = 'ac-modal-body';
-            body.textContent = message;
+                okBtn.addEventListener('click', function() {
+                    closeWithValue(undefined, 'ok');
+                });
 
-            var footer = document.createElement('div');
-            footer.className = 'ac-modal-footer';
-
-            var footerRight = document.createElement('div');
-            footerRight.className = 'ac-modal-footer-right';
-            footerRight.style.marginLeft = 'auto';
-
-            var okBtn = document.createElement('button');
-            okBtn.className = 'ac-modal-btn ac-modal-btn-primary';
-            okBtn.type = 'button';
-            okBtn.textContent = 'OK';
-
-            footerRight.appendChild(okBtn);
-            footer.appendChild(footerRight);
-            modal.appendChild(heading);
-            modal.appendChild(body);
-            modal.appendChild(footer);
-            overlay.appendChild(modal);
-            document.body.appendChild(overlay);
-
-            requestAnimationFrame(function() {
-                overlay.classList.add('is-visible');
-                okBtn.focus();
-            });
-
-            function closeModal() {
-                overlay.classList.remove('is-visible');
-                setTimeout(function() {
-                    if (overlay.parentNode) {
-                        overlay.parentNode.removeChild(overlay);
-                    }
-                    resolve();
-                }, 200);
+                footerRight.appendChild(okBtn);
+                footer.appendChild(footerRight);
+                dialog.appendChild(footer);
             }
-
-            overlay.addEventListener('click', function(event) {
-                if (event.target === overlay) {
-                    closeModal();
-                }
-            });
-
-            overlay.addEventListener('keydown', function(event) {
-                if (event.key === 'Escape') {
-                    event.stopPropagation();
-                    closeModal();
-                }
-            });
-
-            okBtn.addEventListener('click', closeModal);
         });
     }
 
     function showDenySuggestionModal() {
-        return new Promise(function(resolve) {
-            var overlay = document.createElement('div');
-            overlay.className = 'ac-modal-overlay';
+        return openModalDialog({
+            title: 'Deny Suggestion',
+            message: 'You can deny silently or send optional feedback to the user.',
+            dismissValue: { cancelled: true },
+            buildContent: function(dialog, closeWithValue) {
+                var textarea = document.createElement('textarea');
+                textarea.className = 'ac-modal-textarea';
+                textarea.placeholder = 'Optional feedback for the user\u2026';
+                textarea.maxLength = 2000;
+                textarea.autofocus = true;
+                textarea.setAttribute('aria-label', 'Feedback message');
 
-            var modal = document.createElement('div');
-            modal.className = 'ac-modal-card';
-            modal.setAttribute('role', 'dialog');
-            modal.setAttribute('aria-modal', 'true');
-            var headingId = 'ac-deny-heading-' + Date.now() + '-' + Math.random().toString(36).slice(2);
-            modal.setAttribute('aria-labelledby', headingId);
+                var charCount = document.createElement('div');
+                charCount.className = 'ac-modal-charcount';
+                charCount.textContent = '0 / 2000';
 
-            var heading = document.createElement('h3');
-            heading.className = 'ac-modal-title';
-            heading.id = headingId;
-            heading.textContent = 'Deny Suggestion';
+                var footer = document.createElement('div');
+                footer.className = 'ac-modal-footer';
 
-            var body = document.createElement('p');
-            body.className = 'ac-modal-body';
-            body.textContent = 'You can deny silently or send optional feedback to the user.';
+                var leftActions = document.createElement('div');
+                leftActions.className = 'ac-modal-footer-left';
 
-            var textarea = document.createElement('textarea');
-            textarea.className = 'ac-modal-textarea';
-            textarea.placeholder = 'Optional feedback for the user\u2026';
-            textarea.maxLength = 2000;
-            textarea.setAttribute('aria-label', 'Feedback message');
+                var rightActions = document.createElement('div');
+                rightActions.className = 'ac-modal-footer-right';
 
-            var charCount = document.createElement('div');
-            charCount.className = 'ac-modal-charcount';
-            charCount.textContent = '0 / 2000';
+                var cancelBtn = document.createElement('button');
+                cancelBtn.className = 'ac-modal-btn ac-modal-btn-plain';
+                cancelBtn.type = 'button';
+                cancelBtn.textContent = 'Cancel';
 
-            var footer = document.createElement('div');
-            footer.className = 'ac-modal-footer';
+                var silentBtn = document.createElement('button');
+                silentBtn.className = 'ac-modal-btn ac-modal-btn-secondary';
+                silentBtn.type = 'button';
+                silentBtn.textContent = 'Deny Silently';
 
-            var leftActions = document.createElement('div');
-            leftActions.className = 'ac-modal-footer-left';
+                var notifyBtn = document.createElement('button');
+                notifyBtn.className = 'ac-modal-btn ac-modal-btn-danger';
+                notifyBtn.type = 'button';
+                notifyBtn.textContent = 'Deny & Notify';
 
-            var rightActions = document.createElement('div');
-            rightActions.className = 'ac-modal-footer-right';
+                cancelBtn.addEventListener('click', function() {
+                    closeWithValue({ cancelled: true }, 'cancel');
+                });
 
-            var cancelBtn = document.createElement('button');
-            cancelBtn.className = 'ac-modal-btn ac-modal-btn-plain';
-            cancelBtn.type = 'button';
-            cancelBtn.textContent = 'Cancel';
+                silentBtn.addEventListener('click', function() {
+                    closeWithValue({
+                        cancelled: false,
+                        silent: true,
+                        reason: textarea.value || ''
+                    }, 'silent');
+                });
 
-            var silentBtn = document.createElement('button');
-            silentBtn.className = 'ac-modal-btn ac-modal-btn-secondary';
-            silentBtn.type = 'button';
-            silentBtn.textContent = 'Deny Silently';
+                notifyBtn.addEventListener('click', function() {
+                    closeWithValue({
+                        cancelled: false,
+                        silent: false,
+                        reason: textarea.value || ''
+                    }, 'notify');
+                });
 
-            var notifyBtn = document.createElement('button');
-            notifyBtn.className = 'ac-modal-btn ac-modal-btn-danger';
-            notifyBtn.type = 'button';
-            notifyBtn.textContent = 'Deny & Notify';
+                textarea.addEventListener('input', function() {
+                    var len = textarea.value.length;
+                    charCount.textContent = String(len) + ' / 2000';
+                    charCount.classList.toggle('near-limit', len >= 1600 && len < 1900);
+                    charCount.classList.toggle('at-limit', len >= 1900);
+                });
 
-            leftActions.appendChild(cancelBtn);
-            rightActions.appendChild(silentBtn);
-            rightActions.appendChild(notifyBtn);
-            footer.appendChild(leftActions);
-            footer.appendChild(rightActions);
+                leftActions.appendChild(cancelBtn);
+                rightActions.appendChild(silentBtn);
+                rightActions.appendChild(notifyBtn);
+                footer.appendChild(leftActions);
+                footer.appendChild(rightActions);
 
-            modal.appendChild(heading);
-            modal.appendChild(body);
-            modal.appendChild(textarea);
-            modal.appendChild(charCount);
-            modal.appendChild(footer);
-            overlay.appendChild(modal);
-            document.body.appendChild(overlay);
-
-            requestAnimationFrame(function() {
-                overlay.classList.add('is-visible');
-                textarea.focus();
-            });
-
-            function closeModal(result) {
-                overlay.classList.remove('is-visible');
-                setTimeout(function() {
-                    if (overlay.parentNode) {
-                        overlay.parentNode.removeChild(overlay);
-                    }
-                    resolve(result);
-                }, 200);
+                dialog.appendChild(textarea);
+                dialog.appendChild(charCount);
+                dialog.appendChild(footer);
             }
-
-            overlay.addEventListener('click', function(event) {
-                if (event.target === overlay) {
-                    closeModal({ cancelled: true });
-                }
-            });
-
-            overlay.addEventListener('keydown', function(event) {
-                if (event.key === 'Escape') {
-                    event.stopPropagation();
-                    closeModal({ cancelled: true });
-                }
-            });
-
-            cancelBtn.addEventListener('click', function() {
-                closeModal({ cancelled: true });
-            });
-
-            silentBtn.addEventListener('click', function() {
-                closeModal({
-                    cancelled: false,
-                    silent: true,
-                    reason: textarea.value || ''
-                });
-            });
-
-            notifyBtn.addEventListener('click', function() {
-                closeModal({
-                    cancelled: false,
-                    silent: false,
-                    reason: textarea.value || ''
-                });
-            });
-
-            textarea.addEventListener('input', function() {
-                var len = textarea.value.length;
-                charCount.textContent = String(len) + ' / 2000';
-                charCount.classList.toggle('near-limit', len >= 1600 && len < 1900);
-                charCount.classList.toggle('at-limit', len >= 1900);
-            });
         });
-    }
-    
-    /**
-     * State Restoration - Restores scroll position and pagination state
-     * after editing a note suggestion causes a page reload.
-     */
-    function initStateRestoration() {
-        var savedState = sessionStorage.getItem('fieldEditPanel_restoreState');
-        if (!savedState) {
-            return;
-        }
-        
-        var state;
-        try {
-            state = JSON.parse(savedState);
-        } catch (e) {
-            sessionStorage.removeItem('fieldEditPanel_restoreState');
-            return;
-        }
-        
-        // Validate required properties exist
-        if (!state || typeof state.timestamp !== 'number' || !state.noteId) {
-            sessionStorage.removeItem('fieldEditPanel_restoreState');
-            return;
-        }
-        
-        // Check if state is not too old (5 minutes)
-        var STATE_EXPIRY_MS = 5 * 60 * 1000;
-        if (Date.now() - state.timestamp > STATE_EXPIRY_MS) {
-            sessionStorage.removeItem('fieldEditPanel_restoreState');
-            return;
-        }
-        
-        // Clear the stored state immediately to prevent re-triggering
-        sessionStorage.removeItem('fieldEditPanel_restoreState');
-        
-        // Sanitize noteId for use in selector (should be numeric, but escape for safety)
-        var targetNoteId = String(state.noteId).replace(/[^\w-]/g, '');
-        if (!targetNoteId) {
-            return;
-        }
-        
-        var targetLoaded = Number(state.loaded) || 0;
-        var $notesContainer = $('#notes-container');
-        var commitId = $notesContainer.data('commit-id');
-        
-        var currentLoaded = Number($notesContainer.data('loaded')) || 0;
-        
-        // Check if target note is already visible (use getElementById for safety)
-        var targetElement = document.getElementById(targetNoteId);
-        if (targetElement) {
-            // Note is already on page, just scroll to it
-            scrollToNoteAndHighlight($(targetElement));
-            return;
-        }
-        
-        // Need to load more notes to reach the target
-        if (targetLoaded > currentLoaded) {
-            loadNotesUntilTarget(commitId, targetNoteId, targetLoaded, currentLoaded);
-        } else {
-            // Target should be on page but isn't - scroll to approximate position
-            var scrollPos = Number(state.scrollPosition) || 0;
-            if (scrollPos > 0) {
-                window.scrollTo({ top: scrollPos, behavior: 'instant' });
-            }
-        }
-    }
-    
-    /**
-     * Loads notes in batches until the target note is found.
-     */
-    async function loadNotesUntilTarget(commitId, targetNoteId, targetLoaded, currentLoaded) {
-        var $notesContainer = $('#notes-container');
-        var $loadMoreContainer = $('#load-more-container');
-        var $loadMoreBtn = $('#load-more-btn');
-        var $loadMoreStatus = $('#load-more-status');
-        var $loadedCount = $('#notes-loaded-count');
-        
-        // Show loading indicator
-        $loadMoreStatus.html('<i class="fa-solid fa-spinner fa-spin"></i> Restoring your position...');
-        $loadMoreBtn.addClass('loading');
-        
-        var nextOffset = $notesContainer.data('nextOffset');
-        // If no nextOffset, there's nothing more to load
-        if (nextOffset === undefined || nextOffset === null || nextOffset === '') {
-            $loadMoreStatus.text('');
-            $loadMoreBtn.removeClass('loading');
-            return;
-        }
-        
-        var loaded = currentLoaded;
-        var limit = 50;
-        var maxIterations = Math.ceil((targetLoaded - currentLoaded) / limit) + 2; // Safety limit
-        
-        for (var i = 0; i < maxIterations && nextOffset !== null && nextOffset !== ''; i++) {
-            try {
-                var response = await fetch('/commit/' + commitId + '?offset=' + nextOffset + '&limit=' + limit + '&format=json', {
-                    headers: { 'Accept': 'application/json' }
-                });
-                
-                if (!response.ok) {
-                    throw new Error('Request failed with status ' + response.status);
-                }
-                
-                var payload = await response.json();
-                
-                if (payload.html) {
-                    var temp = document.createElement('div');
-                    temp.innerHTML = payload.html;
-                    while (temp.firstChild) {
-                        $notesContainer[0].appendChild(temp.firstChild);
-                    }
-                    SharedUI.initializePage();
-                }
-                
-                loaded += payload.loaded || 0;
-                nextOffset = payload.next_offset;
-                
-                // Update pagination state
-                $notesContainer.data('loaded', loaded);
-                $notesContainer.data('nextOffset', nextOffset ?? '');
-                $loadedCount.text(loaded);
-                
-                // Check if target note is now visible (use getElementById for safety)
-                var targetElement = document.getElementById(targetNoteId);
-                if (targetElement) {
-                    // Found the note - finish up
-                    $loadMoreStatus.text('');
-                    $loadMoreBtn.removeClass('loading');
-                    
-                    // Update load more button visibility
-                    if (nextOffset === null || nextOffset === '') {
-                        $loadMoreContainer.addClass('hidden');
-                    }
-                    
-                    // Small delay to ensure DOM is settled
-                    requestAnimationFrame(function() {
-                        scrollToNoteAndHighlight($(targetElement));
-                    });
-                    return;
-                }
-                
-                // Stop if we've loaded enough or no more to load
-                if (loaded >= targetLoaded || !payload.loaded) {
-                    break;
-                }
-                
-            } catch (error) {
-                console.error('Failed to load notes during state restoration:', error);
-                $loadMoreStatus.text('Failed to restore position. Please scroll manually.');
-                break;
-            }
-        }
-        
-        // Cleanup loading state
-        $loadMoreStatus.text('');
-        $loadMoreBtn.removeClass('loading');
-        
-        // Update load more button visibility
-        if (nextOffset === null || nextOffset === '') {
-            $loadMoreContainer.addClass('hidden');
-        }
-        
-        // Even if we didn't find the exact note, scroll to approximate position
-        // This handles cases where the note was deleted or moved
-        var finalTargetElement = document.getElementById(targetNoteId);
-        if (finalTargetElement) {
-            scrollToNoteAndHighlight($(finalTargetElement));
-        }
-    }
-    
-    /**
-     * Scrolls to a note card and highlights it briefly.
-     */
-    function scrollToNoteAndHighlight($noteCard) {
-        if (!$noteCard.length) return;
-        
-        // Scroll to the note, centering it in the viewport
-        $noteCard[0].scrollIntoView({ behavior: 'instant', block: 'center' });
-        
-        // Add a highlight effect to help user find their place
-        $noteCard.addClass('save-highlight');
-        setTimeout(function() {
-            $noteCard.removeClass('save-highlight');
-        }, 2500);
     }
 
     function initButtonFeatures() {
@@ -577,6 +316,13 @@ $(document).ready(function() {
 
             fetch(url, fetchOptions)
                 .then(function(r) {
+                    if (r.ok || r.redirected) {
+                        try {
+                            sessionStorage.removeItem('commit_select::' + commitId);
+                        } catch (storageErr) {
+                            // Ignore storage access errors
+                        }
+                    }
                     if (r.redirected) {
                         window.location.href = r.url;
                     } else {
@@ -693,19 +439,6 @@ $(document).ready(function() {
             }
         });
         
-        // Keyboard navigation support - exclude editor areas
-        $('.suggestion-box').attr('tabindex', '0').on('keydown', function(e) {
-            // Don't intercept keyboard events if we're inside an editor
-            if ($(e.target).closest('.trumbowyg-box').length) {
-                return; // Let the editor handle it
-            }
-            
-            if (e.key === 'Enter' || e.key === ' ') {
-                e.preventDefault();
-                $(this).find('.modern-btn').first().click();
-            }
-        });
-        
         // Auto-scroll to active edit field
         $(document).on('editors:initialized', function(e, noteId) {
             var $activeField = $('#' + noteId + ' .trumbowyg-editor').first();
@@ -761,21 +494,6 @@ $(document).ready(function() {
         if (window.performance && window.performance.mark) {
             window.performance.mark('commit-page-interactive');
         }
-        
-        // Preload critical resources
-        var criticalResources = [
-            '/static/plugins/trumbowyg/trumbowyg.min.js',
-            '/static/plugins/trumbowyg/plugins/colors/trumbowyg.colors.js'
-        ];
-        
-        criticalResources.forEach(function(resource) {
-            var link = document.createElement('link');
-            link.rel = 'preload';
-            link.as = 'script';
-            link.href = resource;
-            document.head.appendChild(link);
-        });
-        
     }
 
     function initPaginationControls() {
@@ -896,7 +614,7 @@ $(document).ready(function() {
 
     /**
      * Bulk Selection Controls
-     * Manages selection state in localStorage per commit
+     * Manages selection state in sessionStorage per commit
      * and handles bulk approve/deny actions
      */
     function initBulkSelectionControls() {
@@ -906,6 +624,18 @@ $(document).ready(function() {
         var commitId = $bulkSection.data('commit-id');
         if (!commitId) return;
 
+        // Sweep legacy commit_select::* keys previously persisted in localStorage
+        try {
+            for (var i = localStorage.length - 1; i >= 0; i--) {
+                var legacyKey = localStorage.key(i);
+                if (legacyKey && legacyKey.indexOf('commit_select::') === 0) {
+                    localStorage.removeItem(legacyKey);
+                }
+            }
+        } catch (e) {
+            // Ignore storage access errors
+        }
+
         var storageKey = 'commit_select::' + commitId;
         var $notesContainer = $('#notes-container');
         var $selectionCount = $('#selection-count');
@@ -914,23 +644,28 @@ $(document).ready(function() {
         var $bulkApproveBtn = $('#bulk-approve-btn');
         var $bulkDenyBtn = $('#bulk-deny-btn');
 
-        // Load selection from localStorage
+        // Load selection from sessionStorage
         function getSelection() {
             try {
-                var stored = localStorage.getItem(storageKey);
-                return stored ? JSON.parse(stored) : [];
+                var stored = sessionStorage.getItem(storageKey);
+                var parsed = stored ? JSON.parse(stored) : [];
+                return Array.isArray(parsed) ? parsed : [];
             } catch (e) {
-                console.warn('Failed to parse selection from localStorage:', e);
+                console.warn('Failed to parse selection from sessionStorage:', e);
                 return [];
             }
         }
 
-        // Save selection to localStorage
+        // Save selection to sessionStorage (delete empty keys to avoid stale entries)
         function saveSelection(noteIds) {
             try {
-                localStorage.setItem(storageKey, JSON.stringify(noteIds));
+                if (!noteIds || noteIds.length === 0) {
+                    sessionStorage.removeItem(storageKey);
+                } else {
+                    sessionStorage.setItem(storageKey, JSON.stringify(noteIds));
+                }
             } catch (e) {
-                console.warn('Failed to save selection to localStorage:', e);
+                console.warn('Failed to save selection to sessionStorage:', e);
             }
         }
 
@@ -1094,8 +829,11 @@ $(document).ready(function() {
                     setTimeout(function() {
                         $noteCard.fadeOut(300, function() {
                             $(this).remove();
+                            if (window.MathJaxEngine && typeof window.MathJaxEngine.updateToggleVisibility === 'function') {
+                                window.MathJaxEngine.updateToggleVisibility();
+                            }
                             // Trigger note:resolved for pagination count update
-                            $(document).trigger('note:resolved', { action: 'bulk-' + action });
+                            $(document).trigger('note:resolved', { action: 'bulk-' + action, noteId: String(noteId) });
                         });
                     }, 500);
                 });
@@ -1193,18 +931,25 @@ $(document).ready(function() {
 
         observer.observe($notesContainer[0], { childList: true });
 
-        // Listen for individual note resolutions to update selection
+        // Listen for individual note resolutions to update selection without dropping off-page selections
         $(document).on('note:resolved', function(event, detail) {
-            // Get the note ID from the event if possible
-            // For individual actions, the card is removed - clean up selection
             var selection = getSelection();
-            var existingNoteIds = [];
-            $notesContainer.find('.note-card').each(function() {
-                existingNoteIds.push(String($(this).attr('id')));
-            });
-            
-            // Remove any selected notes that no longer exist in the DOM
-            var cleanedSelection = selection.filter(function(id) { return existingNoteIds.includes(id); });
+            if (!selection.length) {
+                return;
+            }
+
+            var cleanedSelection;
+            if (detail && detail.noteId !== undefined && detail.noteId !== null && String(detail.noteId) !== '') {
+                var resolvedId = String(detail.noteId);
+                cleanedSelection = selection.filter(function(id) { return id !== resolvedId; });
+            } else {
+                var existingNoteIds = [];
+                $notesContainer.find('.note-card').each(function() {
+                    existingNoteIds.push(String($(this).attr('id')));
+                });
+                cleanedSelection = selection.filter(function(id) { return existingNoteIds.includes(id); });
+            }
+
             if (cleanedSelection.length !== selection.length) {
                 saveSelection(cleanedSelection);
                 updateSelectionCount();

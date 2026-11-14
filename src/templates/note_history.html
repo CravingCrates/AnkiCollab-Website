@@ -4,6 +4,7 @@
   {% set page_title = "Note History" %}
   {% include "header_template.html" %}
   <link href="/static/css/commit_styling.css" rel="stylesheet">
+  <script src="/static/js/mathjax_engine.js"></script>
   <script src="/static/js/note_history.js"></script>
 </head>
 
@@ -18,6 +19,10 @@
           <p class="page-subtitle">Complete timeline • {{ groups|length }} commit{% if groups|length != 1 %}s{% endif %}</p>
         </div>
         <div class="header-actions">
+          <button type="button" class="mathjax-toggle-btn" aria-pressed="false" title="Toggle MathJax rendering" hidden>
+            <i class="fa-solid fa-square-root-variable" aria-hidden="true"></i>
+            <span>MathJax</span>
+          </button>
           <div class="filter-dropdown">
             <button id="toggleFilterBtn" class="filter-button">
               <i class="fa-solid fa-filter" aria-hidden="true"></i>

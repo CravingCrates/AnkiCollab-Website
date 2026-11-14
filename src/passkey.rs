@@ -1829,9 +1829,6 @@ mod tests {
     /// an inline event handler never fires and an inline `style=` is dropped — silently, and only
     /// in production. A subset check: removing an entry keeps it green, a new offender fails.
     const TEMPLATES_WITH_KNOWN_CSP_VIOLATIONS: &[&str] = &[
-        // The cookie banner cannot be revealed or dismissed, and the `display:none` meant to
-        // hide it is ignored, so it is stuck on every page.
-        "layout_footer.html",
         // `style="display:none"` on a data carrier is ignored.
         "edit_deck.html",
         // `style="display:inline"` on a toggle form is ignored, so each toggle wraps.

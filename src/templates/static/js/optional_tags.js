@@ -57,14 +57,19 @@ $(document).ready(function () {
         })
         .then(function(text) {
             if (text === 'added') {
-                $('.tdl-content2 ul').append(
-                    '<li>' +
-                    '<label>' +
-                    '<span>' + taggroup + '</span>' +
-                    '<a href="#" class="fa-solid fa-trash js-remove-tag"></a>' +
-                    '</label>' +
-                    '</li>'
-                );
+                var li = document.createElement('li');
+                var label = document.createElement('label');
+                var span = document.createElement('span');
+                span.textContent = taggroup;
+                var removeLink = document.createElement('a');
+                removeLink.href = '#';
+                removeLink.className = 'fa-solid fa-trash js-remove-tag';
+                removeLink.setAttribute('aria-label', 'Remove optional tag ' + taggroup);
+                removeLink.setAttribute('role', 'button');
+                label.appendChild(span);
+                label.appendChild(removeLink);
+                li.appendChild(label);
+                $('.tdl-content2 ul').append(li);
                 toast_success('Optional Tag added');
             }
             else if(text === 'removed') {
@@ -92,11 +97,11 @@ $(document).ready(function () {
     }
 
     // addTag on enter
-    $('.tdl-new2').on('keypress', function (e) {
-        var code = (e.keyCode ? e.keyCode : e.which);
-        if (code == 13) { // Enter key
+    $('.tdl-new2').on('keydown', function (e) {
+        if (e.key === 'Enter' && !e.isComposing && e.keyCode !== 229) {
             e.preventDefault();
-            var taggroup = $(this).val();
+            var taggroup = $(this).val().trim();
+            if (!taggroup) return;
             addTag(taggroup);
             $(this).val(''); // Clear the input field
         }

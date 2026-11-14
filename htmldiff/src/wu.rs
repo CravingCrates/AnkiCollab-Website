@@ -160,8 +160,8 @@ mod tests {
     #[test]
     fn test_diff() {
         let actual = diff(
-            &vec!["み", "ん", "か", "ん", "じ", "ん"],
-            &vec!["み", "か", "ん", "せ", "い", "じ", "ん"],
+            &["み", "ん", "か", "ん", "じ", "ん"],
+            &["み", "か", "ん", "せ", "い", "じ", "ん"],
         );
         let expected = vec![
             Edit::Common { old: 0, new: 0 },

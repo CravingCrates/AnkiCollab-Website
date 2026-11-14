@@ -6,7 +6,6 @@ description = """
 htmldiff is a Rust port of https://github.com/myobie/htmldiff
 """
 documentation = "https://github.com/seikichi/htmldiff"
-homepage = "https://github.com/seikichi/htmldiff"
 repository = "https://github.com/seikichi/htmldiff"
 readme = "README.md"
 keywords = ["html", "diff"]

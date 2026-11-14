@@ -144,53 +144,33 @@ async fn capture_note_snapshot(
 
 pub async fn is_authorized(db_state: &database::AppState, user: &User, deck: i64) -> Return<bool> {
     let client = database::client(db_state).await?;
-    let rows = client
-        .query(
-            "SELECT 1 FROM decks WHERE (owner = $1 AND id = $3) OR $2 LIMIT 1",
-            &[&user.id(), &user.is_admin, &deck],
+    let query = r"
+        WITH RECURSIVE parent_decks AS (
+            SELECT id, parent
+            FROM decks
+            WHERE id = $3
+            UNION
+            SELECT d.id, d.parent
+            FROM decks d
+            JOIN parent_decks p ON d.id = p.parent
         )
+        SELECT 1
+        WHERE $2
+           OR EXISTS (
+               SELECT 1 FROM decks WHERE id = $3 AND owner = $1
+           )
+           OR EXISTS (
+               SELECT 1
+               FROM parent_decks p
+               JOIN maintainers m ON m.deck = p.id AND m.user_id = $1
+           )
+        LIMIT 1
+    ";
+    let rows = client
+        .query(query, &[&user.id(), &user.is_admin, &deck])
         .await?;
-    let access = !rows.is_empty();
 
-    // Check if it's a maintainer
-    if !access {
-        // Get all parent decks including the current one
-        let query = r"
-            WITH RECURSIVE parent_decks AS (
-                SELECT id, parent
-                FROM decks
-                WHERE id = $1
-                UNION ALL
-                SELECT decks.id, decks.parent
-                FROM decks
-                JOIN parent_decks ON decks.id = parent_decks.parent
-            )
-            SELECT id
-            FROM parent_decks
-        ";
-        let parent_decks = client.query(query, &[&deck]).await?;
-        if parent_decks.is_empty() {
-            return Ok(false);
-        }
-        // Check if the user is a maintainer for any of the parent decks
-        for row in parent_decks {
-            let parent_deck_id: i64 = row.get(0);
-            let rows = client
-                .query(
-                    "SELECT 1 FROM maintainers WHERE user_id = $1 AND deck = $2 LIMIT 1",
-                    &[&user.id(), &parent_deck_id],
-                )
-                .await?;
-            if !rows.is_empty() {
-                // User is a maintainer for this deck or one of its parents
-                return Ok(true);
-            }
-        }
-        // User is not a maintainer for any of the decks in the hierarchy
-        return Ok(false);
-    }
-
-    Ok(access)
+    Ok(!rows.is_empty())
 }
 
 // Only used for unreviewed cards to prevent them from being added to the deck. Existing cards should use mark_note_deleted instead

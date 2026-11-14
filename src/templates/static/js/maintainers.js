@@ -50,14 +50,19 @@ $(document).ready(function () {
         .then(function(response) { return response.text(); })
         .then(function(text) {
             if (text === 'added') {
-                $('.tdl-content2 ul').append(
-                    '<li>' +
-                    '<label>' +
-                    '<span>' + username + '</span>' +
-                    '<a href="#" class="fa-solid fa-xmark js-remove-maintainer"></a>' +
-                    '</label>' +
-                    '</li>'
-                );
+                var li = document.createElement('li');
+                var label = document.createElement('label');
+                var span = document.createElement('span');
+                span.textContent = username;
+                var removeLink = document.createElement('a');
+                removeLink.href = '#';
+                removeLink.className = 'fa-solid fa-xmark js-remove-maintainer';
+                removeLink.setAttribute('aria-label', 'Remove maintainer ' + username);
+                removeLink.setAttribute('role', 'button');
+                label.appendChild(span);
+                label.appendChild(removeLink);
+                li.appendChild(label);
+                $('.tdl-content2 ul').append(li);
                 toast_success('Maintainer added');
             }
             else if(text === 'removed') {
@@ -82,11 +87,11 @@ $(document).ready(function () {
     }
 
     // addMaintainer
-    $('.tdl-new2').on('keypress', function (e) {
-        var code = (e.keyCode ? e.keyCode : e.which);
-        if (code == 13) { // Enter key
+    $('.tdl-new2').on('keydown', function (e) {
+        if (e.key === 'Enter' && !e.isComposing && e.keyCode !== 229) {
             e.preventDefault();
-            var username = $(this).val();
+            var username = $(this).val().trim();
+            if (!username) return;
             addMaintainer(username);
             $(this).val(''); // Clear the input field
         }

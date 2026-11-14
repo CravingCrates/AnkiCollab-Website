@@ -18,7 +18,7 @@ fn main() {
     let stdout = stdout();
     let mut w = BufWriter::new(stdout.lock());
     build_htmldiff(&html1, &html2, |s: &str| {
-        w.write(s.as_bytes()).expect("failed to write result");
+        w.write_all(s.as_bytes()).expect("failed to write result");
     });
 }
 

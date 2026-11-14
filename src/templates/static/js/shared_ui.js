@@ -20,6 +20,12 @@ window.SharedUI = (function() {
 
     // --- Initialization ---
 
+    function syncMathJaxVisibility() {
+        if (window.MathJaxEngine && typeof window.MathJaxEngine.updateToggleVisibility === 'function') {
+            window.MathJaxEngine.updateToggleVisibility();
+        }
+    }
+
     /**
      * Initializes the entire page (commit or review).
      */
@@ -33,15 +39,20 @@ window.SharedUI = (function() {
      */
     function initializeAllNoteCards() {
         $(NOTE_CONTEXT_SELECTOR).each(function() {
-            initializeNoteCard(this);
+            initializeNoteCard(this, { skipVisibilityUpdate: true, skipMathJax: true });
         });
+        if (window.MathJaxEngine && window.MathJaxEngine.isEnabled()) {
+            window.MathJaxEngine.renderInElement(document);
+        }
+        syncMathJaxVisibility();
     }
 
     /**
      * Initializes a single note card: renders content and processes diffs.
      * @param {HTMLElement} noteCardElement - The note card element.
+     * @param {{ skipVisibilityUpdate?: boolean, skipMathJax?: boolean }} [options]
      */
-    function initializeNoteCard(noteCardElement) {
+    function initializeNoteCard(noteCardElement, options) {
         const $noteCard = $(noteCardElement);
         const noteId = $noteCard.attr('id');
 
@@ -60,6 +71,19 @@ window.SharedUI = (function() {
             processDiffField(this);
             // Note: processDiffField calls prepareImagesForLazyLoad internally on the diff div's images
         });
+
+        // 3. Mark card ready for MathJax and render if opted-in
+        if (noteCardElement && typeof noteCardElement.setAttribute === 'function') {
+            noteCardElement.setAttribute('data-shared-ui-ready', 'true');
+        }
+        if (!options || !options.skipMathJax) {
+            if (window.MathJaxEngine && window.MathJaxEngine.isEnabled()) {
+                window.MathJaxEngine.renderInElement($noteCard[0]);
+            }
+        }
+        if (!options || !options.skipVisibilityUpdate) {
+            syncMathJaxVisibility();
+        }
     }
 
     /**
@@ -75,6 +99,9 @@ window.SharedUI = (function() {
         // otherwise read from current innerHTML (first run) and cache it.
         var diffHtml = $diffDiv.data('raw-diff-html');
         if (!diffHtml) {
+            if (window.MathJaxEngine && typeof window.MathJaxEngine.restoreInElement === 'function' && diffElement.querySelector('.mathjax-rendered[data-mathjax-raw]')) {
+                window.MathJaxEngine.restoreInElement(diffElement);
+            }
             diffHtml = $diffDiv.html();
         }
         $diffDiv.data('raw-diff-html', diffHtml);
@@ -346,13 +373,32 @@ window.SharedUI = (function() {
             });
         });
 
+        function createEditableTagChip(tagId, tagContent, variantClass, buttonTitle, iconClass) {
+            const $chip = $('<span>', {
+                class: 'tag-chip-editable ' + variantClass,
+                'data-tag-id': String(tagId)
+            });
+            const $text = $('<span>', { class: 'tag-text', text: tagContent });
+            const $btn = $('<button>', {
+                type: 'button',
+                class: 'tag-revert-btn',
+                'data-action': 'deny-tag',
+                'data-tag-id': String(tagId),
+                title: buttonTitle,
+                'aria-label': buttonTitle + ': ' + tagContent
+            });
+            $btn.append($('<i>', { class: iconClass, 'aria-hidden': 'true' }));
+            $chip.append($text, $btn);
+            return $chip;
+        }
+
         // Tag input (inside edit panel): add new tag on Enter
         $container.on('keydown.sharedUI', '.tag-edit-panel .tag-input', function(event) {
             if (event.key === 'Escape') {
                 $(this).val('').blur();
                 return;
             }
-            if (event.key !== 'Enter') return;
+            if (event.key !== 'Enter' || event.isComposing || event.keyCode === 229) return;
             event.preventDefault();
             var $input = $(this);
             var tagContent = $input.val().trim().replace(/\s+/g, '_');
@@ -368,10 +414,13 @@ window.SharedUI = (function() {
                 .then(function(result) {
                     if (result && result.tag_id) {
                         var $editContainer = $panel.closest('.tag-edit-container');
-                        var $chip = $('<span class="tag-chip-editable tag-chip-add" data-tag-id="' + result.tag_id + '">' +
-                            '<span class="tag-text">' + $('<span>').text(tagContent).html() + '</span>' +
-                            '<button class="tag-revert-btn" data-action="deny-tag" data-tag-id="' + result.tag_id + '" title="Remove this tag">' +
-                            '<i class="fa-solid fa-xmark"></i></button></span>');
+                        var $chip = createEditableTagChip(
+                            result.tag_id,
+                            tagContent,
+                            'tag-chip-add',
+                            'Remove this tag',
+                            'fa-solid fa-xmark'
+                        );
                         $editContainer.find('.tag-edit-toggle').before($chip);
                         $input.val('');
                     }
@@ -398,10 +447,13 @@ window.SharedUI = (function() {
                     if (result && result.tag_id) {
                         // Add removal chip to the inline tag area
                         var $editContainer = $row.closest('.tag-edit-container');
-                        var $removalChip = $('<span class="tag-chip-editable tag-chip-remove" data-tag-id="' + result.tag_id + '">' +
-                            '<span class="tag-text">' + $('<span>').text(tagContent).html() + '</span>' +
-                            '<button class="tag-revert-btn" data-action="deny-tag" data-tag-id="' + result.tag_id + '" title="Undo removal">' +
-                            '<i class="fa-solid fa-rotate-left"></i></button></span>');
+                        var $removalChip = createEditableTagChip(
+                            result.tag_id,
+                            tagContent,
+                            'tag-chip-remove',
+                            'Undo removal',
+                            'fa-solid fa-rotate-left'
+                        );
                         $editContainer.find('.tag-edit-toggle').before($removalChip);
                         // Hide the row in the edit panel
                         $row.slideUp(150);
@@ -521,12 +573,20 @@ window.SharedUI = (function() {
                          $originalDiv.html(unescapedContent);
                          $originalDiv.data('content', newContent);
                          prepareImagesForLazyLoad($originalDiv.find('img'));
+                         if (window.MathJaxEngine && window.MathJaxEngine.isEnabled()) {
+                             window.MathJaxEngine.renderInElement($originalDiv[0]);
+                         }
                      }
                      prepareImagesForLazyLoad($diffDiv.find('img'));
+                     if (window.MathJaxEngine && window.MathJaxEngine.isEnabled()) {
+                         window.MathJaxEngine.renderInElement($diffDiv[0]);
+                     }
+                     syncMathJaxVisibility();
 
                  } else {
                      console.warn('AcceptField success for ID ' + fieldId + ', but data(new-content) was missing.');
                      $diffDiv.html('<em>Content accepted (preview unavailable).</em>');
+                     syncMathJaxVisibility();
                  }
                  // Mark visually as accepted and remove action buttons
                  $fieldActions.remove();
@@ -547,9 +607,15 @@ window.SharedUI = (function() {
                      const originalContent = HtmlDiffUtils.unescapeHtml($originalDiv.data('content') || '');
                      $originalDiv.html(originalContent);
                      prepareImagesForLazyLoad($originalDiv.find('img'));
+                     if (window.MathJaxEngine && window.MathJaxEngine.isEnabled()) {
+                         window.MathJaxEngine.renderInElement($originalDiv[0]);
+                     }
                  }
                  // Remove the entire suggestion box from the UI
-                 $suggestionBox.fadeOut(300, function() { $(this).remove(); });
+                 $suggestionBox.fadeOut(300, function() {
+                     $(this).remove();
+                     syncMathJaxVisibility();
+                 });
              }
 
          } catch (error) {
@@ -720,9 +786,11 @@ window.SharedUI = (function() {
              return;
          }
 
+         const noteId = $noteCard.attr('id');
          $noteCard.fadeOut(220, function() {
              $(this).remove();
-             $(document).trigger('note:resolved', { action });
+             syncMathJaxVisibility();
+             $(document).trigger('note:resolved', { action, noteId });
          });
      }
 

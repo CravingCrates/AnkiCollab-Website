@@ -243,20 +243,24 @@ async fn accessibility_page(
     Ok(Html(rendered_template))
 }
 
-async fn logout(Extension(auth): Extension<Arc<Auth>>) -> Result<impl IntoResponse, Error> {
-    let exp_cookie = auth.logout();
-    let mut response = axum::response::Redirect::to("/").into_response();
-    response.headers_mut().insert(
-        header::SET_COOKIE,
-        header::HeaderValue::from_str(&exp_cookie).unwrap(),
-    );
-    // add a Clear-Site-Data header for complete cleanup
+/// Build a logout redirect that clears auth cookies and origin DOM storage.
+fn clear_session_response(redirect_to: &str, exp_cookie: &str) -> axum::response::Response {
+    let mut response = axum::response::Redirect::to(redirect_to).into_response();
+    if let Ok(cookie_header) = header::HeaderValue::from_str(exp_cookie) {
+        response
+            .headers_mut()
+            .insert(header::SET_COOKIE, cookie_header);
+    }
     response.headers_mut().insert(
         header::HeaderName::from_static("clear-site-data"),
-        header::HeaderValue::from_static("\"cookies\""),
+        header::HeaderValue::from_static("\"cookies\", \"storage\""),
     );
+    response
+}
 
-    Ok(response)
+async fn logout(Extension(auth): Extension<Arc<Auth>>) -> Result<impl IntoResponse, Error> {
+    let exp_cookie = auth.logout();
+    Ok(clear_session_response("/", &exp_cookie))
 }
 
 async fn get_profile(
@@ -292,17 +296,7 @@ async fn post_change_password(
 
     // Log the user out so they need to re-authenticate with new password
     let exp_cookie = auth.logout();
-    let mut response = axum::response::Redirect::to("/login").into_response();
-    response.headers_mut().insert(
-        header::SET_COOKIE,
-        header::HeaderValue::from_str(&exp_cookie).unwrap(),
-    );
-    response.headers_mut().insert(
-        header::HeaderName::from_static("clear-site-data"),
-        header::HeaderValue::from_static("\"cookies\""),
-    );
-
-    Ok(response)
+    Ok(clear_session_response("/login", &exp_cookie))
 }
 
 async fn delete_account(
@@ -337,17 +331,7 @@ async fn delete_account(
 
     // Log the user out immediately
     let exp_cookie = auth.logout();
-    let mut response = axum::response::Redirect::to("/").into_response();
-    response.headers_mut().insert(
-        header::SET_COOKIE,
-        header::HeaderValue::from_str(&exp_cookie).unwrap(),
-    );
-    response.headers_mut().insert(
-        header::HeaderName::from_static("clear-site-data"),
-        header::HeaderValue::from_static("\"cookies\""),
-    );
-
-    Ok(response)
+    Ok(clear_session_response("/", &exp_cookie))
 }
 
 async fn render_maintainers(
@@ -1080,18 +1064,20 @@ async fn review_commit_preview(
     user: User,
     Path(commit_id): Path<i32>,
 ) -> Result<Response, Error> {
-    let client = database::client(&appstate).await?;
-    let q_guid = client
-        .query(
-            "Select deck from commits where commit_id = $1",
-            &[&commit_id],
-        )
-        .await?;
-    if q_guid.is_empty() {
-        return error_page(&appstate, &error::Error::CommitNotFound.to_string())
-            .map(IntoResponse::into_response);
-    }
-    let deck_id: i64 = q_guid[0].get(0);
+    let deck_id: i64 = {
+        let client = database::client(&appstate).await?;
+        let q_guid = client
+            .query(
+                "Select deck from commits where commit_id = $1",
+                &[&commit_id],
+            )
+            .await?;
+        if q_guid.is_empty() {
+            return error_page(&appstate, &error::Error::CommitNotFound.to_string())
+                .map(IntoResponse::into_response);
+        }
+        q_guid[0].get(0)
+    };
 
     let access = suggestion_manager::is_authorized(&appstate, &user, deck_id).await?;
     if !access {
@@ -1099,9 +1085,11 @@ async fn review_commit_preview(
             .map(IntoResponse::into_response);
     }
 
-    let commit = commit_manager::get_commit_info(&appstate, commit_id).await?;
-    let notes_page = commit_manager::notes_by_commit(&appstate, commit_id, 0, 5).await?;
-    let notemodels = notetype_manager::notetypes_by_commit(&appstate, commit_id).await?;
+    let (commit, notes_page, notemodels) = tokio::try_join!(
+        commit_manager::get_commit_info(&appstate, commit_id),
+        commit_manager::preview_notes_by_commit(&appstate, commit_id, 0, 5),
+        notetype_manager::notetypes_by_commit(&appstate, commit_id),
+    )?;
 
     let mut context = tera::Context::new();
     context.insert("commit", &commit);
@@ -3028,5 +3016,25 @@ async fn shutdown_signal() {
     tokio::select! {
         () = ctrl_c => {},
         () = terminate => {},
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn clear_session_response_clears_cookies_and_storage() {
+        let resp = clear_session_response("/login", "session=; Max-Age=0; Path=/");
+        assert!(resp.status().is_redirection());
+        assert_eq!(resp.headers().get(header::LOCATION).unwrap(), "/login");
+        assert_eq!(
+            resp.headers().get(header::SET_COOKIE).unwrap(),
+            "session=; Max-Age=0; Path=/"
+        );
+        assert_eq!(
+            resp.headers().get("clear-site-data").unwrap(),
+            "\"cookies\", \"storage\""
+        );
     }
 }

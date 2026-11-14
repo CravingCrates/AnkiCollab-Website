@@ -11,11 +11,11 @@ function toggleTags(button) {
     if (isHidden) {
         collapsedTags.classList.remove('d-none');
         collapsedTags.style.display = "flex";
-        button.innerHTML = "Show less";
+        button.textContent = "Show less";
     } else {
         collapsedTags.classList.add('d-none');
         collapsedTags.style.display = "";
-        button.innerHTML = "+" + hiddenCount + " more";
+        button.textContent = "+" + hiddenCount + " more";
     }
 }
 
@@ -45,7 +45,10 @@ function groupSuggestionsByCommit() {
         
         // For tags, we need to extract from data attributes
         if (!commitId) {
-            commitId = $suggestion.attr('data-commit-id');
+            var attrCommitId = $suggestion.attr('data-commit-id');
+            if (attrCommitId && /^\d+$/.test(attrCommitId)) {
+                commitId = attrCommitId;
+            }
         }
         
         // Default group for items without commit ID
@@ -60,34 +63,49 @@ function groupSuggestionsByCommit() {
         commitGroups[commitId].push($suggestion.detach());
     });
     
-    // Create grouped HTML structure
+    // Create grouped DOM structure safely
     Object.keys(commitGroups).forEach(function(commitId) {
         var items = commitGroups[commitId];
         if (items.length === 0) return;
         
-        var groupHtml;
         if (commitId === 'other') {
             // Keep individual styling for non-commit items
             items.forEach(function(item) {
                 suggestionsContainer.append(item);
             });
         } else {
-            // Create commit group container
-            groupHtml = $(
-                '<div class="commit-group">' +
-                '<div class="commit-header">' +
-                '<a href="/commit/' + commitId + '" class="commit-badge" title="View Source Commit">' +
-                '<i class="fa-solid fa-code-branch"></i> Commit #' + commitId +
-                '</a>' +
-                '<span style="color: #6b7280; font-size: 0.9rem;">' +
-                items.length + ' ' + (items.length === 1 ? 'change' : 'changes') +
-                '</span>' +
-                '</div>' +
-                '<div class="commit-suggestions"></div>' +
-                '</div>'
-            );
-            
-            var suggestionsList = groupHtml.find('.commit-suggestions');
+            var groupDiv = document.createElement('div');
+            groupDiv.className = 'commit-group';
+
+            var headerDiv = document.createElement('div');
+            headerDiv.className = 'commit-header';
+
+            var badgeLink = document.createElement('a');
+            badgeLink.href = '/commit/' + encodeURIComponent(commitId);
+            badgeLink.className = 'commit-badge';
+            badgeLink.title = 'View Source Commit';
+
+            var branchIcon = document.createElement('i');
+            branchIcon.className = 'fa-solid fa-code-branch';
+            branchIcon.setAttribute('aria-hidden', 'true');
+            badgeLink.appendChild(branchIcon);
+            badgeLink.appendChild(document.createTextNode(' Commit #' + commitId));
+
+            var countSpan = document.createElement('span');
+            countSpan.style.color = '#6b7280';
+            countSpan.style.fontSize = '0.9rem';
+            countSpan.textContent = items.length + ' ' + (items.length === 1 ? 'change' : 'changes');
+
+            headerDiv.appendChild(badgeLink);
+            headerDiv.appendChild(countSpan);
+
+            var suggestionsListEl = document.createElement('div');
+            suggestionsListEl.className = 'commit-suggestions';
+
+            groupDiv.appendChild(headerDiv);
+            groupDiv.appendChild(suggestionsListEl);
+
+            var suggestionsList = $(suggestionsListEl);
             items.forEach(function(item) {
                 // Convert suggestion-box to suggestion-item
                 item.removeClass('suggestion-box').addClass('suggestion-item');
@@ -96,7 +114,7 @@ function groupSuggestionsByCommit() {
                 suggestionsList.append(item);
             });
             
-            suggestionsContainer.append(groupHtml);
+            suggestionsContainer.append(groupDiv);
         }
     });
 }
@@ -203,7 +221,7 @@ function initiButtonFeatures() {
             
             // For buttons with only icons, don't change text
             if (!originalText.includes('fa-') && originalText.trim().length > 2) {
-                $btn.html(processingText);
+                $btn.text(processingText);
             }
             
             // Store original state for potential restoration

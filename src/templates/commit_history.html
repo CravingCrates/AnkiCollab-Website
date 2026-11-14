@@ -4,6 +4,7 @@
   {% set page_title = "Commit History" %}
   {% include "header_template.html" %}
   <link href="/static/css/commit_styling.css" rel="stylesheet">
+  <script src="/static/js/mathjax_engine.js"></script>
   <script src="/static/js/commit_history.js"></script>
 </head>
 
@@ -45,10 +46,16 @@
           <!-- Could be partially approved or not. -->
         {% endif %}
       </div>
-      <a href="/reviews" class="back-button">
-        <i class="fa-solid fa-arrow-left" aria-hidden="true"></i>
-        Back to Reviews
-      </a>
+      <div class="d-flex align-center gap-8">
+        <button type="button" class="mathjax-toggle-btn" aria-pressed="false" title="Toggle MathJax rendering" hidden>
+          <i class="fa-solid fa-square-root-variable" aria-hidden="true"></i>
+          <span>MathJax</span>
+        </button>
+        <a href="/reviews" class="back-button">
+          <i class="fa-solid fa-arrow-left" aria-hidden="true"></i>
+          Back to Reviews
+        </a>
+      </div>
     </div>
   </div>
 

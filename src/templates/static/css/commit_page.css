@@ -9,10 +9,18 @@
     padding: 18px;
 }
 
+.commit-header-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    margin-bottom: 10px;
+}
+
 .page-title {
     font-size: 22px;
     font-weight: 700;
-    margin: 0 0 10px 0;
+    margin: 0;
     color: white;
     letter-spacing: -0.5px;
 }
@@ -528,6 +536,11 @@
         margin-bottom: 16px;
     }
     
+    .commit-header-top {
+        flex-wrap: wrap;
+        gap: 10px;
+    }
+
     .page-title {
         font-size: 20px;
     }
@@ -612,31 +625,22 @@
     }
 }
 
-.ac-modal-overlay {
-    position: fixed;
-    inset: 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 24px;
-    background: rgba(15, 23, 42, 0.45);
-    backdrop-filter: blur(16px) saturate(1.4);
-    -webkit-backdrop-filter: blur(16px) saturate(1.4);
-    opacity: 0;
-    pointer-events: none;
-    /* 1. Spring-like entrance alongside opacity */
-    transition: opacity 0.24s cubic-bezier(0.2, 0, 0, 1);
-    z-index: 3000;
+dialog:modal {
+    overscroll-behavior: contain;
 }
 
-.ac-modal-overlay.is-visible {
-    opacity: 1;
-    pointer-events: auto;
+dialog::backdrop {
+    overflow: hidden;
+    overscroll-behavior: contain;
 }
 
 /* 7. Increased padding to 28px for breathing room */
-.ac-modal-card {
-    width: min(520px, 100%);
+dialog.ac-modal-card {
+    width: min(520px, calc(100% - 48px));
+    max-width: calc(100% - 48px);
+    max-height: calc(100dvh - 48px);
+    margin: auto;
+    overflow-y: auto;
     background: rgba(255, 255, 255, 0.96);
     border: 1px solid rgba(15, 23, 42, 0.06);
     border-radius: 16px;
@@ -645,6 +649,7 @@
         0 8px 24px rgba(15, 23, 42, 0.08),
         0 0 0 0.5px rgba(15, 23, 42, 0.04);
     padding: 28px;
+    color: inherit;
     /* 1. Scale + translateY entrance with spring curve */
     transform: scale(0.97) translateY(6px);
     opacity: 0;
@@ -652,8 +657,20 @@
                 opacity 0.22s cubic-bezier(0.2, 0, 0, 1);
 }
 
-.ac-modal-overlay.is-visible .ac-modal-card {
+dialog.ac-modal-card::backdrop {
+    background: rgba(15, 23, 42, 0.45);
+    backdrop-filter: blur(16px) saturate(1.4);
+    -webkit-backdrop-filter: blur(16px) saturate(1.4);
+    opacity: 0;
+    transition: opacity 0.24s cubic-bezier(0.2, 0, 0, 1);
+}
+
+dialog.ac-modal-card.is-visible {
     transform: scale(1) translateY(0);
+    opacity: 1;
+}
+
+dialog.ac-modal-card.is-visible::backdrop {
     opacity: 1;
 }
 
@@ -836,11 +853,11 @@
 
 /* ── Modal dark mode support ────────────────────────────── */
 @media (prefers-color-scheme: dark) {
-    .ac-modal-overlay {
+    dialog.ac-modal-card::backdrop {
         background: rgba(0, 0, 0, 0.55);
     }
 
-    .ac-modal-card {
+    dialog.ac-modal-card {
         background: rgba(30, 35, 48, 0.97);
         border-color: rgba(255, 255, 255, 0.08);
         box-shadow:
@@ -913,12 +930,13 @@
 
 /* ── Modal reduced motion ───────────────────────────────── */
 @media (prefers-reduced-motion: reduce) {
-    .ac-modal-card {
+    dialog.ac-modal-card,
+    dialog.ac-modal-card::backdrop {
         transform: none;
         transition: opacity 0.01ms;
     }
 
-    .ac-modal-overlay.is-visible .ac-modal-card {
+    dialog.ac-modal-card.is-visible {
         transform: none;
     }
 

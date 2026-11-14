@@ -8,6 +8,8 @@ window.FieldEditPanel = (function() {
     // --- State ---
     let activePanel = null;
     let originalFieldData = new Map(); // Store original data for cancel/restore
+    const previewTimers = new Map();
+    const fieldHasMathMap = new Map();
 
     // --- Constants ---
     const PARAGRAPH_CLEANUP_EVENTS = 'tbwpaste.paragraphCleanup tbwblur.paragraphCleanup';
@@ -147,10 +149,15 @@ window.FieldEditPanel = (function() {
      * @param {string|number} noteId - The note ID
      */
     function close(noteId) {
+        previewTimers.forEach(timerId => clearTimeout(timerId));
+        previewTimers.clear();
+        fieldHasMathMap.clear();
+
         // Destroy all editors and event handlers
         $('.edit-all-fields-panel .edit-field-editor').each(function() {
             try {
                 $(this).off('.fieldEditPanel');
+                $(this).off('.mathjaxPreview');
                 $(this).off(PARAGRAPH_CLEANUP_EVENTS);
                 $(this).trumbowyg('destroy');
             } catch (e) {
@@ -199,7 +206,7 @@ window.FieldEditPanel = (function() {
         
         if (modifiedFields.length === 0) {
             $status.html('<span class="text-muted">No changes to save.</span>');
-            setTimeout(() => $status.html(''), 3000);
+            setTimeout(() => $status.text(''), 3000);
             return true;
         }
 
@@ -359,6 +366,7 @@ window.FieldEditPanel = (function() {
      * Renders the edit panel HTML structure.
      */
     function renderPanel($noteCard, response, commitId) {
+        fieldHasMathMap.clear();
         const fields = response.fields;
         
         let fieldsHtml = '';
@@ -408,10 +416,19 @@ window.FieldEditPanel = (function() {
                              data-suggestion-content="${escapeAttr(field.suggestion_content || '')}"
                              data-editor-content="${escapeAttr(editorContent || '')}"
                              data-inherited="${String(field.inherited)}">${initialContent}</div>
+                        <div class="mathjax-editor-preview" data-position="${field.position}" hidden>
+                            <div class="mathjax-editor-preview-header">
+                                <i class="fa-solid fa-square-root-variable" aria-hidden="true"></i>
+                                <span>MathJax Preview</span>
+                            </div>
+                            <div class="mathjax-editor-preview-body note-content-display"></div>
+                        </div>
                     </div>
                 `;
             });
         }
+
+        const mjxEnabled = Boolean(window.MathJaxEngine && window.MathJaxEngine.isEnabled());
 
         const panelHtml = `
             <div class="edit-drawer-overlay"></div>
@@ -424,9 +441,15 @@ window.FieldEditPanel = (function() {
                         </div>
                         <div class="edit-panel-hint">Note #${response.note_id} &middot; Commit #${commitId}</div>
                     </div>
-                    <button class="edit-panel-close cancel-all-fields-btn" data-note-id="${response.note_id}" title="Close">
-                        <i class="fa-solid fa-xmark"></i>
-                    </button>
+                    <div class="edit-panel-header-actions">
+                        <button type="button" class="mathjax-toggle-btn mathjax-toggle-btn-light ${mjxEnabled ? 'active' : ''}" aria-pressed="${String(mjxEnabled)}" title="Toggle MathJax preview" hidden>
+                            <i class="fa-solid fa-square-root-variable" aria-hidden="true"></i>
+                            <span>MathJax</span>
+                        </button>
+                        <button class="edit-panel-close cancel-all-fields-btn" data-note-id="${response.note_id}" title="Close">
+                            <i class="fa-solid fa-xmark"></i>
+                        </button>
+                    </div>
                 </div>
                 <div class="edit-fields-container">
                     ${fieldsHtml}
@@ -450,6 +473,17 @@ window.FieldEditPanel = (function() {
         // Append to body as a drawer overlay
         $('body').append(panelHtml);
 
+        const $panel = $('.edit-all-fields-panel');
+        $panel.find('.edit-field-editor').each(function() {
+            const $ed = $(this);
+            const pos = $ed.data('position');
+            if (pos !== undefined) {
+                const { hasMath } = extractFieldPreviewData($ed);
+                fieldHasMathMap.set(String(pos), hasMath);
+            }
+        });
+        syncPanelToggleVisibility($panel);
+
         // Close on overlay click
         $('.edit-drawer-overlay').on('click', () => {
             if (activePanel) close(activePanel.noteId);
@@ -470,6 +504,7 @@ window.FieldEditPanel = (function() {
         
         if ($editors.length === 0) {
             console.warn('No editable fields found in panel');
+            updateAllMathJaxPreviews();
             return;
         }
 
@@ -483,6 +518,8 @@ window.FieldEditPanel = (function() {
                 });
             }).get()
         );
+
+        updateAllMathJaxPreviews();
     }
 
     /**
@@ -577,6 +614,11 @@ window.FieldEditPanel = (function() {
                         .attr('role', 'textbox')
                         .attr('aria-multiline', 'true')
                         .attr('aria-label', fieldName + ' editor');
+
+                    var pos = $editor.data('position');
+                    $editor.off('.mathjaxPreview').on('tbwchange.mathjaxPreview tbwpaste.mathjaxPreview input.mathjaxPreview', function() {
+                        scheduleMathJaxPreview(pos);
+                    });
                     resolve();
                 });
             } catch (error) {
@@ -640,7 +682,7 @@ window.FieldEditPanel = (function() {
      */
     function installEnterKeyHandler($editor) {
         $editor.off('keydown.fieldEditPanel').on('keydown.fieldEditPanel', function(event) {
-            if (event.which !== 13 || event.shiftKey) {
+            if (event.key !== 'Enter' || event.shiftKey || event.isComposing || event.keyCode === 229) {
                 return;
             }
 
@@ -882,6 +924,25 @@ window.FieldEditPanel = (function() {
         const doc = parser.parseFromString(trumbowygHtml, 'text/html');
         const body = doc.body;
 
+        // Defensive cleanup: unwrap any MathJax rendered spans/SVGs so raw TeX is always preserved
+        body.querySelectorAll('[data-mathjax-raw]').forEach(el => {
+            const raw = el.getAttribute('data-mathjax-raw') || '';
+            const parts = raw.includes('\uE000MJXBR\uE001')
+                ? raw.split('\uE000MJXBR\uE001')
+                : raw.split(/<br\s*\/?>/i);
+            const frag = doc.createDocumentFragment();
+            for (let i = 0; i < parts.length; i++) {
+                if (parts[i]) {
+                    frag.appendChild(doc.createTextNode(parts[i]));
+                }
+                if (i < parts.length - 1) {
+                    frag.appendChild(doc.createElement('br'));
+                }
+            }
+            el.replaceWith(frag);
+        });
+        body.querySelectorAll('mjx-container, svg[data-mathjax-svg]').forEach(el => el.remove());
+
         body.querySelectorAll('img').forEach(img => {
             const filename = img.dataset.filename;
             const currentSrc = img.getAttribute('src') || '';
@@ -980,7 +1041,7 @@ window.FieldEditPanel = (function() {
         const $status = $('.edit-all-fields-panel .edit-panel-status');
         if ($status.length) {
             $status.html('<span class="text-danger"><i class="fa-solid fa-triangle-exclamation"></i> ' + escapeHtml(message) + '</span>');
-            setTimeout(() => $status.html(''), 5000);
+            setTimeout(() => $status.text(''), 5000);
         }
     }
 
@@ -1009,6 +1070,156 @@ window.FieldEditPanel = (function() {
 
     // --- Event Handlers ---
 
+    const UNSAFE_PREVIEW_TAGS = 'script, style, iframe, object, embed, link, meta, base, form, svg, math, template, noscript, portal, frame, frameset';
+    const PREVIEW_URL_ATTRS = new Set(['href', 'src', 'xlink:href', 'formaction', 'action', 'poster', 'data', 'cite']);
+
+    function isSafePreviewUrl(rawUrl) {
+        const normalized = String(rawUrl || '').replace(/[\u0000-\u0020]+/g, '').toLowerCase();
+        if (!normalized) return true;
+        if (!/^[a-z][a-z0-9+.-]*:/.test(normalized)) {
+            return true;
+        }
+        return (
+            normalized.startsWith('http:') ||
+            normalized.startsWith('https:') ||
+            normalized.startsWith('mailto:') ||
+            normalized.startsWith('tel:') ||
+            /^data:image\/(?:png|jpeg|jpg|gif|webp|avif)[;,]/i.test(normalized)
+        );
+    }
+
+    /**
+     * Strips dangerous tags, event handlers, inline style attributes, and unsafe URLs
+     * when populating the live preview container.
+     */
+    function sanitizePreviewHtml(html) {
+        if (typeof html !== 'string' || !html) return '';
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(html, 'text/html');
+        const body = doc.body;
+        body.querySelectorAll(UNSAFE_PREVIEW_TAGS).forEach(el => el.remove());
+        body.querySelectorAll('*').forEach(el => {
+            Array.from(el.attributes).forEach(attr => {
+                const name = attr.name.toLowerCase();
+                if (name.startsWith('on') || name === 'style' || name === 'srcdoc' || name === 'xmlns') {
+                    el.removeAttribute(attr.name);
+                } else if (PREVIEW_URL_ATTRS.has(name) && !isSafePreviewUrl(attr.value)) {
+                    el.removeAttribute(attr.name);
+                }
+            });
+        });
+        return body.innerHTML;
+    }
+
+    function scheduleMathJaxPreview(pos) {
+        if (pos === undefined || pos === null) return;
+        const key = String(pos);
+        if (previewTimers.has(key)) {
+            clearTimeout(previewTimers.get(key));
+        }
+        const timerId = setTimeout(() => {
+            previewTimers.delete(key);
+            updateMathJaxPreview(pos);
+        }, 150);
+        previewTimers.set(key, timerId);
+    }
+
+    function extractFieldPreviewData($editor) {
+        let rawHtml = '';
+        if ($editor.attr('data-inherited') === 'true') {
+            rawHtml = HtmlDiffUtils.unescapeHtml(String($editor.attr('data-editor-content') || ''));
+        } else if ($editor.data('trumbowyg')) {
+            try {
+                rawHtml = $editor.trumbowyg('html') || '';
+            } catch (_) {
+                rawHtml = $editor.html() || '';
+            }
+        } else {
+            rawHtml = HtmlDiffUtils.unescapeHtml(String($editor.attr('data-editor-content') || ''));
+        }
+
+        const prepared = prepareContentForEditor(rawHtml).replace(/\u200B/g, '');
+        const safeHtml = sanitizePreviewHtml(prepared);
+        const tempDoc = new DOMParser().parseFromString(safeHtml, 'text/html');
+
+        let hasMath = false;
+        if (window.MathJaxEngine) {
+            if (typeof window.MathJaxEngine.hasRenderableMath === 'function') {
+                hasMath = Boolean(window.MathJaxEngine.hasRenderableMath(tempDoc.body));
+            } else if (typeof window.MathJaxEngine.containsMathDelimiters === 'function') {
+                tempDoc.body.querySelectorAll('br').forEach(br => br.replaceWith(tempDoc.createTextNode('\n')));
+                const textWithLinebreaks = tempDoc.body.textContent || '';
+                hasMath = Boolean(window.MathJaxEngine.containsMathDelimiters(textWithLinebreaks));
+            }
+        }
+
+        return { safeHtml, hasMath };
+    }
+
+    function syncPanelToggleVisibility($panel) {
+        let anyFieldHasMath = false;
+        for (const hasMath of fieldHasMathMap.values()) {
+            if (hasMath) {
+                anyFieldHasMath = true;
+                break;
+            }
+        }
+        const $targetPanel = ($panel && $panel.length) ? $panel : $('.edit-all-fields-panel');
+        const btn = $targetPanel.find('.mathjax-toggle-btn')[0];
+        if (btn) {
+            btn.hidden = !anyFieldHasMath;
+        }
+    }
+
+    function updateMathJaxPreview(pos) {
+        if (!activePanel) return;
+        const $panel = $('.edit-all-fields-panel');
+        if (!$panel.length) return;
+        const $preview = $panel.find('.mathjax-editor-preview[data-position="' + pos + '"]');
+        if (!$preview.length) return;
+
+        const previewEl = $preview[0];
+        const previewBody = previewEl.querySelector('.mathjax-editor-preview-body');
+
+        const $editor = $panel.find('.edit-field-editor[data-position="' + pos + '"]');
+        if (!$editor.length) return;
+
+        const { safeHtml, hasMath } = extractFieldPreviewData($editor);
+
+        fieldHasMathMap.set(String(pos), hasMath);
+        syncPanelToggleVisibility($panel);
+
+        if (!window.MathJaxEngine || !window.MathJaxEngine.isEnabled() || !hasMath) {
+            previewEl.hidden = true;
+            if (previewBody) previewBody.textContent = '';
+            return;
+        }
+
+        previewEl.hidden = false;
+        if (previewBody) {
+            previewBody.innerHTML = safeHtml;
+            window.MathJaxEngine.renderInElement(previewBody);
+        }
+    }
+
+    function updateAllMathJaxPreviews() {
+        if (!activePanel) return;
+        const $panel = $('.edit-all-fields-panel');
+        if (!$panel.length) return;
+        $panel.find('.edit-field-editor').each(function() {
+            const pos = $(this).data('position');
+            if (pos !== undefined) {
+                updateMathJaxPreview(pos);
+            }
+        });
+    }
+
+    document.addEventListener('mathjax:toggled', function() {
+        if (activePanel) {
+            updateAllMathJaxPreviews();
+        }
+    });
+
     // Delegate click events for panel buttons
     $(document).on('click', '.save-all-fields-btn', function(e) {
         e.preventDefault();
@@ -1020,57 +1231,6 @@ window.FieldEditPanel = (function() {
         e.preventDefault();
         const noteId = $(this).data('note-id');
         close(noteId);
-    });
-
-    // --- Scroll Restoration on Page Load ---
-    
-    // Note: Main restoration is now handled in commit.html's initStateRestoration()
-    // This handles any edge cases where the page-specific handler doesn't exist
-    $(document).ready(function() {
-        // Check if we're on the commit page (which has its own handler)
-        if ($('#notes-container').length && typeof window.commitPageRestoreHandled !== 'undefined') {
-            return; // Let commit.html handle it
-        }
-        
-        // Fallback for other pages that might use this panel
-        const savedState = sessionStorage.getItem('fieldEditPanel_restoreState');
-        if (savedState) {
-            try {
-                const state = JSON.parse(savedState);
-                
-                // Validate required properties
-                if (!state || typeof state.timestamp !== 'number') {
-                    sessionStorage.removeItem('fieldEditPanel_restoreState');
-                    return;
-                }
-                
-                // Check if state is not too old (5 minutes)
-                const STATE_EXPIRY_MS = 5 * 60 * 1000;
-                if (Date.now() - state.timestamp > STATE_EXPIRY_MS) {
-                    sessionStorage.removeItem('fieldEditPanel_restoreState');
-                    return;
-                }
-                
-                sessionStorage.removeItem('fieldEditPanel_restoreState');
-                
-                // Simple scroll restoration for non-commit pages
-                if (state.noteId) {
-                    // Sanitize noteId and use getElementById for safety
-                    const noteId = String(state.noteId).replace(/[^\w-]/g, '');
-                    const noteElement = document.getElementById(noteId);
-                    if (noteElement) {
-                        requestAnimationFrame(() => {
-                            noteElement.scrollIntoView({ behavior: 'instant', block: 'center' });
-                            const $noteCard = $(noteElement);
-                            $noteCard.addClass('save-highlight');
-                            setTimeout(() => $noteCard.removeClass('save-highlight'), 2000);
-                        });
-                    }
-                }
-            } catch (e) {
-                sessionStorage.removeItem('fieldEditPanel_restoreState');
-            }
-        }
     });
 
     // --- Public Interface ---

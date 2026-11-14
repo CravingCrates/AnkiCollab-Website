@@ -12,6 +12,9 @@
   --reviews-success: #087443;
 }
 
+#preloader { display: none; }
+#main-wrapper { transition: none; }
+
 .reviews-page { color: var(--reviews-text); padding: 24px; display: flex; flex-direction: column; min-height: calc(100vh - 5rem); }
 .reviews-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 24px; margin-bottom: 20px; }
 .reviews-title { margin: 0 0 16px; font-size: 28px; font-weight: 600; }
@@ -36,7 +39,8 @@
 .reviews-workspace { display: flex;  flex: 1 1 0;  height: auto;  min-height: 38rem;  border: 1px solid var(--reviews-line);  background: var(--reviews-surface); }
 .reviews-list-panel { display: flex; min-width: 0; min-height: 0; flex: 55 1 0; flex-direction: column; overflow-y: auto; border-right: 1px solid var(--reviews-line); }
 .reviews-list { min-height: 0; overflow-y: visible; }
-.review-row { display: flex; align-items: center; gap: 12px; min-height: 82px; padding: 14px 16px; border-bottom: 1px solid var(--reviews-line); cursor: pointer; }
+.review-row { display: flex; align-items: center; gap: 12px; min-height: 82px; padding: 14px 16px; border-bottom: 1px solid var(--reviews-line); cursor: pointer; content-visibility: auto; contain-intrinsic-size: auto 82px; }
+.review-row[hidden] { display: none; }
 .review-row:last-child { border-bottom: 0; }
 .review-row:hover { background: var(--reviews-neutral-hover); }
 .review-row.selected { background: var(--reviews-accent-tint); }

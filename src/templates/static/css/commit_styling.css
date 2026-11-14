@@ -3447,3 +3447,155 @@ del[data-diff], ins[data-diff] { text-decoration: none !important; }
     justify-content: center;
   }
 }
+
+/* ============================================ */
+/* Opt-In Sandboxed MathJax Rendering           */
+/* ============================================ */
+
+.mathjax-toggle-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  background: rgba(255, 255, 255, 0.14);
+  color: #ffffff;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.18s ease;
+  white-space: nowrap;
+}
+
+.mathjax-toggle-btn[hidden] {
+  display: none;
+}
+
+.mathjax-toggle-btn:hover {
+  background: rgba(255, 255, 255, 0.24);
+  border-color: rgba(255, 255, 255, 0.48);
+}
+
+.mathjax-toggle-btn.active {
+  background: #ffffff;
+  color: #005b8e;
+  border-color: #ffffff;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.14);
+}
+
+.mathjax-toggle-btn.mathjax-toggle-btn-light {
+  height: 34px;
+  border-radius: 6px;
+  border: 1px solid #d9e2ec;
+  background: #ffffff;
+  color: #52606d;
+}
+
+.mathjax-toggle-btn.mathjax-toggle-btn-light:hover {
+  background: #f5f7f9;
+  color: #1f2933;
+}
+
+.mathjax-toggle-btn.mathjax-toggle-btn-light.active {
+  background: rgba(0, 102, 153, 0.09);
+  border-color: #006699;
+  color: #006699;
+  box-shadow: none;
+}
+
+.mathjax-rendered {
+  line-height: normal;
+}
+
+.mathjax-rendered.mathjax-inline {
+  display: inline-block;
+  vertical-align: middle;
+  margin: 0 2px;
+}
+
+.mathjax-rendered.mathjax-display {
+  display: block;
+  text-align: center;
+  margin: 0.65em 0;
+  overflow-x: auto;
+  max-width: 100%;
+  padding: 2px 0;
+}
+
+.mathjax-rendered svg {
+  max-width: 100%;
+  height: auto;
+  vertical-align: middle;
+}
+
+.mathjax-rendered.mathjax-error {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.9em;
+  background: #fef2f2;
+  color: #991b1b;
+  border: 1px dashed #fca5a5;
+  border-radius: 4px;
+  padding: 1px 4px;
+}
+
+del[data-diff] .mathjax-rendered,
+.diff-highlight-del .mathjax-rendered {
+  background: rgba(254, 202, 202, 0.55);
+  border: 1px solid #f87171;
+  border-radius: 6px;
+  padding: 2px 5px;
+}
+
+ins[data-diff] .mathjax-rendered,
+.diff-highlight-ins .mathjax-rendered {
+  background: rgba(187, 247, 208, 0.55);
+  border: 1px solid #4ade80;
+  border-radius: 6px;
+  padding: 2px 5px;
+}
+
+.edit-panel-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.mathjax-editor-preview {
+  border-top: 1px solid #e2e8f0;
+  background: #f8fafc;
+  padding: 10px 14px 12px;
+}
+
+.mathjax-editor-preview-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  color: #475569;
+  margin-bottom: 6px;
+}
+
+.mathjax-sandbox-worker {
+  position: fixed;
+  width: 0;
+  height: 0;
+  border: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.mathjax-editor-preview-body {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-size: 14px;
+  line-height: 1.6;
+  color: #1e293b;
+  overflow-x: auto;
+}

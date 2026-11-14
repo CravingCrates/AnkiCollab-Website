@@ -19,8 +19,8 @@
 Main wrapper end
 ***********************************-->
 
-<div id="global-cookie-banner" class="alert alert-primary alert-dismissible fade show fixed-bottom m-0 rounded-0" role="alert" aria-live="assertive" style="display: none; z-index: 9999;">
-    We use strictly necessary cookies to ensure our site functions securely and correctly. By continuing to browse this site, you agree to this use of cookies.  <a href="/privacy" class="alert-link">Learn more in our Privacy Policy</a>.
+<div id="global-cookie-banner" class="alert alert-primary alert-dismissible fade show fixed-bottom m-0 rounded-0 d-none" role="region" aria-label="Cookie and storage notice">
+    We only use strictly necessary cookies and session storage required for authentication, security, and core site functionality &mdash; no tracking or analytics cookies are used. <a href="/privacy" class="alert-link">Learn more in our Privacy Policy</a>.
     <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close" id="global-cookie-banner-close">
     </button>
 </div>
@@ -32,45 +32,4 @@ Scripts
 <script src="/static/js/custom.min.js"></script>
 <script src="/static/js/settings.js"></script>
 <script src="/static/js/gleek.js"></script>
-<script src="/static/js/styleSwitcher.js"></script>
 <script src="/static/js/instantpages.js" type="module"></script>
-<script>
-/* Accessibility helper: announce messages to screen readers via live regions */
-window.a11yAnnounce = function(message, priority) {
-    var el = document.getElementById(priority === 'assertive' ? 'a11y-alert' : 'a11y-status');
-    if (el) {
-        el.textContent = '';
-        setTimeout(function() { el.textContent = message; }, 100);
-    }
-};
-(function() {
-    var cookieDismissKey = 'ankicollab_cookie_dismissed';
-    var banner = document.getElementById('global-cookie-banner');
-
-    if (!banner) {
-        return;
-    }
-
-    try {
-        if (!localStorage.getItem(cookieDismissKey)) {
-            banner.style.display = 'block';
-            document.getElementById('main-wrapper').style.paddingBottom = banner.offsetHeight + 'px';
-        }
-    } catch (error) {
-        banner.style.display = 'block';
-        document.getElementById('main-wrapper').style.paddingBottom = banner.offsetHeight + 'px';
-    }
-
-    var closeButton = document.getElementById('global-cookie-banner-close');
-    if (closeButton) {
-        closeButton.addEventListener('click', function() {
-            document.getElementById('main-wrapper').style.paddingBottom = '';
-            try {
-                localStorage.setItem(cookieDismissKey, 'true');
-            } catch (error) {
-                /* Ignore storage failures and allow dismiss to continue */
-            }
-        });
-    }
-})();
-</script>

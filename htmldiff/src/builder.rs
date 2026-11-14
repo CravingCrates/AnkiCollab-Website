@@ -3,7 +3,7 @@ use crate::wu::{diff, Edit};
 
 pub fn build_htmldiff<'a, F>(a: &'a str, b: &'a str, mut callback: F)
 where
-    F: FnMut(&'a str) -> (),
+    F: FnMut(&'a str),
 {
     let old_words = html::split(a);
     let new_words = html::split(b);
