@@ -21,119 +21,114 @@
 </head>
 {% include "layout_header.html" %}
 
-<div class="main-container">
+<div class="main-container commit-review-page" data-single-note="{% if notes_total == 1 %}true{% else %}false{% endif %}">
     <div class="container-fluid">
-    <div class="page-header">
+    <header class="page-header commit-header-surface" aria-label="Commit summary and actions">
         <div class="header-content">
             <div class="commit-header-top">
-                <h1 class="page-title">Review Commit</h1>
-                <button type="button" class="mathjax-toggle-btn" aria-pressed="false" title="Toggle MathJax rendering" hidden>
-                    <i class="fa-solid fa-square-root-variable" aria-hidden="true"></i>
-                    <span>MathJax</span>
-                </button>
-            </div>
-            
-            <div class="commit-meta">
-                <div class="meta-item">
-                    <div class="meta-icon">
-                        <i class="fa-regular fa-clock" aria-hidden="true"></i>
+                <div class="commit-identity">
+                    <div class="commit-breadcrumb">
+                        <a href="/reviews" class="commit-back-link">
+                            <i class="fa-solid fa-arrow-left" aria-hidden="true"></i>
+                            <span>Reviews</span>
+                        </a>
+                        <span class="crumb-sep" aria-hidden="true">/</span>
+                        <h1 class="page-title">Commit #{{ commit.id }}</h1>
+                        <span class="crumb-sep commit-summary-sep {% if notes_total <= 1 %}hidden{% endif %}" aria-hidden="true" {% if notes_total <= 1 %}hidden{% endif %}>&middot;</span>
+                        <span class="commit-summary-meta {% if notes_total <= 1 %}hidden{% endif %}" {% if notes_total <= 1 %}hidden{% endif %}>
+                            {% if notes_total == 1 %}
+                                <span class="commit-count-prefix hidden">Showing </span><strong id="notes-loaded-count">{{ notes_loaded }}</strong> of <strong id="notes-total-count">{{ notes_total }}</strong> <span class="notes-noun-label">note</span>
+                            {% else %}
+                                <span class="commit-count-prefix">Showing </span><strong id="notes-loaded-count">{{ notes_loaded }}</strong> of <strong id="notes-total-count">{{ notes_total }}</strong> <span class="notes-noun-label">notes</span>
+                            {% endif %}
+                        </span>
                     </div>
-                    <span>{{ commit.timestamp }}</span>
-                </div>
-                <div class="meta-item">
-                    <div class="meta-icon">
-                        <i class="fa-solid fa-user" aria-hidden="true"></i>
+                    <div class="commit-meta" aria-label="Commit details">
+                        <span class="meta-item commit-meta-deck" title="{{ commit.deck }}">
+                            <i class="fa-regular fa-folder" aria-hidden="true"></i>
+                            <span>{{ commit.deck }}</span>
+                        </span>
+                        <span class="meta-sep" aria-hidden="true">&middot;</span>
+                        <time class="meta-item commit-meta-time">
+                            <i class="fa-regular fa-clock" aria-hidden="true"></i>
+                            <span>{{ commit.timestamp }}</span>
+                        </time>
                     </div>
-                    <span>{{ commit.user }}</span>
                 </div>
-                <div class="meta-item">
-                    <div class="meta-icon">
-                        <i class="fa-solid fa-folder" aria-hidden="true"></i>
-                    </div>
-                    <span>{{ commit.deck }}</span>
-                </div>
-            </div>
-            
-            {% if commit.rationale %}
-            <div class="commit-rationale-box">
-                <strong>Rationale:</strong> {{ commit.rationale }}
-            </div>
-            {% endif %}
-            
-            {% if commit.commit_info %}
-            <div class="commit-info-box">
-                {{ commit.commit_info | striptags }}
-            </div>
-            {% endif %}
 
-            <div class="commit-summary">
-                <div class="commit-summary-count">
-                    Showing <strong id="notes-loaded-count">{{ notes_loaded }}</strong> of <strong id="notes-total-count">{{ notes_total }}</strong> notes
+                <div class="commit-primary-actions" role="toolbar" aria-label="Commit review actions">
+                    <button type="button" id="commitMathJaxToggle" class="mathjax-toggle-btn mathjax-toggle-btn-light" aria-pressed="false" title="Toggle MathJax rendering" hidden>
+                        <i class="fa-solid fa-square-root-variable" aria-hidden="true"></i>
+                        <span>MathJax</span>
+                    </button>
+                    {% if user and owned == true %}
+                    <button type="button" id="denyAllBtn" class="commit-btn commit-btn-decline global-action-btn" data-global-action="deny" data-commit-id="{{commit.id}}" title="{% if notes_total == 1 %}Decline this commit{% else %}Decline all notes in this commit{% endif %}">
+                        <span class="global-btn-label">{% if notes_total == 1 %}Decline{% else %}Decline All{% endif %}</span>
+                    </button>
+                    <button type="button" id="approveAllBtn" class="commit-btn commit-btn-accept global-action-btn" data-global-action="approve" data-commit-id="{{commit.id}}" title="{% if notes_total == 1 %}Accept and merge changes{% else %}Accept and merge all notes in this commit{% endif %}">
+                        <span class="global-btn-label">{% if notes_total == 1 %}Accept &amp; Merge{% else %}Accept All{% endif %}</span>
+                    </button>
+                    {% endif %}
                 </div>
             </div>
-            
+
+            {% set clean_comment = commit.commit_info | default(value="") | striptags | trim %}
+            <div class="commit-rationale-callout">
+                <div class="rationale-attribution">
+                    <span class="commit-author-avatar" data-author="{{ commit.user }}" aria-hidden="true">{% if commit.user and commit.user | trim != "" %}{{ commit.user | trim | truncate(length=1, end="") | upper }}{% else %}?{% endif %}</span>
+                    <strong class="commit-author-name">{{ commit.user }}</strong>
+                    {% if commit.rationale and commit.rationale != "None" %}
+                    <span class="commit-rationale-label">{{ commit.rationale }}</span>
+                    {% endif %}
+                </div>
+                {% if clean_comment != "" %}
+                <p class="commit-comment-text">{{ clean_comment }}</p>
+                {% endif %}
+            </div>
+
             {% if user and owned == true %}
-            <div class="actions-toolbar" id="bulk-actions-section" data-commit-id="{{commit.id}}">
-                <div class="actions-primary-row">
-                    <!-- Global Actions -->
-                    <div class="action-group global-group">
-                        <span class="group-label">All Changes</span>
-                        <div class="btn-group">
-                            <button class="modern-btn btn-success global-action-btn" data-global-action="approve" data-commit-id="{{commit.id}}" title="Merges ALL notes in this commit, including notes not yet loaded">
-                                <i class="fa-solid fa-circle-check" aria-hidden="true"></i>
-                                Accept All
-                            </button>
-                            <button class="modern-btn btn-danger global-action-btn" data-global-action="deny" data-commit-id="{{commit.id}}" title="Denies ALL notes in this commit, including notes not yet loaded">
-                                <i class="fa-solid fa-circle-xmark" aria-hidden="true"></i>
-                                Deny All
-                            </button>
-                        </div>
-                    </div>
-
-                    <div class="action-divider"></div>
-
-                    <!-- Selection Actions -->
-                    <div class="action-group selection-group">
-                        <span class="group-label">Selected (<span id="selection-count">0</span>)</span>
-                        <div class="btn-group">
-                            <button type="button" class="modern-btn btn-success-outline" id="bulk-approve-btn" disabled title="Approve only selected notes">
-                                <i class="fa-solid fa-check" aria-hidden="true"></i>
-                                Accept
-                                <span class="bulk-btn-spinner" aria-hidden="true"></span>
-                            </button>
-                            <button type="button" class="modern-btn btn-danger-outline" id="bulk-deny-btn" disabled title="Deny only selected notes">
-                                <i class="fa-solid fa-xmark" aria-hidden="true"></i>
-                                Deny
-                                <span class="bulk-btn-spinner" aria-hidden="true"></span>
-                            </button>
-                        </div>
-                    </div>
-                </div>
-                
-                <div class="actions-secondary-row">
+            <div class="actions-toolbar" id="bulk-actions-section" data-commit-id="{{commit.id}}" role="toolbar" aria-label="Bulk note selection actions" {% if notes_total <= 1 %}hidden{% endif %}>
+                <div class="bulk-toolbar-start">
                     <button type="button" class="text-action-btn" id="select-all-visible-btn">
-                        <i class="fa-regular fa-square-check" aria-hidden="true"></i> Select All Visible
+                        <i class="fa-regular fa-square-check" aria-hidden="true"></i>
+                        <span>Select All Visible</span>
                     </button>
                     <button type="button" class="text-action-btn hidden" id="deselect-all-btn">
-                        <i class="fa-regular fa-square" aria-hidden="true"></i> Deselect All
+                        <i class="fa-regular fa-square" aria-hidden="true"></i>
+                        <span>Deselect All</span>
                     </button>
+                </div>
+
+                <div class="bulk-toolbar-end hidden" id="bulk-actions-end" hidden>
+                    <span class="selection-summary-label">Selected (<strong id="selection-count">0</strong>)</span>
+                    <div class="commit-btn-pair" role="group" aria-label="Selected notes actions">
+                        <button type="button" class="commit-btn commit-btn-decline-subtle" id="bulk-deny-btn" disabled title="Decline only selected notes">
+                            <span>Decline Selected</span>
+                            <span class="bulk-btn-spinner" aria-hidden="true"></span>
+                        </button>
+                        <button type="button" class="commit-btn commit-btn-accept-subtle" id="bulk-approve-btn" disabled title="Accept only selected notes">
+                            <span>Accept Selected</span>
+                            <span class="bulk-btn-spinner" aria-hidden="true"></span>
+                        </button>
+                    </div>
                 </div>
             </div>
             {% endif %}
         </div>
-    </div>
+    </header>
     <div id="notes-container"
          class="notes-container"
          data-total="{{ notes_total }}"
          data-loaded="{{ notes_loaded }}"
          data-next-offset="{% if notes_next_offset %}{{ notes_next_offset }}{% endif %}"
          data-page-limit="{{ notes_limit }}"
-         data-commit-id="{{commit.id}}">
+         data-commit-id="{{commit.id}}"
+         data-single-note="{% if notes_total == 1 %}true{% else %}false{% endif %}">
         {% include "partials/commit_notes.html" %}
     </div>
 
     <div id="load-more-container" class="load-more-container {% if not notes_next_offset %}hidden{% endif %}">
-        <button id="load-more-btn" class="modern-btn btn-light">
+        <button id="load-more-btn" type="button" class="modern-btn btn-light">
             <span class="btn-label">Load more</span>
             <span class="load-more-btn-spinner" aria-hidden="true"></span>
         </button>

@@ -1017,6 +1017,7 @@ async fn review_commit(
     if wants_json {
         let mut fragment_context = tera::Context::new();
         fragment_context.insert("notes", &notes_page.notes);
+        fragment_context.insert("notes_total", &notes_page.total);
         fragment_context.insert("user", &user);
         fragment_context.insert("owned", &access);
         fragment_context.insert("notemodels", &notemodels);

@@ -100,7 +100,8 @@ window.FieldEditPanel = (function() {
                 commitId: commitId,
                 $noteCard: $noteCard,
                 fieldsData: response.fields,
-                noteReviewed: response.note_reviewed
+                noteReviewed: response.note_reviewed,
+                triggerElement: triggerElement || document.activeElement
             };
 
             // Store original data for each field
@@ -138,6 +139,14 @@ window.FieldEditPanel = (function() {
             // Restore button after successful initialization
             restoreButton();
 
+            // Move keyboard focus into the dialog after trigger button is restored/hidden from background flow
+            const closeBtn = $panel.find('.edit-panel-close')[0];
+            if (closeBtn) {
+                closeBtn.focus();
+            } else {
+                $panel[0].focus();
+            }
+
         } catch (error) {
             console.error('Failed to open edit panel:', error);
             restoreButton();
@@ -149,6 +158,8 @@ window.FieldEditPanel = (function() {
      * @param {string|number} noteId - The note ID
      */
     function close(noteId) {
+        const previousTrigger = activePanel && activePanel.triggerElement;
+        $(document).off('keydown.fieldEditPanelDrawer');
         previewTimers.forEach(timerId => clearTimeout(timerId));
         previewTimers.clear();
         fieldHasMathMap.clear();
@@ -175,6 +186,9 @@ window.FieldEditPanel = (function() {
         setTimeout(() => {
             $overlay.remove();
             $panel.remove();
+            if (previousTrigger && previousTrigger.isConnected && typeof previousTrigger.focus === 'function') {
+                previousTrigger.focus();
+            }
         }, 300);
 
         // Clear state
@@ -238,16 +252,21 @@ window.FieldEditPanel = (function() {
                     // Handle "removed" suggestions: the suggestion was deleted because
                     // the edited content matches the reviewed content.
                     if (fieldResult.action === 'removed') {
-                        // Remove the suggestion box from the suggestion side
+                        // Remove the row-locked field row (commit page) or legacy suggestion box
                         var $removedDiff = $noteCard.find('.diff-content[data-field-id="' + fieldResult.field_id + '"]:not(.original-content)');
                         if ($removedDiff.length) {
-                            var $suggestionBox = $removedDiff.closest('.suggestion-box');
-                            // Also remove the corresponding original-content field-item
-                            var $origContent = $noteCard.find('.original-content[data-field-id="' + fieldResult.field_id + '"]:not(.diff-content)');
-                            if ($origContent.length) {
-                                $origContent.closest('.field-item').remove();
+                            var $diffRow = $removedDiff.closest('.field-diff-row');
+                            if ($diffRow.length) {
+                                $diffRow.remove();
+                            } else {
+                                var $suggestionBox = $removedDiff.closest('.suggestion-box');
+                                // Also remove the corresponding original-content field-item
+                                var $origContent = $noteCard.find('.original-content[data-field-id="' + fieldResult.field_id + '"]:not(.diff-content)');
+                                if ($origContent.length) {
+                                    $origContent.closest('.field-item').remove();
+                                }
+                                $suggestionBox.remove();
                             }
-                            $suggestionBox.remove();
                         }
                         return;
                     }
@@ -258,7 +277,7 @@ window.FieldEditPanel = (function() {
                     var $diffDiv = $noteCard.find('.diff-content[data-field-id="' + fieldResult.field_id + '"]');
                     
                     // For "created" fields, the original DOM had a different (or no) field_id.
-                    // In that case, we need to add a new field item to the suggestion side.
+                    // In that case, we need to add a new field item (or row-locked field row).
                     if (!$diffDiv.length && fieldResult.position !== undefined) {
                         var fieldName = '';
                         // Get field name from originalFieldData (populated when panel opened)
@@ -267,10 +286,15 @@ window.FieldEditPanel = (function() {
                             fieldName = origData.name;
                         }
                         if (!fieldName) {
-                            // Fallback: try to get field name from the original side
-                            var $origItems = $noteCard.find('.original-side .field-item');
-                            if ($origItems.length > fieldResult.position) {
-                                fieldName = $origItems.eq(fieldResult.position).find('.field-name').text().trim();
+                            var $rowItem = $noteCard.find('.comparison-fields-list .field-diff-row[data-position="' + fieldResult.position + '"] .field-name').first();
+                            if ($rowItem.length) {
+                                fieldName = $rowItem.text().trim();
+                            } else {
+                                // Fallback: try to get field name from the legacy original side
+                                var $origItems = $noteCard.find('.original-side .field-item');
+                                if ($origItems.length > fieldResult.position) {
+                                    fieldName = $origItems.eq(fieldResult.position).find('.field-name').text().trim();
+                                }
                             }
                         }
                         if (!fieldName) fieldName = 'Field ' + fieldResult.position;
@@ -283,31 +307,54 @@ window.FieldEditPanel = (function() {
                         }
                         
                         // Get original reviewed content
-                        var origData = originalFieldData.get(fieldResult.position);
                         var reviewedContent = origData ? (origData.reviewedContent || '') : '';
-                        
-                        // Create new field item on the suggestion side
-                        var newFieldHtml = '<div class="field-item suggestion-box" data-field-id="' + fieldResult.field_id + '" data-position="' + fieldResult.position + '">' +
-                            '<div class="field-header"><div class="field-name">' + $('<span>').text(fieldName).html() + '</div></div>' +
-                            '<div class="field-content note-content-display diff-content"' +
-                            ' data-field-id="' + fieldResult.field_id + '"' +
-                            ' data-position="' + fieldResult.position + '"' +
-                            ' data-original="' + escapeAttr(reviewedContent) + '"' +
-                            ' data-new-content="' + escapeAttr(editedContent) + '">' +
-                            fieldResult.diff_html + '</div></div>';
-                        
-                        // Also create matching original-content div if it doesn't exist
-                        var $origContent = $noteCard.find('.original-content[data-field-id="' + fieldResult.field_id + '"]');
-                        if (!$origContent.length) {
-                            var newOrigHtml = '<div class="field-item">' +
-                                '<div class="field-header"><div class="field-name">' + $('<span>').text(fieldName).html() + '</div></div>' +
-                                '<div class="field-content note-content-display original-content"' +
+                        var safeFieldName = $('<span>').text(fieldName).html();
+                        var $fieldsList = $noteCard.find('.comparison-fields-list');
+
+                        if ($fieldsList.length) {
+                            var newRowHtml = '<div class="field-diff-row" data-field-id="' + fieldResult.field_id + '" data-position="' + fieldResult.position + '">' +
+                                '<div class="diff-cell original-cell field-item">' +
+                                    '<div class="field-header"><div class="field-name">' + safeFieldName + '</div></div>' +
+                                    '<div class="field-content note-content-display original-content"' +
+                                    ' data-field-id="' + fieldResult.field_id + '"' +
+                                    ' data-position="' + fieldResult.position + '"' +
+                                    ' data-content="' + escapeAttr(reviewedContent) + '"></div>' +
+                                '</div>' +
+                                '<div class="diff-cell suggestion-cell field-item suggestion-box" data-field-id="' + fieldResult.field_id + '" data-position="' + fieldResult.position + '">' +
+                                    '<div class="field-header"><div class="field-name">' + safeFieldName + '</div></div>' +
+                                    '<div class="field-content note-content-display diff-content"' +
+                                    ' data-field-id="' + fieldResult.field_id + '"' +
+                                    ' data-position="' + fieldResult.position + '"' +
+                                    ' data-original="' + escapeAttr(reviewedContent) + '"' +
+                                    ' data-new-content="' + escapeAttr(editedContent) + '">' +
+                                    fieldResult.diff_html + '</div>' +
+                                '</div>' +
+                            '</div>';
+                            insertFieldInOrder($fieldsList, newRowHtml, fieldResult.position);
+                        } else {
+                            // Legacy fallback: create separate original and suggestion items
+                            var newFieldHtml = '<div class="field-item suggestion-box" data-field-id="' + fieldResult.field_id + '" data-position="' + fieldResult.position + '">' +
+                                '<div class="field-header"><div class="field-name">' + safeFieldName + '</div></div>' +
+                                '<div class="field-content note-content-display diff-content"' +
                                 ' data-field-id="' + fieldResult.field_id + '"' +
-                                ' data-content="' + escapeAttr(reviewedContent) + '"></div></div>';
-                            insertFieldInOrder($noteCard.find('.original-side'), newOrigHtml, fieldResult.position);
+                                ' data-position="' + fieldResult.position + '"' +
+                                ' data-original="' + escapeAttr(reviewedContent) + '"' +
+                                ' data-new-content="' + escapeAttr(editedContent) + '">' +
+                                fieldResult.diff_html + '</div></div>';
+                            
+                            var $origContent = $noteCard.find('.original-content[data-field-id="' + fieldResult.field_id + '"]');
+                            if (!$origContent.length) {
+                                var newOrigHtml = '<div class="field-item">' +
+                                    '<div class="field-header"><div class="field-name">' + safeFieldName + '</div></div>' +
+                                    '<div class="field-content note-content-display original-content"' +
+                                    ' data-field-id="' + fieldResult.field_id + '"' +
+                                    ' data-content="' + escapeAttr(reviewedContent) + '"></div></div>';
+                                insertFieldInOrder($noteCard.find('.original-side'), newOrigHtml, fieldResult.position);
+                            }
+                            
+                            insertFieldInOrder($noteCard.find('.suggestion-side'), newFieldHtml, fieldResult.position);
                         }
-                        
-                        insertFieldInOrder($noteCard.find('.suggestion-side'), newFieldHtml, fieldResult.position);
+
                         $diffDiv = $noteCard.find('.diff-content[data-field-id="' + fieldResult.field_id + '"]');
                         // Cache the raw diff so processDiffField can re-process correctly
                         if ($diffDiv.length) { $diffDiv.data('raw-diff-html', fieldResult.diff_html); }
@@ -432,11 +479,11 @@ window.FieldEditPanel = (function() {
 
         const panelHtml = `
             <div class="edit-drawer-overlay"></div>
-            <div class="edit-all-fields-panel" data-commit-id="${commitId}" data-note-id="${response.note_id}">
+            <div class="edit-all-fields-panel" data-commit-id="${commitId}" data-note-id="${response.note_id}" role="dialog" aria-modal="true" aria-labelledby="edit-panel-title-${response.note_id}" tabindex="-1">
                 <div class="edit-panel-header">
                     <div>
-                        <div class="edit-panel-title">
-                            <i class="fa-solid fa-pen"></i>
+                        <div class="edit-panel-title" id="edit-panel-title-${response.note_id}">
+                            <i class="fa-solid fa-pen" aria-hidden="true"></i>
                             <span>Edit Fields</span>
                         </div>
                         <div class="edit-panel-hint">Note #${response.note_id} &middot; Commit #${commitId}</div>
@@ -446,8 +493,8 @@ window.FieldEditPanel = (function() {
                             <i class="fa-solid fa-square-root-variable" aria-hidden="true"></i>
                             <span>MathJax</span>
                         </button>
-                        <button class="edit-panel-close cancel-all-fields-btn" data-note-id="${response.note_id}" title="Close">
-                            <i class="fa-solid fa-xmark"></i>
+                        <button type="button" class="edit-panel-close cancel-all-fields-btn" data-note-id="${response.note_id}" title="Close" aria-label="Close">
+                            <i class="fa-solid fa-xmark" aria-hidden="true"></i>
                         </button>
                     </div>
                 </div>
@@ -457,11 +504,11 @@ window.FieldEditPanel = (function() {
                 <div class="edit-panel-footer">
                     <div class="edit-panel-status"></div>
                     <div class="edit-panel-actions">
-                        <button class="modern-btn btn-secondary cancel-all-fields-btn" data-note-id="${response.note_id}">
+                        <button type="button" class="modern-btn btn-secondary cancel-all-fields-btn" data-note-id="${response.note_id}">
                             Cancel
                         </button>
-                        <button class="modern-btn btn-success save-all-fields-btn" data-note-id="${response.note_id}">
-                            <i class="fa-solid fa-check"></i> Save
+                        <button type="button" class="modern-btn btn-success save-all-fields-btn" data-note-id="${response.note_id}">
+                            <i class="fa-solid fa-check" aria-hidden="true"></i> Save
                         </button>
                     </div>
                 </div>
@@ -484,9 +531,14 @@ window.FieldEditPanel = (function() {
         });
         syncPanelToggleVisibility($panel);
 
-        // Close on overlay click
+        // Close on overlay click or Escape key
         $('.edit-drawer-overlay').on('click', () => {
             if (activePanel) close(activePanel.noteId);
+        });
+        $(document).off('keydown.fieldEditPanelDrawer').on('keydown.fieldEditPanelDrawer', (event) => {
+            if (event.key === 'Escape' && activePanel && !$(event.target).closest('.trumbowyg-modal').length) {
+                close(activePanel.noteId);
+            }
         });
     }
 
@@ -1003,7 +1055,7 @@ window.FieldEditPanel = (function() {
      * @param {number} position - The field position to insert at
      */
     function insertFieldInOrder($side, fieldHtml, position) {
-        var $existingItems = $side.children('.field-item, .suggestion-box');
+        var $existingItems = $side.children('.field-diff-row, .field-item, .suggestion-box');
         var inserted = false;
         
         $existingItems.each(function() {
@@ -1012,7 +1064,7 @@ window.FieldEditPanel = (function() {
             var $content = $item.find('.diff-content, .original-content, .current-content').first();
             var existingPos = $content.length ? parseInt($content.data('position'), 10) : NaN;
             
-            // Fallback: try the field-item's own data or the editor position
+            // Fallback: try the item's own data position
             if (isNaN(existingPos)) {
                 existingPos = parseInt($item.data('position'), 10);
             }
@@ -1025,11 +1077,13 @@ window.FieldEditPanel = (function() {
         });
         
         if (!inserted) {
-            // Append after the last field item, or after the content-header
+            // Append after the last field item, after .content-header, or directly to container
             if ($existingItems.length) {
                 $existingItems.last().after(fieldHtml);
-            } else {
+            } else if ($side.find('.content-header').length) {
                 $side.find('.content-header').after(fieldHtml);
+            } else {
+                $side.append(fieldHtml);
             }
         }
     }

@@ -6,9 +6,22 @@
 // Initialize the shared UI components after the page loads
 $(document).ready(function() {
     SharedUI.initializePage();
+    formatAuthorAvatarInitials();
     initButtonFeatures();
     initPaginationControls();
     initBulkSelectionControls();
+
+    function formatAuthorAvatarInitials() {
+        $('.commit-author-avatar[data-author]').each(function() {
+            var name = String($(this).attr('data-author') || '').trim();
+            if (!name) return;
+            var parts = name.split(/\s+/).filter(Boolean);
+            var out = parts.length >= 2
+                ? (parts[0].charAt(0) + parts[1].charAt(0)).toUpperCase()
+                : name.slice(0, 2).toUpperCase();
+            $(this).text(out);
+        });
+    }
 
     var isReducedMotion = function() {
         return window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -25,7 +38,7 @@ $(document).ready(function() {
             var headingId = 'ac-modal-heading-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2);
             dialog.setAttribute('aria-labelledby', headingId);
 
-            var heading = document.createElement('h3');
+            var heading = document.createElement('h2');
             heading.className = 'ac-modal-title';
             heading.id = headingId;
             heading.textContent = options.title;
@@ -195,13 +208,13 @@ $(document).ready(function() {
 
     function showDenySuggestionModal() {
         return openModalDialog({
-            title: 'Deny Suggestion',
-            message: 'You can deny silently or send optional feedback to the user.',
+            title: 'Decline Suggestion',
+            message: 'You can decline silently or send optional feedback to the submitter.',
             dismissValue: { cancelled: true },
             buildContent: function(dialog, closeWithValue) {
                 var textarea = document.createElement('textarea');
                 textarea.className = 'ac-modal-textarea';
-                textarea.placeholder = 'Optional feedback for the user\u2026';
+                textarea.placeholder = 'Optional feedback for the submitter\u2026';
                 textarea.maxLength = 2000;
                 textarea.autofocus = true;
                 textarea.setAttribute('aria-label', 'Feedback message');
@@ -227,12 +240,12 @@ $(document).ready(function() {
                 var silentBtn = document.createElement('button');
                 silentBtn.className = 'ac-modal-btn ac-modal-btn-secondary';
                 silentBtn.type = 'button';
-                silentBtn.textContent = 'Deny Silently';
+                silentBtn.textContent = 'Decline Silently';
 
                 var notifyBtn = document.createElement('button');
                 notifyBtn.className = 'ac-modal-btn ac-modal-btn-danger';
                 notifyBtn.type = 'button';
-                notifyBtn.textContent = 'Deny & Notify';
+                notifyBtn.textContent = 'Decline & Notify';
 
                 cancelBtn.addEventListener('click', function() {
                     closeWithValue({ cancelled: true }, 'cancel');
@@ -291,7 +304,11 @@ $(document).ready(function() {
 
             var denyOptions = null;
             if (action === 'approve') {
-                var approveConfirmed = await showSimpleConfirmModal('Approve All', 'Accept all notes in this commit?');
+                var isSingleNote = Number($('#notes-container').data('total')) <= 1;
+                var approveConfirmed = await showSimpleConfirmModal(
+                    isSingleNote ? 'Accept & Merge' : 'Accept All',
+                    isSingleNote ? 'Accept and merge this note?' : 'Accept all notes in this commit?'
+                );
                 if (!approveConfirmed) return;
             } else {
                 denyOptions = await showDenySuggestionModal();
@@ -357,6 +374,10 @@ $(document).ready(function() {
             
             // Allow the original click to proceed, then apply protection with a small delay
             setTimeout(function() {
+                if ($btn.data('action-cancelled')) {
+                    $btn.removeData('action-cancelled');
+                    return;
+                }
                 // Check again - if button was already processed by original handler, don't interfere
                 if ($btn.hasClass('disabled')) {
                     return; // Already handled by existing protection
@@ -449,7 +470,7 @@ $(document).ready(function() {
         
         // Visual feedback for successful actions
         $(document).on('field:accepted field:denied', function(e, fieldId) {
-            var $field = $('[data-field-id="' + fieldId + '"]').closest('.suggestion-box');
+            var $field = $('[data-field-id="' + fieldId + '"]').closest('.field-diff-row, .suggestion-box');
             var isAccepted = e.type === 'field:accepted';
             
             $field.addClass(isAccepted ? 'field-success' : 'field-error');
@@ -517,6 +538,7 @@ $(document).ready(function() {
         };
 
         updateControls();
+        syncProgressiveDisclosure(paginationState.total);
 
         $(document).off('note:resolved.commitPagination');
         $(document).on('note:resolved.commitPagination', function(_event, detail) {
@@ -530,6 +552,7 @@ $(document).ready(function() {
             $loadedCount.text(paginationState.loaded);
 
             updateControls();
+            syncProgressiveDisclosure(paginationState.total);
         });
 
         $loadMoreBtn.on('click', async function(event) {
@@ -582,8 +605,90 @@ $(document).ready(function() {
             } finally {
                 setLoading(false);
                 updateControls();
+                syncProgressiveDisclosure(paginationState.total);
             }
         });
+
+        function syncProgressiveDisclosure(totalNotes) {
+            var count = Number(totalNotes);
+            if (!Number.isFinite(count) || count < 0) {
+                count = $notesContainer.find('.note-card').length;
+            }
+            var isSingle = count <= 1;
+            var singleFlag = isSingle ? 'true' : 'false';
+
+            $('.commit-review-page').attr('data-single-note', singleFlag);
+            $notesContainer.attr('data-single-note', singleFlag);
+
+            var $bulkSection = $('#bulk-actions-section');
+            if ($bulkSection.length) {
+                $bulkSection.prop('hidden', isSingle).toggleClass('hidden', isSingle);
+            }
+
+            $notesContainer.find('.bulk-select-checkbox').prop('hidden', isSingle).toggleClass('hidden', isSingle);
+            $notesContainer.find('.note-decision-segmented').prop('hidden', isSingle).toggleClass('hidden', isSingle);
+
+            var $denyAllBtn = $('#denyAllBtn');
+            var $approveAllBtn = $('#approveAllBtn');
+            if ($denyAllBtn.length) {
+                $denyAllBtn.find('.global-btn-label').text(isSingle ? 'Decline' : 'Decline All');
+                $denyAllBtn.attr('title', isSingle ? 'Decline this commit' : 'Decline all notes in this commit');
+                $denyAllBtn.attr('aria-label', isSingle ? 'Decline commit' : 'Decline all notes in commit');
+            }
+            if ($approveAllBtn.length) {
+                $approveAllBtn.find('.global-btn-label').text(isSingle ? 'Accept & Merge' : 'Accept All');
+                $approveAllBtn.attr('title', isSingle ? 'Accept and merge changes' : 'Accept and merge all notes in this commit');
+                $approveAllBtn.attr('aria-label', isSingle ? 'Accept and merge commit' : 'Accept all notes in this commit');
+            }
+
+            $('.notes-noun-label').text(count === 1 ? 'note' : 'notes');
+            $('.commit-count-prefix').toggleClass('hidden', isSingle);
+            $('.commit-summary-sep, .commit-summary-meta')
+                .toggleClass('hidden', isSingle)
+                .prop('hidden', isSingle);
+
+            var hasNoRenderedCards = $notesContainer.find('.note-card').length === 0;
+            if (count === 0 && paginationState.nextOffset === null && hasNoRenderedCards) {
+                if ($denyAllBtn.length) {
+                    $denyAllBtn.prop('disabled', true);
+                }
+                if ($approveAllBtn.length) {
+                    $approveAllBtn.prop('disabled', true);
+                }
+                if (!$notesContainer.find('.commit-empty-state').length) {
+                    var emptyEl = document.createElement('div');
+                    emptyEl.className = 'commit-empty-state';
+
+                    var iconWrap = document.createElement('div');
+                    iconWrap.className = 'commit-empty-icon';
+                    var icon = document.createElement('i');
+                    icon.className = 'fa-regular fa-circle-check';
+                    icon.setAttribute('aria-hidden', 'true');
+                    iconWrap.appendChild(icon);
+
+                    var heading = document.createElement('h2');
+                    heading.textContent = 'All caught up';
+
+                    var desc = document.createElement('p');
+                    desc.textContent = 'Every note in this commit has been reviewed.';
+
+                    emptyEl.appendChild(iconWrap);
+                    emptyEl.appendChild(heading);
+                    emptyEl.appendChild(desc);
+
+                    var breadcrumbLink = document.querySelector('.commit-breadcrumb a');
+                    if (breadcrumbLink && breadcrumbLink.getAttribute('href')) {
+                        var backBtn = document.createElement('a');
+                        backBtn.className = 'commit-btn commit-btn-neutral';
+                        backBtn.setAttribute('href', breadcrumbLink.getAttribute('href'));
+                        backBtn.textContent = 'Back to ' + (breadcrumbLink.textContent || 'Deck').trim();
+                        emptyEl.appendChild(backBtn);
+                    }
+
+                    $notesContainer[0].appendChild(emptyEl);
+                }
+            }
+        }
 
         function parseOptionalNumber(value) {
             if (value === undefined || value === null || value === '') {
@@ -675,11 +780,14 @@ $(document).ready(function() {
             var count = selection.length;
             $selectionCount.text(count);
 
-            // Enable/disable bulk action buttons based on selection
+            // Enable/disable bulk action buttons and reveal selection bar only when 1+ notes are selected
             var hasSelection = count > 0;
             $bulkApproveBtn.prop('disabled', !hasSelection);
             $bulkDenyBtn.prop('disabled', !hasSelection);
-            
+            $('#bulk-actions-end')
+                .toggleClass('hidden', !hasSelection)
+                .prop('hidden', !hasSelection);
+
             // Toggle visibility of deselect button
             if (hasSelection) {
                 $deselectAllBtn.removeClass('hidden');
@@ -862,12 +970,12 @@ $(document).ready(function() {
                 if (result.failed.length > 0) {
                     var successCount = result.succeeded.length;
                     var failCount = result.failed.length;
-                    await showInfoModal('Bulk Action Complete', (isApprove ? 'Approved' : 'Denied') + ' ' + successCount + ' note(s). ' + failCount + ' note(s) failed. Check the console for details.');
+                    await showInfoModal('Bulk Action Complete', (isApprove ? 'Accepted' : 'Declined') + ' ' + successCount + ' note(s). ' + failCount + ' note(s) failed. Check the console for details.');
                 }
 
             } catch (error) {
                 console.error('Bulk ' + action + ' failed:', error);
-                await showInfoModal('Action Failed', 'Failed to ' + action + ' selected notes: ' + error.message);
+                await showInfoModal('Action Failed', 'Failed to ' + (action === 'approve' ? 'accept' : 'decline') + ' selected notes: ' + error.message);
 
                 // Remove processing state from all selected notes
                 selection.forEach(function(noteId) {
@@ -891,7 +999,7 @@ $(document).ready(function() {
             
             var selection = getSelection();
             if (selection.length > 50) {
-                var confirmed = await showSimpleConfirmModal('Approve Selected', 'You are about to approve ' + selection.length + ' notes. This may take a moment. Continue?');
+                var confirmed = await showSimpleConfirmModal('Accept Selected', 'You are about to accept ' + selection.length + ' notes. This may take a moment. Continue?');
                 if (!confirmed) {
                     return;
                 }

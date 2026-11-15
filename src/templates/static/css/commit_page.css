@@ -2,627 +2,2043 @@
  * commit_page.css - Commit review page styles
  */
 
-/* Main Container */
-.main-container {
-    max-width: 1400px;
+/* --- Canvas & Design Tokens --- */
+:root:has(.commit-review-page) {
+    color-scheme: light dark;
+}
+
+body:has(.commit-review-page),
+.content-body:has(.commit-review-page) {
+    background-color: #f2f2f7;
+    background-image: none;
+}
+
+.commit-review-page {
+    --ac-canvas: #f2f2f7;
+    --ac-surface: #ffffff;
+    --ac-surface-subtle: #f7f8fa;
+    --ac-surface-muted: #ebedf2;
+    --ac-ink-primary: #111827;
+    --ac-ink-secondary: #374151;
+    --ac-ink-tertiary: #525866;
+    --ac-line-hairline: #d4d8e0;
+    --ac-line-strong: #949ba8;
+    --ac-accent: #006699;
+    --ac-accent-hover: #00527a;
+    --ac-accent-soft: rgba(0, 102, 153, 0.12);
+    --ac-accept: #0b6e4f;
+    --ac-accept-hover: #08563d;
+    --ac-decline: #b42318;
+    --ac-decline-soft: rgba(180, 35, 24, 0.1);
+    --ac-diff-ins-bg: #d1f4de;
+    --ac-diff-ins-ink: #064e3b;
+    --ac-diff-del-bg: #ffdce0;
+    --ac-diff-del-ink: #86181d;
+    --ac-shadow-card: 0 1px 2px rgba(0, 0, 0, 0.06), 0 0 0 0.5px rgba(0, 0, 0, 0.04);
+    --ac-radius-card: 10px;
+    --ac-radius-control: 6px;
+    --ac-orig-box-bg: #fff2f2;
+    --ac-orig-box-border: #e5a9b0;
+    --ac-prop-box-bg: #ecfdf3;
+    --ac-prop-box-border: #8fd9ad;
+
+    color-scheme: light dark;
+    max-width: 1200px;
     margin: 0 auto;
-    padding: 18px;
+    padding: 20px 24px 48px;
+    color: var(--ac-ink-primary);
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Inter", "Segoe UI", system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
 }
 
-.commit-header-top {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 16px;
-    margin-bottom: 10px;
+.commit-review-page > .container-fluid {
+    padding: 0;
+    max-width: 100%;
 }
 
-.page-title {
-    font-size: 22px;
-    font-weight: 700;
-    margin: 0;
-    color: white;
-    letter-spacing: -0.5px;
+.commit-review-page [hidden],
+.commit-review-page .hidden {
+    display: none !important;
 }
 
-/* Commit Info Boxes */
-.commit-rationale-box,
-.commit-info-box {
-    background: rgba(255, 255, 255, 0.1);
-    padding: 16px;
-    border-radius: 12px;
-    margin-bottom: 16px;
-}
-
-.commit-info-box {
-    font-style: italic;
-}
-
-/* Note Card — commit-page-specific overrides */
-.note-card {
-    margin-bottom: 14px;
-}
-
-.note-header {
-    padding: 12px 20px;
-    border-bottom: 1px solid #f0f0f0;
-}
-
-.status-badge {
-    padding: 8px 16px;
-    border-radius: 20px;
-    font-size: 13px;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    margin-left: 1em;
-}
-
-/* Commit Summary */
-.commit-summary {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    flex-wrap: wrap;
-    gap: 10px;
-    margin-top: 18px;
-    color: white;
-}
-
-.commit-summary-count {
-    font-size: 14px;
-    font-weight: 600;
-}
-
-.commit-summary-hint {
-    font-size: 12px;
-    opacity: 0.85;
-}
-
-/* Load More */
-.load-more-container {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 10px;
-    margin: 28px 0 40px;
-}
-
-.load-more-container.hidden {
-    display: none;
-}
-
-.load-more-status {
-    font-size: 13px;
-    color: #595959;
-    min-height: 18px;
-}
-
-.load-more-btn-spinner {
-    border: 2px solid rgba(255, 255, 255, 0.35);
-    border-top-color: #ffffff;
-    border-radius: 50%;
-    width: 16px;
-    height: 16px;
-    animation: spin 0.8s linear infinite;
-    margin-left: 8px;
-    display: none;
-}
-
-.modern-btn.loading .load-more-btn-spinner {
-    display: inline-block;
-}
-
-/* Field Item — override only what differs from commit_styling.css */
-.field-item {
-    border-color: #f0f0f0;
-}
-
-.field-content {
-    line-height: 1.2;
-    color: #374151;
-}
-
-/* Tag Container — compact overrides for commit page */
-.note_tag_container {
-    padding: 10px 14px;
-    font-size: 13px;
-}
-
-.tag_accept_button, .tag_deny_button {
-    width: 22px;
-    height: 22px;
-    border-radius: 6px;
-    font-size: 9px;
-    font-weight: bold;
-    transition: all 0.2s ease;
-}
-
-/* Bulk Selection Styles */
-.bulk-actions-section {
-    margin-top: 16px;
-    padding: 16px;
-    background: rgba(255, 255, 255, 0.08);
-    border-radius: 12px;
-    border: 1px solid rgba(255, 255, 255, 0.15);
-}
-
-.bulk-actions-info {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    margin-bottom: 12px;
-    flex-wrap: wrap;
-}
-
-.selection-count {
-    font-size: 14px;
-    color: white;
-}
-
-.bulk-hint {
-    font-size: 12px;
-    color: rgba(255, 255, 255, 0.87);
-    font-style: italic;
-}
-
-.bulk-actions-buttons {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
-}
-
-.bulk-actions-buttons .modern-btn {
-    font-size: 13px;
-    padding: 8px 14px;
-}
-
-.bulk-actions-buttons .modern-btn.btn-sm {
-    padding: 6px 12px;
-}
-
-.bulk-btn-spinner {
-    border: 2px solid rgba(255, 255, 255, 0.35);
-    border-top-color: #ffffff;
-    border-radius: 50%;
-    width: 14px;
-    height: 14px;
-    animation: spin 0.8s linear infinite;
-    margin-left: 6px;
-    display: none;
-}
-
-.modern-btn.loading .bulk-btn-spinner {
-    display: inline-block;
-}
-
-/* Checkbox Styles */
-.bulk-select-checkbox {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    position: relative;
-    min-width: 24px;
-    min-height: 24px;
-}
-
-.bulk-select-checkbox input[type="checkbox"] {
-    position: absolute;
-    opacity: 0;
-    cursor: pointer;
-    height: 0;
-    width: 0;
-}
-
-.checkbox-custom {
-    width: 22px;
-    height: 22px;
-    background: white;
-    border: 2px solid #cbd5e1;
-    border-radius: 6px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: all 0.2s ease;
-}
-
-.bulk-select-checkbox:hover .checkbox-custom {
-    border-color: #006699;
-    box-shadow: 0 0 0 3px rgba(0, 102, 153, 0.15);
-}
-
-.bulk-select-checkbox input[type="checkbox"]:checked + .checkbox-custom {
-    background: #006699;
-    border-color: #006699;
-}
-
-.bulk-select-checkbox input[type="checkbox"]:checked + .checkbox-custom::after {
-    content: '';
-    width: 6px;
-    height: 10px;
-    border: solid white;
-    border-width: 0 2px 2px 0;
-    transform: rotate(45deg);
-    margin-bottom: 2px;
-}
-
-.bulk-select-checkbox input[type="checkbox"]:focus + .checkbox-custom {
-    outline: 2px solid #006699;
+.commit-review-page :is(a, button, input, summary, [tabindex]):focus-visible {
+    outline: 2px solid var(--ac-accent);
     outline-offset: 2px;
 }
 
-/* Selected Note Card State */
-.note-card.selected {
-    border: 2px solid #006699;
-    box-shadow: 0 0 0 4px rgba(0, 102, 153, 0.15), 0 3px 26px rgba(0, 0, 0, 0.06);
-}
-
-.note-card.selected .note-header {
-    background: linear-gradient(135deg, #eef6fc 0%, #e1eff9 100%);
-}
-
-/* Bulk action success/processing states */
-.note-card.bulk-processing {
-    opacity: 0.6;
-    pointer-events: none;
-}
-
-.note-card.bulk-success {
-    border-left: 4px solid #047857;
-}
-
-.note-card.bulk-error {
-    border-left: 4px solid #ef4444;
-}
-
-/* Disabled / loading / focus states are in commit_styling.css.
-   Only commit-page-specific overrides here. */
-
-/* Global action button loading state (Approve All / Deny All) */
-.global-loading {
-    position: relative;
-    overflow: hidden;
-    opacity: 0.8;
-    cursor: wait;
-}
-
-.global-loading::after {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: -100%;
-    width: 100%;
-    height: 100%;
-    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent);
-    animation: loading-shimmer 1.5s infinite;
-}
-
-@keyframes loading-shimmer {
-    0% { left: -100%; }
-    100% { left: 100%; }
-}
-
-@keyframes spin {
-    0% { transform: rotate(0deg); }
-    100% { transform: rotate(360deg); }
-}
-
-/* Micro-interactions — base styles in commit_styling.css */
-
-/* Success/error states */
-.field-success {
-    border-left: 4px solid #047857;
-    background: linear-gradient(135deg, rgba(4, 120, 87, 0.05), rgba(4, 120, 87, 0.02));
-}
-
-.field-error {
-    border-left: 4px solid #ef4444;
-    background: linear-gradient(135deg, rgba(239, 68, 68, 0.05), rgba(239, 68, 68, 0.02));
-}
-
-/* Enhanced visual hierarchy */
-.section-title {
-    position: relative;
-    padding-left: 12px;
-}
-
-.section-title::before {
-    content: '';
-    position: absolute;
-    left: 0;
-    top: 50%;
-    transform: translateY(-50%);
-    width: 4px;
-    height: 20px;
-    background: linear-gradient(135deg, #006699, #0ea5e9);
-    border-radius: 2px;
-}
-
-/* New Toolbar Styles */
-.actions-toolbar {
-    background: rgba(255, 255, 255, 0.1);
-    border: 1px solid rgba(255, 255, 255, 0.2);
-    border-radius: 16px;
+.commit-review-page .page-header.commit-header-surface {
+    background-color: #e3eef4;
+    background-image: none;
+    color: #1f2933;
+    border: 1px solid #c2d6e3;
+    border-radius: var(--ac-radius-card);
+    box-shadow: 0 1px 2px rgba(0, 102, 153, 0.06);
     padding: 16px 20px;
-    margin-top: 24px;
-    backdrop-filter: blur(10px);
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+    margin: 0 0 16px;
 }
 
-.actions-primary-row {
+.commit-review-page .page-header::before,
+.commit-review-page .page-header::after {
+    display: none !important;
+    content: none !important;
+}
+
+.commit-review-page .header-content {
+    position: relative;
+    z-index: 1;
+}
+
+.commit-review-page .commit-header-top {
     display: flex;
-    align-items: center;
-    gap: 24px;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
     flex-wrap: wrap;
 }
 
-.action-group {
+.commit-review-page .commit-identity {
+    min-width: 0;
+    flex: 1 1 320px;
+}
+
+.commit-review-page .commit-breadcrumb {
     display: flex;
-    flex-direction: column;
+    align-items: center;
+    flex-wrap: wrap;
     gap: 8px;
+    margin-bottom: 6px;
 }
 
-.group-label {
-    font-size: 11px;
-    font-weight: 700;
-    color: rgba(255, 255, 255, 0.87);
-    text-transform: uppercase;
-    letter-spacing: 0.8px;
-    margin-left: 4px;
+.commit-review-page .commit-back-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 3px 6px;
+    margin-left: -6px;
+    border-radius: 5px;
+    font-size: 13px;
+    font-weight: 550;
+    color: #005580;
+    background: transparent;
+    text-decoration: none;
+    transition: background-color 0.15s ease, color 0.15s ease;
 }
 
-.btn-group {
+.commit-review-page .commit-back-link:hover {
+    background: rgba(0, 102, 153, 0.11);
+    color: #004266;
+    text-decoration: none;
+}
+
+.commit-review-page .crumb-sep {
+    color: #7b8794;
+    font-size: 13px;
+    user-select: none;
+}
+
+.commit-review-page .page-title {
+    margin: 0;
+    font-size: 20px;
+    font-weight: 650;
+    line-height: 1.25;
+    letter-spacing: -0.02em;
+    color: #1f2933;
+    font-variant-numeric: tabular-nums;
+}
+
+.commit-review-page .commit-summary-meta {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 13px;
+    font-weight: 500;
+    color: #4b5b69;
+    font-variant-numeric: tabular-nums;
+}
+
+.commit-review-page .commit-summary-meta strong {
+    color: #1f2933;
+    font-weight: 650;
+}
+
+.commit-review-page .commit-meta {
     display: flex;
+    align-items: center;
+    flex-wrap: wrap;
     gap: 8px;
+    font-size: 12.5px;
+    color: #4b5b69;
 }
 
-.action-divider {
-    width: 1px;
-    height: 40px;
-    background: rgba(255, 255, 255, 0.15);
-    margin: 0 8px;
-    align-self: center;
+.commit-review-page .commit-meta .meta-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+    max-width: 100%;
 }
 
-.actions-secondary-row {
+.commit-review-page .commit-meta-deck span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 52ch;
+}
+
+.commit-review-page .commit-meta .meta-sep {
+    opacity: 0.6;
+}
+
+/* --- Primary Header Toolbar & Unified Buttons --- */
+.commit-review-page .commit-primary-actions {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+    flex-shrink: 0;
+}
+
+.commit-review-page .commit-btn,
+.commit-review-page .commit-primary-actions > button {
+    box-sizing: border-box;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    height: auto;
+    min-block-size: 34px;
+    max-height: none;
+    margin: 0;
+    padding: 6px 12px;
+    border-radius: var(--ac-radius-control);
+    font-size: 13px;
+    font-weight: 550;
+    line-height: 1.385;
+    border: 1px solid transparent;
+    cursor: pointer;
+    text-decoration: none;
+    white-space: normal;
+    text-align: center;
+    transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease, opacity 0.15s ease;
+}
+
+.commit-review-page .commit-btn:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+}
+
+.commit-review-page .commit-btn-decline {
+    background: #ffffff;
+    color: var(--ac-decline);
+    border-color: rgba(180, 35, 24, 0.35);
+}
+
+.commit-review-page .commit-btn-decline:hover:not(:disabled) {
+    background: #fef2f2;
+    color: #991b1b;
+    border-color: var(--ac-decline);
+}
+
+.commit-review-page .commit-btn-accept {
+    background: #087443;
+    color: #ffffff;
+    border-color: #087443;
+}
+
+.commit-review-page .commit-btn-accept:hover:not(:disabled) {
+    background: #065f37;
+    border-color: #065f37;
+}
+
+.commit-review-page .commit-header-surface .commit-btn-decline,
+.commit-review-page .commit-header-surface .commit-btn-decline-subtle {
+    background: #ffffff;
+    color: #b42318;
+    border-color: rgba(180, 35, 24, 0.35);
+}
+
+.commit-review-page .commit-header-surface .commit-btn-decline:hover:not(:disabled),
+.commit-review-page .commit-header-surface .commit-btn-decline-subtle:hover:not(:disabled) {
+    background: #fef2f2;
+    color: #991b1b;
+    border-color: #b42318;
+}
+
+.commit-review-page .commit-header-surface .commit-btn-accept,
+.commit-review-page .commit-header-surface .commit-btn-accept-subtle {
+    background: #087443;
+    color: #ffffff;
+    border-color: #087443;
+}
+
+.commit-review-page .commit-header-surface .commit-btn-accept:hover:not(:disabled),
+.commit-review-page .commit-header-surface .commit-btn-accept-subtle:hover:not(:disabled) {
+    background: #065f37;
+    border-color: #065f37;
+}
+
+.commit-review-page .commit-btn-decline-subtle {
+    height: auto;
+    min-block-size: 30px;
+    max-height: none;
+    padding: 4px 12px;
+    font-size: 12.5px;
+    line-height: 1.35;
+    background: #ffffff;
+    color: var(--ac-decline);
+    border-color: rgba(180, 35, 24, 0.35);
+}
+
+.commit-review-page .commit-btn-decline-subtle:hover:not(:disabled) {
+    background: #fef2f2;
+    color: var(--ac-decline);
+    border-color: var(--ac-decline);
+}
+
+.commit-review-page .commit-btn-accept-subtle {
+    height: auto;
+    min-block-size: 30px;
+    max-height: none;
+    padding: 4px 12px;
+    font-size: 12.5px;
+    line-height: 1.35;
+    background: #087443;
+    color: #ffffff;
+    border-color: #087443;
+}
+
+.commit-review-page .commit-btn-accept-subtle:hover:not(:disabled) {
+    background: #065f37;
+    border-color: #065f37;
+}
+
+.commit-review-page .commit-btn-neutral {
+    background: var(--ac-surface-muted);
+    color: var(--ac-ink-primary);
+    border-color: var(--ac-line-hairline);
+}
+
+.commit-review-page .commit-btn-neutral:hover:not(:disabled) {
+    background: #e5e5ea;
+    color: var(--ac-ink-primary);
+    text-decoration: none;
+}
+
+.commit-review-page .commit-header-surface .commit-btn-neutral {
+    background: #ffffff;
+    color: #1f2933;
+    border-color: #bfd3e0;
+}
+
+.commit-review-page .commit-header-surface .commit-btn-neutral:hover:not(:disabled) {
+    background: #f5f7f9;
+    color: #1f2933;
+}
+
+.commit-review-page .mathjax-toggle-btn.mathjax-toggle-btn-light {
+    box-sizing: border-box;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    height: auto;
+    min-block-size: 34px;
+    max-height: none;
+    margin: 0;
+    padding: 6px 12px;
+    border-radius: var(--ac-radius-control);
+    font-size: 13px;
+    font-weight: 550;
+    line-height: 1.385;
+    background: #ffffff;
+    color: #3b4b59;
+    border: 1px solid #bfd3e0;
+    box-shadow: none;
+    transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.commit-review-page .mathjax-toggle-btn.mathjax-toggle-btn-light:hover {
+    background: #f5f7f9;
+    color: #1f2933;
+    border-color: #8eb4ca;
+}
+
+.commit-review-page .mathjax-toggle-btn.mathjax-toggle-btn-light[aria-pressed="true"] {
+    background: #cfe4f0;
+    color: #004c73;
+    border-color: #7eb0cc;
+}
+
+.commit-review-page .global-loading {
+    position: relative;
+    color: transparent !important;
+    pointer-events: none;
+}
+
+.commit-review-page .global-loading::after {
+    content: "";
+    position: absolute;
+    width: 14px;
+    height: 14px;
+    border: 2px solid rgba(15, 23, 42, 0.22);
+    border-top-color: #0f172a;
+    border-radius: 50%;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+    .commit-review-page .global-loading::after,
+    .commit-review-page .bulk-btn-spinner,
+    .commit-review-page .load-more-btn-spinner {
+        animation: ac-spin 0.8s linear infinite;
+    }
+}
+
+.commit-review-page .commit-btn-accept.global-loading::after,
+.commit-review-page .commit-btn-accept-subtle.global-loading::after {
+    border-color: rgba(255, 255, 255, 0.3);
+    border-top-color: #ffffff;
+}
+
+/* --- Submitter Rationale Note --- */
+.commit-review-page .commit-rationale-callout {
+    display: block;
     margin-top: 12px;
-    padding-top: 12px;
-    border-top: 1px solid rgba(255, 255, 255, 0.1);
-    display: flex;
-    gap: 16px;
+    padding: 10px 14px;
+    border-radius: 6px;
+    background: #ffffff;
+    border: 1px solid #c7d9e5;
 }
 
-.text-action-btn {
-    background: none;
-    border: none;
-    color: rgba(255, 255, 255, 0.87);
+.commit-review-page .commit-author-avatar {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+    padding: 0;
+    margin: 0;
+    border-radius: 7px;
+    flex-shrink: 0;
+    background: var(--ac-accent-soft);
+    color: var(--ac-accent);
     font-size: 12px;
+    font-weight: 650;
+    line-height: 1;
+    letter-spacing: 0.02em;
+    border: 1px solid rgba(0, 102, 153, 0.24);
+}
+
+.commit-review-page .rationale-attribution {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+    min-height: 30px;
+}
+
+.commit-review-page .commit-author-name {
+    font-size: 13.5px;
+    font-weight: 600;
+    line-height: 1.35;
+    color: #0f172a;
+}
+
+.commit-review-page .commit-rationale-label {
+    font-size: 12.5px;
+    font-weight: 500;
+    line-height: 1.35;
+    color: #475569;
+}
+
+.commit-review-page .commit-comment-text {
+    margin: 6px 0 0;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: #1f2937;
+    font-size: 13.5px;
+    line-height: 1.45;
+    white-space: pre-line;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+}
+
+/* --- Progressive Disclosure Bulk Selection Toolbar --- */
+.commit-review-page .actions-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-top: 14px;
+    padding-top: 12px;
+    border-top: 1px solid #c7d9e5;
+}
+
+.commit-review-page .bulk-toolbar-start,
+.commit-review-page .bulk-toolbar-end {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.commit-review-page .text-action-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 10px;
+    border-radius: 6px;
+    border: 1px solid #bfd3e0;
+    background: rgba(255, 255, 255, 0.72);
+    color: #005580;
+    font-size: 13px;
     font-weight: 500;
     cursor: pointer;
-    padding: 4px 8px;
-    border-radius: 6px;
-    transition: all 0.2s;
-    display: flex;
+    transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.commit-review-page .text-action-btn:hover {
+    background: #ffffff;
+    border-color: #8eb4ca;
+    color: #004266;
+}
+
+.commit-review-page .selection-summary-label {
+    font-size: 12.5px;
+    color: #4b5b69;
+    font-variant-numeric: tabular-nums;
+}
+
+.commit-review-page .selection-summary-label strong {
+    color: #1f2933;
+    font-weight: 600;
+}
+
+.commit-review-page .commit-btn-pair {
+    display: inline-flex;
     align-items: center;
     gap: 6px;
 }
 
-.text-action-btn:hover {
-    color: white;
-    background: rgba(255, 255, 255, 0.1);
-}
-
-.text-action-btn.hidden {
+.commit-review-page .bulk-btn-spinner {
     display: none;
+    width: 12px;
+    height: 12px;
+    border: 2px solid currentColor;
+    border-right-color: transparent;
+    border-radius: 50%;
 }
 
-/* Button Variants */
-.modern-btn {
+.commit-review-page .commit-btn.loading .bulk-btn-spinner {
+    display: inline-block;
+}
+
+.commit-review-page .notes-container {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.commit-review-page .note-card {
+    background: var(--ac-surface);
+    background-image: none;
+    border: 1px solid #d1d5de;
+    border-radius: var(--ac-radius-card);
+    box-shadow: var(--ac-shadow-card);
+    margin: 0;
+    transition: opacity 0.2s ease;
+}
+
+.commit-review-page .note-card::before {
+    display: none !important;
+}
+
+.commit-review-page .note-card:hover {
+    transform: none;
+    border-color: #aebccf;
+    box-shadow: var(--ac-shadow-card);
+}
+
+.commit-review-page .note-card.selected,
+.commit-review-page .note-card.selected:hover {
+    border-color: var(--ac-accent);
+    box-shadow: 0 0 0 2px rgba(0, 102, 153, 0.16), var(--ac-shadow-card);
+}
+
+.commit-review-page .note-card.bulk-processing {
+    opacity: 0.55;
+    pointer-events: none;
+}
+
+.commit-review-page .note-card.note-card-added {
+    border-left: 3px solid #087443;
+}
+
+.commit-review-page .note-card.note-card-added:hover {
+    border-left-color: #087443;
+}
+
+.commit-review-page .note-card.note-card-removed {
+    border-left: 3px solid #b42318;
+}
+
+.commit-review-page .note-card.note-card-removed:hover {
+    border-left-color: #b42318;
+}
+
+.commit-review-page .note-card.bulk-success {
+    border-left: 3px solid var(--ac-accept);
+}
+
+.commit-review-page .note-card.bulk-error {
+    border-left: 3px solid var(--ac-decline);
+}
+
+/* --- Compact Note Card Header --- */
+.commit-review-page .note-header-compact {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 10px 14px;
+    padding: 11px 18px;
+    background: var(--ac-surface-subtle);
+    border-bottom: 1px solid var(--ac-line-hairline);
+    border-radius: var(--ac-radius-card) var(--ac-radius-card) 0 0;
+}
+
+.commit-review-page .note-header-info {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px 10px;
+    min-width: 0;
+    flex: 1 1 260px;
+}
+
+.commit-review-page .bulk-select-checkbox {
+    position: relative;
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    gap: 8px;
-    padding: 10px 20px;
-    border-radius: 10px;
-    font-weight: 600;
-    font-size: 14px;
+    min-inline-size: 24px;
+    min-block-size: 24px;
+    margin: 0;
     cursor: pointer;
-    transition: all 0.2s ease;
-    border: 1px solid transparent;
+}
+
+.commit-review-page .bulk-select-checkbox .note-select-checkbox {
+    position: absolute;
+    opacity: 0;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    cursor: pointer;
+}
+
+.commit-review-page .bulk-select-checkbox .checkbox-custom {
+    width: 16px;
+    height: 16px;
+    border-radius: 4px;
+    border: 1.5px solid rgba(0, 0, 0, 0.28);
+    background: var(--ac-surface);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+
+.commit-review-page .bulk-select-checkbox .note-select-checkbox:checked + .checkbox-custom {
+    background: var(--ac-accent);
+    border-color: var(--ac-accent);
+}
+
+.commit-review-page .bulk-select-checkbox .note-select-checkbox:checked + .checkbox-custom::after {
+    content: "";
+    width: 4px;
+    height: 8px;
+    border: solid #ffffff;
+    border-width: 0 2px 2px 0;
+    transform: rotate(45deg) translate(-1px, -1px);
+}
+
+.commit-review-page .bulk-select-checkbox .note-select-checkbox:focus-visible + .checkbox-custom {
+    outline: 2px solid var(--ac-accent);
+    outline-offset: 2px;
+}
+
+.commit-review-page .note-id-link {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--ac-ink-primary);
     text-decoration: none;
+    font-variant-numeric: tabular-nums;
+}
+
+.commit-review-page .note-id-link:hover {
+    color: var(--ac-accent);
+    text-decoration: underline;
+}
+
+.commit-review-page .note-meta-inline {
+    font-size: 12.5px;
+    color: var(--ac-ink-tertiary);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 44ch;
+}
+
+.commit-review-page .note-status-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 2px 7px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+    border: 1px solid transparent;
+}
+
+.commit-review-page .note-status-badge.badge-new {
+    color: var(--ac-diff-ins-ink);
+    background: var(--ac-diff-ins-bg);
+    border-color: rgba(8, 116, 67, 0.24);
+}
+
+.commit-review-page .note-status-badge.badge-removal {
+    color: var(--ac-diff-del-ink);
+    background: var(--ac-diff-del-bg);
+    border-color: rgba(180, 35, 24, 0.24);
+}
+
+.commit-review-page .note-header-actions {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.commit-review-page .card-utility-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    height: auto;
+    min-block-size: 30px;
+    padding: 4px 10px;
+    border-radius: var(--ac-radius-control);
+    border: 1px solid var(--ac-line-hairline);
+    background: var(--ac-surface);
+    color: var(--ac-ink-secondary);
+    font-size: 12.5px;
+    font-weight: 500;
+    line-height: 1.35;
+    text-decoration: none;
+    cursor: pointer;
+    transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.commit-review-page .card-utility-btn:hover {
+    background: var(--ac-surface-muted);
+    color: var(--ac-ink-primary);
+    border-color: var(--ac-line-strong);
+    text-decoration: none;
+}
+
+.commit-review-page .note-decision-segmented {
+    display: inline-flex;
+    align-items: center;
+    padding: 2px;
+    gap: 2px;
+    border-radius: 7px;
+    background: var(--ac-surface-muted);
+    border: 1px solid #c7d2df;
+}
+
+.commit-review-page .seg-btn {
+    height: auto;
+    min-block-size: 26px;
+    padding: 3px 10px;
+    border: 1px solid transparent;
+    border-radius: 5px;
+    background: transparent;
+    font-size: 12.5px;
+    font-weight: 550;
+    line-height: 1.35;
+    cursor: pointer;
+    transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.commit-review-page .seg-btn:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+}
+
+.commit-review-page .seg-btn-decline {
+    color: var(--ac-decline);
+}
+
+.commit-review-page .seg-btn-decline:hover:not(:disabled) {
+    background: #fef2f2;
+    border-color: rgba(180, 35, 24, 0.3);
+}
+
+.commit-review-page .seg-btn-accept {
+    color: var(--ac-accept);
+    background: var(--ac-surface);
+    border-color: #cbd5e1;
+}
+
+.commit-review-page .seg-btn-accept:hover:not(:disabled) {
+    background: #087443;
+    color: #ffffff;
+    border-color: #087443;
+}
+
+.commit-review-page .seg-btn-accept.seg-btn-danger {
+    color: var(--ac-decline);
+    background: var(--ac-surface);
+    border-color: rgba(180, 35, 24, 0.35);
+}
+
+.commit-review-page .seg-btn-accept.seg-btn-danger:hover:not(:disabled) {
+    background: var(--ac-decline);
+    color: #ffffff;
+    border-color: var(--ac-decline);
+}
+
+/* --- Row-Locked 50/50 Diff Grid --- */
+.commit-review-page .row-locked-comparison {
+    display: block;
+    background: var(--ac-surface);
+    border-radius: 0 0 var(--ac-radius-card) var(--ac-radius-card);
+}
+
+.commit-review-page .comparison-column-headers {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    background: var(--ac-surface-subtle);
+    border-bottom: 1px solid var(--ac-line-hairline);
+}
+
+.commit-review-page .comparison-col-header {
+    padding: 8px 18px;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--ac-ink-tertiary);
+}
+
+.commit-review-page .comparison-col-proposed {
+    border-left: 1px solid var(--ac-line-hairline);
+}
+
+.commit-review-page .comparison-fields-list {
+    display: flex;
+    flex-direction: column;
+}
+
+.commit-review-page .field-diff-row,
+.commit-review-page .tags-diff-row,
+.commit-review-page .move-request-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    border-bottom: 1px solid var(--ac-line-hairline);
+}
+
+.commit-review-page .row-locked-comparison > :last-child,
+.commit-review-page .row-locked-comparison > .comparison-fields-list:last-child > .field-diff-row:last-child {
+    border-bottom: 0;
+}
+
+.commit-review-page .row-locked-comparison .diff-cell {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    padding: 14px 18px;
+    margin: 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+    transform: none;
+}
+
+.commit-review-page .row-locked-comparison .diff-cell.suggestion-cell {
+    border-left: 1px solid var(--ac-line-hairline);
+}
+
+.commit-review-page .row-locked-comparison .field-item:hover,
+.commit-review-page .row-locked-comparison .suggestion-box:hover {
+    transform: none;
+    box-shadow: none;
+}
+
+.commit-review-page .row-locked-comparison .field-item.field-accepted {
+    background: transparent;
+}
+
+.commit-review-page .diff-cell .field-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    min-height: 24px;
+    box-sizing: border-box;
+    margin: 0 0 6px;
+    padding: 0;
+    border: 0;
+}
+
+.commit-review-page .diff-cell .field-name {
+    font-size: 11.5px;
+    font-weight: 600;
+    color: var(--ac-ink-tertiary);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
     line-height: 1.2;
+    min-height: 22px;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
 }
 
-.btn-success {
-    background: #047857;
-    color: white;
-    border-color: #065f46;
-    box-shadow: 0 2px 4px rgba(4, 120, 87, 0.2);
-}
-.btn-success:hover { background: #065f46; transform: translateY(-1px); }
-
-.btn-danger {
-    background: #c62828;
-    color: white;
-    border-color: #a51d1d;
-    box-shadow: 0 2px 4px rgba(198, 40, 40, 0.2);
-}
-.btn-danger:hover { background: #a51d1d; transform: translateY(-1px); }
-
-.btn-success-outline {
-    background: rgba(16, 185, 129, 0.1);
-    color: #ffffff;
-    border-color: rgba(16, 185, 129, 0.3);
-}
-.btn-success-outline:hover:not(:disabled) {
-    background: rgba(16, 185, 129, 0.2);
-    color: white;
-    border-color: #10b981;
-}
-.btn-success-outline:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-    background: rgba(255, 255, 255, 0.05);
-    color: rgba(255, 255, 255, 0.3);
-    border-color: rgba(255, 255, 255, 0.1);
+.commit-review-page .field-count-inline {
+    font-weight: 500;
+    color: var(--ac-ink-tertiary);
+    font-variant-numeric: tabular-nums;
 }
 
-.btn-danger-outline {
-    background: rgba(239, 68, 68, 0.1);
-    color: #ffffff;
-    border-color: rgba(239, 68, 68, 0.3);
-}
-.btn-danger-outline:hover:not(:disabled) {
-    background: rgba(239, 68, 68, 0.2);
-    color: white;
-    border-color: #ef4444;
-}
-.btn-danger-outline:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-    background: rgba(255, 255, 255, 0.05);
-    color: rgba(255, 255, 255, 0.3);
-    border-color: rgba(255, 255, 255, 0.1);
+.commit-review-page .diff-cell .note-content-display {
+    margin: 0;
+    font-size: 14.5px;
+    line-height: 1.55;
+    color: var(--ac-ink-primary);
+    overflow-wrap: anywhere;
 }
 
-/* Dark mode friendly adjustments */
-@media (prefers-color-scheme: dark) {
-    .page-header {
-        box-shadow: 0 4px 20px rgba(0, 102, 153, 0.2);
-    }
-    
-    .suggestion-box {
-        border: 1px solid rgba(255, 255, 255, 0.1);
-        box-shadow: 0 2px 12px rgba(0, 0, 0, 0.3);
-    }
+.commit-review-page .diff-cell .original-content {
+    flex: 1 1 auto;
+    margin: 0;
+    padding: 11px 14px;
+    border: 1px solid var(--ac-orig-box-border);
+    border-radius: var(--ac-radius-control);
+    background: var(--ac-orig-box-bg);
+    box-shadow: none !important;
+    font-size: 14.5px;
+    line-height: 1.55;
+    color: var(--ac-ink-primary);
+    overflow-wrap: anywhere;
 }
 
-/* High contrast mode support */
-@media (prefers-contrast: high) {
-    .modern-btn,
-    .action-btn,
+.commit-review-page .diff-cell .original-content:empty {
+    background: var(--ac-surface-subtle);
+    border: 1px dashed var(--ac-line-hairline);
+}
+
+.commit-review-page .diff-cell .diff-content {
+    flex: 1 1 auto;
+    margin: 0;
+    padding: 11px 14px;
+    border: 1px solid var(--ac-prop-box-border);
+    border-radius: var(--ac-radius-control);
+    background: var(--ac-prop-box-bg);
+    box-shadow: none !important;
+    font-size: 14.5px;
+    line-height: 1.55;
+    color: var(--ac-ink-primary);
+    overflow-wrap: anywhere;
+}
+
+.commit-review-page .original-cell .original-content:empty::before {
+    content: "Empty";
+    color: var(--ac-ink-tertiary);
+    font-style: italic;
+    font-size: 13px;
+}
+
+.commit-review-page .note-content-display img {
+    max-width: 100%;
+    height: auto;
+    border-radius: 6px;
+}
+
+.commit-review-page .diff-highlight-ins,
+.commit-review-page .diff-content ins[data-diff] {
+    background: var(--ac-diff-ins-bg);
+    color: var(--ac-diff-ins-ink);
+    border-radius: 4px;
+    padding: 1px 3px;
+    text-decoration: none !important;
+    font-weight: 500;
+}
+
+.commit-review-page .diff-highlight-del,
+.commit-review-page .diff-content del[data-diff] {
+    background: var(--ac-diff-del-bg);
+    color: var(--ac-diff-del-ink);
+    border-radius: 4px;
+    padding: 1px 3px;
+    text-decoration: none !important;
+}
+
+/* --- Discoverable Undo / Revert Controls --- */
+.commit-review-page .revert-btn {
+    opacity: 0.55;
+    width: auto;
+    height: auto;
+    min-inline-size: 24px;
+    min-block-size: 24px;
+    padding: 2px;
+    margin: 0;
+    border-radius: 6px;
+    border: 1px solid transparent;
+    background: transparent;
+    color: var(--ac-ink-tertiary);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: opacity 0.15s ease, background-color 0.15s ease, color 0.15s ease;
+}
+
+.commit-review-page .diff-cell:hover .revert-btn,
+.commit-review-page .revert-btn:hover,
+.commit-review-page .revert-btn:focus-visible {
+    opacity: 1;
+}
+
+.commit-review-page .revert-btn:hover {
+    background: var(--ac-decline-soft);
+    color: var(--ac-decline);
+    transform: none;
+}
+
+/* --- Deck Move Request Row --- */
+.commit-review-page .deck-move-current {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13.5px;
+    color: var(--ac-ink-secondary);
+}
+
+.commit-review-page .move-request-row .note_tag_container.tag-move {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 8px 12px;
+    margin: 0;
+    border-radius: 8px;
+    background: var(--ac-accent-soft);
+    border: 1px solid rgba(0, 102, 153, 0.2);
+    color: var(--ac-ink-primary);
+    box-shadow: none;
+}
+
+.commit-review-page .move-request-row .note_tag_container.tag-move .tag-content {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+    padding: 0;
+    border: 0;
+    background: transparent;
+}
+
+/* --- Tags Row & Inline Tag Editor --- */
+.commit-review-page .current-tags-details {
+    display: block;
+}
+
+.commit-review-page .current-tags-summary {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    min-block-size: 26px;
+    padding: 4px 10px;
+    border-radius: 6px;
+    border: 1px solid var(--ac-line-hairline);
+    background: var(--ac-surface-subtle);
+    color: var(--ac-ink-secondary);
+    font-size: 12.5px;
+    font-weight: 550;
+    line-height: 1.35;
+    cursor: pointer;
+    list-style: none;
+    user-select: none;
+    transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.commit-review-page .current-tags-summary::-webkit-details-marker {
+    display: none;
+}
+
+.commit-review-page .current-tags-summary:hover {
+    background: var(--ac-surface-muted);
+    border-color: var(--ac-line-strong);
+    color: var(--ac-ink-primary);
+}
+
+.commit-review-page .current-tags-chevron {
+    font-size: 10px;
+    color: var(--ac-ink-tertiary);
+}
+
+.commit-review-page .current-tags-details[open] > .current-tags-summary .current-tags-chevron {
+    transform: rotate(90deg);
+}
+
+.commit-review-page .current-tags-details[open] > .reviewed-tag-list {
+    margin-top: 8px;
+    max-height: 220px;
+    overflow-y: auto;
+    padding-right: 4px;
+}
+
+.commit-review-page .tag-list.reviewed-tag-list,
+.commit-review-page .tag-edit-container {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+}
+
+.commit-review-page .reviewed-tag-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 9px;
+    border-radius: 6px;
+    font-size: 12.5px;
+    font-weight: 500;
+    background: var(--ac-surface-muted);
+    border: 1px solid var(--ac-line-hairline);
+    color: var(--ac-ink-secondary);
+    max-width: 100%;
+    overflow-wrap: anywhere;
+    transition: background-color 0.12s ease, border-color 0.12s ease, color 0.12s ease;
+}
+
+.commit-review-page .tag-chip,
+.commit-review-page .tag-chip:hover,
+.commit-review-page .reviewed-tag-chip:hover,
+.commit-review-page .tag-chip-editable,
+.commit-review-page .tag-chip-editable:hover,
+.commit-review-page .tag-preview:hover,
+.commit-review-page .tag_accept_button:hover,
+.commit-review-page .tag_deny_button:hover,
+.commit-review-page .tag-revert-btn:hover,
+.commit-review-page .tag-edit-toggle:hover,
+.commit-review-page .tag-suggest-remove-btn:hover,
+.commit-review-page .move-from:hover,
+.commit-review-page .move-to:hover,
+.commit-review-page :is(
+    .commit-btn,
+    .card-utility-btn,
+    .seg-btn,
+    .tag-chip,
+    .tag-chip-editable,
+    .tag-preview,
+    .tag-revert-btn,
+    .tag-edit-toggle,
+    .tag-suggest-remove-btn,
     .tag_accept_button,
-    .tag_deny_button {
-        border: 2px solid currentColor;
+    .tag_deny_button,
+    .action-btn,
+    .icon-btn,
+    .merge-btn,
+    .modern-action-btn,
+    .added-content-preview,
+    .comparison-side
+):is(:hover, :active) {
+    transform: none !important;
+    box-shadow: none;
+}
+
+.commit-review-page .tag-chip-editable {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 4px 2px 8px;
+    border-radius: 6px;
+    font-size: 12.5px;
+    font-weight: 500;
+}
+
+.commit-review-page .tag-chip-add {
+    background: var(--ac-diff-ins-bg);
+    color: var(--ac-diff-ins-ink);
+    border: 1px solid rgba(17, 99, 41, 0.18);
+}
+
+.commit-review-page .tag-chip-remove {
+    background: var(--ac-diff-del-bg);
+    color: var(--ac-diff-del-ink);
+    border: 1px solid rgba(130, 7, 30, 0.18);
+}
+
+.commit-review-page .tag-revert-btn {
+    opacity: 0.78;
+    border: 0;
+    background: transparent;
+    color: inherit;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-inline-size: 24px;
+    min-block-size: 24px;
+    padding: 2px;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.commit-review-page .tag-revert-btn:hover {
+    opacity: 1;
+}
+
+.commit-review-page .tag-edit-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    height: auto;
+    min-block-size: 24px;
+    padding: 3px 8px;
+    margin: 0;
+    border-radius: 6px;
+    border: 1px dashed var(--ac-line-strong);
+    background: transparent;
+    color: var(--ac-ink-secondary);
+    font-size: 11.5px;
+    line-height: 1.3;
+    font-weight: 500;
+    cursor: pointer;
+}
+
+.commit-review-page .tag-edit-toggle:hover,
+.commit-review-page .tag-edit-toggle.active {
+    background: var(--ac-surface-muted);
+    color: var(--ac-ink-primary);
+    border-style: solid;
+}
+
+.commit-review-page .tag-edit-panel {
+    width: 100%;
+    margin-top: 8px;
+    padding: 10px;
+    border-radius: 8px;
+    background: var(--ac-surface-subtle);
+    border: 1px solid var(--ac-line-hairline);
+}
+
+.commit-review-page .tag-filter-input,
+.commit-review-page .tag-edit-add-row .tag-input {
+    border-radius: 6px;
+    border: 1px solid var(--ac-line-strong);
+    background: var(--ac-surface);
+    color: var(--ac-ink-primary);
+    font-size: 13px;
+    padding: 6px 10px;
+}
+
+.commit-review-page .tag-edit-row:hover {
+    background: var(--ac-surface-muted);
+}
+
+.commit-review-page .tag-edit-label {
+    color: var(--ac-ink-secondary);
+}
+
+.commit-review-page .tag-edit-add-row {
+    border-top-color: var(--ac-line-hairline);
+}
+
+.commit-review-page .tag-suggest-remove-btn {
+    width: auto;
+    height: auto;
+    min-inline-size: 24px;
+    min-block-size: 24px;
+    color: var(--ac-ink-tertiary);
+}
+
+.commit-review-page .tag-suggest-remove-btn:hover {
+    background: var(--ac-decline-soft);
+    color: var(--ac-decline);
+}
+
+.commit-review-page .empty-field-placeholder {
+    font-size: 13px;
+    color: var(--ac-ink-tertiary);
+    font-style: italic;
+}
+
+/* --- Reviewed Context Fields Disclosure (<details>) --- */
+.commit-review-page .collapsible-panel.reviewed-fields-panel {
+    border-top: 1px solid var(--ac-line-hairline);
+    background: var(--ac-surface-subtle);
+    border-radius: 0 0 var(--ac-radius-card) var(--ac-radius-card);
+}
+
+.commit-review-page .reviewed-fields-panel > summary {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 18px;
+    cursor: pointer;
+    list-style: none;
+    font-size: 12.5px;
+    font-weight: 550;
+    color: var(--ac-ink-secondary);
+    user-select: none;
+}
+
+.commit-review-page .reviewed-fields-panel > summary::-webkit-details-marker {
+    display: none;
+}
+
+.commit-review-page .reviewed-fields-panel .collapsible-title {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.commit-review-page .reviewed-fields-panel > summary .fa-chevron-down {
+    transition: transform 0.18s ease;
+    font-size: 11px;
+    color: var(--ac-ink-tertiary);
+}
+
+.commit-review-page .reviewed-fields-panel[open] > summary .fa-chevron-down {
+    transform: rotate(180deg);
+}
+
+.commit-review-page .collapsible-body.reviewed-fields-stack {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    width: 100%;
+    box-sizing: border-box;
+    max-height: none;
+    padding: 12px 18px 16px;
+    border-top: 1px solid var(--ac-line-hairline);
+    background: var(--ac-surface-subtle);
+    overflow: visible;
+}
+
+.commit-review-page .reviewed-fields-stack .field-item.compact {
+    flex: 0 0 auto;
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    height: auto;
+    box-sizing: border-box;
+    padding: 10px 14px;
+    margin: 0;
+    border-radius: var(--ac-radius-control);
+    border: 1px solid var(--ac-line-hairline);
+    background: var(--ac-surface);
+    overflow: visible;
+}
+
+.commit-review-page .reviewed-fields-stack .field-item.compact.field-has-change {
+    border-left: 3px solid var(--ac-accent);
+}
+
+.commit-review-page .reviewed-fields-stack .field-item.compact .field-header {
+    margin: 0 0 4px;
+    padding: 0;
+    border: 0;
+}
+
+.commit-review-page .reviewed-fields-stack .field-item.compact .field-name {
+    font-size: 11.5px;
+    font-weight: 600;
+    color: var(--ac-ink-tertiary);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    display: inline-flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.commit-review-page .reviewed-fields-stack .inherited-badge {
+    padding: 1px 6px;
+    border-radius: 4px;
+    background: var(--ac-surface-muted);
+    color: var(--ac-ink-secondary);
+    border: 1px solid var(--ac-line-hairline);
+    box-shadow: none;
+    font-size: 10.5px;
+    font-weight: 500;
+    text-transform: none;
+    letter-spacing: 0;
+}
+
+.commit-review-page .reviewed-fields-stack .field-item.compact .note-content-display {
+    display: block;
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    height: auto;
+    min-height: 0;
+    box-sizing: border-box;
+    font-size: 13.5px;
+    line-height: 1.5;
+    padding: 0;
+    margin: 0;
+    border: 0;
+    background: transparent;
+    contain: none;
+    overflow: visible;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    word-wrap: break-word;
+    word-break: break-word;
+}
+
+.commit-review-page .reviewed-fields-stack .note-content-display :is(table, pre, code, img) {
+    max-width: 100%;
+    box-sizing: border-box;
+}
+
+.commit-review-page .reviewed-fields-stack .note-content-display table {
+    width: 100%;
+    table-layout: fixed;
+    word-break: break-word;
+}
+
+.commit-review-page .reviewed-fields-stack .note-content-display :is(pre, code) {
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+}
+
+/* --- Deletion Request Card --- */
+.commit-review-page .deletion-request {
+    padding: 20px 18px;
+}
+
+.commit-review-page .deletion-message {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 14px;
+    border-radius: 8px;
+    background: var(--ac-diff-del-bg);
+    color: var(--ac-diff-del-ink);
+    font-size: 14px;
+    font-weight: 500;
+}
+
+/* --- Load More & Empty State --- */
+.commit-review-page .load-more-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    margin: 24px 0 32px;
+}
+
+.commit-review-page .load-more-container .modern-btn.btn-light {
+    background: var(--ac-surface);
+    color: var(--ac-ink-primary);
+    border: 1px solid var(--ac-line-strong);
+    border-radius: var(--ac-radius-control);
+    height: auto;
+    min-block-size: 36px;
+    padding: 6px 18px;
+    font-size: 13.5px;
+    line-height: 1.35;
+    font-weight: 550;
+}
+
+.commit-review-page .load-more-status {
+    font-size: 13px;
+    color: var(--ac-ink-tertiary);
+    min-height: 18px;
+}
+
+.commit-review-page .load-more-btn-spinner {
+    display: none;
+    width: 14px;
+    height: 14px;
+    border: 2px solid rgba(0, 0, 0, 0.25);
+    border-top-color: currentColor;
+    border-radius: 50%;
+    margin-left: 8px;
+}
+
+.commit-review-page .modern-btn.loading .load-more-btn-spinner {
+    display: inline-block;
+}
+
+.commit-review-page .commit-empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    gap: 8px;
+    padding: 40px 24px;
+    background: var(--ac-surface);
+    border: 1px solid var(--ac-line-hairline);
+    border-radius: var(--ac-radius-card);
+    box-shadow: var(--ac-shadow-card);
+}
+
+.commit-review-page .commit-empty-icon {
+    font-size: 28px;
+    color: var(--ac-accept);
+    margin-bottom: 4px;
+}
+
+.commit-review-page .commit-empty-state h2,
+.commit-review-page .commit-empty-state h3 {
+    margin: 0;
+    font-size: 17px;
+    font-weight: 600;
+    color: var(--ac-ink-primary);
+}
+
+.commit-review-page .commit-empty-state p {
+    margin: 0 0 8px;
+    font-size: 13.5px;
+    color: var(--ac-ink-secondary);
+}
+
+@keyframes ac-spin {
+    to { transform: rotate(360deg); }
+}
+
+body:has(.commit-review-page) .edit-all-fields-panel .edit-panel-hint {
+    color: #64748b;
+}
+
+/* --- Shared compatibility rules for reviews.html preview drawer --- */
+.reviews-page .note-card {
+    margin-bottom: 14px;
+}
+
+.reviews-page .field-item {
+    border-color: #f0f0f0;
+}
+
+.reviews-page .field-content {
+    line-height: 1.2;
+    color: #374151;
+}
+
+/* --- Dark Mode --- */
+@media (prefers-color-scheme: dark) {
+    body:has(.commit-review-page),
+    .content-body:has(.commit-review-page) {
+        background-color: #0b0c0f;
+        background-image: none;
     }
-    
-    .suggestion-box {
-        border: 2px solid #374151;
+
+    .commit-review-page {
+        --ac-canvas: #0b0c0f;
+        --ac-surface: #1c1c1e;
+        --ac-surface-subtle: #242428;
+        --ac-surface-muted: #2c2c30;
+        --ac-ink-primary: #f5f5f7;
+        --ac-ink-secondary: #cbd5e1;
+        --ac-ink-tertiary: #94a3b8;
+        --ac-line-hairline: #38383d;
+        --ac-line-strong: #54545c;
+        --ac-accent: #4aa8d8;
+        --ac-accent-hover: #67bae3;
+        --ac-accent-soft: rgba(74, 168, 216, 0.16);
+        --ac-decline: #ff8080;
+        --ac-decline-soft: rgba(255, 107, 107, 0.14);
+        --ac-diff-ins-bg: rgba(46, 160, 67, 0.25);
+        --ac-diff-ins-ink: #7ee787;
+        --ac-diff-del-bg: rgba(248, 81, 73, 0.24);
+        --ac-diff-del-ink: #ffa198;
+        --ac-orig-box-bg: rgba(248, 81, 73, 0.09);
+        --ac-orig-box-border: rgba(248, 81, 73, 0.3);
+        --ac-prop-box-bg: rgba(46, 160, 67, 0.1);
+        --ac-prop-box-border: rgba(46, 160, 67, 0.32);
+        --ac-shadow-card: 0 2px 8px rgba(0, 0, 0, 0.45);
+    }
+
+    .commit-review-page .page-header.commit-header-surface {
+        background-color: #132530;
+        background-image: none;
+        border-color: #244354;
+        color: #f5f5f7;
+    }
+
+    .commit-review-page .crumb-sep,
+    .commit-review-page .commit-header-surface .meta-sep {
+        color: #8aa4b8;
+    }
+
+    .commit-review-page .commit-header-surface .commit-back-link {
+        color: #6ec1e4;
+        background: transparent;
+    }
+
+    .commit-review-page .commit-header-surface .commit-back-link:hover {
+        color: #a5ddf2;
+        background: rgba(255, 255, 255, 0.08);
+    }
+
+    .commit-review-page .commit-header-surface .text-action-btn {
+        color: #6ec1e4;
+        background: rgba(255, 255, 255, 0.06);
+        border-color: #2b4c5e;
+    }
+
+    .commit-review-page .commit-header-surface .text-action-btn:hover {
+        color: #a5ddf2;
+        background: rgba(255, 255, 255, 0.12);
+        border-color: #41718c;
+    }
+
+    .commit-review-page .commit-header-surface .page-title,
+    .commit-review-page .commit-header-surface .commit-summary-meta strong,
+    .commit-review-page .commit-header-surface .selection-summary-label strong {
+        color: #f5f5f7;
+    }
+
+    .commit-review-page .commit-header-surface .commit-summary-meta,
+    .commit-review-page .commit-header-surface .commit-meta,
+    .commit-review-page .commit-header-surface .selection-summary-label {
+        color: #c7d6e2;
+    }
+
+    .commit-review-page .commit-author-name,
+    .commit-review-page .commit-comment-text {
+        color: var(--ac-ink-primary);
+    }
+
+    .commit-review-page .commit-rationale-label {
+        color: var(--ac-ink-secondary);
+    }
+
+    .commit-review-page .commit-rationale-callout {
+        background: #1c1c1e;
+        border-color: #264354;
+    }
+
+    .commit-review-page .actions-toolbar {
+        border-top-color: #264354;
+    }
+
+    .commit-review-page .commit-header-surface .commit-btn-decline,
+    .commit-review-page .commit-header-surface .commit-btn-decline-subtle,
+    .commit-review-page .commit-btn-decline,
+    .commit-review-page .commit-btn-decline-subtle {
+        background: var(--ac-surface);
+        color: var(--ac-decline);
+        border-color: rgba(255, 128, 128, 0.52);
+    }
+
+    .commit-review-page .commit-header-surface .commit-btn-decline:hover:not(:disabled),
+    .commit-review-page .commit-header-surface .commit-btn-decline-subtle:hover:not(:disabled),
+    .commit-review-page .commit-btn-decline:hover:not(:disabled),
+    .commit-review-page .commit-btn-decline-subtle:hover:not(:disabled) {
+        background: var(--ac-decline-soft);
+        color: #ffa1a1;
+        border-color: var(--ac-decline);
+    }
+
+    .commit-review-page .commit-header-surface .commit-btn-accept,
+    .commit-review-page .commit-header-surface .commit-btn-accept-subtle {
+        background: #15803d;
+        color: #ffffff;
+        border-color: #15803d;
+    }
+
+    .commit-review-page .commit-header-surface .commit-btn-accept:hover:not(:disabled),
+    .commit-review-page .commit-header-surface .commit-btn-accept-subtle:hover:not(:disabled) {
+        background: #166534;
+        border-color: #166534;
+    }
+
+    .commit-review-page .commit-header-surface .commit-btn-neutral,
+    .commit-review-page .mathjax-toggle-btn.mathjax-toggle-btn-light {
+        background: var(--ac-surface);
+        color: var(--ac-ink-primary);
+        border-color: #36526e;
+    }
+
+    .commit-review-page .mathjax-toggle-btn.mathjax-toggle-btn-light:hover {
+        background: var(--ac-surface-muted);
+        color: #ffffff;
+        border-color: #4d7091;
+    }
+
+    .commit-review-page .mathjax-toggle-btn.mathjax-toggle-btn-light[aria-pressed="true"] {
+        background: #0c2d42;
+        color: #bae6fd;
+        border-color: #38bdf8;
+    }
+
+    .commit-review-page .global-loading::after {
+        border-color: rgba(255, 255, 255, 0.25);
+        border-top-color: #ffffff;
+    }
+
+    .commit-review-page .note-card,
+    .commit-review-page .note-card:hover {
+        border-color: #33343a;
+        box-shadow: var(--ac-shadow-card);
+    }
+
+    .commit-review-page .note-card.note-card-added,
+    .commit-review-page .note-card.note-card-added:hover {
+        border-left-color: #2ea043;
+    }
+
+    .commit-review-page .note-card.note-card-removed,
+    .commit-review-page .note-card.note-card-removed:hover {
+        border-left-color: #f85149;
+    }
+
+    .commit-review-page .note-decision-segmented {
+        border-color: var(--ac-line-strong);
+    }
+
+    .commit-review-page .seg-btn-accept {
+        color: #7ee787;
+        background: var(--ac-surface);
+        border-color: rgba(126, 231, 135, 0.35);
+    }
+
+    .commit-review-page .seg-btn-accept:hover:not(:disabled) {
+        background: #2ea043;
+        color: #0b0c10;
+        border-color: #2ea043;
+    }
+
+    .commit-review-page .seg-btn-accept.seg-btn-danger {
+        color: #ff6b6b;
+        background: var(--ac-surface);
+        border-color: rgba(255, 107, 107, 0.4);
+    }
+
+    .commit-review-page .seg-btn-accept.seg-btn-danger:hover:not(:disabled) {
+        background: var(--ac-decline);
+        color: #0b0c10;
+        border-color: var(--ac-decline);
+    }
+
+    .commit-review-page .bulk-select-checkbox .checkbox-custom {
+        border-color: rgba(255, 255, 255, 0.34);
+    }
+
+    body:has(.commit-review-page) .edit-drawer-overlay {
+        background: rgba(0, 0, 0, 0.55);
+    }
+
+    body:has(.commit-review-page) .edit-all-fields-panel {
+        background: #1c1c1e;
+        color: #f5f5f7;
+        border-left: 1px solid #38383d;
+        box-shadow: -6px 0 28px rgba(0, 0, 0, 0.55);
+    }
+
+    body:has(.commit-review-page) .edit-all-fields-panel .edit-panel-header,
+    body:has(.commit-review-page) .edit-all-fields-panel .edit-panel-footer {
+        background: #242428;
+        border-color: #38383d;
+        color: #f5f5f7;
+    }
+
+    body:has(.commit-review-page) .edit-all-fields-panel .edit-panel-title,
+    body:has(.commit-review-page) .edit-all-fields-panel .edit-field-name {
+        color: #f5f5f7;
+    }
+
+    body:has(.commit-review-page) .edit-all-fields-panel .edit-panel-title i,
+    body:has(.commit-review-page) .edit-all-fields-panel .edit-panel-hint,
+    body:has(.commit-review-page) .edit-all-fields-panel .edit-panel-close {
+        color: #94a3b8;
+    }
+
+    body:has(.commit-review-page) .edit-all-fields-panel .edit-panel-close:hover {
+        background: #2c2c30;
+        color: #f5f5f7;
+    }
+
+    body:has(.commit-review-page) .edit-all-fields-panel .edit-field-item {
+        background: #242428;
+        border-color: #38383d;
+    }
+
+    body:has(.commit-review-page) .edit-all-fields-panel .edit-field-item:hover:not(.readonly) {
+        border-color: #4aa8d8;
+    }
+
+    body:has(.commit-review-page) .edit-all-fields-panel .edit-field-header,
+    body:has(.commit-review-page) .edit-all-fields-panel .edit-field-item.inherited,
+    body:has(.commit-review-page) .edit-all-fields-panel .edit-field-item.readonly .edit-field-editor,
+    body:has(.commit-review-page) .edit-all-fields-panel .edit-field-item.inherited .trumbowyg-box,
+    body:has(.commit-review-page) .edit-all-fields-panel .edit-field-item.inherited .trumbowyg-editor {
+        background: #18181b;
+        border-color: #38383d;
+        color: #cbd5e1;
+    }
+
+    body:has(.commit-review-page) .edit-all-fields-panel .trumbowyg-box,
+    body:has(.commit-review-page) .edit-all-fields-panel .trumbowyg-editor,
+    body:has(.commit-review-page) .edit-all-fields-panel .trumbowyg-textarea {
+        background: #1c1c1e;
+        color: #f5f5f7;
+    }
+
+    body:has(.commit-review-page) .edit-all-fields-panel .trumbowyg-button-pane {
+        background: #2c2c30;
+        border-color: #38383d;
+    }
+
+    body:has(.commit-review-page) .edit-all-fields-panel .trumbowyg-button-pane button svg {
+        fill: #e2e8f0;
+    }
+
+    body:has(.commit-review-page) .edit-all-fields-panel .trumbowyg-button-pane button:is(:hover, :focus-visible, .trumbowyg-active) {
+        background: #38383d;
+    }
+
+    body:has(.commit-review-page) .edit-all-fields-panel .field-status-badge.unchanged,
+    body:has(.commit-review-page) .edit-all-fields-panel .field-status-badge.empty,
+    body:has(.commit-review-page) .edit-all-fields-panel .field-status-badge.inherited {
+        background: #2c2c30;
+        color: #cbd5e1;
+        border-color: #47474e;
+    }
+
+    body:has(.commit-review-page) .edit-all-fields-panel .field-status-badge.has-suggestion {
+        background: rgba(74, 168, 216, 0.16);
+        color: #7dd3fc;
+        border-color: rgba(74, 168, 216, 0.35);
+    }
+
+    body:has(.commit-review-page) .edit-all-fields-panel .field-status-badge.other-suggestion {
+        background: rgba(245, 158, 11, 0.16);
+        color: #fcd34d;
+        border-color: rgba(245, 158, 11, 0.35);
+    }
+
+    body:has(.commit-review-page) .edit-all-fields-panel .btn-secondary {
+        background: #2c2c30;
+        color: #f5f5f7;
+        border: 1px solid #47474e;
+    }
+
+    body:has(.commit-review-page) .edit-all-fields-panel .btn-secondary:hover {
+        background: #38383d;
+    }
+
+    body:has(.commit-review-page) .edit-all-fields-panel .edit-panel-status .text-muted {
+        color: #94a3b8 !important;
     }
 }
 
-/* Reduced motion for accessibility */
+/* --- High Contrast & Forced Colors Accessibility --- */
+@media (prefers-contrast: more) {
+    .commit-review-page {
+        --ac-line-hairline: currentColor;
+        --ac-line-strong: currentColor;
+    }
+
+    .commit-review-page .commit-btn,
+    .commit-review-page .card-utility-btn,
+    .commit-review-page .note-decision-segmented {
+        border: 1.5px solid currentColor;
+    }
+}
+
+@media (forced-colors: active) {
+    .commit-review-page .diff-highlight-ins,
+    .commit-review-page .diff-content ins[data-diff] {
+        outline: 1px solid Highlight;
+    }
+
+    .commit-review-page .diff-highlight-del,
+    .commit-review-page .diff-content del[data-diff] {
+        outline: 1px dashed GrayText;
+    }
+}
+
+/* --- Reduced Motion (Motion-only suppression; preserves color & focus transitions) --- */
 @media (prefers-reduced-motion: reduce) {
-    *, *::before, *::after {
-        animation-duration: 0.01ms !important;
-        animation-iteration-count: 1 !important;
-        transition-duration: 0.01ms !important;
+    .commit-review-page .reviewed-fields-panel > summary .fa-chevron-down,
+    .commit-review-page .current-tags-chevron,
+    body:has(.commit-review-page) .edit-drawer-overlay,
+    body:has(.commit-review-page) .edit-all-fields-panel {
+        transition: none;
     }
-    
-    .suggestion-box:hover {
-        transform: none;
+
+    .commit-review-page .global-loading::after,
+    .commit-review-page .bulk-btn-spinner,
+    .commit-review-page .load-more-btn-spinner {
+        animation: none;
     }
 }
 
-/* Responsive design */
+/* --- Responsive Layout --- */
 @media (max-width: 768px) {
-    .main-container {
-        padding: 16px;
-    }
-    
-    .page-header {
-        padding: 16px 20px;
-        margin-bottom: 16px;
-    }
-    
-    .commit-header-top {
-        flex-wrap: wrap;
-        gap: 10px;
+    .commit-review-page {
+        padding: 12px 12px 36px;
     }
 
-    .page-title {
-        font-size: 20px;
-    }
-    
-    .commit-meta {
-        gap: 16px;
-    }
-    
-    .commit-actions {
-        flex-direction: column;
-        gap: 8px;
-    }
-    
-    .primary-action, .danger-action {
-        width: 100%;
-        justify-content: center;
-    }
-    
-    .content-comparison {
-        grid-template-columns: 1fr;
-    }
-    
-    .original-side, .suggestion-side {
-        padding: 20px;
-    }
-    
-    .note-actions-row {
-        flex-direction: column;
-        align-items: stretch;
-        gap: 12px;
-    }
-    
-    .action-group {
-        justify-content: center;
-        flex-wrap: wrap;
-    }
-    
-    .modern-btn {
-        flex: 1;
-        min-width: 120px;
+    .commit-review-page .page-header.commit-header-surface {
+        padding: 14px 16px;
     }
 
-    .commit-summary {
-        flex-direction: column;
-        align-items: flex-start;
-    }
-    
-    .bulk-actions-section {
-        padding: 12px;
-    }
-
-    .bulk-actions-info {
-        flex-direction: column;
-        align-items: flex-start;
-        gap: 6px;
-    }
-
-    .bulk-actions-buttons {
+    .commit-review-page .commit-primary-actions {
         width: 100%;
     }
 
-    .bulk-actions-buttons .modern-btn {
-        flex: 1;
-        min-width: 120px;
-        justify-content: center;
+    .commit-review-page .commit-primary-actions .commit-btn {
+        flex: 1 1 auto;
     }
-    
-    .actions-primary-row {
-        flex-direction: column;
-        align-items: stretch;
-        gap: 16px;
-    }
-    .action-divider {
+
+    .commit-review-page .comparison-column-headers {
         display: none;
     }
-    .btn-group {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
+
+    .commit-review-page .field-diff-row,
+    .commit-review-page .tags-diff-row,
+    .commit-review-page .move-request-row {
+        grid-template-columns: 1fr;
     }
-    .action-group {
-        width: 100%;
+
+    .commit-review-page .row-locked-comparison .diff-cell.suggestion-cell {
+        border-left: 0;
+        border-top: 1px dashed var(--ac-line-hairline);
     }
+
+    .reviews-page .content-comparison {
+        grid-template-columns: 1fr;
+    }
+
+    .reviews-page .original-side,
+    .reviews-page .suggestion-side {
+        padding: 20px;
+    }
+}
+
+/* --- Progressive Typography Trimming & Touch Targets --- */
+.commit-review-page .note-status-badge {
+    text-box: trim-both cap alphabetic;
+}
+
+/* --- Flat Single-Color Surfaces (No Gradients) --- */
+.commit-review-page :is(
+    .note-header-compact,
+    .comparison-column-headers,
+    .diff-cell,
+    .original-content,
+    .diff-content,
+    .note_tag_container,
+    .note-status-badge,
+    .field-success,
+    .field-error,
+    .added-content-preview,
+    .comparison-side,
+    .field-removed-display,
+    .denied-tag-change,
+    .move-from,
+    .move-to
+),
+.edit-all-fields-panel,
+.edit-all-fields-panel .edit-panel-header,
+.edit-all-fields-panel .modern-btn-primary {
+    background-image: none !important;
+}
+
+@media (pointer: coarse) {
+    .commit-review-page :is(
+        .commit-btn,
+        .commit-primary-actions > button,
+        .mathjax-toggle-btn.mathjax-toggle-btn-light,
+        .card-utility-btn,
+        .seg-btn,
+        .text-action-btn,
+        .current-tags-summary,
+        .tag-edit-toggle,
+        .tag-revert-btn,
+        .revert-btn,
+        .tag-suggest-remove-btn,
+        #load-more-btn
+    ),
+    .ac-modal-btn,
+    body:has(.commit-review-page) :is(.edit-panel-close, .edit-all-fields-panel .modern-btn) {
+        height: auto;
+        min-block-size: 44px;
+        min-inline-size: 44px;
+        max-height: none;
+    }
+
+    .commit-review-page .bulk-select-checkbox {
+        min-inline-size: 44px;
+        min-block-size: 44px;
+    }
+}
+
+/* --- Edit All Fields Drawer Badges & Actions (Compact, Unobtrusive) --- */
+.edit-all-fields-panel .edit-field-header {
+    padding: 8px 12px;
+}
+
+.edit-all-fields-panel .edit-field-name {
+    font-size: 13px;
+    font-weight: 600;
+    color: #1f2937;
+}
+
+.edit-all-fields-panel .field-status-badge {
+    padding: 1px 6px;
+    border-radius: 4px;
+    font-size: 10.5px;
+    font-weight: 500;
+    text-transform: none;
+    letter-spacing: 0;
+    gap: 4px;
+    line-height: 1.35;
+    border: 1px solid transparent;
+}
+
+.edit-all-fields-panel .field-status-badge i {
+    font-size: 9.5px;
+}
+
+.edit-all-fields-panel .field-status-badge.unchanged,
+.edit-all-fields-panel .field-status-badge.empty {
+    background: transparent;
+    color: #64748b;
+    border-color: #e2e8f0;
+}
+
+.edit-all-fields-panel .field-status-badge.inherited {
+    background: #f1f5f9;
+    color: #64748b;
+    border-color: #e2e8f0;
+}
+
+.edit-all-fields-panel .field-status-badge.has-suggestion {
+    background: rgba(0, 102, 153, 0.08);
+    color: #006699;
+    border-color: rgba(0, 102, 153, 0.2);
+}
+
+.edit-all-fields-panel .field-status-badge.other-suggestion {
+    background: rgba(180, 83, 9, 0.08);
+    color: #92400e;
+    border-color: rgba(180, 83, 9, 0.2);
+}
+
+.edit-all-fields-panel .modern-btn {
+    border-radius: 6px;
+    padding: 8px 14px;
+    font-size: 13px;
 }
 
 dialog:modal {
@@ -650,11 +2066,8 @@ dialog.ac-modal-card {
         0 0 0 0.5px rgba(15, 23, 42, 0.04);
     padding: 28px;
     color: inherit;
-    /* 1. Scale + translateY entrance with spring curve */
-    transform: scale(0.97) translateY(6px);
     opacity: 0;
-    transition: transform 0.38s cubic-bezier(0.34, 1.56, 0.64, 1),
-                opacity 0.22s cubic-bezier(0.2, 0, 0, 1);
+    transition: opacity 0.14s ease;
 }
 
 dialog.ac-modal-card::backdrop {
@@ -662,11 +2075,10 @@ dialog.ac-modal-card::backdrop {
     backdrop-filter: blur(16px) saturate(1.4);
     -webkit-backdrop-filter: blur(16px) saturate(1.4);
     opacity: 0;
-    transition: opacity 0.24s cubic-bezier(0.2, 0, 0, 1);
+    transition: opacity 0.14s ease;
 }
 
 dialog.ac-modal-card.is-visible {
-    transform: scale(1) translateY(0);
     opacity: 1;
 }
 
@@ -698,7 +2110,7 @@ dialog.ac-modal-card.is-visible::backdrop {
     min-height: 120px;
     max-height: 280px;
     border: 1.5px solid #e2e8f0;
-    border-radius: 12px;
+    border-radius: 8px;
     padding: 14px 16px;
     font-family: inherit;
     font-size: 14px;
@@ -711,7 +2123,7 @@ dialog.ac-modal-card.is-visible::backdrop {
 }
 
 .ac-modal-textarea::placeholder {
-    color: #94a3b8;
+    color: #64748b;
     font-style: italic;
     font-weight: 400;
 }
@@ -745,30 +2157,23 @@ dialog.ac-modal-card.is-visible::backdrop {
     gap: 10px;
 }
 
-/* 2. Button hover/active: translateY(-1px) on hover,
-      scale(0.98) on active for tactile feel */
 .ac-modal-btn {
     border: 1px solid transparent;
-    border-radius: 999px;
+    border-radius: 6px;
     padding: 9px 20px;
     font-weight: 600;
     font-size: 13px;
     font-family: inherit;
     cursor: pointer;
     line-height: 1.4;
-    transition: background 0.2s cubic-bezier(0.2, 0, 0, 1),
-                border-color 0.2s cubic-bezier(0.2, 0, 0, 1),
-                box-shadow 0.2s cubic-bezier(0.2, 0, 0, 1),
-                transform 0.12s cubic-bezier(0.2, 0, 0, 1),
-                color 0.2s cubic-bezier(0.2, 0, 0, 1);
+    transition: background-color 0.15s ease,
+                border-color 0.15s ease,
+                color 0.15s ease;
 }
 
-.ac-modal-btn:hover {
-    transform: translateY(-1px);
-}
-
+.ac-modal-btn:hover,
 .ac-modal-btn:active {
-    transform: scale(0.98) translateY(0);
+    transform: none;
 }
 
 .ac-modal-btn:focus-visible {
@@ -780,30 +2185,24 @@ dialog.ac-modal-card.is-visible::backdrop {
 .ac-modal-btn-primary {
     background: #2563eb;
     color: white;
-    box-shadow: 0 1px 3px rgba(37, 99, 235, 0.2),
-                inset 0 1px 0 rgba(255, 255, 255, 0.1);
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08);
 }
 
 .ac-modal-btn-primary:hover {
     background: #1d4ed8;
-    box-shadow: 0 3px 10px rgba(37, 99, 235, 0.28),
-                inset 0 1px 0 rgba(255, 255, 255, 0.1);
 }
 
 /* 6. Danger -- solid red, visually most prominent for deny modal */
 .ac-modal-btn-danger {
     background: #dc2626;
     color: white;
-    box-shadow: 0 1px 3px rgba(220, 38, 38, 0.2),
-                inset 0 1px 0 rgba(255, 255, 255, 0.08);
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08);
     font-size: 13px;
     padding: 9px 22px;
 }
 
 .ac-modal-btn-danger:hover {
     background: #b91c1c;
-    box-shadow: 0 3px 12px rgba(220, 38, 38, 0.32),
-                inset 0 1px 0 rgba(255, 255, 255, 0.08);
 }
 
 /* Secondary -- soft surface */
@@ -830,12 +2229,12 @@ dialog.ac-modal-card.is-visible::backdrop {
     color: #475569;
 }
 
-/* 4. Character count: lighter default, orange at 80%, red at 95% */
+/* 4. Character count: accessible contrast, orange at 80%, red at 95% */
 .ac-modal-charcount {
     margin-top: 6px;
     font-size: 11px;
     font-weight: 500;
-    color: #cbd5e1;
+    color: #64748b;
     text-align: right;
     letter-spacing: 0.02em;
     transition: color 0.25s cubic-bezier(0.2, 0, 0, 1);
@@ -881,7 +2280,7 @@ dialog.ac-modal-card.is-visible::backdrop {
     }
 
     .ac-modal-textarea::placeholder {
-        color: #64748b;
+        color: #94a3b8;
     }
 
     .ac-modal-textarea:hover {
@@ -916,7 +2315,7 @@ dialog.ac-modal-card.is-visible::backdrop {
     }
 
     .ac-modal-charcount {
-        color: #475569;
+        color: #94a3b8;
     }
 
     .ac-modal-charcount.near-limit {
@@ -933,7 +2332,7 @@ dialog.ac-modal-card.is-visible::backdrop {
     dialog.ac-modal-card,
     dialog.ac-modal-card::backdrop {
         transform: none;
-        transition: opacity 0.01ms;
+        transition: none;
     }
 
     dialog.ac-modal-card.is-visible {

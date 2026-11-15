@@ -300,27 +300,43 @@ window.SharedUI = (function() {
                     handleMergeNote(noteId, $button);
                     enableButtonOnError = false;
                     break;
+                case 'decline-note':
+                    handleDeclineNote(noteId, $button);
+                    enableButtonOnError = false;
+                    break;
                 case 'accept-note':
-                    if (!confirm('Publish this note?')) { restoreInteractiveButton($button); break; }
+                    if (!confirm('Accept and publish this note?')) {
+                        $button.data('action-cancelled', true);
+                        restoreInteractiveButton($button);
+                        break;
+                    }
                     handleNoteAction(ApiService.acceptNote, noteId, $button, {
                         action: 'accept-note',
-                        errorMessage: 'Failed to publish the note. Please try again.'
+                        errorMessage: 'Failed to accept the note. Please try again.'
                     });
                     enableButtonOnError = false;
                     break;
                 case 'delete-note':
-                    if (!confirm('Delete this unpublished note?')) { restoreInteractiveButton($button); break; }
+                    if (!confirm('Decline and delete this unpublished note?')) {
+                        $button.data('action-cancelled', true);
+                        restoreInteractiveButton($button);
+                        break;
+                    }
                     handleNoteAction(ApiService.deleteNote, noteId, $button, {
                         action: 'delete-note',
-                        errorMessage: 'Failed to delete the note. Please try again.'
+                        errorMessage: 'Failed to decline the note. Please try again.'
                     });
                     enableButtonOnError = false;
                     break;
                 case 'accept-note-removal':
-                    if (!confirm('Permanently delete this note?')) { restoreInteractiveButton($button); break; }
+                    if (!confirm('Accept removal request and permanently delete this note?')) {
+                        $button.data('action-cancelled', true);
+                        restoreInteractiveButton($button);
+                        break;
+                    }
                     handleNoteAction(ApiService.acceptNoteRemoval, noteId, $button, {
                         action: 'accept-note-removal',
-                        errorMessage: 'Failed to confirm the note deletion. Please try again.'
+                        errorMessage: 'Failed to confirm the note removal. Please try again.'
                     });
                     enableButtonOnError = false;
                     break;
@@ -590,7 +606,11 @@ window.SharedUI = (function() {
                  }
                  // Mark visually as accepted and remove action buttons
                  $fieldActions.remove();
-                 $suggestionBox.removeClass('suggestion-box').css({'opacity': 1, 'border-left': '3px solid mediumseagreen'});
+                 if ($suggestionBox.closest('.commit-review-page').length) {
+                     $suggestionBox.removeClass('suggestion-box').addClass('field-accepted').css({'opacity': 1});
+                 } else {
+                     $suggestionBox.removeClass('suggestion-box').css({'opacity': 1, 'border-left': '3px solid mediumseagreen'});
+                 }
 
              } else { // --- Deny Field Succeeded ---
                  // Restore the original content in the left column (remove deletion highlights)
@@ -611,8 +631,10 @@ window.SharedUI = (function() {
                          window.MathJaxEngine.renderInElement($originalDiv[0]);
                      }
                  }
-                 // Remove the entire suggestion box from the UI
-                 $suggestionBox.fadeOut(300, function() {
+                 // Remove the entire field diff row (commit page) or suggestion box (review page) from the UI
+                 const $fieldRow = $suggestionBox.closest('.field-diff-row');
+                 const $removeTarget = $fieldRow.length ? $fieldRow : $suggestionBox;
+                 $removeTarget.fadeOut(300, function() {
                      $(this).remove();
                      syncMathJaxVisibility();
                  });
@@ -628,17 +650,18 @@ window.SharedUI = (function() {
      }
 
      /**
-      * Merges all remaining changes for a reviewed note via BulkNoteAction.
+      * Accepts and merges all remaining changes for a reviewed note via BulkNoteAction.
       */
      async function handleMergeNote(noteId, $button) {
          const normalizedId = normalizeNoteId(noteId);
          if (!normalizedId) {
-             console.error('Merge note: missing valid note id.');
+             console.error('Accept note: missing valid note id.');
              restoreInteractiveButton($button);
              return;
          }
 
-         if (!confirm('Merge all changes for this note?')) {
+         if (!confirm('Accept and merge all changes for this note?')) {
+             $button.data('action-cancelled', true);
              restoreInteractiveButton($button);
              return;
          }
@@ -646,13 +669,14 @@ window.SharedUI = (function() {
          const $noteCard = findNoteCardElement(normalizedId, $button);
          const commitContext = ApiService.getCommitContext($button[0]);
          if (!commitContext.id) {
-             console.error('Merge note: missing commit context.');
+             console.error('Accept note: missing commit context.');
              restoreInteractiveButton($button);
              return;
          }
 
+         const originalHtml = $button.html();
          setNoteProcessingState($noteCard, true);
-         $button.text('Merging...').prop('disabled', true);
+         $button.text('Accepting...').prop('disabled', true);
 
          try {
              const result = await ApiService.bulkNoteAction(
@@ -662,15 +686,65 @@ window.SharedUI = (function() {
              );
 
              if (result && result.failed && result.failed.length > 0) {
-                 throw new Error(result.failed[0].reason || 'Merge failed');
+                 throw new Error(result.failed[0].reason || 'Accept failed');
              }
 
              removeNoteCard($noteCard, 'merge-note');
          } catch (error) {
-             console.error(`Merge note failed for ID ${normalizedId}:`, error);
+             console.error(`Accept note failed for ID ${normalizedId}:`, error);
              setNoteProcessingState($noteCard, false);
-             $button.text('Merge Changes').prop('disabled', false);
-             alert('Failed to merge changes. Please try again.');
+             $button.html(originalHtml).prop('disabled', false);
+             alert('Failed to accept changes. Please try again.');
+         }
+     }
+
+     /**
+      * Declines all remaining changes for a reviewed note via BulkNoteAction.
+      */
+     async function handleDeclineNote(noteId, $button) {
+         const normalizedId = normalizeNoteId(noteId);
+         if (!normalizedId) {
+             console.error('Decline note: missing valid note id.');
+             restoreInteractiveButton($button);
+             return;
+         }
+
+         if (!confirm('Decline all changes for this note?')) {
+             $button.data('action-cancelled', true);
+             restoreInteractiveButton($button);
+             return;
+         }
+
+         const $noteCard = findNoteCardElement(normalizedId, $button);
+         const commitContext = ApiService.getCommitContext($button[0]);
+         if (!commitContext.id) {
+             console.error('Decline note: missing commit context.');
+             restoreInteractiveButton($button);
+             return;
+         }
+
+         const originalHtml = $button.html();
+         setNoteProcessingState($noteCard, true);
+         $button.text('Declining...').prop('disabled', true);
+
+         try {
+             const result = await ApiService.bulkNoteAction(
+                 commitContext.id,
+                 [parseInt(normalizedId, 10)],
+                 'deny',
+                 { silent: false, reason: '' }
+             );
+
+             if (result && result.failed && result.failed.length > 0) {
+                 throw new Error(result.failed[0].reason || 'Decline failed');
+             }
+
+             removeNoteCard($noteCard, 'decline-note');
+         } catch (error) {
+             console.error(`Decline note failed for ID ${normalizedId}:`, error);
+             setNoteProcessingState($noteCard, false);
+             $button.html(originalHtml).prop('disabled', false);
+             alert('Failed to decline changes. Please try again.');
          }
      }
 
