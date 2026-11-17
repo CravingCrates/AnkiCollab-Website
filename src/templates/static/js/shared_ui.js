@@ -501,6 +501,52 @@ window.SharedUI = (function() {
 
     // --- Action Handlers (Called by Event Delegator) ---
 
+    function createEmptySuggestionsState() {
+        const wrapper = document.createElement('div');
+        wrapper.className = 'empty-state';
+
+        const icon = document.createElement('i');
+        icon.className = 'fa-regular fa-circle-check empty-state-icon';
+        icon.setAttribute('aria-hidden', 'true');
+
+        const message = document.createElement('p');
+        message.textContent = 'No pending suggestions for this note.';
+
+        wrapper.appendChild(icon);
+        wrapper.appendChild(message);
+        return wrapper;
+    }
+
+    function removeSuggestionWithCleanup($target, durationMs, options) {
+        const $tagWrapper = (options && options.$tagWrapper) ? options.$tagWrapper : $();
+        const updateCommitGroup = Boolean(options && options.updateCommitGroup);
+        const $commitGroup = updateCommitGroup ? $target.closest('.commit-group') : $();
+        const $suggestionsBody = $target.closest('.suggestions-body');
+
+        $target.fadeOut(durationMs, function() {
+            $(this).remove();
+            if ($tagWrapper.length && $tagWrapper.find('.tag-chip-editable').length === 0) {
+                $tagWrapper.remove();
+            }
+            if ($commitGroup.length) {
+                const remaining = $commitGroup.find('.suggestion-item, .suggestion-box').length;
+                if (remaining === 0) {
+                    $commitGroup.remove();
+                } else {
+                    $commitGroup.find('.commit-change-count').text(
+                        remaining + ' ' + (remaining === 1 ? 'change' : 'changes')
+                    );
+                }
+            }
+            if ($suggestionsBody.length &&
+                $suggestionsBody.children().not('.empty-state').length === 0 &&
+                $suggestionsBody.children('.empty-state').length === 0) {
+                $suggestionsBody.append(createEmptySuggestionsState());
+            }
+            syncMathJaxVisibility();
+        });
+    }
+
     async function handleTagAction(apiMethod, tagId, $button) {
         // Support both old container layout and new chip layout
         let $container = $button.closest('.tag-chip-editable');
@@ -528,7 +574,11 @@ window.SharedUI = (function() {
                 });
             }
             // Remove the tag chip/container with animation
-            $container.fadeOut(200, function() { $(this).remove(); });
+            const $tagSuggestionWrapper = isChipLayout ? $container.closest('.tag-suggestion-item') : $();
+            removeSuggestionWithCleanup($container, 200, {
+                $tagWrapper: $tagSuggestionWrapper,
+                updateCommitGroup: true
+            });
         } catch (error) {
             console.error(`Tag action failed for ID ${tagId}:`, error);
             $container.css('opacity', 1);
@@ -545,7 +595,7 @@ window.SharedUI = (function() {
                  $container.css({'border': '2px solid mediumseagreen', 'opacity': 1})
                            .find('.tag_actions').remove(); // Remove buttons on success
              } else { // Deny Move
-                 $container.fadeOut(300, function() { $(this).remove(); });
+                 removeSuggestionWithCleanup($container, 300);
              }
          } catch (error) {
              console.error(`Move action failed for ID ${moveId}:`, error);
@@ -584,7 +634,13 @@ window.SharedUI = (function() {
 
                      // Update the corresponding 'original' side display
                      const $noteCard = $suggestionBox.closest(NOTE_CONTEXT_SELECTOR);
-                     const $originalDiv = $noteCard.find(ORIGINAL_CONTENT_SELECTOR + '[data-field-id="' + fieldId + '"]');
+                     let $originalDiv = $noteCard.find(ORIGINAL_CONTENT_SELECTOR + '[data-field-id="' + fieldId + '"]');
+                     if (!$originalDiv.length) {
+                         const position = $diffDiv.data('position');
+                         if (position !== undefined) {
+                             $originalDiv = $noteCard.find(CURRENT_CONTENT_SELECTOR + '[data-position="' + position + '"]');
+                         }
+                     }
                      if ($originalDiv.length) {
                          $originalDiv.html(unescapedContent);
                          $originalDiv.data('content', newContent);
@@ -606,7 +662,7 @@ window.SharedUI = (function() {
                  }
                  // Mark visually as accepted and remove action buttons
                  $fieldActions.remove();
-                 if ($suggestionBox.closest('.commit-review-page').length) {
+                 if ($suggestionBox.closest('.commit-review-page, .note-review-page').length) {
                      $suggestionBox.removeClass('suggestion-box').addClass('field-accepted').css({'opacity': 1});
                  } else {
                      $suggestionBox.removeClass('suggestion-box').css({'opacity': 1, 'border-left': '3px solid mediumseagreen'});
@@ -634,10 +690,7 @@ window.SharedUI = (function() {
                  // Remove the entire field diff row (commit page) or suggestion box (review page) from the UI
                  const $fieldRow = $suggestionBox.closest('.field-diff-row');
                  const $removeTarget = $fieldRow.length ? $fieldRow : $suggestionBox;
-                 $removeTarget.fadeOut(300, function() {
-                     $(this).remove();
-                     syncMathJaxVisibility();
-                 });
+                 removeSuggestionWithCleanup($removeTarget, 300, { updateCommitGroup: true });
              }
 
          } catch (error) {

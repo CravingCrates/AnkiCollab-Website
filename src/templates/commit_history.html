@@ -4,289 +4,308 @@
   {% set page_title = "Commit History" %}
   {% include "header_template.html" %}
   <link href="/static/css/commit_styling.css" rel="stylesheet">
+  <link href="/static/css/commit_history.css" rel="stylesheet">
   <script src="/static/js/mathjax_engine.js"></script>
   <script src="/static/js/commit_history.js"></script>
 </head>
 
 {% include "layout_header.html" %}
 
-<div class="main-container">
-  <div class="page-header">
-    <div class="d-flex justify-between align-center">
-      <div class="d-flex align-center">
-        <div>
-          <h1 class="page-title">Commit Impact #{{ commit_id }}</h1>
-          <p class="page-subtitle">Changes made across {{ notes|length }} note{% if notes|length != 1 %}s{% endif %} in this commit</p>
-        </div>
-        {% set has_approved_effect = false %}
-        {% set has_denied_effect = false %}
-        {% set total_changes = 0 %}
-        {% for n in notes %}
-          {% for e in n.events %}
-            {% if e.event_type == 'commit_approved_effect' %}
-              {% set_global has_approved_effect = true %}
-            {% elif e.event_type == 'commit_denied_effect' %}
-              {% set_global has_denied_effect = true %}
-            {% elif e.event_type != 'commit_approved_effect' and e.event_type != 'commit_denied_effect' %}
-              {% set_global total_changes = total_changes + 1 %}
-            {% endif %}
-          {% endfor %}
-        {% endfor %}
-        {% if has_denied_effect %}
-          <span class="commit-status denied">
-            <i class="fa-solid fa-circle-xmark" aria-hidden="true"></i>
-            Commit Denied
-          </span>
-        {% elif has_approved_effect %}
-          <span class="commit-status approved">
-            <i class="fa-solid fa-circle-check" aria-hidden="true"></i>
-            Commit Approved
-          </span>
-        {% else %}
-          <!-- Could be partially approved or not. -->
+<div class="main-container commit-history-page">
+  <div class="container-fluid">
+    {% set has_approved_effect = false %}
+    {% set has_denied_effect = false %}
+    {% set total_changes = 0 %}
+    {% for n in notes %}
+      {% for e in n.events %}
+        {% if e.event_type == 'commit_approved_effect' %}
+          {% set_global has_approved_effect = true %}
+        {% elif e.event_type == 'commit_denied_effect' %}
+          {% set_global has_denied_effect = true %}
+        {% elif e.event_type != 'commit_approved_effect' and e.event_type != 'commit_denied_effect' %}
+          {% set_global total_changes = total_changes + 1 %}
         {% endif %}
-      </div>
-      <div class="d-flex align-center gap-8">
-        <button type="button" class="mathjax-toggle-btn" aria-pressed="false" title="Toggle MathJax rendering" hidden>
-          <i class="fa-solid fa-square-root-variable" aria-hidden="true"></i>
-          <span>MathJax</span>
-        </button>
-        <a href="/reviews" class="back-button">
-          <i class="fa-solid fa-arrow-left" aria-hidden="true"></i>
-          Back to Reviews
-        </a>
-      </div>
-    </div>
-  </div>
+      {% endfor %}
+    {% endfor %}
 
-  {% if notes|length == 0 %}
-    <div class="empty-state">
-      <div class="empty-icon">📝</div>
-      <h3 class="empty-title">No Changes Recorded</h3>
-      <p class="empty-description">This commit doesn't have any recorded changes yet.</p>
-    </div>
-  {% else %}
-    <div class="notes-grid">
-      {% for n in notes %}
-        <div class="note-card">
-          <div class="note-header">
-            <div class="note-info">
-              <h3 class="note-id">Note #{{ n.note_id }}</h3>
-              <div class="version-range">Version {{ n.min_version }} → {{ n.max_version }}</div>
-              
-              <div class="changes-summary">
-                {% if n.field_added > 0 %}
-                  <div class="change-stat stat-added">
-                    <span>+{{ n.field_added }} field{% if n.field_added != 1 %}s{% endif %}</span>
-                  </div>
-                {% endif %}
-                {% if n.field_updated > 0 %}
-                  <div class="change-stat stat-updated">
-                    <span>~{{ n.field_updated }} updated</span>
-                  </div>
-                {% endif %}
-                {% if n.field_removed > 0 %}
-                  <div class="change-stat stat-removed">
-                    <span>-{{ n.field_removed }} removed</span>
-                  </div>
-                {% endif %}
-                {% if n.tag_added > 0 %}
-                  <div class="change-stat stat-added">
-                    <span>+{{ n.tag_added }} tag{% if n.tag_added != 1 %}s{% endif %}</span>
-                  </div>
-                {% endif %}
-                {% if n.tag_removed > 0 %}
-                  <div class="change-stat stat-removed">
-                    <span>-{{ n.tag_removed }} tag{% if n.tag_removed != 1 %}s{% endif %}</span>
-                  </div>
-                {% endif %}
-                {% if n.moved %}
-                  <div class="change-stat stat-moved">
-                    <span>Moved</span>
-                  </div>
-                {% endif %}
-                {% if n.deleted %}
-                  <div class="change-stat stat-deleted">
-                    <span>Deleted</span>
-                  </div>
-                {% endif %}
-              </div>
+    <header class="page-header commit-header-surface" aria-label="Commit impact summary and actions">
+      <div class="header-content">
+        <div class="commit-header-top">
+          <div class="commit-identity">
+            <div class="commit-breadcrumb">
+              <a href="/reviews" class="commit-back-link back-button">
+                <i class="fa-solid fa-arrow-left" aria-hidden="true"></i>
+                <span>Reviews</span>
+              </a>
+              <span class="crumb-sep" aria-hidden="true">/</span>
+              <h1 class="page-title">Commit Impact #{{ commit_id }}</h1>
+              {% if has_denied_effect %}
+                <span class="note-status-badge badge-removal commit-status denied">
+                  <i class="fa-solid fa-xmark" aria-hidden="true"></i>
+                  Commit Declined
+                </span>
+              {% elif has_approved_effect %}
+                <span class="note-status-badge badge-new commit-status approved">
+                  <i class="fa-solid fa-check" aria-hidden="true"></i>
+                  Commit Accepted
+                </span>
+              {% endif %}
             </div>
-            
-            <div class="note-actions">
-              <a href="/review/{{ n.note_id }}" class="action-button">
-                <i class="fa-solid fa-eye" aria-hidden="true"></i>
-                Review
-              </a>
-              <a href="/note_history/{{ n.note_id }}" class="action-button secondary">
-                <i class="fa-solid fa-clock-rotate-left" aria-hidden="true"></i>
-                History
-              </a>
-              <button class="toggle-button toggle-events-btn" data-note-id="{{ n.note_id }}">
-                Hide Details
-              </button>
+            <div class="commit-meta" aria-label="Commit impact details">
+              <span class="meta-item page-subtitle">
+                <i class="fa-regular fa-file-lines" aria-hidden="true"></i>
+                <span>Changes made across {{ notes|length }} note{% if notes|length != 1 %}s{% endif %} in this commit</span>
+              </span>
+              {% if total_changes > 0 %}
+              <span class="meta-sep" aria-hidden="true">&middot;</span>
+              <span class="meta-item">{{ total_changes }} event{% if total_changes != 1 %}s{% endif %}</span>
+              {% endif %}
             </div>
           </div>
 
-          <div id="events-{{ n.note_id }}" class="events-container events-visible">
-            {% for e in n.events %}
-              {% if e.event_type != 'commit_approved_effect' %}
-                {% set event_class = '' %}
-                {% set status_badge = '' %}
-                {% if 'added' in e.event_type %}
-                  {% set event_class = 'added' %}
-                {% elif 'updated' in e.event_type %}
-                  {% set event_class = 'updated' %}
-                {% elif 'removed' in e.event_type or 'deleted' in e.event_type %}
-                  {% set event_class = 'removed' %}
-                {% endif %}
-                
-                {% if 'approved' in e.event_type %}
-                  {% set status_badge = 'approved' %}
-                {% elif 'denied' in e.event_type %}
-                  {% set status_badge = 'denied' %}
-                {% endif %}
+          <div class="commit-primary-actions" role="toolbar" aria-label="Commit impact actions">
+            <button type="button" class="mathjax-toggle-btn mathjax-toggle-btn-light" aria-pressed="false" title="Toggle MathJax rendering" hidden>
+              <i class="fa-solid fa-square-root-variable" aria-hidden="true"></i>
+              <span>MathJax</span>
+            </button>
+            <a href="/commit/{{ commit_id }}" class="commit-btn commit-btn-neutral">
+              <i class="fa-solid fa-code-branch" aria-hidden="true"></i>
+              <span>Open Commit</span>
+            </a>
+          </div>
+        </div>
+      </div>
+    </header>
 
-                <div class="event-item {{ event_class }}">
-                  <div class="event-header">
-                    <div class="d-flex align-center gap-8">
-                      <span class="event-type">
-                        {{ e.event_type | replace(from='_', to=' ') | title }}
-                      </span>
-                      {% if status_badge %}
-                        <span class="commit-status {{ status_badge }} commit-status-inline">
-                          {% if status_badge == 'approved' %}
-                            <i class="fa-solid fa-check" aria-hidden="true"></i> Approved
-                          {% else %}
-                            <i class="fa-solid fa-xmark" aria-hidden="true"></i> Denied
-                          {% endif %}
+    {% if notes|length == 0 %}
+      <div class="commit-empty-state empty-state">
+        <div class="commit-empty-icon empty-icon"><i class="fa-regular fa-file-lines" aria-hidden="true"></i></div>
+        <h2 class="empty-title">No Changes Recorded</h2>
+        <p class="empty-description">This commit doesn't have any recorded changes yet.</p>
+      </div>
+    {% else %}
+      <div class="notes-grid notes-container">
+        {% for n in notes %}
+          <div class="note-card {% if n.deleted %}note-card-removed{% elif n.field_added > 0 and n.min_version == 1 %}note-card-added{% endif %}">
+            <div class="note-header note-header-compact">
+              <div class="note-info note-header-info">
+                <a href="/review/{{ n.note_id }}" class="note-id-link note-id">#{{ n.note_id }}</a>
+                <span class="version-range note-meta-inline">v{{ n.min_version }} &rarr; v{{ n.max_version }}</span>
+
+                <div class="changes-summary">
+                  {% if n.field_added > 0 %}
+                    <div class="change-stat note-status-badge stat-added">
+                      <span>+{{ n.field_added }} field{% if n.field_added != 1 %}s{% endif %}</span>
+                    </div>
+                  {% endif %}
+                  {% if n.field_updated > 0 %}
+                    <div class="change-stat note-status-badge stat-updated">
+                      <span>~{{ n.field_updated }} updated</span>
+                    </div>
+                  {% endif %}
+                  {% if n.field_removed > 0 %}
+                    <div class="change-stat note-status-badge stat-removed">
+                      <span>&minus;{{ n.field_removed }} removed</span>
+                    </div>
+                  {% endif %}
+                  {% if n.tag_added > 0 %}
+                    <div class="change-stat note-status-badge stat-added">
+                      <span>+{{ n.tag_added }} tag{% if n.tag_added != 1 %}s{% endif %}</span>
+                    </div>
+                  {% endif %}
+                  {% if n.tag_removed > 0 %}
+                    <div class="change-stat note-status-badge stat-removed">
+                      <span>&minus;{{ n.tag_removed }} tag{% if n.tag_removed != 1 %}s{% endif %}</span>
+                    </div>
+                  {% endif %}
+                  {% if n.moved %}
+                    <div class="change-stat note-status-badge stat-moved">
+                      <span>Moved</span>
+                    </div>
+                  {% endif %}
+                  {% if n.deleted %}
+                    <div class="change-stat note-status-badge stat-deleted">
+                      <span>Deleted</span>
+                    </div>
+                  {% endif %}
+                </div>
+              </div>
+
+              <div class="note-actions note-header-actions" role="toolbar" aria-label="Actions for note #{{ n.note_id }}">
+                <a href="/review/{{ n.note_id }}" class="card-utility-btn action-button">
+                  <i class="fa-solid fa-eye" aria-hidden="true"></i>
+                  <span>Review</span>
+                </a>
+                <a href="/note_history/{{ n.note_id }}" class="card-utility-btn action-button secondary">
+                  <i class="fa-solid fa-clock-rotate-left" aria-hidden="true"></i>
+                  <span>History</span>
+                </a>
+                <button type="button" class="card-utility-btn toggle-button toggle-events-btn" data-note-id="{{ n.note_id }}">Hide Details</button>
+              </div>
+            </div>
+
+            <div id="events-{{ n.note_id }}" class="events-container events-visible">
+              {% for e in n.events %}
+                {% if e.event_type != 'commit_approved_effect' %}
+                  {% set event_class = '' %}
+                  {% set status_badge = '' %}
+                  {% if 'added' in e.event_type %}
+                    {% set event_class = 'added' %}
+                  {% elif 'updated' in e.event_type %}
+                    {% set event_class = 'updated' %}
+                  {% elif 'removed' in e.event_type or 'deleted' in e.event_type %}
+                    {% set event_class = 'removed' %}
+                  {% endif %}
+
+                  {% if 'approved' in e.event_type %}
+                    {% set status_badge = 'approved' %}
+                  {% elif 'denied' in e.event_type %}
+                    {% set status_badge = 'denied' %}
+                  {% endif %}
+
+                  <div class="event-item {{ event_class }}">
+                    <div class="event-header">
+                      <div class="event-header-start">
+                        <span class="event-type">
+                          {{ e.event_type | replace(from='_', to=' ') | title }}
                         </span>
-                      {% endif %}
+                        {% if status_badge %}
+                          <span class="note-status-badge {% if status_badge == 'approved' %}badge-new{% else %}badge-removal{% endif %} commit-status {{ status_badge }} commit-status-inline">
+                            {% if status_badge == 'approved' %}
+                              <i class="fa-solid fa-check" aria-hidden="true"></i> Approved
+                            {% else %}
+                              <i class="fa-solid fa-xmark" aria-hidden="true"></i> Denied
+                            {% endif %}
+                          </span>
+                        {% endif %}
+                      </div>
+                      <span class="event-meta">
+                        <span>v{{ e.version }} &middot; {{ e.created_at }}</span>
+                        {% if e.actor_username is defined and e.actor_username %}
+                          <span class="actor-chip"><i class="fa-solid fa-user" aria-hidden="true"></i> @{{ e.actor_username }}</span>
+                        {% endif %}
+                      </span>
                     </div>
-                    <span class="event-meta">
-                      v{{ e.version }} • {{ e.created_at }}
-                      {% if e.actor_username is defined and e.actor_username %}
-                        <span class="actor-chip"><i class="fa-solid fa-user" aria-hidden="true"></i> @{{ e.actor_username }}</span>
-                      {% endif %}
-                    </span>
-                  </div>
-                
-                {% if e.rationale is defined and e.rationale %}
-                  <div class="event-meta event-meta-styled">
-                    "{{ e.rationale }}"
-                  </div>
-                {% endif %}
 
-                {% if e.event_type == 'field_updated' %}
-                  <div class="event-diff field-update-comparison">
-                    {% if e.field_name is defined and e.field_name %}
-                      <div class="field-name-label">{{ e.field_name }}</div>
-                    {% endif %}
-                    <div class="comparison-container">
-                      <div class="comparison-side previous">
-                        <div class="comparison-label">Previous</div>
-                        <div class="comparison-content">
-                          {{ e.old_human | default(value='(empty)') }}
-                        </div>
-                      </div>
-                      <div class="comparison-divider">
-                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true" focusable="false">
-                          <path d="M5 12h14M12 5l7 7-7 7"/>
-                        </svg>
-                      </div>
-                      <div class="comparison-side updated">
-                        <div class="comparison-label">Updated</div>
-                        <div class="comparison-content">
-                          {{ e.new_human | default(value='(empty)') }}
-                        </div>
-                      </div>
+                  {% if e.rationale is defined and e.rationale %}
+                    <div class="event-meta event-meta-styled">
+                      "{{ e.rationale }}"
                     </div>
-                  </div>
-                {% elif e.event_type == 'field_added' %}
-                  <div class="event-diff field-added-display">
-                    {% if e.field_name is defined and e.field_name %}
-                      <div class="field-name-label">{{ e.field_name }}</div>
-                    {% endif %}
-                    <div class="added-content-preview">
-                      {{ e.new_human | default(value='(empty)') }}
-                    </div>
-                  </div>
-                {% elif e.event_type == 'field_removed' %}
-                  <div class="event-diff field-removed-display">
-                    {% if e.field_name is defined and e.field_name %}
-                      <div class="field-name-label">{{ e.field_name }}</div>
-                    {% endif %}
-                    <div class="removed-content-preview">
-                      {{ e.old_human | default(value='(unknown)') }}
-                    </div>
-                  </div>
-                {% elif e.event_type == 'tag_added' %}
-                  <div class="event-diff tag-added-display">
-                    <div class="tag-preview added">
-                      {{ e.new_human | default(value='') }}
-                    </div>
-                  </div>
-                {% elif e.event_type == 'tag_removed' %}
-                  <div class="event-diff tag-removed-display">
-                    <div class="tag-preview removed">
-                      {{ e.new_human | default(value=e.old_human) | default(value='') }}
-                    </div>
-                  </div>
-                {% elif e.event_type == 'note_moved' %}
-                  <div class="event-diff note-move-display">
-                    <div class="move-comparison">
-                      <div class="move-from">{{ e.old_human | default(value='') }}</div>
-                      <div class="move-arrow">
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true" focusable="false">
-                          <path d="M5 12h14M12 5l7 7-7 7"/>
-                        </svg>
-                      </div>
-                      <div class="move-to">{{ e.new_human | default(value='') }}</div>
-                    </div>
-                  </div>
-                {% elif e.event_type == 'field_change_denied' %}
-                  <div class="event-diff denied-field-change">
-                    {% if e.old_value and (e.old_value.had_current | default(value=false)) %}
+                  {% endif %}
+
+                  {% if e.event_type == 'field_updated' %}
+                    <div class="event-diff field-update-comparison">
+                      {% if e.field_name is defined and e.field_name %}
+                        <div class="field-name-label">{{ e.field_name }}</div>
+                      {% endif %}
                       <div class="comparison-container">
-                        <div class="comparison-side current">
-                          <div class="comparison-label">Current</div>
+                        <div class="comparison-side previous">
+                          <div class="comparison-label">Previous</div>
                           <div class="comparison-content">
-                            {{ e.old_value.current_content | default(value='(empty)') }}
+                            {{ e.old_human | default(value='(empty)') }}
                           </div>
                         </div>
-                        <div class="comparison-divider">
+                        <div class="comparison-divider" aria-hidden="true">
                           <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true" focusable="false">
                             <path d="M5 12h14M12 5l7 7-7 7"/>
                           </svg>
                         </div>
-                        <div class="comparison-side denied">
-                          <div class="comparison-label">Suggested</div>
+                        <div class="comparison-side updated">
+                          <div class="comparison-label">Updated</div>
                           <div class="comparison-content">
-                            {{ e.old_value.denied_content | default(value='(empty)') }}
+                            {{ e.new_human | default(value='(empty)') }}
                           </div>
                         </div>
                       </div>
-                    {% else %}
-                      <div class="new-field-denied">
-                        <div class="denied-content-preview">
-                          {{ e.old_value.denied_content | default(value='(empty)') }}
-                        </div>
+                    </div>
+                  {% elif e.event_type == 'field_added' %}
+                    <div class="event-diff field-added-display">
+                      {% if e.field_name is defined and e.field_name %}
+                        <div class="field-name-label">{{ e.field_name }}</div>
+                      {% endif %}
+                      <div class="added-content-preview">
+                        {{ e.new_human | default(value='(empty)') }}
                       </div>
-                    {% endif %}
-                  </div>
-                {% elif e.event_type == 'tag_change_denied' %}
-                  <div class="event-diff denied-tag-change">
-                    {{ e.old_human | default(value='Tag change') }}
+                    </div>
+                  {% elif e.event_type == 'field_removed' %}
+                    <div class="event-diff field-removed-display">
+                      {% if e.field_name is defined and e.field_name %}
+                        <div class="field-name-label">{{ e.field_name }}</div>
+                      {% endif %}
+                      <div class="removed-content-preview">
+                        {{ e.old_human | default(value='(unknown)') }}
+                      </div>
+                    </div>
+                  {% elif e.event_type == 'tag_added' %}
+                    <div class="event-diff tag-added-display">
+                      <div class="tag-preview added">
+                        <span class="tag-diff-prefix" aria-hidden="true">+</span>
+                        <span>{{ e.new_human | default(value='') }}</span>
+                      </div>
+                    </div>
+                  {% elif e.event_type == 'tag_removed' %}
+                    <div class="event-diff tag-removed-display">
+                      <div class="tag-preview removed">
+                        <span class="tag-diff-prefix" aria-hidden="true">&minus;</span>
+                        <span>{{ e.new_human | default(value=e.old_human) | default(value='') }}</span>
+                      </div>
+                    </div>
+                  {% elif e.event_type == 'note_moved' %}
+                    <div class="event-diff note-move-display">
+                      <div class="move-comparison">
+                        <div class="move-from">{{ e.old_human | default(value='') }}</div>
+                        <div class="move-arrow" aria-hidden="true">
+                          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true" focusable="false">
+                            <path d="M5 12h14M12 5l7 7-7 7"/>
+                          </svg>
+                        </div>
+                        <div class="move-to">{{ e.new_human | default(value='') }}</div>
+                      </div>
+                    </div>
+                  {% elif e.event_type == 'field_change_denied' %}
+                    <div class="event-diff denied-field-change">
+                      {% if e.old_value and (e.old_value.had_current | default(value=false)) %}
+                        <div class="comparison-container">
+                          <div class="comparison-side current">
+                            <div class="comparison-label">Current</div>
+                            <div class="comparison-content">
+                              {{ e.old_value.current_content | default(value='(empty)') }}
+                            </div>
+                          </div>
+                          <div class="comparison-divider" aria-hidden="true">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true" focusable="false">
+                              <path d="M5 12h14M12 5l7 7-7 7"/>
+                            </svg>
+                          </div>
+                          <div class="comparison-side denied">
+                            <div class="comparison-label">Suggested</div>
+                            <div class="comparison-content">
+                              {{ e.old_value.denied_content | default(value='(empty)') }}
+                            </div>
+                          </div>
+                        </div>
+                      {% else %}
+                        <div class="new-field-denied">
+                          <div class="denied-content-preview">
+                            {{ e.old_value.denied_content | default(value='(empty)') }}
+                          </div>
+                        </div>
+                      {% endif %}
+                    </div>
+                  {% elif e.event_type == 'tag_change_denied' %}
+                    <div class="event-diff denied-tag-change">
+                      {{ e.old_human | default(value='Tag change') }}
+                    </div>
+                  {% endif %}
                   </div>
                 {% endif %}
-                </div>
-              {% endif %}
-            {% endfor %}
+              {% endfor %}
+            </div>
           </div>
-        </div>
-      {% endfor %}
-    </div>
-  {% endif %}
+        {% endfor %}
+      </div>
+    {% endif %}
+  </div>
 </div>
 {% include "layout_footer.html" %}
 </body>

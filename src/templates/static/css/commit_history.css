@@ -1,0 +1,1048 @@
+/**
+ * commit_history.css - Commit impact history page styles
+ */
+
+/* --- Canvas & Design Tokens --- */
+:root:has(.commit-history-page) {
+    color-scheme: light dark;
+}
+
+body:has(.commit-history-page),
+.content-body:has(.commit-history-page) {
+    background-color: #f2f2f7;
+    background-image: none;
+}
+
+.commit-history-page {
+    --ac-canvas: #f2f2f7;
+    --ac-surface: #ffffff;
+    --ac-surface-subtle: #f7f8fa;
+    --ac-surface-muted: #ebedf2;
+    --ac-ink-primary: #111827;
+    --ac-ink-secondary: #374151;
+    --ac-ink-tertiary: #525866;
+    --ac-line-hairline: #d4d8e0;
+    --ac-line-strong: #949ba8;
+    --ac-accent: #006699;
+    --ac-accent-hover: #00527a;
+    --ac-accent-soft: rgba(0, 102, 153, 0.12);
+    --ac-accept: #0b6e4f;
+    --ac-accept-hover: #08563d;
+    --ac-decline: #b42318;
+    --ac-decline-soft: rgba(180, 35, 24, 0.1);
+    --ac-diff-ins-bg: #d1f4de;
+    --ac-diff-ins-ink: #064e3b;
+    --ac-diff-del-bg: #ffdce0;
+    --ac-diff-del-ink: #86181d;
+    --ac-shadow-card: 0 1px 2px rgba(0, 0, 0, 0.06), 0 0 0 0.5px rgba(0, 0, 0, 0.04);
+    --ac-radius-card: 10px;
+    --ac-radius-control: 6px;
+    --ac-orig-box-bg: #fff2f2;
+    --ac-orig-box-border: #e5a9b0;
+    --ac-prop-box-bg: #ecfdf3;
+    --ac-prop-box-border: #8fd9ad;
+
+    color-scheme: light dark;
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 20px 24px 48px;
+    color: var(--ac-ink-primary);
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Inter", "Segoe UI", system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+}
+
+.commit-history-page > .container-fluid {
+    padding: 0;
+    max-width: 100%;
+}
+
+.commit-history-page [hidden],
+.commit-history-page .hidden {
+    display: none !important;
+}
+
+.commit-history-page :is(a, button, input, summary, [tabindex]):focus-visible {
+    outline: 2px solid var(--ac-accent);
+    outline-offset: 2px;
+}
+
+/* --- Strip Legacy Gradients & Decorative Bars --- */
+.commit-history-page .page-header::before,
+.commit-history-page .page-header::after,
+.commit-history-page .note-card::before,
+.commit-history-page .note-card::after,
+.commit-history-page .comparison-side::before,
+.commit-history-page .added-content-preview::before,
+.commit-history-page .removed-content-preview::before,
+.commit-history-page .denied-content-preview::before {
+    display: none !important;
+    content: none !important;
+}
+
+.commit-history-page :is(
+    .page-header,
+    .note-card,
+    .note-header,
+    .note-header-compact,
+    .note-status-badge,
+    .change-stat,
+    .commit-status,
+    .event-item,
+    .comparison-side,
+    .added-content-preview,
+    .removed-content-preview,
+    .denied-content-preview,
+    .denied-field-change,
+    .field-update-comparison,
+    .field-added-display,
+    .field-removed-display,
+    .denied-tag-change,
+    .tag-preview,
+    .move-from,
+    .move-to,
+    .commit-btn,
+    .card-utility-btn,
+    .action-button,
+    .toggle-button
+) {
+    background-image: none !important;
+}
+
+.commit-history-page :is(
+    .note-card,
+    .commit-btn,
+    .card-utility-btn,
+    .action-button,
+    .toggle-button,
+    .back-button,
+    .comparison-side,
+    .added-content-preview,
+    .removed-content-preview,
+    .tag-preview,
+    .move-from,
+    .move-to,
+    .mathjax-toggle-btn
+):is(:hover, :active) {
+    transform: none !important;
+}
+
+/* --- Header Surface --- */
+.commit-history-page .page-header.commit-header-surface {
+    background-color: #e3eef4;
+    color: #1f2933;
+    border: 1px solid #c2d6e3;
+    border-radius: var(--ac-radius-card);
+    box-shadow: 0 1px 2px rgba(0, 102, 153, 0.06);
+    padding: 16px 20px;
+    margin: 0 0 16px;
+}
+
+.commit-history-page .header-content {
+    position: relative;
+    z-index: 1;
+}
+
+.commit-history-page .commit-header-top {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+}
+
+.commit-history-page .commit-identity {
+    min-width: 0;
+    flex: 1 1 320px;
+}
+
+.commit-history-page .commit-breadcrumb {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 6px;
+}
+
+.commit-history-page .commit-back-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    min-block-size: 24px;
+    padding: 3px 6px;
+    margin-left: -6px;
+    border-radius: 5px;
+    font-size: 13px;
+    font-weight: 550;
+    color: #005580;
+    background: transparent;
+    border: 0;
+    backdrop-filter: none;
+    text-decoration: none;
+    transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.commit-history-page .commit-back-link:hover {
+    background: rgba(0, 102, 153, 0.11);
+    color: #004266;
+    text-decoration: none;
+}
+
+.commit-history-page .crumb-sep {
+    color: #7b8794;
+    font-size: 13px;
+    user-select: none;
+}
+
+.commit-history-page .page-title {
+    margin: 0;
+    font-size: 20px;
+    font-weight: 650;
+    line-height: 1.25;
+    letter-spacing: -0.02em;
+    color: #1f2933;
+    font-variant-numeric: tabular-nums;
+    text-wrap: balance;
+}
+
+.commit-history-page .commit-meta {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin: 0;
+    font-size: 12.5px;
+    color: #4b5b69;
+    opacity: 1;
+}
+
+.commit-history-page .commit-meta .meta-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+    font-size: 12.5px;
+    color: inherit;
+    opacity: 1;
+    font-variant-numeric: tabular-nums;
+}
+
+.commit-history-page .commit-meta .meta-sep {
+    opacity: 0.6;
+}
+
+/* --- Badges & Status Pills --- */
+.commit-history-page .note-status-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    margin: 0;
+    padding: 2px 7px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+    border: 1px solid transparent;
+    font-variant-numeric: tabular-nums;
+    text-box: trim-both cap alphabetic;
+}
+
+.commit-history-page .note-status-badge i {
+    margin: 0;
+    font-size: 10px;
+}
+
+.commit-history-page .note-status-badge.badge-new,
+.commit-history-page .change-stat.stat-added {
+    color: var(--ac-diff-ins-ink);
+    background: var(--ac-diff-ins-bg);
+    border-color: rgba(8, 116, 67, 0.24);
+}
+
+.commit-history-page .note-status-badge.badge-removal,
+.commit-history-page .change-stat.stat-removed,
+.commit-history-page .change-stat.stat-deleted {
+    color: var(--ac-diff-del-ink);
+    background: var(--ac-diff-del-bg);
+    border-color: rgba(180, 35, 24, 0.24);
+}
+
+.commit-history-page .change-stat.stat-updated,
+.commit-history-page .change-stat.stat-moved {
+    color: var(--ac-accent);
+    background: var(--ac-accent-soft);
+    border-color: rgba(0, 102, 153, 0.22);
+}
+
+/* --- Header Toolbar & Buttons --- */
+.commit-history-page .commit-primary-actions {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+    flex-shrink: 0;
+}
+
+.commit-history-page .commit-btn {
+    box-sizing: border-box;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    height: auto;
+    min-block-size: 34px;
+    min-inline-size: 24px;
+    max-height: none;
+    margin: 0;
+    padding: 6px 12px;
+    border-radius: var(--ac-radius-control);
+    font-size: 13px;
+    font-weight: 550;
+    line-height: 1.385;
+    border: 1px solid transparent;
+    cursor: pointer;
+    text-decoration: none;
+    transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.commit-history-page .commit-btn-neutral,
+.commit-history-page .commit-header-surface .commit-btn-neutral {
+    background: #ffffff;
+    color: #1f2933;
+    border-color: #bfd3e0;
+}
+
+.commit-history-page .commit-btn-neutral:hover,
+.commit-history-page .commit-header-surface .commit-btn-neutral:hover {
+    background: #f5f7f9;
+    color: #1f2933;
+    border-color: #8eb4ca;
+    text-decoration: none;
+}
+
+.commit-history-page .mathjax-toggle-btn.mathjax-toggle-btn-light {
+    box-sizing: border-box;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    height: auto;
+    min-block-size: 34px;
+    max-height: none;
+    margin: 0;
+    padding: 6px 12px;
+    border-radius: var(--ac-radius-control);
+    font-size: 13px;
+    font-weight: 550;
+    line-height: 1.385;
+    background: #ffffff;
+    color: #3b4b59;
+    border: 1px solid #bfd3e0;
+    box-shadow: none;
+    transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.commit-history-page .mathjax-toggle-btn.mathjax-toggle-btn-light:hover {
+    background: #f5f7f9;
+    color: #1f2933;
+    border-color: #8eb4ca;
+}
+
+.commit-history-page .mathjax-toggle-btn.mathjax-toggle-btn-light[aria-pressed="true"] {
+    background: #cfe4f0;
+    color: #004c73;
+    border-color: #7eb0cc;
+}
+
+/* --- Notes List & Cards --- */
+.commit-history-page .notes-grid.notes-container {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.commit-history-page .note-card {
+    background: var(--ac-surface);
+    border: 1px solid #d1d5de;
+    border-radius: var(--ac-radius-card);
+    box-shadow: var(--ac-shadow-card);
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+}
+
+.commit-history-page .note-card:hover {
+    border-color: #aebccf;
+    box-shadow: var(--ac-shadow-card);
+}
+
+.commit-history-page .note-card.note-card-added,
+.commit-history-page .note-card.note-card-added:hover {
+    border-left: 3px solid #087443;
+}
+
+.commit-history-page .note-card.note-card-removed,
+.commit-history-page .note-card.note-card-removed:hover {
+    border-left: 3px solid #b42318;
+}
+
+.commit-history-page .note-header.note-header-compact {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 10px 14px;
+    padding: 11px 18px;
+    margin: 0;
+    background: var(--ac-surface-subtle);
+    border-bottom: 1px solid var(--ac-line-hairline);
+}
+
+.commit-history-page .note-card:has(.events-container.events-hidden) .note-header.note-header-compact {
+    border-bottom: 0;
+}
+
+.commit-history-page .note-header-info {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px 10px;
+    min-width: 0;
+    flex: 1 1 260px;
+}
+
+.commit-history-page .note-id-link {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--ac-ink-primary);
+    text-decoration: none;
+    font-variant-numeric: tabular-nums;
+    margin: 0;
+}
+
+.commit-history-page .note-id-link:hover {
+    color: var(--ac-accent);
+    text-decoration: underline;
+}
+
+.commit-history-page .version-range.note-meta-inline {
+    font-size: 12.5px;
+    color: var(--ac-ink-tertiary);
+    margin: 0;
+    font-variant-numeric: tabular-nums;
+}
+
+.commit-history-page .changes-summary {
+    display: inline-flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    margin: 0;
+}
+
+.commit-history-page .note-header-actions {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.commit-history-page .card-utility-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    height: auto;
+    min-block-size: 30px;
+    padding: 4px 10px;
+    border-radius: var(--ac-radius-control);
+    border: 1px solid var(--ac-line-hairline);
+    background: var(--ac-surface);
+    color: var(--ac-ink-secondary);
+    font-size: 12.5px;
+    font-weight: 500;
+    line-height: 1.35;
+    text-decoration: none;
+    cursor: pointer;
+    transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.commit-history-page .card-utility-btn:hover {
+    background: var(--ac-surface-muted);
+    color: var(--ac-ink-primary);
+    border-color: var(--ac-line-strong);
+    text-decoration: none;
+}
+
+/* --- Events Container & Rows --- */
+.commit-history-page .events-container {
+    margin: 0;
+    padding: 0;
+}
+
+.commit-history-page .events-hidden {
+    display: none;
+}
+
+.commit-history-page .events-visible {
+    display: block;
+}
+
+.commit-history-page .event-item {
+    padding: 14px 18px;
+    margin: 0;
+    background: transparent;
+    border: 0;
+    border-left: 3px solid transparent;
+    border-radius: 0;
+    transition: background-color 0.15s ease;
+}
+
+.commit-history-page .event-item.added {
+    border-left-color: #087443;
+}
+
+.commit-history-page .event-item.updated {
+    border-left-color: var(--ac-accent);
+}
+
+.commit-history-page .event-item.removed {
+    border-left-color: #b42318;
+}
+
+.commit-history-page .event-item:not(:last-child) {
+    border-bottom: 1px solid var(--ac-line-hairline);
+}
+
+.commit-history-page .event-item:hover {
+    background: var(--ac-surface-subtle);
+    margin: 0;
+    padding: 14px 18px;
+    border-radius: 0;
+}
+
+.commit-history-page .event-item:not(:last-child):hover {
+    border-bottom: 1px solid var(--ac-line-hairline);
+}
+
+.commit-history-page .event-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 10px;
+}
+
+.commit-history-page .event-header-start {
+    display: inline-flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.commit-history-page .event-type {
+    display: inline-flex;
+    align-items: center;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: 600;
+    background: var(--ac-surface-muted);
+    color: var(--ac-ink-secondary);
+}
+
+.commit-history-page .event-meta {
+    display: inline-flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+    font-size: 12px;
+    color: var(--ac-ink-tertiary);
+    font-variant-numeric: tabular-nums;
+}
+
+.commit-history-page .actor-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    margin-left: 0;
+    padding: 2px 8px;
+    border-radius: 4px;
+    background: var(--ac-accent-soft);
+    color: var(--ac-accent);
+    font-weight: 550;
+    font-size: 12px;
+}
+
+.commit-history-page .actor-chip i {
+    font-size: 10px;
+}
+
+.commit-history-page .event-meta-styled {
+    display: block;
+    margin: 0 0 10px;
+    padding: 6px 10px;
+    background: var(--ac-surface-subtle);
+    border-left: 2px solid var(--ac-line-strong);
+    border-radius: 0 6px 6px 0;
+    font-size: 13px;
+    color: var(--ac-ink-secondary);
+    font-style: italic;
+}
+
+/* --- Diff & Content Previews --- */
+.commit-history-page .event-diff {
+    margin-top: 4px;
+}
+
+.commit-history-page .field-name-label {
+    font-size: 11.5px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--ac-ink-tertiary);
+    margin-bottom: 6px;
+}
+
+.commit-history-page .field-update-comparison,
+.commit-history-page .field-added-display,
+.commit-history-page .field-removed-display,
+.commit-history-page .denied-field-change {
+    background: transparent;
+    border: 0;
+    border-radius: 0;
+    padding: 0;
+    margin: 4px 0 0;
+    box-shadow: none;
+}
+
+.commit-history-page .comparison-container {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 0;
+    border: 1px solid var(--ac-line-hairline);
+    border-radius: 8px;
+    background: var(--ac-surface);
+    overflow: hidden;
+}
+
+.commit-history-page .comparison-divider {
+    display: none;
+}
+
+.commit-history-page .comparison-side {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    min-height: 0;
+    padding: 12px 14px;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+    opacity: 1;
+}
+
+.commit-history-page .comparison-side:last-child {
+    border-left: 1px solid var(--ac-line-hairline);
+}
+
+.commit-history-page .comparison-label {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--ac-ink-tertiary);
+    margin-bottom: 6px;
+}
+
+.commit-history-page .comparison-content {
+    flex: 1 1 auto;
+    padding: 10px 12px;
+    border-radius: var(--ac-radius-control);
+    font-size: 14px;
+    line-height: 1.55;
+    color: var(--ac-ink-primary);
+    max-height: 260px;
+    overflow-y: auto;
+    overflow-wrap: anywhere;
+    font-family: inherit;
+}
+
+.commit-history-page .comparison-side.previous .comparison-content,
+.commit-history-page .comparison-side.denied .comparison-content {
+    background: var(--ac-orig-box-bg);
+    border: 1px solid var(--ac-orig-box-border);
+}
+
+.commit-history-page .comparison-side.updated .comparison-content {
+    background: var(--ac-prop-box-bg);
+    border: 1px solid var(--ac-prop-box-border);
+}
+
+.commit-history-page .comparison-side.current .comparison-content {
+    background: var(--ac-surface-subtle);
+    border: 1px solid var(--ac-line-hairline);
+}
+
+.commit-history-page .added-content-preview {
+    background: var(--ac-prop-box-bg);
+    border: 1px solid var(--ac-prop-box-border);
+    border-left: 3px solid #087443;
+    border-radius: var(--ac-radius-control);
+    padding: 10px 14px;
+    font-size: 14px;
+    line-height: 1.55;
+    color: var(--ac-ink-primary);
+    font-family: inherit;
+    box-shadow: none;
+    overflow-wrap: anywhere;
+}
+
+.commit-history-page .removed-content-preview {
+    background: var(--ac-orig-box-bg);
+    border: 1px solid var(--ac-orig-box-border);
+    border-left: 3px solid #b42318;
+    border-radius: var(--ac-radius-control);
+    padding: 10px 14px;
+    font-size: 14px;
+    line-height: 1.55;
+    color: var(--ac-ink-secondary);
+    font-family: inherit;
+    text-decoration: none;
+    opacity: 1;
+    box-shadow: none;
+    overflow-wrap: anywhere;
+}
+
+.commit-history-page .new-field-denied {
+    background: transparent;
+    border: 0;
+    padding: 0;
+}
+
+.commit-history-page .denied-content-preview {
+    background: var(--ac-orig-box-bg);
+    border: 1px dashed var(--ac-orig-box-border);
+    border-left: 3px solid var(--ac-decline);
+    border-radius: var(--ac-radius-control);
+    padding: 10px 14px;
+    font-size: 14px;
+    line-height: 1.55;
+    color: var(--ac-ink-secondary);
+    font-family: inherit;
+    font-style: normal;
+    overflow-wrap: anywhere;
+}
+
+/* --- Tags & Move Previews --- */
+.commit-history-page .tag-added-display,
+.commit-history-page .tag-removed-display,
+.commit-history-page .note-move-display {
+    margin-top: 4px;
+}
+
+.commit-history-page .tag-preview {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 3px 9px;
+    border-radius: 6px;
+    font-size: 12.5px;
+    font-weight: 500;
+    font-family: inherit;
+    box-shadow: none;
+    opacity: 1;
+}
+
+.commit-history-page .tag-preview.added {
+    background: var(--ac-diff-ins-bg);
+    color: var(--ac-diff-ins-ink);
+    border: 1px solid rgba(17, 99, 41, 0.18);
+}
+
+.commit-history-page .tag-preview.removed {
+    background: var(--ac-diff-del-bg);
+    color: var(--ac-diff-del-ink);
+    border: 1px solid rgba(130, 7, 30, 0.18);
+    text-decoration: none;
+}
+
+.commit-history-page .tag-diff-prefix {
+    font-weight: 700;
+    line-height: 1;
+}
+
+.commit-history-page .denied-tag-change {
+    display: inline-flex;
+    align-items: center;
+    padding: 4px 10px;
+    border-radius: 6px;
+    background: var(--ac-diff-del-bg);
+    border: 1px solid rgba(180, 35, 24, 0.24);
+    font-size: 12.5px;
+    font-weight: 500;
+    color: var(--ac-diff-del-ink);
+}
+
+.commit-history-page .move-comparison {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.commit-history-page .move-from,
+.commit-history-page .move-to {
+    padding: 6px 10px;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 500;
+    font-family: inherit;
+    box-shadow: none;
+    opacity: 1;
+    overflow-wrap: anywhere;
+}
+
+.commit-history-page .move-from {
+    background: var(--ac-surface-muted);
+    border: 1px solid var(--ac-line-hairline);
+    color: var(--ac-ink-secondary);
+}
+
+.commit-history-page .move-to {
+    background: var(--ac-accent-soft);
+    border: 1px solid rgba(0, 102, 153, 0.22);
+    color: var(--ac-accent);
+}
+
+.commit-history-page .move-arrow {
+    color: var(--ac-ink-tertiary);
+    display: inline-flex;
+    align-items: center;
+}
+
+.commit-history-page .move-arrow svg {
+    width: 16px;
+    height: 16px;
+    opacity: 0.7;
+}
+
+/* --- Empty State --- */
+.commit-history-page .commit-empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    gap: 8px;
+    padding: 40px 24px;
+    background: var(--ac-surface);
+    border: 1px solid var(--ac-line-hairline);
+    border-radius: var(--ac-radius-card);
+    box-shadow: var(--ac-shadow-card);
+}
+
+.commit-history-page .commit-empty-icon {
+    font-size: 28px;
+    color: var(--ac-accent);
+    margin-bottom: 4px;
+}
+
+.commit-history-page .commit-empty-icon i {
+    font-size: inherit;
+    margin: 0;
+    opacity: 1;
+}
+
+.commit-history-page .empty-title {
+    margin: 0;
+    font-size: 17px;
+    font-weight: 600;
+    color: var(--ac-ink-primary);
+}
+
+.commit-history-page .empty-description {
+    margin: 0;
+    font-size: 13.5px;
+    color: var(--ac-ink-secondary);
+}
+
+/* --- Dark Mode --- */
+@media (prefers-color-scheme: dark) {
+    body:has(.commit-history-page),
+    .content-body:has(.commit-history-page) {
+        background-color: #0b0c0f;
+        background-image: none;
+    }
+
+    .commit-history-page {
+        --ac-canvas: #0b0c0f;
+        --ac-surface: #1c1c1e;
+        --ac-surface-subtle: #242428;
+        --ac-surface-muted: #2c2c30;
+        --ac-ink-primary: #f5f5f7;
+        --ac-ink-secondary: #cbd5e1;
+        --ac-ink-tertiary: #94a3b8;
+        --ac-line-hairline: #38383d;
+        --ac-line-strong: #54545c;
+        --ac-accent: #4aa8d8;
+        --ac-accent-hover: #67bae3;
+        --ac-accent-soft: rgba(74, 168, 216, 0.16);
+        --ac-accept: #4ade80;
+        --ac-decline: #ff8080;
+        --ac-decline-soft: rgba(255, 107, 107, 0.14);
+        --ac-diff-ins-bg: rgba(46, 160, 67, 0.25);
+        --ac-diff-ins-ink: #7ee787;
+        --ac-diff-del-bg: rgba(248, 81, 73, 0.24);
+        --ac-diff-del-ink: #ffa198;
+        --ac-orig-box-bg: rgba(248, 81, 73, 0.09);
+        --ac-orig-box-border: rgba(248, 81, 73, 0.3);
+        --ac-prop-box-bg: rgba(46, 160, 67, 0.1);
+        --ac-prop-box-border: rgba(46, 160, 67, 0.32);
+        --ac-shadow-card: 0 2px 8px rgba(0, 0, 0, 0.45);
+    }
+
+    .commit-history-page .page-header.commit-header-surface {
+        background-color: #132530;
+        border-color: #244354;
+        color: #f5f5f7;
+    }
+
+    .commit-history-page .crumb-sep,
+    .commit-history-page .commit-header-surface .meta-sep {
+        color: #8aa4b8;
+    }
+
+    .commit-history-page .commit-header-surface .commit-back-link {
+        color: #6ec1e4;
+    }
+
+    .commit-history-page .commit-header-surface .commit-back-link:hover {
+        color: #a5ddf2;
+        background: rgba(255, 255, 255, 0.08);
+    }
+
+    .commit-history-page .commit-header-surface .page-title {
+        color: #f5f5f7;
+    }
+
+    .commit-history-page .commit-header-surface .commit-meta {
+        color: #c7d6e2;
+    }
+
+    .commit-history-page .commit-header-surface .commit-btn-neutral,
+    .commit-history-page .mathjax-toggle-btn.mathjax-toggle-btn-light {
+        background: var(--ac-surface);
+        color: var(--ac-ink-primary);
+        border-color: #36526e;
+    }
+
+    .commit-history-page .commit-header-surface .commit-btn-neutral:hover,
+    .commit-history-page .mathjax-toggle-btn.mathjax-toggle-btn-light:hover {
+        background: var(--ac-surface-muted);
+        color: #ffffff;
+        border-color: #4d7091;
+    }
+
+    .commit-history-page .mathjax-toggle-btn.mathjax-toggle-btn-light[aria-pressed="true"] {
+        background: #0c2d42;
+        color: #bae6fd;
+        border-color: #38bdf8;
+    }
+
+    .commit-history-page .note-card,
+    .commit-history-page .note-card:hover {
+        border-color: #33343a;
+    }
+
+    .commit-history-page .note-card.note-card-added,
+    .commit-history-page .note-card.note-card-added:hover,
+    .commit-history-page .event-item.added,
+    .commit-history-page .added-content-preview {
+        border-left-color: #2ea043;
+    }
+
+    .commit-history-page .note-card.note-card-removed,
+    .commit-history-page .note-card.note-card-removed:hover,
+    .commit-history-page .event-item.removed,
+    .commit-history-page .removed-content-preview {
+        border-left-color: #f85149;
+    }
+}
+
+/* --- High Contrast & Forced Colors Accessibility --- */
+@media (prefers-contrast: more) {
+    .commit-history-page {
+        --ac-line-hairline: currentColor;
+        --ac-line-strong: currentColor;
+    }
+
+    .commit-history-page .commit-btn,
+    .commit-history-page .card-utility-btn {
+        border: 1.5px solid currentColor;
+    }
+}
+
+@media (forced-colors: active) {
+    .commit-history-page .stat-added,
+    .commit-history-page .tag-preview.added {
+        outline: 1px solid Highlight;
+    }
+
+    .commit-history-page .stat-removed,
+    .commit-history-page .stat-deleted,
+    .commit-history-page .tag-preview.removed {
+        outline: 1px dashed GrayText;
+    }
+}
+
+/* --- Reduced Motion --- */
+@media (prefers-reduced-motion: reduce) {
+    .commit-history-page :is(
+        .commit-back-link,
+        .commit-btn,
+        .card-utility-btn,
+        .mathjax-toggle-btn,
+        .event-item
+    ) {
+        transition: none;
+    }
+}
+
+/* --- Coarse Pointer Touch Targets --- */
+@media (pointer: coarse) {
+    .commit-history-page :is(
+        .commit-btn,
+        .card-utility-btn,
+        .mathjax-toggle-btn.mathjax-toggle-btn-light
+    ) {
+        height: auto;
+        min-block-size: 44px;
+        min-inline-size: 44px;
+        max-height: none;
+    }
+}
+
+/* --- Responsive Layout --- */
+@media (max-width: 768px) {
+    .commit-history-page {
+        padding: 12px 12px 36px;
+    }
+
+    .commit-history-page .page-header.commit-header-surface {
+        padding: 14px 16px;
+    }
+
+    .commit-history-page .commit-primary-actions {
+        width: 100%;
+    }
+
+    .commit-history-page .comparison-container {
+        grid-template-columns: 1fr;
+    }
+
+    .commit-history-page .comparison-side:last-child {
+        border-left: 0;
+        border-top: 1px dashed var(--ac-line-hairline);
+    }
+}

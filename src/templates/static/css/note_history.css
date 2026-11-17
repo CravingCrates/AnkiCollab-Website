@@ -1,0 +1,1298 @@
+/**
+ * note_history.css - Note history timeline page styles
+ */
+
+/* --- Canvas & Design Tokens --- */
+:root:has(.note-history-page) {
+    color-scheme: light dark;
+}
+
+body:has(.note-history-page),
+.content-body:has(.note-history-page) {
+    background-color: #f2f2f7;
+    background-image: none;
+}
+
+.note-history-page {
+    --ac-canvas: #f2f2f7;
+    --ac-surface: #ffffff;
+    --ac-surface-subtle: #f7f8fa;
+    --ac-surface-muted: #ebedf2;
+    --ac-ink-primary: #111827;
+    --ac-ink-secondary: #374151;
+    --ac-ink-tertiary: #525866;
+    --ac-line-hairline: #d4d8e0;
+    --ac-line-strong: #949ba8;
+    --ac-accent: #006699;
+    --ac-accent-hover: #00527a;
+    --ac-accent-soft: rgba(0, 102, 153, 0.12);
+    --ac-accept: #0b6e4f;
+    --ac-accept-hover: #08563d;
+    --ac-decline: #b42318;
+    --ac-decline-soft: rgba(180, 35, 24, 0.1);
+    --ac-diff-ins-bg: #d1f4de;
+    --ac-diff-ins-ink: #064e3b;
+    --ac-diff-del-bg: #ffdce0;
+    --ac-diff-del-ink: #86181d;
+    --ac-shadow-card: 0 1px 2px rgba(0, 0, 0, 0.06), 0 0 0 0.5px rgba(0, 0, 0, 0.04);
+    --ac-radius-card: 10px;
+    --ac-radius-control: 6px;
+    --ac-orig-box-bg: #fff2f2;
+    --ac-orig-box-border: #e5a9b0;
+    --ac-prop-box-bg: #ecfdf3;
+    --ac-prop-box-border: #8fd9ad;
+
+    color-scheme: light dark;
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 20px 24px 48px;
+    color: var(--ac-ink-primary);
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Inter", "Segoe UI", system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+}
+
+.note-history-page > .container-fluid {
+    padding: 0;
+    max-width: 100%;
+}
+
+.note-history-page [hidden],
+.note-history-page .hidden {
+    display: none !important;
+}
+
+.note-history-page :is(a, button, input, summary, [tabindex]):focus-visible {
+    outline: 2px solid var(--ac-accent);
+    outline-offset: 2px;
+}
+
+/* --- Strip Legacy Gradients & Decorative Bars --- */
+.note-history-page .page-header::before,
+.note-history-page .page-header::after,
+.note-history-page .group-card::before,
+.note-history-page .group-card::after,
+.note-history-page .note-card::before,
+.note-history-page .comparison-side::before,
+.note-history-page .added-content-preview::before,
+.note-history-page .removed-content-preview::before,
+.note-history-page .denied-content-preview::before {
+    display: none !important;
+    content: none !important;
+}
+
+.note-history-page :is(
+    .page-header,
+    .group-card,
+    .note-card,
+    .note-header-compact,
+    .commit-badge,
+    .note-status-badge,
+    .standalone-badge,
+    .event-item,
+    .comparison-side,
+    .added-content-preview,
+    .removed-content-preview,
+    .denied-content-preview,
+    .denied-field-change,
+    .field-update-comparison,
+    .field-added-display,
+    .field-removed-display,
+    .denied-tag-change,
+    .tag-preview,
+    .move-from,
+    .move-to,
+    .snapshot-container,
+    .snapshot-header,
+    .filter-menu,
+    .filter-btn,
+    .commit-btn,
+    .card-utility-btn
+) {
+    background-image: none !important;
+}
+
+.note-history-page :is(
+    .group-card,
+    .note-card,
+    .commit-badge,
+    .commit-btn,
+    .card-utility-btn,
+    .filter-button,
+    .filter-btn,
+    .back-button,
+    .comparison-side,
+    .added-content-preview,
+    .removed-content-preview,
+    .tag-preview,
+    .move-from,
+    .move-to,
+    .mathjax-toggle-btn
+):is(:hover, :active) {
+    transform: none !important;
+}
+
+/* --- Header Surface --- */
+.note-history-page .page-header.commit-header-surface {
+    background-color: #e3eef4;
+    color: #1f2933;
+    border: 1px solid #c2d6e3;
+    border-radius: var(--ac-radius-card);
+    box-shadow: 0 1px 2px rgba(0, 102, 153, 0.06);
+    padding: 16px 20px;
+    margin: 0 0 16px;
+}
+
+.note-history-page .header-content {
+    position: relative;
+    z-index: 1;
+}
+
+.note-history-page .commit-header-top {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+}
+
+.note-history-page .commit-identity {
+    min-width: 0;
+    flex: 1 1 320px;
+}
+
+.note-history-page .commit-breadcrumb {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 6px;
+}
+
+.note-history-page .commit-back-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    min-block-size: 24px;
+    padding: 3px 6px;
+    margin-left: -6px;
+    border-radius: 5px;
+    font-size: 13px;
+    font-weight: 550;
+    color: #005580;
+    background: transparent;
+    border: 0;
+    backdrop-filter: none;
+    text-decoration: none;
+    transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.note-history-page .commit-back-link:hover {
+    background: rgba(0, 102, 153, 0.11);
+    color: #004266;
+    text-decoration: none;
+}
+
+.note-history-page .crumb-sep {
+    color: #7b8794;
+    font-size: 13px;
+    user-select: none;
+}
+
+.note-history-page .page-title {
+    margin: 0;
+    font-size: 20px;
+    font-weight: 650;
+    line-height: 1.25;
+    letter-spacing: -0.02em;
+    color: #1f2933;
+    font-variant-numeric: tabular-nums;
+    text-wrap: balance;
+}
+
+.note-history-page .commit-meta {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin: 0;
+    font-size: 12.5px;
+    color: #4b5b69;
+    opacity: 1;
+}
+
+.note-history-page .commit-meta .meta-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+    font-size: 12.5px;
+    color: inherit;
+    opacity: 1;
+}
+
+.note-history-page .commit-meta .meta-sep {
+    opacity: 0.6;
+}
+
+/* --- Header Toolbar & Buttons --- */
+.note-history-page .commit-primary-actions {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+    flex-shrink: 0;
+}
+
+.note-history-page .commit-btn {
+    box-sizing: border-box;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    height: auto;
+    min-block-size: 34px;
+    min-inline-size: 24px;
+    max-height: none;
+    margin: 0;
+    padding: 6px 12px;
+    border-radius: var(--ac-radius-control);
+    font-size: 13px;
+    font-weight: 550;
+    line-height: 1.385;
+    border: 1px solid transparent;
+    backdrop-filter: none;
+    cursor: pointer;
+    text-decoration: none;
+    transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.note-history-page .commit-btn-neutral,
+.note-history-page .commit-header-surface .commit-btn-neutral {
+    background: #ffffff;
+    color: #1f2933;
+    border-color: #bfd3e0;
+}
+
+.note-history-page .commit-btn-neutral:hover,
+.note-history-page .commit-header-surface .commit-btn-neutral:hover {
+    background: #f5f7f9;
+    color: #1f2933;
+    border-color: #8eb4ca;
+    text-decoration: none;
+}
+
+.note-history-page .mathjax-toggle-btn.mathjax-toggle-btn-light {
+    box-sizing: border-box;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    height: auto;
+    min-block-size: 34px;
+    max-height: none;
+    margin: 0;
+    padding: 6px 12px;
+    border-radius: var(--ac-radius-control);
+    font-size: 13px;
+    font-weight: 550;
+    line-height: 1.385;
+    background: #ffffff;
+    color: #3b4b59;
+    border: 1px solid #bfd3e0;
+    box-shadow: none;
+    transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.note-history-page .mathjax-toggle-btn.mathjax-toggle-btn-light:hover {
+    background: #f5f7f9;
+    color: #1f2933;
+    border-color: #8eb4ca;
+}
+
+.note-history-page .mathjax-toggle-btn.mathjax-toggle-btn-light[aria-pressed="true"] {
+    background: #cfe4f0;
+    color: #004c73;
+    border-color: #7eb0cc;
+}
+
+/* --- Filter Dropdown Menu --- */
+.note-history-page .filter-menu {
+    background: var(--ac-surface);
+    border: 1px solid var(--ac-line-hairline);
+    border-radius: var(--ac-radius-card);
+    padding: 16px;
+    margin-top: 4px;
+    min-width: 280px;
+    max-width: calc(100vw - 32px);
+    box-shadow: 0 12px 32px rgba(15, 23, 42, 0.16), 0 2px 6px rgba(15, 23, 42, 0.08);
+    backdrop-filter: none;
+    color: var(--ac-ink-primary);
+}
+
+.note-history-page .filter-title {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--ac-ink-tertiary) !important;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 8px;
+}
+
+.note-history-page .filter-options {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.note-history-page .filter-option {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-block-size: 26px;
+    padding: 3px 6px;
+    margin: 0 -6px;
+    border-radius: 5px;
+    font-size: 13px;
+    color: var(--ac-ink-secondary) !important;
+    cursor: pointer;
+}
+
+.note-history-page .filter-option:hover {
+    background: var(--ac-surface-subtle);
+}
+
+.note-history-page .filter-option span {
+    color: var(--ac-ink-secondary) !important;
+}
+
+.note-history-page .filter-option input[type="checkbox"] {
+    accent-color: var(--ac-accent);
+    width: 15px;
+    height: 15px;
+    margin: 0;
+    cursor: pointer;
+}
+
+.note-history-page .filter-actions {
+    display: flex;
+    gap: 8px;
+    justify-content: flex-end;
+    padding-top: 12px;
+    border-top: 1px solid var(--ac-line-hairline);
+}
+
+.note-history-page .filter-btn {
+    min-block-size: 30px;
+    padding: 5px 12px;
+    border: 1px solid var(--ac-line-hairline);
+    border-radius: var(--ac-radius-control);
+    background: var(--ac-surface);
+    color: var(--ac-ink-secondary) !important;
+    font-size: 12.5px;
+    font-weight: 550;
+    cursor: pointer;
+    transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+
+.note-history-page .filter-btn:hover {
+    background: var(--ac-surface-muted);
+    color: var(--ac-ink-primary) !important;
+}
+
+.note-history-page .filter-btn.primary {
+    background: var(--ac-accent) !important;
+    color: #ffffff !important;
+    border-color: var(--ac-accent);
+}
+
+.note-history-page .filter-btn.primary:hover {
+    background: var(--ac-accent-hover) !important;
+    color: #ffffff !important;
+}
+
+/* --- Timeline & Commit Group Cards --- */
+.note-history-page .timeline {
+    position: relative;
+    padding-left: 28px;
+}
+
+.note-history-page .timeline::before {
+    content: "";
+    position: absolute;
+    left: 7px;
+    top: 8px;
+    bottom: 8px;
+    width: 1px;
+    background: var(--ac-line-hairline);
+}
+
+.note-history-page .timeline-group {
+    position: relative;
+    margin-bottom: 16px;
+}
+
+.note-history-page .timeline-group:last-child {
+    margin-bottom: 0;
+}
+
+.note-history-page .timeline-marker {
+    position: absolute;
+    left: -26px;
+    top: 16px;
+    width: 11px;
+    height: 11px;
+    border-radius: 50%;
+    background: var(--ac-surface);
+    border: 2px solid var(--ac-accent);
+    z-index: 2;
+}
+
+.note-history-page .timeline-group:has(.group-card-approved) .timeline-marker {
+    border-color: var(--ac-accept);
+}
+
+.note-history-page .timeline-group:has(.group-card-denied) .timeline-marker {
+    border-color: var(--ac-decline);
+}
+
+.note-history-page .group-card.note-card {
+    background: var(--ac-surface);
+    border: 1px solid #d1d5de;
+    border-radius: var(--ac-radius-card);
+    box-shadow: var(--ac-shadow-card);
+    padding: 0;
+    margin: 0;
+    overflow: hidden;
+}
+
+.note-history-page .group-card.note-card:hover {
+    border-color: #aebccf;
+    box-shadow: var(--ac-shadow-card);
+}
+
+.note-history-page .group-card.group-card-approved,
+.note-history-page .group-card.group-card-approved:hover {
+    border-left: 3px solid #087443;
+}
+
+.note-history-page .group-card.group-card-denied,
+.note-history-page .group-card.group-card-denied:hover {
+    border-left: 3px solid #b42318;
+}
+
+.note-history-page .group-header.note-header-compact {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 10px 14px;
+    padding: 11px 18px;
+    margin: 0;
+    background: var(--ac-surface-subtle);
+    border-bottom: 1px solid var(--ac-line-hairline);
+}
+
+.note-history-page .note-header-info {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px 10px;
+    min-width: 0;
+    flex: 1 1 260px;
+}
+
+.note-history-page .note-id-link.commit-badge {
+    all: unset;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--ac-ink-primary);
+    font-variant-numeric: tabular-nums;
+    cursor: pointer;
+}
+
+.note-history-page .note-id-link.commit-badge:hover {
+    color: var(--ac-accent);
+    text-decoration: underline;
+}
+
+.note-history-page .standalone-badge.note-id-link {
+    background: transparent;
+    padding: 0;
+    border-radius: 0;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--ac-ink-primary);
+}
+
+.note-history-page .note-meta-inline {
+    font-size: 12.5px;
+    color: var(--ac-ink-tertiary);
+    font-variant-numeric: tabular-nums;
+}
+
+.note-history-page .note-status-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 7px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+    border: 1px solid transparent;
+    text-box: trim-both cap alphabetic;
+}
+
+.note-history-page .note-status-badge.badge-new {
+    color: var(--ac-diff-ins-ink);
+    background: var(--ac-diff-ins-bg);
+    border-color: rgba(8, 116, 67, 0.24);
+}
+
+.note-history-page .note-status-badge.badge-removal {
+    color: var(--ac-diff-del-ink);
+    background: var(--ac-diff-del-bg);
+    border-color: rgba(180, 35, 24, 0.24);
+}
+
+.note-history-page .note-header-actions {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.note-history-page .card-utility-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    height: auto;
+    min-block-size: 30px;
+    padding: 4px 10px;
+    border-radius: var(--ac-radius-control);
+    border: 1px solid var(--ac-line-hairline);
+    background: var(--ac-surface);
+    color: var(--ac-ink-secondary);
+    font-size: 12.5px;
+    font-weight: 500;
+    line-height: 1.35;
+    text-decoration: none;
+    cursor: pointer;
+    transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.note-history-page .card-utility-btn:hover {
+    background: var(--ac-surface-muted);
+    color: var(--ac-ink-primary);
+    border-color: var(--ac-line-strong);
+    text-decoration: none;
+}
+
+/* --- Events List & Rows --- */
+.note-history-page .events-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.note-history-page .event-item {
+    padding: 14px 18px;
+    margin: 0;
+    background: transparent;
+    border: 0;
+    border-radius: 0;
+    transition: background-color 0.15s ease;
+}
+
+.note-history-page .event-item:not(:last-child) {
+    border-bottom: 1px solid var(--ac-line-hairline);
+}
+
+.note-history-page .event-item:hover {
+    background: var(--ac-surface-subtle);
+    margin: 0;
+    padding: 14px 18px;
+    border-radius: 0;
+}
+
+.note-history-page .event-item:not(:last-child):hover {
+    border-bottom: 1px solid var(--ac-line-hairline);
+}
+
+.note-history-page .event-header {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 10px;
+}
+
+.note-history-page .version-badge {
+    background: var(--ac-surface-muted);
+    color: var(--ac-ink-secondary);
+    border: 1px solid var(--ac-line-hairline);
+    padding: 2px 7px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+}
+
+.note-history-page .event-type {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: 600;
+    background: var(--ac-surface-muted);
+    color: var(--ac-ink-secondary);
+}
+
+.note-history-page .event-type.event-type-added {
+    background: var(--ac-diff-ins-bg);
+    color: var(--ac-diff-ins-ink);
+}
+
+.note-history-page .event-type.event-type-removed,
+.note-history-page .event-type.event-type-denied {
+    background: var(--ac-diff-del-bg);
+    color: var(--ac-diff-del-ink);
+}
+
+.note-history-page .event-actor {
+    font-size: 12.5px;
+    color: var(--ac-ink-tertiary);
+}
+
+.note-history-page .actor-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    margin-left: 0;
+    padding: 2px 8px;
+    border-radius: 4px;
+    background: var(--ac-accent-soft);
+    color: var(--ac-accent);
+    font-weight: 550;
+    font-size: 12px;
+}
+
+.note-history-page .actor-chip i {
+    font-size: 10px;
+}
+
+.note-history-page .event-time {
+    font-size: 12px;
+    color: var(--ac-ink-tertiary);
+    margin-left: auto;
+    font-variant-numeric: tabular-nums;
+}
+
+/* --- Field Diff & Content Previews --- */
+.note-history-page .field-name-label {
+    font-size: 11.5px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--ac-ink-tertiary);
+    margin-bottom: 6px;
+}
+
+.note-history-page .field-update-comparison,
+.note-history-page .field-added-display,
+.note-history-page .field-removed-display,
+.note-history-page .denied-field-change {
+    background: transparent;
+    border: 0;
+    border-radius: 0;
+    padding: 0;
+    margin: 4px 0 0;
+    box-shadow: none;
+}
+
+.note-history-page .comparison-container {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 0;
+    border: 1px solid var(--ac-line-hairline);
+    border-radius: 8px;
+    background: var(--ac-surface);
+    overflow: hidden;
+}
+
+.note-history-page .comparison-divider {
+    display: none;
+}
+
+.note-history-page .comparison-side {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    min-height: 0;
+    padding: 12px 14px;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+    opacity: 1;
+}
+
+.note-history-page .comparison-side:last-child {
+    border-left: 1px solid var(--ac-line-hairline);
+}
+
+.note-history-page .comparison-label {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--ac-ink-tertiary);
+    margin-bottom: 6px;
+}
+
+.note-history-page .comparison-content {
+    flex: 1 1 auto;
+    padding: 10px 12px;
+    border-radius: var(--ac-radius-control);
+    font-size: 14px;
+    line-height: 1.55;
+    color: var(--ac-ink-primary);
+    max-height: 260px;
+    overflow-y: auto;
+    overflow-wrap: anywhere;
+    font-family: inherit;
+}
+
+.note-history-page .comparison-side.previous .comparison-content,
+.note-history-page .comparison-side.denied .comparison-content {
+    background: var(--ac-orig-box-bg);
+    border: 1px solid var(--ac-orig-box-border);
+}
+
+.note-history-page .comparison-side.updated .comparison-content {
+    background: var(--ac-prop-box-bg);
+    border: 1px solid var(--ac-prop-box-border);
+}
+
+.note-history-page .comparison-side.current .comparison-content {
+    background: var(--ac-surface-subtle);
+    border: 1px solid var(--ac-line-hairline);
+}
+
+.note-history-page .added-content-preview {
+    background: var(--ac-prop-box-bg);
+    border: 1px solid var(--ac-prop-box-border);
+    border-left: 3px solid #087443;
+    border-radius: var(--ac-radius-control);
+    padding: 10px 14px;
+    font-size: 14px;
+    line-height: 1.55;
+    color: var(--ac-ink-primary);
+    font-family: inherit;
+    box-shadow: none;
+    overflow-wrap: anywhere;
+}
+
+.note-history-page .removed-content-preview {
+    background: var(--ac-orig-box-bg);
+    border: 1px solid var(--ac-orig-box-border);
+    border-left: 3px solid #b42318;
+    border-radius: var(--ac-radius-control);
+    padding: 10px 14px;
+    font-size: 14px;
+    line-height: 1.55;
+    color: var(--ac-ink-secondary);
+    font-family: inherit;
+    text-decoration: none;
+    opacity: 1;
+    box-shadow: none;
+    overflow-wrap: anywhere;
+}
+
+.note-history-page .new-field-denied {
+    background: transparent;
+    border: 0;
+    padding: 0;
+}
+
+.note-history-page .denied-content-preview {
+    background: var(--ac-orig-box-bg);
+    border: 1px dashed var(--ac-orig-box-border);
+    border-left: 3px solid var(--ac-decline);
+    border-radius: var(--ac-radius-control);
+    padding: 10px 14px;
+    font-size: 14px;
+    line-height: 1.55;
+    color: var(--ac-ink-secondary);
+    font-family: inherit;
+    font-style: normal;
+    overflow-wrap: anywhere;
+}
+
+/* --- Tags & Move Previews --- */
+.note-history-page .tag-added-display,
+.note-history-page .tag-removed-display,
+.note-history-page .note-move-display {
+    margin-top: 4px;
+}
+
+.note-history-page .tag-preview {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 3px 9px;
+    border-radius: 6px;
+    font-size: 12.5px;
+    font-weight: 500;
+    font-family: inherit;
+    box-shadow: none;
+    opacity: 1;
+}
+
+.note-history-page .tag-preview.added {
+    background: var(--ac-diff-ins-bg);
+    color: var(--ac-diff-ins-ink);
+    border: 1px solid rgba(17, 99, 41, 0.18);
+}
+
+.note-history-page .tag-preview.removed {
+    background: var(--ac-diff-del-bg);
+    color: var(--ac-diff-del-ink);
+    border: 1px solid rgba(130, 7, 30, 0.18);
+    text-decoration: none;
+}
+
+.note-history-page .tag-diff-prefix {
+    font-weight: 700;
+    line-height: 1;
+}
+
+.note-history-page .denied-tag-change {
+    display: inline-flex;
+    align-items: center;
+    padding: 4px 10px;
+    border-radius: 6px;
+    background: var(--ac-diff-del-bg);
+    border: 1px solid rgba(180, 35, 24, 0.24);
+    font-size: 12.5px;
+    font-weight: 500;
+    color: var(--ac-diff-del-ink);
+}
+
+.note-history-page .move-comparison {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.note-history-page .move-from,
+.note-history-page .move-to {
+    padding: 6px 10px;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 500;
+    font-family: inherit;
+    box-shadow: none;
+    opacity: 1;
+    overflow-wrap: anywhere;
+}
+
+.note-history-page .move-from {
+    background: var(--ac-surface-muted);
+    border: 1px solid var(--ac-line-hairline);
+    color: var(--ac-ink-secondary);
+}
+
+.note-history-page .move-to {
+    background: var(--ac-accent-soft);
+    border: 1px solid rgba(0, 102, 153, 0.22);
+    color: var(--ac-accent);
+}
+
+.note-history-page .move-arrow {
+    color: var(--ac-ink-tertiary);
+    display: inline-flex;
+    align-items: center;
+}
+
+.note-history-page .move-arrow svg {
+    width: 16px;
+    height: 16px;
+    opacity: 0.7;
+}
+
+/* --- Snapshot Container --- */
+.note-history-page .snapshot-container {
+    margin-top: 6px;
+    border: 1px solid var(--ac-line-hairline);
+    border-radius: 8px;
+    background: var(--ac-surface-subtle);
+    overflow: hidden;
+}
+
+.note-history-page .snapshot-header {
+    width: 100%;
+    border: 0;
+    border-bottom: 0;
+    background: var(--ac-surface-subtle);
+    padding: 9px 14px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 12.5px;
+    font-weight: 550;
+    color: var(--ac-ink-secondary);
+    cursor: pointer;
+    text-align: start;
+    transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.note-history-page .snapshot-header:hover {
+    background: var(--ac-surface-muted);
+    color: var(--ac-ink-primary);
+}
+
+.note-history-page .snapshot-container:has(.snapshot-content.show) .snapshot-header {
+    border-bottom: 1px solid var(--ac-line-hairline);
+}
+
+.note-history-page .diff-toggle {
+    font-size: 11px;
+    color: var(--ac-ink-tertiary);
+    transition: transform 0.18s ease;
+}
+
+.note-history-page .snapshot-container:has(.snapshot-content.show) .diff-toggle {
+    transform: rotate(180deg);
+}
+
+.note-history-page .snapshot-content {
+    padding: 12px 14px;
+    background: var(--ac-surface-subtle);
+}
+
+.note-history-page .snapshot-fields {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.note-history-page .snapshot-field {
+    padding: 10px 12px;
+    margin: 0;
+    background: var(--ac-surface);
+    border: 1px solid var(--ac-line-hairline);
+    border-radius: var(--ac-radius-control);
+    font-size: 13.5px;
+    line-height: 1.5;
+    color: var(--ac-ink-primary);
+    font-family: inherit;
+    overflow-wrap: anywhere;
+}
+
+.note-history-page .snapshot-content .tag-list {
+    margin: 10px 0 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.note-history-page .snapshot-content .tag {
+    padding: 3px 9px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 500;
+    background: var(--ac-surface-muted);
+    border: 1px solid var(--ac-line-hairline);
+    color: var(--ac-ink-secondary);
+}
+
+/* --- Empty State --- */
+.note-history-page .commit-empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    gap: 8px;
+    padding: 40px 24px;
+    background: var(--ac-surface);
+    border: 1px solid var(--ac-line-hairline);
+    border-radius: var(--ac-radius-card);
+    box-shadow: var(--ac-shadow-card);
+}
+
+.note-history-page .commit-empty-icon {
+    font-size: 28px;
+    color: var(--ac-accent);
+    margin-bottom: 4px;
+}
+
+.note-history-page .commit-empty-icon i {
+    font-size: inherit;
+    margin: 0;
+    opacity: 1;
+}
+
+.note-history-page .empty-title {
+    margin: 0;
+    font-size: 17px;
+    font-weight: 600;
+    color: var(--ac-ink-primary);
+}
+
+.note-history-page .empty-description {
+    margin: 0;
+    font-size: 13.5px;
+    color: var(--ac-ink-secondary);
+}
+
+/* --- Dark Mode --- */
+@media (prefers-color-scheme: dark) {
+    body:has(.note-history-page),
+    .content-body:has(.note-history-page) {
+        background-color: #0b0c0f;
+        background-image: none;
+    }
+
+    .note-history-page {
+        --ac-canvas: #0b0c0f;
+        --ac-surface: #1c1c1e;
+        --ac-surface-subtle: #242428;
+        --ac-surface-muted: #2c2c30;
+        --ac-ink-primary: #f5f5f7;
+        --ac-ink-secondary: #cbd5e1;
+        --ac-ink-tertiary: #94a3b8;
+        --ac-line-hairline: #38383d;
+        --ac-line-strong: #54545c;
+        --ac-accent: #4aa8d8;
+        --ac-accent-hover: #67bae3;
+        --ac-accent-soft: rgba(74, 168, 216, 0.16);
+        --ac-accept: #4ade80;
+        --ac-decline: #ff8080;
+        --ac-decline-soft: rgba(255, 107, 107, 0.14);
+        --ac-diff-ins-bg: rgba(46, 160, 67, 0.25);
+        --ac-diff-ins-ink: #7ee787;
+        --ac-diff-del-bg: rgba(248, 81, 73, 0.24);
+        --ac-diff-del-ink: #ffa198;
+        --ac-orig-box-bg: rgba(248, 81, 73, 0.09);
+        --ac-orig-box-border: rgba(248, 81, 73, 0.3);
+        --ac-prop-box-bg: rgba(46, 160, 67, 0.1);
+        --ac-prop-box-border: rgba(46, 160, 67, 0.32);
+        --ac-shadow-card: 0 2px 8px rgba(0, 0, 0, 0.45);
+    }
+
+    .note-history-page .page-header.commit-header-surface {
+        background-color: #132530;
+        border-color: #244354;
+        color: #f5f5f7;
+    }
+
+    .note-history-page .crumb-sep,
+    .note-history-page .commit-header-surface .meta-sep {
+        color: #8aa4b8;
+    }
+
+    .note-history-page .commit-header-surface .commit-back-link {
+        color: #6ec1e4;
+    }
+
+    .note-history-page .commit-header-surface .commit-back-link:hover {
+        color: #a5ddf2;
+        background: rgba(255, 255, 255, 0.08);
+    }
+
+    .note-history-page .commit-header-surface .page-title {
+        color: #f5f5f7;
+    }
+
+    .note-history-page .commit-header-surface .commit-meta {
+        color: #c7d6e2;
+    }
+
+    .note-history-page .commit-header-surface .commit-btn-neutral,
+    .note-history-page .mathjax-toggle-btn.mathjax-toggle-btn-light {
+        background: var(--ac-surface);
+        color: var(--ac-ink-primary);
+        border-color: #36526e;
+    }
+
+    .note-history-page .commit-header-surface .commit-btn-neutral:hover,
+    .note-history-page .mathjax-toggle-btn.mathjax-toggle-btn-light:hover {
+        background: var(--ac-surface-muted);
+        color: #ffffff;
+        border-color: #4d7091;
+    }
+
+    .note-history-page .mathjax-toggle-btn.mathjax-toggle-btn-light[aria-pressed="true"] {
+        background: #0c2d42;
+        color: #bae6fd;
+        border-color: #38bdf8;
+    }
+
+    .note-history-page .filter-menu {
+        box-shadow: 0 16px 40px rgba(0, 0, 0, 0.6);
+    }
+
+    .note-history-page .filter-btn {
+        background: var(--ac-surface-subtle);
+        border-color: var(--ac-line-hairline);
+        color: var(--ac-ink-secondary) !important;
+    }
+
+    .note-history-page .filter-btn:hover {
+        background: var(--ac-surface-muted);
+        color: var(--ac-ink-primary) !important;
+    }
+
+    .note-history-page .filter-btn.primary {
+        background: #0c5d87 !important;
+        border-color: #0c5d87;
+        color: #ffffff !important;
+    }
+
+    .note-history-page .filter-btn.primary:hover {
+        background: #094a6c !important;
+        color: #ffffff !important;
+    }
+
+    .note-history-page .group-card.note-card,
+    .note-history-page .group-card.note-card:hover {
+        border-color: #33343a;
+    }
+
+    .note-history-page .group-card.group-card-approved,
+    .note-history-page .group-card.group-card-approved:hover {
+        border-left-color: #2ea043;
+    }
+
+    .note-history-page .group-card.group-card-denied,
+    .note-history-page .group-card.group-card-denied:hover {
+        border-left-color: #f85149;
+    }
+
+    .note-history-page .added-content-preview {
+        border-left-color: #2ea043;
+    }
+
+    .note-history-page .removed-content-preview {
+        border-left-color: #f85149;
+    }
+}
+
+/* --- High Contrast & Forced Colors Accessibility --- */
+@media (prefers-contrast: more) {
+    .note-history-page {
+        --ac-line-hairline: currentColor;
+        --ac-line-strong: currentColor;
+    }
+
+    .note-history-page .commit-btn,
+    .note-history-page .card-utility-btn,
+    .note-history-page .filter-btn {
+        border: 1.5px solid currentColor;
+    }
+}
+
+@media (forced-colors: active) {
+    .note-history-page .event-type-added,
+    .note-history-page .tag-preview.added {
+        outline: 1px solid Highlight;
+    }
+
+    .note-history-page .event-type-removed,
+    .note-history-page .event-type-denied,
+    .note-history-page .tag-preview.removed {
+        outline: 1px dashed GrayText;
+    }
+}
+
+/* --- Reduced Motion --- */
+@media (prefers-reduced-motion: reduce) {
+    .note-history-page :is(
+        .commit-back-link,
+        .commit-btn,
+        .card-utility-btn,
+        .mathjax-toggle-btn,
+        .snapshot-header,
+        .diff-toggle,
+        .event-item,
+        .filter-btn
+    ) {
+        transition: none;
+    }
+
+    .note-history-page .filter-menu.show {
+        animation: none;
+    }
+}
+
+/* --- Coarse Pointer Touch Targets --- */
+@media (pointer: coarse) {
+    .note-history-page :is(
+        .commit-btn,
+        .card-utility-btn,
+        .mathjax-toggle-btn.mathjax-toggle-btn-light,
+        .filter-btn,
+        .snapshot-header
+    ) {
+        height: auto;
+        min-block-size: 44px;
+        min-inline-size: 44px;
+        max-height: none;
+    }
+
+    .note-history-page .filter-option {
+        min-block-size: 44px;
+    }
+}
+
+/* --- Responsive Layout --- */
+@media (max-width: 768px) {
+    .note-history-page {
+        padding: 12px 12px 36px;
+    }
+
+    .note-history-page .page-header.commit-header-surface {
+        padding: 14px 16px;
+    }
+
+    .note-history-page .commit-primary-actions {
+        width: 100%;
+    }
+
+    .note-history-page .timeline {
+        padding-left: 18px;
+    }
+
+    .note-history-page .timeline::before {
+        left: 4px;
+    }
+
+    .note-history-page .timeline-marker {
+        left: -19px;
+    }
+
+    .note-history-page .comparison-container {
+        grid-template-columns: 1fr;
+    }
+
+    .note-history-page .comparison-side:last-child {
+        border-left: 0;
+        border-top: 1px dashed var(--ac-line-hairline);
+    }
+
+    .note-history-page .event-time {
+        margin-left: 0;
+        width: 100%;
+    }
+}

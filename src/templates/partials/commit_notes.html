@@ -213,7 +213,7 @@
             <div class="collapsible-body reviewed-fields-stack">
                 {% for field in note.reviewed_fields %}
                 {% set related_changes = [f for f in note.fields if f.position == field.position] %}
-                <div class="field-item compact {% if related_changes %}field-has-change{% endif %}">
+                <div class="field-item compact {% if related_changes %}field-has-change{% endif %} {% if field.inherited is defined and field.inherited %}field-inherited{% endif %}">
                     <div class="field-header">
                         <div class="field-name">
                             {{notemodels[note.note_model][field.position]}}

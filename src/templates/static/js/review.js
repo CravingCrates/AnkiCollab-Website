@@ -20,7 +20,7 @@ function toggleTags(button) {
 }
 
 function groupSuggestionsByCommit() {
-    var suggestionsContainer = $('.suggestions-side');
+    var suggestionsContainer = $('.suggestions-body').length ? $('.suggestions-body') : $('.suggestions-side');
     var suggestions = $('.suggestion-box').toArray();
     
     // Skip if no suggestions to group
@@ -92,8 +92,7 @@ function groupSuggestionsByCommit() {
             badgeLink.appendChild(document.createTextNode(' Commit #' + commitId));
 
             var countSpan = document.createElement('span');
-            countSpan.style.color = '#6b7280';
-            countSpan.style.fontSize = '0.9rem';
+            countSpan.className = 'commit-change-count';
             countSpan.textContent = items.length + ' ' + (items.length === 1 ? 'change' : 'changes');
 
             headerDiv.appendChild(badgeLink);
@@ -159,7 +158,7 @@ function initiButtonFeatures() {
     // Visual feedback for successful actions
     $(document).on('field:accepted field:denied tag:accepted tag:denied', function(e, itemId) {
         var isAccepted = e.type.includes('accepted');
-        var $item = $('[data-field-id="' + itemId + '"], [data-tag-id="' + itemId + '"], [data-move-id="' + itemId + '"]').closest('.suggestion-box, .field-item');
+        var $item = $('[data-field-id="' + itemId + '"], [data-tag-id="' + itemId + '"], [data-move-id="' + itemId + '"]').closest('.suggestion-box, .suggestion-item, .field-diff-row, .field-item');
         
         $item.addClass(isAccepted ? 'field-success' : 'field-error');
         
@@ -174,6 +173,54 @@ function initiButtonFeatures() {
                 $(this).remove();
             });
         }, 1000);
+    });
+
+    // Empty state after resolving the entire note from the header
+    $(document).on('note:resolved', function(_e, detail) {
+        var $page = $('.note-review-page');
+        if (!$page.length) return;
+
+        $page.find('[data-action="accept-note"], [data-action="delete-note"], [data-action="accept-note-removal"], [data-action="deny-note-removal"]')
+            .prop('disabled', true);
+
+        var $container = $page.children('.container-fluid');
+        if (!$container.length || $container.find('.note-context, .commit-empty-state').length) {
+            return;
+        }
+
+        var emptyEl = document.createElement('div');
+        emptyEl.className = 'commit-empty-state';
+
+        var iconWrap = document.createElement('div');
+        iconWrap.className = 'commit-empty-icon';
+        var icon = document.createElement('i');
+        icon.className = 'fa-regular fa-circle-check';
+        icon.setAttribute('aria-hidden', 'true');
+        iconWrap.appendChild(icon);
+
+        var heading = document.createElement('h2');
+        heading.textContent = 'Note resolved';
+
+        var desc = document.createElement('p');
+        var action = detail && detail.action;
+        if (action === 'delete-note' || action === 'accept-note-removal') {
+            desc.textContent = 'This note has been removed.';
+        } else if (action === 'deny-note-removal') {
+            desc.textContent = 'The removal request was declined and this note was kept.';
+        } else {
+            desc.textContent = 'This note has been accepted and published.';
+        }
+
+        var backBtn = document.createElement('a');
+        backBtn.className = 'commit-btn commit-btn-neutral';
+        backBtn.href = '/reviews';
+        backBtn.textContent = 'Back to Reviews';
+
+        emptyEl.appendChild(iconWrap);
+        emptyEl.appendChild(heading);
+        emptyEl.appendChild(desc);
+        emptyEl.appendChild(backBtn);
+        $container[0].appendChild(emptyEl);
     });
     
     // Performance monitoring

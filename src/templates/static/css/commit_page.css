@@ -41,6 +41,11 @@ body:has(.commit-review-page),
     --ac-orig-box-border: #e5a9b0;
     --ac-prop-box-bg: #ecfdf3;
     --ac-prop-box-border: #8fd9ad;
+    --ac-inherited-bg: #fef3c7;
+    --ac-inherited-bg-subtle: #fffbeb;
+    --ac-inherited-border: #d9a441;
+    --ac-inherited-accent: #d97706;
+    --ac-inherited-ink: #78350f;
 
     color-scheme: light dark;
     max-width: 1200px;
@@ -1124,6 +1129,19 @@ body:has(.commit-review-page),
     transition: background-color 0.12s ease, border-color 0.12s ease, color 0.12s ease;
 }
 
+.commit-review-page .reviewed-tag-chip.inherited {
+    background-color: var(--ac-inherited-bg) !important;
+    background-image: none !important;
+    border-color: var(--ac-inherited-border);
+    color: var(--ac-inherited-ink);
+    font-weight: 600;
+}
+
+.commit-review-page .reviewed-tag-chip.inherited .tag-icon-sm {
+    font-size: 10px;
+    opacity: 0.9;
+}
+
 .commit-review-page .tag-chip,
 .commit-review-page .tag-chip:hover,
 .commit-review-page .reviewed-tag-chip:hover,
@@ -1348,6 +1366,16 @@ body:has(.commit-review-page),
     border-left: 3px solid var(--ac-accent);
 }
 
+.commit-review-page .reviewed-fields-stack .field-item.compact.field-inherited {
+    background: var(--ac-inherited-bg-subtle);
+    border-color: var(--ac-inherited-border);
+    border-left: 3px solid var(--ac-inherited-accent);
+}
+
+.commit-review-page .reviewed-fields-stack .field-item.compact.field-inherited.field-has-change {
+    border-left: 3px solid var(--ac-accent);
+}
+
 .commit-review-page .reviewed-fields-stack .field-item.compact .field-header {
     margin: 0 0 4px;
     padding: 0;
@@ -1367,14 +1395,17 @@ body:has(.commit-review-page),
 }
 
 .commit-review-page .reviewed-fields-stack .inherited-badge {
-    padding: 1px 6px;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 1px 7px;
     border-radius: 4px;
-    background: var(--ac-surface-muted);
-    color: var(--ac-ink-secondary);
-    border: 1px solid var(--ac-line-hairline);
+    background: var(--ac-inherited-bg);
+    color: var(--ac-inherited-ink);
+    border: 1px solid var(--ac-inherited-border);
     box-shadow: none;
     font-size: 10.5px;
-    font-weight: 500;
+    font-weight: 600;
     text-transform: none;
     letter-spacing: 0;
 }
@@ -1562,6 +1593,11 @@ body:has(.commit-review-page) .edit-all-fields-panel .edit-panel-hint {
         --ac-orig-box-border: rgba(248, 81, 73, 0.3);
         --ac-prop-box-bg: rgba(46, 160, 67, 0.1);
         --ac-prop-box-border: rgba(46, 160, 67, 0.32);
+        --ac-inherited-bg: rgba(245, 158, 11, 0.22);
+        --ac-inherited-bg-subtle: rgba(245, 158, 11, 0.1);
+        --ac-inherited-border: rgba(245, 158, 11, 0.48);
+        --ac-inherited-accent: #f59e0b;
+        --ac-inherited-ink: #fcd34d;
         --ac-shadow-card: 0 2px 8px rgba(0, 0, 0, 0.45);
     }
 
@@ -1845,11 +1881,15 @@ body:has(.commit-review-page) .edit-all-fields-panel .edit-panel-hint {
     .commit-review-page {
         --ac-line-hairline: currentColor;
         --ac-line-strong: currentColor;
+        --ac-inherited-border: currentColor;
+        --ac-inherited-accent: currentColor;
     }
 
     .commit-review-page .commit-btn,
     .commit-review-page .card-utility-btn,
-    .commit-review-page .note-decision-segmented {
+    .commit-review-page .note-decision-segmented,
+    .commit-review-page .reviewed-tag-chip.inherited,
+    .commit-review-page .reviewed-fields-stack .inherited-badge {
         border: 1.5px solid currentColor;
     }
 }
@@ -1863,6 +1903,12 @@ body:has(.commit-review-page) .edit-all-fields-panel .edit-panel-hint {
     .commit-review-page .diff-highlight-del,
     .commit-review-page .diff-content del[data-diff] {
         outline: 1px dashed GrayText;
+    }
+
+    .commit-review-page .reviewed-tag-chip.inherited,
+    .commit-review-page .reviewed-fields-stack .inherited-badge,
+    .commit-review-page .reviewed-fields-stack .field-item.compact.field-inherited {
+        border-color: Highlight;
     }
 }
 

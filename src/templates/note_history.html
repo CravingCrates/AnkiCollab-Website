@@ -4,145 +4,172 @@
   {% set page_title = "Note History" %}
   {% include "header_template.html" %}
   <link href="/static/css/commit_styling.css" rel="stylesheet">
+  <link href="/static/css/note_history.css" rel="stylesheet">
   <script src="/static/js/mathjax_engine.js"></script>
   <script src="/static/js/note_history.js"></script>
 </head>
 
 {% include "layout_header.html" %}
 
-<div class="main-container">
+<div class="main-container note-history-page">
   <div class="container-fluid">
-    <div class="page-header">
-      <div class="header-content d-flex justify-between align-center">
-        <div>
-          <h1 class="page-title">Note History #{{ note_id }}</h1>
-          <p class="page-subtitle">Complete timeline • {{ groups|length }} commit{% if groups|length != 1 %}s{% endif %}</p>
-        </div>
-        <div class="header-actions">
-          <button type="button" class="mathjax-toggle-btn" aria-pressed="false" title="Toggle MathJax rendering" hidden>
-            <i class="fa-solid fa-square-root-variable" aria-hidden="true"></i>
-            <span>MathJax</span>
-          </button>
-          <div class="filter-dropdown">
-            <button id="toggleFilterBtn" class="filter-button">
-              <i class="fa-solid fa-filter" aria-hidden="true"></i>
-              Filters
-              <i class="fa-solid fa-chevron-down chevron-icon-sm" aria-hidden="true"></i>
+    <header class="page-header commit-header-surface" aria-label="Note history summary and actions">
+      <div class="header-content">
+        <div class="commit-header-top">
+          <div class="commit-identity">
+            <div class="commit-breadcrumb">
+              <a href="/review/{{ note_id }}" class="commit-back-link back-button">
+                <i class="fa-solid fa-arrow-left" aria-hidden="true"></i>
+                <span>Note #{{ note_id }}</span>
+              </a>
+              <span class="crumb-sep" aria-hidden="true">/</span>
+              <h1 class="page-title">Note History #{{ note_id }}</h1>
+            </div>
+            <div class="commit-meta" aria-label="History summary">
+              <span class="meta-item">
+                <i class="fa-solid fa-clock-rotate-left" aria-hidden="true"></i>
+                <span>Complete timeline</span>
+              </span>
+              <span class="meta-sep" aria-hidden="true">&middot;</span>
+              <span class="meta-item page-subtitle">{{ groups|length }} commit{% if groups|length != 1 %}s{% endif %}</span>
+            </div>
+          </div>
+
+          <div class="commit-primary-actions header-actions" role="toolbar" aria-label="History actions">
+            <button type="button" class="mathjax-toggle-btn mathjax-toggle-btn-light" aria-pressed="false" title="Toggle MathJax rendering" hidden>
+              <i class="fa-solid fa-square-root-variable" aria-hidden="true"></i>
+              <span>MathJax</span>
             </button>
-            <div id="filterMenu" class="filter-menu">
-              <div class="filter-section">
-                <div class="filter-title">Event Types</div>
-                <div class="filter-options">
-                  <label class="filter-option">
-                    <input type="checkbox" name="eventType" value="note_created">
-                    <span>Note Created</span>
-                  </label>
-                  <label class="filter-option">
-                    <input type="checkbox" name="eventType" value="field_added">
-                    <span>Field Added</span>
-                  </label>
-                  <label class="filter-option">
-                    <input type="checkbox" name="eventType" value="field_updated">
-                    <span>Field Updated</span>
-                  </label>
-                  <label class="filter-option">
-                    <input type="checkbox" name="eventType" value="field_removed">
-                    <span>Field Removed</span>
-                  </label>
-                  <label class="filter-option">
-                    <input type="checkbox" name="eventType" value="tag_added">
-                    <span>Tag Added</span>
-                  </label>
-                  <label class="filter-option">
-                    <input type="checkbox" name="eventType" value="tag_removed">
-                    <span>Tag Removed</span>
-                  </label>
-                  <label class="filter-option">
-                    <input type="checkbox" name="eventType" value="note_moved">
-                    <span>Note Moved</span>
-                  </label>
-                  <label class="filter-option">
-                    <input type="checkbox" name="eventType" value="note_deleted">
-                    <span>Note Deleted</span>
-                  </label>
-                  <label class="filter-option">
-                    <input type="checkbox" name="eventType" value="field_change_denied">
-                    <span>Field Change Denied</span>
-                  </label>
-                  <label class="filter-option">
-                    <input type="checkbox" name="eventType" value="tag_change_denied">
-                    <span>Tag Change Denied</span>
-                  </label>
+            <div class="filter-dropdown">
+              <button type="button" id="toggleFilterBtn" class="commit-btn commit-btn-neutral filter-button" aria-haspopup="true" aria-controls="filterMenu">
+                <i class="fa-solid fa-filter" aria-hidden="true"></i>
+                <span>Filters</span>
+                <i class="fa-solid fa-chevron-down chevron-icon-sm" aria-hidden="true"></i>
+              </button>
+              <div id="filterMenu" class="filter-menu">
+                <div class="filter-section">
+                  <div class="filter-title">Event Types</div>
+                  <div class="filter-options">
+                    <label class="filter-option">
+                      <input type="checkbox" name="eventType" value="note_created">
+                      <span>Note Created</span>
+                    </label>
+                    <label class="filter-option">
+                      <input type="checkbox" name="eventType" value="field_added">
+                      <span>Field Added</span>
+                    </label>
+                    <label class="filter-option">
+                      <input type="checkbox" name="eventType" value="field_updated">
+                      <span>Field Updated</span>
+                    </label>
+                    <label class="filter-option">
+                      <input type="checkbox" name="eventType" value="field_removed">
+                      <span>Field Removed</span>
+                    </label>
+                    <label class="filter-option">
+                      <input type="checkbox" name="eventType" value="tag_added">
+                      <span>Tag Added</span>
+                    </label>
+                    <label class="filter-option">
+                      <input type="checkbox" name="eventType" value="tag_removed">
+                      <span>Tag Removed</span>
+                    </label>
+                    <label class="filter-option">
+                      <input type="checkbox" name="eventType" value="note_moved">
+                      <span>Note Moved</span>
+                    </label>
+                    <label class="filter-option">
+                      <input type="checkbox" name="eventType" value="note_deleted">
+                      <span>Note Deleted</span>
+                    </label>
+                    <label class="filter-option">
+                      <input type="checkbox" name="eventType" value="field_change_denied">
+                      <span>Field Change Denied</span>
+                    </label>
+                    <label class="filter-option">
+                      <input type="checkbox" name="eventType" value="tag_change_denied">
+                      <span>Tag Change Denied</span>
+                    </label>
+                  </div>
                 </div>
-              </div>
-              
-              {% if actors and actors|length > 0 %}
-              <div class="filter-section">
-                <div class="filter-title">Contributors</div>
-                <div class="filter-options">
-                  {% for actor in actors %}
-                  <label class="filter-option">
-                    <input type="checkbox" name="actor" value="{{ actor }}">
-                    <span>@{{ actor }}</span>
-                  </label>
-                  {% endfor %}
+
+                {% if actors and actors|length > 0 %}
+                <div class="filter-section">
+                  <div class="filter-title">Contributors</div>
+                  <div class="filter-options">
+                    {% for actor in actors %}
+                    <label class="filter-option">
+                      <input type="checkbox" name="actor" value="{{ actor }}">
+                      <span>@{{ actor }}</span>
+                    </label>
+                    {% endfor %}
+                  </div>
                 </div>
-              </div>
-              {% endif %}
-              
-              <div class="filter-actions">
-                <button id="clearFiltersBtn" class="filter-btn">Clear All</button>
-                <button id="applyFiltersBtn" class="filter-btn primary">Apply Filters</button>
+                {% endif %}
+
+                <div class="filter-actions">
+                  <button type="button" id="clearFiltersBtn" class="filter-btn">Clear All</button>
+                  <button type="button" id="applyFiltersBtn" class="filter-btn primary">Apply Filters</button>
+                </div>
               </div>
             </div>
           </div>
-          <a href="/review/{{ note_id }}" class="back-button">
-            <i class="fa-solid fa-arrow-left" aria-hidden="true"></i>
-            Back to Review
-          </a>
         </div>
       </div>
-    </div>
+    </header>
 
     {% if groups|length == 0 %}
-      <div class="empty-state">
-        <div class="empty-icon">📚</div>
-        <h3 class="empty-title">No History Yet</h3>
+      <div class="commit-empty-state empty-state">
+        <div class="commit-empty-icon empty-icon"><i class="fa-regular fa-clock" aria-hidden="true"></i></div>
+        <h2 class="empty-title">No History Yet</h2>
         <p class="empty-description">This note doesn't have any recorded changes.</p>
       </div>
     {% else %}
       <div class="timeline">
         {% for group in groups %}
           <div class="timeline-group" data-group>
-            <div class="timeline-marker"></div>
-            <div class="group-card">
+            <div class="timeline-marker" aria-hidden="true"></div>
+            <div class="group-card note-card {% if group.approved %}group-card-approved{% elif group.denied %}group-card-denied{% endif %}">
               {% if group.commit_id %}
-                <div class="group-header">
-                  <div class="commit-info">
-                    <a href="/commit_history/{{ group.commit_id }}" class="commit-badge {% if group.approved %}approved{% elif group.denied %}denied{% else %}{% endif %}">
+                <div class="group-header note-header-compact">
+                  <div class="commit-info note-header-info">
+                    <a href="/commit_history/{{ group.commit_id }}" class="note-id-link commit-badge {% if group.approved %}approved{% elif group.denied %}denied{% else %}{% endif %}">
                       Commit #{{ group.commit_id }}
-                      {% if group.approved %}✓{% elif group.denied %}✗{% else %}{% endif %}
+                    </a>
+                    {% if group.approved %}
+                    <span class="note-status-badge badge-new"><i class="fa-solid fa-check" aria-hidden="true"></i> Accepted</span>
+                    {% elif group.denied %}
+                    <span class="note-status-badge badge-removal"><i class="fa-solid fa-xmark" aria-hidden="true"></i> Declined</span>
+                    {% endif %}
+                    <span class="note-meta-inline note-count-text">
+                      {{ group.events|length }} change{% if group.events|length != 1 %}s{% endif %}
+                    </span>
+                  </div>
+                  <div class="note-header-actions">
+                    <a href="/commit_history/{{ group.commit_id }}" class="card-utility-btn">
+                      <i class="fa-solid fa-code-commit" aria-hidden="true"></i>
+                      <span>Commit Impact</span>
                     </a>
                   </div>
                 </div>
               {% else %}
-                <div class="group-header">
-                  <div class="commit-info">
-                    <span class="standalone-badge">Standalone Changes</span>
-                    <span class="note-count-text">
+                <div class="group-header note-header-compact">
+                  <div class="commit-info note-header-info">
+                    <span class="standalone-badge note-id-link">Standalone Changes</span>
+                    <span class="note-meta-inline note-count-text">
                       {{ group.events|length }} change{% if group.events|length != 1 %}s{% endif %}
                     </span>
                   </div>
                 </div>
               {% endif %}
-              
-              <ul class="events-list">
+
+              <ul class="events-list" role="list">
                 {% for event in group.events %}
                   {% if event.event_type != 'commit_approved_effect' and event.event_type != 'commit_denied_effect' %}
                   <li class="event-item" data-event-type="{{ event.event_type }}" data-event-actor="{{ event.actor_username | default(value='Anonymous') }}">
                     <div class="event-header">
                       <span class="version-badge">v{{ event.version }}</span>
-                      
+
                       {% if event.event_type == 'note_created' %}
                         <span class="event-type">{% if not group.commit_id %}Created note{% else %}Created{% endif %}</span>
                         <span class="event-actor">
@@ -152,29 +179,29 @@
                           {% endif %}
                         </span>
                       {% elif event.event_type == 'field_added' %}
-                        <span class="event-type">{% if not group.commit_id %}Added field{% else %}Added field{% endif %}</span>
+                        <span class="event-type event-type-added">Added field</span>
                       {% elif event.event_type == 'field_updated' %}
-                        <span class="event-type">{% if not group.commit_id %}Updated field{% else %}Updated field{% endif %}</span>
+                        <span class="event-type">Updated field</span>
                       {% elif event.event_type == 'field_removed' %}
-                        <span class="event-type">{% if not group.commit_id %}Removed field{% else %}Removed field{% endif %}</span>
+                        <span class="event-type event-type-removed">Removed field</span>
                       {% elif event.event_type == 'tag_added' %}
-                        <span class="event-type">{% if not group.commit_id %}Added tag{% else %}Added tag{% endif %}</span>
+                        <span class="event-type event-type-added">Added tag</span>
                       {% elif event.event_type == 'tag_removed' %}
-                        <span class="event-type">{% if not group.commit_id %}Removed tag{% else %}Removed tag{% endif %}</span>
+                        <span class="event-type event-type-removed">Removed tag</span>
                       {% elif event.event_type == 'note_moved' %}
                         <span class="event-type">{% if not group.commit_id %}Moved note{% else %}Moved{% endif %}</span>
                       {% elif event.event_type == 'note_deleted' %}
-                        <span class="event-type">{% if not group.commit_id %}Deleted note{% else %}Deleted{% endif %}</span>
+                        <span class="event-type event-type-removed">{% if not group.commit_id %}Deleted note{% else %}Deleted{% endif %}</span>
                       {% elif event.event_type == 'field_change_denied' %}
-                        <span class="event-type">❌ Denied field change</span>
+                        <span class="event-type event-type-denied"><i class="fa-solid fa-xmark" aria-hidden="true"></i> Denied field change</span>
                       {% elif event.event_type == 'tag_change_denied' %}
-                        <span class="event-type">❌ Denied tag change</span>
+                        <span class="event-type event-type-denied"><i class="fa-solid fa-xmark" aria-hidden="true"></i> Denied tag change</span>
                       {% endif %}
-                      
+
                       {% if event.actor_username %}
                         <span class="actor-chip"><i class="fa-solid fa-user" aria-hidden="true"></i> @{{ event.actor_username }}</span>
                       {% endif %}
-                      
+
                       <span class="event-time">{{ event.created_at }}</span>
                     </div>
 
@@ -190,7 +217,7 @@
                               {{ event.old_human | default(value='(empty)') }}
                             </div>
                           </div>
-                          <div class="comparison-divider">
+                          <div class="comparison-divider" aria-hidden="true">
                             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true" focusable="false">
                               <path d="M5 12h14M12 5l7 7-7 7"/>
                             </svg>
@@ -224,20 +251,22 @@
                     {% elif event.event_type == 'tag_added' %}
                       <div class="tag-added-display">
                         <div class="tag-preview added">
-                          {{ event.new_human }}
+                          <span class="tag-diff-prefix" aria-hidden="true">+</span>
+                          <span>{{ event.new_human }}</span>
                         </div>
                       </div>
                     {% elif event.event_type == 'tag_removed' %}
                       <div class="tag-removed-display">
                         <div class="tag-preview removed">
-                          {{ event.new_human | default(value=event.old_human) }}
+                          <span class="tag-diff-prefix" aria-hidden="true">&minus;</span>
+                          <span>{{ event.new_human | default(value=event.old_human) }}</span>
                         </div>
                       </div>
                     {% elif event.event_type == 'note_moved' %}
                       <div class="note-move-display">
                         <div class="move-comparison">
                           <div class="move-from">{{ event.old_human | default(value='') }}</div>
-                          <div class="move-arrow">
+                          <div class="move-arrow" aria-hidden="true">
                             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true" focusable="false">
                               <path d="M5 12h14M12 5l7 7-7 7"/>
                             </svg>
@@ -255,7 +284,7 @@
                                 {{ event.old_value.current_content | default(value='(empty)') }}
                               </div>
                             </div>
-                            <div class="comparison-divider">
+                            <div class="comparison-divider" aria-hidden="true">
                               <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true" focusable="false">
                                 <path d="M5 12h14M12 5l7 7-7 7"/>
                               </svg>
@@ -281,13 +310,13 @@
                       </div>
                     {% elif event.event_type == 'note_created' %}
                       <div class="snapshot-container">
-                        <div class="snapshot-header" data-snapshot-id="{{ event.id }}">
+                        <button type="button" class="snapshot-header" data-snapshot-id="{{ event.id }}">
                           <span>View initial content</span>
-                          <span class="diff-toggle">▼</span>
-                        </div>
+                          <i class="fa-solid fa-chevron-down diff-toggle" aria-hidden="true"></i>
+                        </button>
                         <div id="snapshot-{{ event.id }}" class="snapshot-content">
                           {% if event.new_value and event.new_value.fields %}
-                            <ol class="snapshot-fields">
+                            <ol class="snapshot-fields" role="list">
                               {% for field in event.new_value.fields %}
                                 <li class="snapshot-field">{{ field.content | default(value='(empty)') }}</li>
                               {% endfor %}

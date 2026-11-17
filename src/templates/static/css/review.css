@@ -1,251 +1,1207 @@
-.content-comparison {
-    gap: 0;
-    border-radius: 16px;
-    overflow: hidden;
-    border: 1px solid #e5e7eb;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+/**
+ * review.css - Single-note review page styles
+ */
+
+/* --- Canvas & Design Tokens --- */
+:root:has(.note-review-page) {
+    color-scheme: light dark;
 }
 
-.content-side {
-    border-radius: 0;
-    box-shadow: none;
-    border: none;
+body:has(.note-review-page),
+.content-body:has(.note-review-page) {
+    background-color: #f2f2f7;
+    background-image: none;
 }
 
-.published-side {
-    background: #f9fafb;
-    border-right: 1px solid #e5e7eb;
-    padding: 24px;
-    height: 100%;
+.note-review-page {
+    --ac-canvas: #f2f2f7;
+    --ac-surface: #ffffff;
+    --ac-surface-subtle: #f7f8fa;
+    --ac-surface-muted: #ebedf2;
+    --ac-ink-primary: #111827;
+    --ac-ink-secondary: #374151;
+    --ac-ink-tertiary: #525866;
+    --ac-line-hairline: #d4d8e0;
+    --ac-line-strong: #949ba8;
+    --ac-accent: #006699;
+    --ac-accent-hover: #00527a;
+    --ac-accent-soft: rgba(0, 102, 153, 0.12);
+    --ac-accept: #0b6e4f;
+    --ac-accept-hover: #08563d;
+    --ac-decline: #b42318;
+    --ac-decline-soft: rgba(180, 35, 24, 0.1);
+    --ac-diff-ins-bg: #d1f4de;
+    --ac-diff-ins-ink: #064e3b;
+    --ac-diff-del-bg: #ffdce0;
+    --ac-diff-del-ink: #86181d;
+    --ac-shadow-card: 0 1px 2px rgba(0, 0, 0, 0.06), 0 0 0 0.5px rgba(0, 0, 0, 0.04);
+    --ac-radius-card: 10px;
+    --ac-radius-control: 6px;
+    --ac-orig-box-bg: #fff2f2;
+    --ac-orig-box-border: #e5a9b0;
+    --ac-prop-box-bg: #ecfdf3;
+    --ac-prop-box-border: #8fd9ad;
+    --ac-inherited-bg: #fef3c7;
+    --ac-inherited-bg-subtle: #fffbeb;
+    --ac-inherited-border: #d9a441;
+    --ac-inherited-accent: #d97706;
+    --ac-inherited-ink: #78350f;
+
+    color-scheme: light dark;
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 20px 24px 48px;
+    color: var(--ac-ink-primary);
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Inter", "Segoe UI", system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
 }
 
-.suggestions-side {
-    background: #ffffff;
-    padding: 24px;
-    height: 100%;
+.note-review-page > .container-fluid {
+    padding: 0;
+    max-width: 100%;
 }
 
-/* Content headers */
-.content-header {
-    font-size: 11px;
-    font-weight: 700;
-    color: #9ca3af;
-    text-transform: uppercase;
-    letter-spacing: 0.8px;
-    margin-bottom: 16px;
-    padding-bottom: 10px;
-    border-bottom: 1px solid #f0f0f0;
+.note-review-page [hidden],
+.note-review-page .hidden {
+    display: none !important;
 }
 
-/* Published side: field items sit flush, no card-in-card */
-.published-side .field-item {
+.note-review-page :is(a, button, input, summary, [tabindex]):focus-visible {
+    outline: 2px solid var(--ac-accent);
+    outline-offset: 2px;
+}
+
+/* --- Strip Legacy Gradients & Decorative Bars --- */
+.note-review-page .page-header::before,
+.note-review-page .page-header::after,
+.note-review-page .note-card::before,
+.note-review-page .note-card::after,
+.note-review-page .section-title::before {
+    display: none !important;
+    content: none !important;
+}
+
+.note-review-page :is(
+    .page-header,
+    .note-card,
+    .content-side,
+    .comparison-col-header,
+    .field-content,
+    .current-content,
+    .diff-content,
+    .note_tag_container,
+    .note-status-badge,
+    .status-pill,
+    .inherited-alert,
+    .inherited-badge,
+    .commit-group,
+    .commit-header,
+    .suggestion-item,
+    .suggestion-box,
+    .tag-chip,
+    .tag-chip-editable,
+    .commit-btn,
+    .icon-btn,
+    .revert-btn,
+    .field-success,
+    .field-error
+) {
+    background-image: none !important;
+}
+
+.note-review-page :is(
+    .note-card,
+    .commit-group,
+    .suggestion-box,
+    .suggestion-item,
+    .field-item,
+    .commit-btn,
+    .icon-btn,
+    .revert-btn,
+    .tag-revert-btn,
+    .tag-chip,
+    .tag-chip-editable,
+    .mathjax-toggle-btn
+):is(:hover, :active) {
+    transform: none !important;
+}
+
+/* --- Header Surface --- */
+.note-review-page .page-header.commit-header-surface {
+    background-color: #e3eef4;
+    color: #1f2933;
+    border: 1px solid #c2d6e3;
+    border-radius: var(--ac-radius-card);
+    box-shadow: 0 1px 2px rgba(0, 102, 153, 0.06);
+    padding: 16px 20px;
+    margin: 0 0 16px;
+}
+
+.note-review-page .header-content {
+    position: relative;
+    z-index: 1;
+}
+
+.note-review-page .commit-header-top {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+}
+
+.note-review-page .commit-identity {
+    min-width: 0;
+    flex: 1 1 320px;
+}
+
+.note-review-page .commit-breadcrumb {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 6px;
+}
+
+.note-review-page .commit-back-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    min-block-size: 24px;
+    padding: 3px 6px;
+    margin-left: -6px;
+    border-radius: 5px;
+    font-size: 13px;
+    font-weight: 550;
+    color: #005580;
     background: transparent;
-    border: none;
-    border-bottom: 1px solid #e5e7eb;
-    border-radius: 0;
-    padding: 14px 0;
-    margin-bottom: 0;
-    box-shadow: none;
-}
-.published-side .field-item:last-child {
-    border-bottom: none;
-}
-.published-side .field-item:hover {
-    box-shadow: none;
+    text-decoration: none;
+    transition: background-color 0.15s ease, color 0.15s ease;
 }
 
-/* Tags section on published side */
-.published-side .tags-section {
-    margin-top: 16px;
-    padding-top: 16px;
-    border-top: 1px solid #e5e7eb;
+.note-review-page .commit-back-link:hover {
+    background: rgba(0, 102, 153, 0.11);
+    color: #004266;
+    text-decoration: none;
 }
 
-.published-side .section-title {
+.note-review-page .crumb-sep {
+    color: #7b8794;
+    font-size: 13px;
+    user-select: none;
+}
+
+.note-review-page .page-title {
+    margin: 0;
+    font-size: 20px;
+    font-weight: 650;
+    line-height: 1.25;
+    letter-spacing: -0.02em;
+    color: #1f2933;
+    font-variant-numeric: tabular-nums;
+    text-wrap: balance;
+}
+
+.note-review-page .note-status-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 7px;
+    border-radius: 4px;
     font-size: 11px;
-    font-weight: 700;
-    color: #9ca3af;
-    text-transform: uppercase;
-    letter-spacing: 0.8px;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+    text-transform: none;
+    border: 1px solid transparent;
+    text-box: trim-both cap alphabetic;
 }
 
-/* Empty state */
-.empty-state {
+.note-review-page .note-status-badge.badge-published {
+    color: #005580;
+    background: rgba(0, 102, 153, 0.12);
+    border-color: rgba(0, 102, 153, 0.24);
+}
+
+.note-review-page .note-status-badge.badge-new {
+    color: var(--ac-diff-ins-ink);
+    background: var(--ac-diff-ins-bg);
+    border-color: rgba(8, 116, 67, 0.24);
+}
+
+.note-review-page .note-status-badge.badge-removal {
+    color: var(--ac-diff-del-ink);
+    background: var(--ac-diff-del-bg);
+    border-color: rgba(180, 35, 24, 0.24);
+}
+
+.note-review-page .commit-meta {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin: 0;
+    font-size: 12.5px;
+    color: #4b5b69;
+    opacity: 1;
+}
+
+.note-review-page .commit-meta .meta-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+    max-width: 100%;
+}
+
+.note-review-page .commit-meta-deck span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 52ch;
+}
+
+.note-review-page .commit-meta .meta-sep {
+    opacity: 0.6;
+}
+
+/* --- Primary Header Toolbar & Buttons --- */
+.note-review-page .commit-primary-actions {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+    flex-shrink: 0;
+    margin-top: 0;
+}
+
+.note-review-page .commit-btn {
+    box-sizing: border-box;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    width: auto;
+    height: auto;
+    min-block-size: 34px;
+    min-inline-size: 24px;
+    max-height: none;
+    margin: 0;
+    padding: 6px 12px;
+    border-radius: var(--ac-radius-control);
+    font-size: 13px;
+    font-weight: 550;
+    line-height: 1.385;
+    border: 1px solid transparent;
+    box-shadow: none;
+    cursor: pointer;
+    text-decoration: none;
+    white-space: normal;
     text-align: center;
-    padding: 32px 16px;
-    color: #9ca3af;
+    transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease, opacity 0.15s ease;
+}
+
+.note-review-page .commit-btn:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+}
+
+.note-review-page .commit-btn-neutral {
+    background: var(--ac-surface-muted);
+    color: var(--ac-ink-primary);
+    border-color: var(--ac-line-hairline);
+}
+
+.note-review-page .commit-btn-neutral:hover:not(:disabled) {
+    background: #e5e5ea;
+    color: var(--ac-ink-primary);
+    text-decoration: none;
+}
+
+.note-review-page .commit-header-surface .commit-btn-neutral {
+    background: #ffffff;
+    color: #1f2933;
+    border-color: #bfd3e0;
+}
+
+.note-review-page .commit-header-surface .commit-btn-neutral:hover:not(:disabled) {
+    background: #f5f7f9;
+    color: #1f2933;
+    border-color: #8eb4ca;
+    text-decoration: none;
+}
+
+.note-review-page .commit-btn-decline,
+.note-review-page .commit-header-surface .commit-btn-decline {
+    background: #ffffff;
+    color: #b42318;
+    border-color: rgba(180, 35, 24, 0.35);
+}
+
+.note-review-page .commit-btn-decline:hover:not(:disabled),
+.note-review-page .commit-header-surface .commit-btn-decline:hover:not(:disabled) {
+    background: #fef2f2;
+    color: #991b1b;
+    border-color: #b42318;
+}
+
+.note-review-page .commit-btn-accept,
+.note-review-page .commit-header-surface .commit-btn-accept {
+    background: #087443;
+    color: #ffffff;
+    border-color: #087443;
+}
+
+.note-review-page .commit-btn-accept:hover:not(:disabled),
+.note-review-page .commit-header-surface .commit-btn-accept:hover:not(:disabled) {
+    background: #065f37;
+    border-color: #065f37;
+    color: #ffffff;
+}
+
+.note-review-page .mathjax-toggle-btn.mathjax-toggle-btn-light {
+    box-sizing: border-box;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    height: auto;
+    min-block-size: 34px;
+    max-height: none;
+    margin: 0;
+    padding: 6px 12px;
+    border-radius: var(--ac-radius-control);
+    font-size: 13px;
+    font-weight: 550;
+    line-height: 1.385;
+    background: #ffffff;
+    color: #3b4b59;
+    border: 1px solid #bfd3e0;
+    box-shadow: none;
+    transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.note-review-page .mathjax-toggle-btn.mathjax-toggle-btn-light:hover {
+    background: #f5f7f9;
+    color: #1f2933;
+    border-color: #8eb4ca;
+}
+
+.note-review-page .mathjax-toggle-btn.mathjax-toggle-btn-light[aria-pressed="true"] {
+    background: #cfe4f0;
+    color: #004c73;
+    border-color: #7eb0cc;
+}
+
+/* --- Inherited Note Callout --- */
+.note-review-page .inherited-alert {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    margin: 12px 0 0;
+    padding: 10px 14px;
+    border-radius: var(--ac-radius-control);
+    background: var(--ac-inherited-bg-subtle);
+    border: 1px solid var(--ac-inherited-border);
+    border-left: 3px solid var(--ac-inherited-accent);
+    box-shadow: none;
+    font-size: 13px;
+    line-height: 1.45;
+    color: var(--ac-ink-primary);
+}
+
+.note-review-page .inherited-alert i {
+    margin-top: 2px;
+    font-size: 14px;
+    color: var(--ac-inherited-accent);
+    flex-shrink: 0;
+}
+
+/* --- Main Two-Column Comparison Card --- */
+.note-review-page .note-card.content-comparison {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    align-items: stretch;
+    gap: 0;
+    margin: 0;
+    padding: 0;
+    background: var(--ac-surface);
+    border: 1px solid #d1d5de;
+    border-radius: var(--ac-radius-card);
+    box-shadow: var(--ac-shadow-card);
+    overflow: hidden;
+}
+
+.note-review-page .note-card.note-card-added {
+    border-left: 3px solid #087443;
+}
+
+.note-review-page .note-card.note-card-removed {
+    border-left: 3px solid #b42318;
+}
+
+.note-review-page .content-side {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    padding: 0;
+    margin: 0;
+    border: 0;
+    border-radius: 0;
+    background: var(--ac-surface);
+    box-shadow: none;
+    height: auto;
+}
+
+.note-review-page .published-side {
+    border-right: 1px solid var(--ac-line-hairline);
+}
+
+.note-review-page .content-header.comparison-col-header {
+    margin: 0;
+    padding: 8px 18px;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--ac-ink-tertiary);
+    background: var(--ac-surface-subtle);
+    border-bottom: 1px solid var(--ac-line-hairline);
+    text-align: start;
+}
+
+.note-review-page .published-body,
+.note-review-page .suggestions-body {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    flex: 1 1 auto;
+    min-width: 0;
+    padding: 16px 18px;
+}
+
+/* --- Left Column: Current Version Fields & Tags --- */
+.note-review-page .published-side .field-item {
+    background: transparent;
+    border: 0;
+    border-radius: 0;
+    padding: 0;
+    margin: 0;
+    box-shadow: none;
+}
+
+.note-review-page .published-side .field-item:not(:last-child) {
+    padding-bottom: 14px;
+    border-bottom: 1px solid var(--ac-line-hairline);
+}
+
+.note-review-page .field-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    min-height: 24px;
+    margin: 0 0 6px;
+    padding: 0;
+    border: 0;
+}
+
+.note-review-page .field-name,
+.note-review-page .published-side .section-title {
+    font-size: 11.5px;
+    font-weight: 600;
+    color: var(--ac-ink-tertiary);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    line-height: 1.2;
+    min-height: 22px;
+    display: inline-flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin: 0;
+    padding-left: 0;
+}
+
+.note-review-page .field-count-inline {
+    font-weight: 500;
+    color: var(--ac-ink-tertiary);
+    font-variant-numeric: tabular-nums;
+}
+
+.note-review-page .inherited-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 1px 7px;
+    border-radius: 4px;
+    background: var(--ac-inherited-bg);
+    color: var(--ac-inherited-ink);
+    border: 1px solid var(--ac-inherited-border);
+    box-shadow: none;
+    font-size: 10.5px;
+    font-weight: 600;
+    text-transform: none;
+    letter-spacing: 0;
+}
+
+.note-review-page .note-content-display {
+    margin: 0;
+    padding: 11px 14px;
+    border-radius: var(--ac-radius-control);
+    font-size: 14.5px;
+    line-height: 1.55;
+    color: var(--ac-ink-primary);
+    overflow-wrap: anywhere;
+    box-shadow: none !important;
+}
+
+.note-review-page .note-content-display img {
+    max-width: 100%;
+    height: auto;
+    border-radius: 6px;
+}
+
+.note-review-page .note-content-display :is(table, pre, code, img) {
+    max-width: 100%;
+    box-sizing: border-box;
+}
+
+.note-review-page .note-content-display table {
+    width: 100%;
+    table-layout: fixed;
+    word-break: break-word;
+}
+
+.note-review-page .note-content-display :is(pre, code) {
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+}
+
+.note-review-page .published-side .current-content {
+    background: var(--ac-surface-subtle);
+    border: 1px solid var(--ac-line-hairline);
+}
+
+.note-review-page .published-side .current-content:empty {
+    background: var(--ac-surface-subtle);
+    border: 1px dashed var(--ac-line-hairline);
+}
+
+.note-review-page .field-item.field-inherited .current-content {
+    background: var(--ac-inherited-bg-subtle);
+    border: 1px solid var(--ac-inherited-border);
+    border-left: 3px solid var(--ac-inherited-accent);
+}
+
+.note-review-page .field-item.field-inherited .current-content:empty {
+    border-style: dashed dashed dashed solid;
+}
+
+.note-review-page .published-side .current-content:has(.diff-highlight-del, del[data-diff]) {
+    background: var(--ac-orig-box-bg);
+    border-color: var(--ac-orig-box-border);
+}
+
+.note-review-page .published-side .current-content:empty::before {
+    content: "Empty";
+    color: var(--ac-ink-tertiary);
+    font-style: italic;
     font-size: 13px;
 }
 
-/* ─── History button ─── */
-
-.history-btn {
-    width: auto;
-    padding: 0 10px;
-    gap: 4px;
-    font-size: 12px;
+.note-review-page .diff-highlight-ins,
+.note-review-page .diff-content ins[data-diff] {
+    background: var(--ac-diff-ins-bg);
+    color: var(--ac-diff-ins-ink);
+    border-radius: 4px;
+    padding: 1px 3px;
+    text-decoration: none !important;
     font-weight: 500;
 }
 
-/* ─── Reviewed tags on left side ─── */
-
-.reviewed-tag {
-    background: #e2e8f0;
-    border: 1px solid #cbd5e1;
-    color: #334155;
-    font-weight: 500;
+.note-review-page .diff-highlight-del,
+.note-review-page .diff-content del[data-diff] {
+    background: var(--ac-diff-del-bg);
+    color: var(--ac-diff-del-ink);
+    border-radius: 4px;
+    padding: 1px 3px;
+    text-decoration: none !important;
 }
 
-.reviewed-tag .tag-icon-sm {
-    font-size: 9px;
-    opacity: 0.5;
+.note-review-page .published-side .tags-section {
+    margin-top: 2px;
+    padding-top: 14px;
+    border-top: 1px solid var(--ac-line-hairline);
 }
 
-/* ─── Commit link badge ─── */
+.note-review-page .tag-edit-container {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+}
 
-.commit-link-badge {
-    font-size: 11px;
+.note-review-page .reviewed-tag-chip.reviewed-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 3px 9px;
+    border-radius: 6px;
+    font-size: 12.5px;
     font-weight: 500;
-    color: #94a3b8;
+    background: var(--ac-surface-muted);
+    border: 1px solid var(--ac-line-hairline);
+    color: var(--ac-ink-secondary);
+    max-width: 100%;
+    overflow-wrap: anywhere;
+}
+
+.note-review-page .reviewed-tag-chip.inherited,
+.note-review-page .reviewed-tag-chip.tag-chip-inherited {
+    background-color: var(--ac-inherited-bg) !important;
+    background-image: none !important;
+    border-color: var(--ac-inherited-border);
+    color: var(--ac-inherited-ink);
+    font-weight: 600;
+}
+
+.note-review-page .reviewed-tag-chip .tag-icon-sm {
+    font-size: 10px;
+    opacity: 0.7;
+}
+
+.note-review-page .reviewed-tag-chip:is(.inherited, .tag-chip-inherited) .tag-icon-sm {
+    opacity: 0.9;
+}
+
+/* --- Right Column: Commit-Grouped Proposed Changes --- */
+.note-review-page .commit-group {
+    margin: 0;
+    padding: 0;
+    border: 1px solid var(--ac-line-hairline);
+    border-radius: 8px;
+    overflow: hidden;
+    background: var(--ac-surface);
+    box-shadow: none;
+}
+
+.note-review-page .commit-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 9px 14px;
+    margin: 0;
+    background: var(--ac-surface-subtle);
+    border-bottom: 1px solid var(--ac-line-hairline);
+    font-size: 12.5px;
+    color: var(--ac-ink-secondary);
+}
+
+.note-review-page .commit-group .commit-badge {
+    all: unset;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    min-block-size: 24px;
+    font-size: 12.5px;
+    font-weight: 600;
+    color: var(--ac-accent);
+    cursor: pointer;
     text-decoration: none;
-    margin-left: 6px;
-    transition: color 0.15s;
 }
-.commit-link-badge:hover {
-    color: #006699;
+
+.note-review-page .commit-group .commit-badge:hover {
+    color: var(--ac-accent-hover);
     text-decoration: underline;
 }
 
-/* ─── Field accept/deny actions ─── */
+.note-review-page .commit-group .commit-badge:focus-visible {
+    outline: 2px solid var(--ac-accent);
+    outline-offset: 2px;
+    border-radius: 4px;
+}
 
-.review-field-actions {
+.note-review-page .commit-change-count {
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--ac-ink-tertiary);
+    font-variant-numeric: tabular-nums;
+}
+
+.note-review-page .commit-suggestions {
+    display: flex;
+    flex-direction: column;
+}
+
+.note-review-page .commit-suggestions .suggestion-item,
+.note-review-page .suggestions-body > .suggestion-box:not(.tag-move) {
+    margin: 0;
+    padding: 12px 14px;
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+    background: transparent;
+}
+
+.note-review-page .commit-suggestions .suggestion-item:not(:last-child) {
+    border-bottom: 1px solid var(--ac-line-hairline);
+}
+
+.note-review-page .suggestions-side .diff-content {
+    background: var(--ac-prop-box-bg);
+    border: 1px solid var(--ac-prop-box-border);
+}
+
+.note-review-page .suggestion-item.field-accepted,
+.note-review-page .suggestion-box.field-accepted {
+    background: var(--ac-surface-subtle);
+}
+
+.note-review-page .field-accepted .diff-content {
+    background: var(--ac-surface);
+    border-color: var(--ac-line-hairline);
+}
+
+.note-review-page .commit-link-badge {
+    font-size: 11px;
+    font-weight: 550;
+    color: var(--ac-accent);
+    text-decoration: none;
+    text-transform: none;
+    letter-spacing: 0;
+}
+
+.note-review-page .commit-link-badge:hover {
+    text-decoration: underline;
+}
+
+/* --- Field Accept/Decline Utility Buttons --- */
+.note-review-page .review-field-actions {
     display: flex;
     align-items: center;
     gap: 6px;
     flex-shrink: 0;
 }
 
-.review-field-actions .icon-btn {
-    width: 26px;
-    height: 26px;
-    font-size: 11px;
-    border: 1px solid #d1d5db;
-    background: #f9fafb;
-    color: #6b7280;
-    transition: all 0.15s ease;
-}
-
-.review-field-actions .icon-btn:hover {
-    background: #dcfce7;
-    border-color: #86efac;
-    color: #047857;
-}
-
-/* Always show revert buttons on review page */
-.suggestions-side .revert-btn {
+.note-review-page .review-field-actions .icon-btn,
+.note-review-page .review-field-actions .revert-btn,
+.note-review-page .suggestions-side .revert-btn {
     opacity: 1;
+    width: auto;
+    height: auto;
+    min-inline-size: 26px;
+    min-block-size: 26px;
+    padding: 3px 6px;
+    margin: 0;
+    border-radius: var(--ac-radius-control);
+    border: 1px solid var(--ac-line-hairline);
+    background: var(--ac-surface);
+    color: var(--ac-ink-secondary);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11.5px;
+    cursor: pointer;
+    transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease, opacity 0.15s ease;
 }
 
-.review-field-actions .revert-btn {
-    width: 26px;
-    height: 26px;
+.note-review-page .review-field-actions .icon-btn:hover:not(:disabled) {
+    background: var(--ac-diff-ins-bg);
+    border-color: var(--ac-prop-box-border);
+    color: var(--ac-accept);
+}
+
+.note-review-page .review-field-actions .revert-btn:hover:not(:disabled),
+.note-review-page .suggestions-side .revert-btn:hover:not(:disabled) {
+    background: var(--ac-decline-soft);
+    border-color: rgba(180, 35, 24, 0.35);
+    color: var(--ac-decline);
+}
+
+/* --- Tag Suggestion Items & Chips --- */
+.note-review-page .tag-suggestion-item {
+    padding: 10px 14px;
+}
+
+.note-review-page .tag-chip-editable {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 4px 2px 8px;
+    border-radius: 6px;
+    font-size: 12.5px;
+    font-weight: 500;
+    margin: 0;
+}
+
+.note-review-page .tag-chip-add {
+    background: var(--ac-diff-ins-bg);
+    color: var(--ac-diff-ins-ink);
+    border: 1px solid rgba(17, 99, 41, 0.18);
+}
+
+.note-review-page .tag-chip-remove {
+    background: var(--ac-diff-del-bg);
+    color: var(--ac-diff-del-ink);
+    border: 1px solid rgba(130, 7, 30, 0.18);
+}
+
+.note-review-page .tag-diff-prefix {
+    font-weight: 700;
+    line-height: 1;
+}
+
+.note-review-page .tag-revert-btn {
+    opacity: 0.8;
+    width: auto;
+    height: auto;
+    min-inline-size: 24px;
+    min-block-size: 24px;
+    padding: 2px;
+    border: 0;
+    border-radius: 4px;
+    background: transparent;
+    color: inherit;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
     font-size: 11px;
 }
 
-/* ─── Commit groups ─── */
-
-.commit-group {
-    margin-bottom: 14px;
-    border: 1px solid #e5e7eb;
-    border-radius: 12px;
-    overflow: hidden;
-    background: #fff;
+.note-review-page .tag-revert-btn:hover {
+    opacity: 1;
+    background: rgba(0, 0, 0, 0.08);
 }
 
-.commit-header {
+/* --- Deck Move Request Row --- */
+.note-review-page .note_tag_container.tag-move {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 10px 16px;
-    background: #f8fafc;
-    border-bottom: 1px solid #e5e7eb;
-    font-size: 12px;
-    color: #6b7280;
+    gap: 8px;
+    padding: 9px 12px;
+    margin: 0;
+    border-radius: 8px;
+    background: var(--ac-accent-soft);
+    border: 1px solid rgba(0, 102, 153, 0.2);
+    color: var(--ac-ink-primary);
+    box-shadow: none;
 }
 
-/* Override the big blue commit-badge pill */
-.commit-group .commit-badge {
-    all: unset;
-    font-size: 12px;
-    font-weight: 600;
-    color: #006699;
-    cursor: pointer;
-    text-decoration: none;
-    display: inline-flex;
+.note-review-page .note_tag_container.tag-move .tag-content {
+    display: flex;
     align-items: center;
+    gap: 8px;
+    min-width: 0;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    font-size: 13px;
+    color: var(--ac-ink-primary);
+}
+
+.note-review-page .note_tag_container.tag-move .tag-icon {
+    color: var(--ac-accent);
+}
+
+/* --- Empty States --- */
+.note-review-page .empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
     gap: 6px;
-}
-.commit-group .commit-badge:hover {
-    color: #004d73;
-    text-decoration: underline;
-}
-.commit-group .commit-badge i {
+    text-align: center;
+    padding: 28px 16px;
+    background: var(--ac-surface-subtle);
+    border: 1px dashed var(--ac-line-hairline);
+    border-radius: 8px;
+    box-shadow: none;
+    color: var(--ac-ink-tertiary);
     font-size: 13px;
 }
 
-.commit-suggestions .suggestion-item {
-    border: none;
-    border-bottom: 1px solid #f3f4f6;
-    border-radius: 0;
-    margin-bottom: 0;
-    box-shadow: none;
-    background: transparent;
-}
-.commit-suggestions .suggestion-item:last-child {
-    border-bottom: none;
-}
-.commit-suggestions .suggestion-item:hover {
-    box-shadow: none;
-    transform: none;
+.note-review-page .empty-state p {
+    margin: 0;
 }
 
-/* ─── Tag suggestion items ─── */
-
-.tag-suggestion-item {
-    padding: 6px 16px;
-    border: none;
-    box-shadow: none;
-    background: transparent;
-}
-.tag-suggestion-item:hover {
-    box-shadow: none;
-    transform: none;
+.note-review-page .empty-state .empty-state-icon {
+    font-size: 20px;
+    margin: 0;
+    opacity: 0.75;
+    color: var(--ac-accept);
 }
 
-/* Tag chips inside commit groups */
-.commit-suggestions .tag-chip-editable {
-    margin: 2px 4px;
+.note-review-page .commit-empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    gap: 8px;
+    padding: 40px 24px;
+    background: var(--ac-surface);
+    border: 1px solid var(--ac-line-hairline);
+    border-radius: var(--ac-radius-card);
+    box-shadow: var(--ac-shadow-card);
 }
 
-/* ─── Move requests ─── */
-
-.tag-move {
-    border-radius: 10px;
-    margin-bottom: 12px;
+.note-review-page .commit-empty-icon {
+    font-size: 28px;
+    color: var(--ac-accept);
+    margin-bottom: 4px;
 }
 
-/* ─── Responsive ─── */
+.note-review-page .commit-empty-state h2 {
+    margin: 0;
+    font-size: 17px;
+    font-weight: 600;
+    color: var(--ac-ink-primary);
+}
 
+.note-review-page .commit-empty-state p {
+    margin: 0 0 8px;
+    font-size: 13.5px;
+    color: var(--ac-ink-secondary);
+}
+
+/* --- Dark Mode --- */
+@media (prefers-color-scheme: dark) {
+    body:has(.note-review-page),
+    .content-body:has(.note-review-page) {
+        background-color: #0b0c0f;
+        background-image: none;
+    }
+
+    .note-review-page {
+        --ac-canvas: #0b0c0f;
+        --ac-surface: #1c1c1e;
+        --ac-surface-subtle: #242428;
+        --ac-surface-muted: #2c2c30;
+        --ac-ink-primary: #f5f5f7;
+        --ac-ink-secondary: #cbd5e1;
+        --ac-ink-tertiary: #94a3b8;
+        --ac-line-hairline: #38383d;
+        --ac-line-strong: #54545c;
+        --ac-accent: #4aa8d8;
+        --ac-accent-hover: #67bae3;
+        --ac-accent-soft: rgba(74, 168, 216, 0.16);
+        --ac-accept: #4ade80;
+        --ac-decline: #ff8080;
+        --ac-decline-soft: rgba(255, 107, 107, 0.14);
+        --ac-diff-ins-bg: rgba(46, 160, 67, 0.25);
+        --ac-diff-ins-ink: #7ee787;
+        --ac-diff-del-bg: rgba(248, 81, 73, 0.24);
+        --ac-diff-del-ink: #ffa198;
+        --ac-orig-box-bg: rgba(248, 81, 73, 0.09);
+        --ac-orig-box-border: rgba(248, 81, 73, 0.3);
+        --ac-prop-box-bg: rgba(46, 160, 67, 0.1);
+        --ac-prop-box-border: rgba(46, 160, 67, 0.32);
+        --ac-inherited-bg: rgba(245, 158, 11, 0.22);
+        --ac-inherited-bg-subtle: rgba(245, 158, 11, 0.1);
+        --ac-inherited-border: rgba(245, 158, 11, 0.48);
+        --ac-inherited-accent: #f59e0b;
+        --ac-inherited-ink: #fcd34d;
+        --ac-shadow-card: 0 2px 8px rgba(0, 0, 0, 0.45);
+    }
+
+    .note-review-page .page-header.commit-header-surface {
+        background-color: #132530;
+        border-color: #244354;
+        color: #f5f5f7;
+    }
+
+    .note-review-page .crumb-sep,
+    .note-review-page .commit-header-surface .meta-sep {
+        color: #8aa4b8;
+    }
+
+    .note-review-page .commit-header-surface .commit-back-link {
+        color: #6ec1e4;
+    }
+
+    .note-review-page .commit-header-surface .commit-back-link:hover {
+        color: #a5ddf2;
+        background: rgba(255, 255, 255, 0.08);
+    }
+
+    .note-review-page .commit-header-surface .page-title {
+        color: #f5f5f7;
+    }
+
+    .note-review-page .commit-header-surface .commit-meta {
+        color: #c7d6e2;
+    }
+
+    .note-review-page .note-status-badge.badge-published {
+        color: #7dd3fc;
+        background: rgba(74, 168, 216, 0.18);
+        border-color: rgba(74, 168, 216, 0.35);
+    }
+
+    .note-review-page .commit-header-surface .commit-btn-decline,
+    .note-review-page .commit-btn-decline {
+        background: var(--ac-surface);
+        color: var(--ac-decline);
+        border-color: rgba(255, 128, 128, 0.52);
+    }
+
+    .note-review-page .commit-header-surface .commit-btn-decline:hover:not(:disabled),
+    .note-review-page .commit-btn-decline:hover:not(:disabled) {
+        background: var(--ac-decline-soft);
+        color: #ffa1a1;
+        border-color: var(--ac-decline);
+    }
+
+    .note-review-page .commit-header-surface .commit-btn-accept,
+    .note-review-page .commit-btn-accept {
+        background: #15803d;
+        color: #ffffff;
+        border-color: #15803d;
+    }
+
+    .note-review-page .commit-header-surface .commit-btn-accept:hover:not(:disabled),
+    .note-review-page .commit-btn-accept:hover:not(:disabled) {
+        background: #166534;
+        border-color: #166534;
+    }
+
+    .note-review-page .commit-header-surface .commit-btn-neutral,
+    .note-review-page .mathjax-toggle-btn.mathjax-toggle-btn-light {
+        background: var(--ac-surface);
+        color: var(--ac-ink-primary);
+        border-color: #36526e;
+    }
+
+    .note-review-page .commit-header-surface .commit-btn-neutral:hover:not(:disabled),
+    .note-review-page .mathjax-toggle-btn.mathjax-toggle-btn-light:hover {
+        background: var(--ac-surface-muted);
+        color: #ffffff;
+        border-color: #4d7091;
+    }
+
+    .note-review-page .mathjax-toggle-btn.mathjax-toggle-btn-light[aria-pressed="true"] {
+        background: #0c2d42;
+        color: #bae6fd;
+        border-color: #38bdf8;
+    }
+
+    .note-review-page .note-card.content-comparison {
+        border-color: #33343a;
+    }
+
+    .note-review-page .note-card.note-card-added {
+        border-left-color: #2ea043;
+    }
+
+    .note-review-page .note-card.note-card-removed {
+        border-left-color: #f85149;
+    }
+
+    .note-review-page .tag-revert-btn:hover {
+        background: rgba(255, 255, 255, 0.12);
+    }
+}
+
+/* --- High Contrast & Forced Colors Accessibility --- */
+@media (prefers-contrast: more) {
+    .note-review-page {
+        --ac-line-hairline: currentColor;
+        --ac-line-strong: currentColor;
+        --ac-inherited-border: currentColor;
+        --ac-inherited-accent: currentColor;
+    }
+
+    .note-review-page .commit-btn,
+    .note-review-page .review-field-actions .icon-btn,
+    .note-review-page .review-field-actions .revert-btn,
+    .note-review-page .suggestions-side .revert-btn,
+    .note-review-page .inherited-badge,
+    .note-review-page .reviewed-tag-chip:is(.inherited, .tag-chip-inherited) {
+        border: 1.5px solid currentColor;
+    }
+}
+
+@media (forced-colors: active) {
+    .note-review-page .diff-highlight-ins,
+    .note-review-page .diff-content ins[data-diff] {
+        outline: 1px solid Highlight;
+    }
+
+    .note-review-page .diff-highlight-del,
+    .note-review-page .diff-content del[data-diff] {
+        outline: 1px dashed GrayText;
+    }
+
+    .note-review-page .inherited-badge,
+    .note-review-page .reviewed-tag-chip:is(.inherited, .tag-chip-inherited),
+    .note-review-page .field-item.field-inherited .current-content,
+    .note-review-page .inherited-alert {
+        border-color: Highlight;
+    }
+}
+
+/* --- Reduced Motion --- */
+@media (prefers-reduced-motion: reduce) {
+    .note-review-page :is(
+        .commit-back-link,
+        .commit-btn,
+        .mathjax-toggle-btn,
+        .review-field-actions .icon-btn,
+        .review-field-actions .revert-btn,
+        .suggestions-side .revert-btn
+    ) {
+        transition: none;
+    }
+}
+
+/* --- Coarse Pointer Touch Targets --- */
+@media (pointer: coarse) {
+    .note-review-page :is(
+        .commit-btn,
+        .mathjax-toggle-btn.mathjax-toggle-btn-light,
+        .review-field-actions .icon-btn,
+        .review-field-actions .revert-btn,
+        .suggestions-side .revert-btn,
+        .tag-revert-btn
+    ) {
+        height: auto;
+        min-block-size: 44px;
+        min-inline-size: 44px;
+        max-height: none;
+    }
+}
+
+/* --- Responsive Layout --- */
 @media (max-width: 768px) {
-    .content-comparison {
+    .note-review-page {
+        padding: 12px 12px 36px;
+    }
+
+    .note-review-page .page-header.commit-header-surface {
+        padding: 14px 16px;
+    }
+
+    .note-review-page .commit-primary-actions {
+        width: 100%;
+    }
+
+    .note-review-page .commit-primary-actions .commit-btn {
+        flex: 1 1 auto;
+    }
+
+    .note-review-page .note-card.content-comparison {
         grid-template-columns: 1fr;
-        border-radius: 12px;
     }
-    .published-side {
-        border-right: none;
-        border-bottom: 1px solid #e5e7eb;
+
+    .note-review-page .published-side {
+        border-right: 0;
+        border-bottom: 1px solid var(--ac-line-hairline);
     }
-    .published-side, .suggestions-side {
-        padding: 16px;
+
+    .note-review-page .published-body,
+    .note-review-page .suggestions-body {
+        padding: 14px 16px;
     }
 }
