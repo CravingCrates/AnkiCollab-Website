@@ -1073,7 +1073,7 @@ body:has(.note-history-page),
         --ac-ink-secondary: #cbd5e1;
         --ac-ink-tertiary: #94a3b8;
         --ac-line-hairline: #38383d;
-        --ac-line-strong: #54545c;
+        --ac-line-strong: #6b7280;
         --ac-accent: #4aa8d8;
         --ac-accent-hover: #67bae3;
         --ac-accent-soft: rgba(74, 168, 216, 0.16);
@@ -1186,6 +1186,21 @@ body:has(.note-history-page),
 
     .note-history-page .removed-content-preview {
         border-left-color: #f85149;
+    }
+
+    .note-history-page .tag-preview.added,
+    .note-history-page .note-status-badge.badge-new {
+        border-color: rgba(46, 160, 67, 0.4);
+    }
+
+    .note-history-page .tag-preview.removed,
+    .note-history-page .denied-tag-change,
+    .note-history-page .note-status-badge.badge-removal {
+        border-color: rgba(248, 81, 73, 0.4);
+    }
+
+    .note-history-page .move-to {
+        border-color: rgba(74, 168, 216, 0.35);
     }
 }
 

@@ -30,3 +30,21 @@
 .contributions-funnel .funnel-unrecorded {
     fill: #ced4da;
 }
+
+@media (prefers-color-scheme: dark) {
+    .contributions-funnel .funnel-accepted {
+        fill: #22c55e;
+    }
+
+    .contributions-funnel .funnel-declined {
+        fill: #94a3b8;
+    }
+
+    .contributions-funnel .funnel-pending {
+        fill: #64748b;
+    }
+
+    .contributions-funnel .funnel-unrecorded {
+        fill: #475569;
+    }
+}

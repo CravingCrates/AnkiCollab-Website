@@ -1,3 +1,23 @@
+/**
+ * auth.css - the shared shell for sign-in, sign-up and the passkey page.
+ *
+ * Loaded after style.css, so a few theme defaults are deliberately restated:
+ * the theme zeroes `border-radius` on every `.form-control`, sets
+ * `.form-control:focus { box-shadow: none }` (which removes the focus ring
+ * entirely, leaving keyboard users with no visible indicator), gives `.card` a
+ * heavy purple shadow, and ships `.login-input` inputs whose only border is a
+ * 1px `#f5f5f5` underline. Everything here is scoped under `.auth-*`, so no
+ * dashboard page is affected.
+ *
+ * Colours reuse the theme's own tokens where one exists. The greys follow the
+ * same system palette the theme's font stack already targets, and every pairing
+ * below meets WCAG AA against its own background:
+ *   #1d1d1f on #ffffff  16.1:1    #595959 on #ffffff   7.0:1
+ *   #ffffff on #006699   6.25:1   #006699 on #ffffff  6.25:1
+ *   #006699 on #ebf3f7   5.6:1    #6e6e73 on #ffffff  5.1:1
+ *   #c62828 on #ffffff   5.3:1
+ */
+
 .auth-shell {
     /* Matches the theme's body canvas, so the page still looks like the site. */
     --auth-canvas: #f3f3f9;
@@ -421,4 +441,94 @@
    and a button never did. */
 .auth-btn--link {
     text-decoration: none;
+}
+
+@media (prefers-color-scheme: dark) {
+    .auth-shell {
+        --auth-canvas: #0b0c0f;
+        --auth-surface: #1c1c1e;
+        --auth-hairline: #38383d;
+        --auth-input-border: #6b7280;
+        --auth-ink: #f5f5f7;
+        --auth-ink-soft: #94a3b8;
+        --auth-accent: #4aa8d8;
+        --auth-accent-tint: rgba(74, 168, 216, 0.16);
+    }
+
+    .auth-card {
+        box-shadow: 0 2px 12px rgba(0, 0, 0, 0.45);
+    }
+
+    .auth-form .form-control {
+        background-color: #16161a;
+        color: var(--auth-ink);
+        border-color: var(--auth-input-border);
+    }
+
+    .auth-form .form-control::placeholder {
+        color: #94a3b8;
+    }
+
+    .auth-form .form-control:focus {
+        border-color: #5cb8e6;
+        box-shadow: 0 0 0 3px rgba(92, 184, 230, 0.3);
+    }
+
+    .auth-btn--primary {
+        background-color: #0c6aa0;
+        color: #ffffff;
+    }
+
+    .auth-btn--primary:hover {
+        background-color: #0e7ab8;
+        color: #ffffff;
+    }
+
+    .auth-btn--primary:active {
+        background-color: #095785;
+    }
+
+    .auth-btn--secondary {
+        background-color: #242428;
+        border-color: #6b7280;
+        color: #f5f5f7;
+    }
+
+    .auth-btn--secondary:hover {
+        background-color: var(--auth-accent-tint);
+        border-color: #4aa8d8;
+        color: #f5f5f7;
+    }
+
+    .auth-identity {
+        background-color: #242428;
+        border-color: #38383d;
+    }
+
+    .auth-error,
+    .auth-form .form-group.is-invalid .invalid-feedback,
+    .auth-form .form-group.is-invalid .form-check-label {
+        color: #ff8080;
+    }
+
+    .auth-form .form-group.is-invalid .form-control {
+        border-color: #ff8080;
+    }
+
+    .auth-icon--ok {
+        background-color: #123822;
+        color: #86efac;
+    }
+
+    .auth-btn:focus-visible,
+    .auth-identity-change:focus-visible {
+        box-shadow: 0 0 0 3px rgba(92, 184, 230, 0.35);
+        outline: 2px solid #5cb8e6;
+        outline-offset: 2px;
+    }
+
+    .auth-reveal:focus-visible,
+    .auth-form .form-check-input:focus-visible {
+        outline-color: #5cb8e6;
+    }
 }

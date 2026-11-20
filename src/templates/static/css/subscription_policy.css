@@ -2,11 +2,11 @@
  * subscription_policy.css - Styles for the subscription field policy page
  */
 #policy-root .form-check-input:checked:not(:disabled) ~ .form-check-label {
-    color: #333;
+    color: var(--ac-ink-primary, #333);
     font-weight: 500;
 }
 
 #policy-root .form-check-input:disabled ~ .form-check-label {
-    color: #8898aa;
+    color: var(--ac-ink-muted, #595959);
     opacity: .9;
 }

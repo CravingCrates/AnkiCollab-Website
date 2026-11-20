@@ -147,3 +147,77 @@
         transition: none;
     }
 }
+
+@media (prefers-color-scheme: dark) {
+    .decks-page {
+        color: #f5f5f7;
+    }
+
+    .decks-card {
+        border-color: #38383d;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+    }
+
+    .decks-table tbody tr:hover,
+    .decks-table tbody tr:focus {
+        background-color: #242428;
+    }
+
+    .decks-table tbody tr:focus-visible {
+        box-shadow: inset 0 0 0 2px #5cb8e6;
+    }
+
+    .decks-table tbody td {
+        border-bottom-color: #38383d;
+    }
+
+    .deck-name,
+    .deck-number {
+        color: #f5f5f7;
+    }
+
+    .deck-name:hover,
+    .deck-name:focus {
+        color: #7cc9ee;
+    }
+
+    .deck-description,
+    .deck-updated,
+    .deck-chevron {
+        color: #94a3b8;
+    }
+
+    .decks-page .dataTables_filter input,
+    .decks-page .dt-search input {
+        border-color: #6b7280;
+        background: #16161a;
+        color: #f5f5f7;
+    }
+
+    .decks-page .dataTables_filter input:focus,
+    .decks-page .dt-search input:focus {
+        border-color: #5cb8e6;
+        box-shadow: 0 0 0 3px rgba(92, 184, 230, 0.3);
+    }
+
+    .decks-page .dataTables_length select,
+    .decks-page .dt-length select {
+        background-color: #16161a;
+        color: #f5f5f7;
+        border-color: #6b7280;
+    }
+
+    .decks-page .dataTables_paginate .page-link,
+    .decks-page .dt-paging .page-link {
+        border-color: #38383d;
+        background-color: #242428;
+        color: #cbd5e1;
+    }
+
+    .decks-page .dataTables_paginate .page-item.active .page-link,
+    .decks-page .dt-paging .page-item.active .page-link {
+        border-color: #0c6aa0;
+        background-color: #0c6aa0;
+        color: #ffffff;
+    }
+}

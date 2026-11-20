@@ -47,8 +47,9 @@ button.hamburger {
     cursor: pointer;
 }
 
-button.hamburger:focus {
-    outline: 2px solid #006699;
+button.hamburger:focus,
+button.hamburger:focus-visible {
+    outline: 2px solid var(--ac-focus-ring, #006699);
     outline-offset: 2px;
 }
 
@@ -127,11 +128,11 @@ button.hamburger:focus {
 .font-italic { font-style: italic; }
 
 /* Colors */
-.text-gray { color: #6b7280; }
-.text-green { color: green; }
-.text-muted-link { color: #595959; }
+.text-gray { color: var(--ac-ink-muted, #6b7280); }
+.text-green { color: var(--ac-success-ink, green); }
+.text-muted-link { color: var(--ac-ink-muted, #595959); }
 .text-inherit { color: inherit; }
-.color-blue { color: #0369a1; }
+.color-blue { color: var(--ac-info-ink, #0369a1); }
 
 /* Positioning */
 .float-right { float: right; }
@@ -142,7 +143,7 @@ button.hamburger:focus {
 
 /* Common component styles */
 .confirmation-message {
-    color: green;
+    color: var(--ac-success-ink, green);
     display: none;
 }
 
@@ -151,7 +152,7 @@ button.hamburger:focus {
     margin: 0;
     background: transparent;
     border: none;
-    color: #adb5bd;
+    color: var(--ac-ink-muted, #6b7280);
     font-size: 1rem;
     padding: 0;
     line-height: 1;
@@ -160,7 +161,7 @@ button.hamburger:focus {
 }
 
 .changelog-delete-btn:hover {
-    color: #e74c3c;
+    color: var(--ac-danger-ink, #e74c3c);
 }
 
 /* Review page specific */
@@ -176,7 +177,7 @@ button.hamburger:focus {
 
 .folder-icon-blue {
     margin-right: 8px;
-    color: #0ea5e9;
+    color: var(--ac-info-ink, #0ea5e9);
 }
 
 .inherited-link {
@@ -199,7 +200,7 @@ button.hamburger:focus {
 
 /* Note history specific */
 .note-count-text {
-    color: #6b7280;
+    color: var(--ac-ink-muted, #6b7280);
     font-size: 13px;
     margin-left: 12px;
 }
@@ -224,7 +225,7 @@ button.hamburger:focus {
 
 .deletion-icon {
     font-size: 48px;
-    color: #dc2626;
+    color: var(--ac-danger-ink, #dc2626);
     margin-bottom: 16px;
 }
 
@@ -258,7 +259,7 @@ button.hamburger:focus {
    #767676 provides exactly 4.54:1 contrast against #fff.
 */
 .form-control::placeholder {
-    color: #767676 !important;
+    color: var(--ac-placeholder, #767676) !important;
     opacity: 1 !important;
 }
 
@@ -267,11 +268,11 @@ button.hamburger:focus {
    #595959 provides 7.0:1 against #fff.
 */
 body {
-    color: #595959 !important;
+    color: var(--ac-body-ink, #595959) !important;
 }
 
 a {
-    color: #006699;
+    color: var(--ac-accent, #006699);
     text-decoration: none;
 }
 a:hover,
@@ -377,7 +378,7 @@ a[data-pk]:hover {
    #595959 provides 7.0:1 against #fff.
 */
 .footer .copyright p {
-    color: #595959 !important;
+    color: var(--ac-ink-muted, #595959) !important;
 }
 
 /* .text-muted contrast fix (SC 1.4.3)
@@ -385,7 +386,7 @@ a[data-pk]:hover {
    #595959 provides 7.0:1 against #fff.
 */
 .text-muted {
-    color: #595959 !important;
+    color: var(--ac-ink-muted, #595959) !important;
 }
 
 /* .text-danger contrast fix (SC 1.4.3)
@@ -393,14 +394,14 @@ a[data-pk]:hover {
    #c62828 provides 5.28:1 against #fff.
 */
 .text-danger {
-    color: #c62828 !important;
+    color: var(--ac-danger-ink, #c62828) !important;
 }
 /* .text-success contrast fix (SC 1.4.3)
    Theme sets .text-success to #6fd96f !important (1.78:1) — fails badly.
    #0d7a3a provides 5.44:1 against #fff.
 */
 .text-success {
-    color: #0d7a3a !important;
+    color: var(--ac-success-ink, #0d7a3a) !important;
 }
 
 /* .text-info contrast fix (SC 1.4.3)
@@ -408,7 +409,7 @@ a[data-pk]:hover {
    #0369a1 provides 5.93:1 against #fff.
 */
 .text-info {
-    color: #0369a1 !important;
+    color: var(--ac-info-ink, #0369a1) !important;
 }
 
 /* .text-warning contrast fix (SC 1.4.3)
@@ -416,7 +417,7 @@ a[data-pk]:hover {
    #b45309 provides 5.02:1 against #fff.
 */
 .text-warning {
-    color: #b45309 !important;
+    color: var(--ac-warning-ink, #b45309) !important;
 }
 /* .btn-danger contrast fix (SC 1.4.3)
    Theme sets .btn-danger background to #ff5e5e, white text = 2.99:1 — fails.
@@ -450,29 +451,29 @@ button[disabled],
    Falls back to :focus for browsers without :focus-visible support.
 */
 :focus-visible {
-    outline: 2px solid #0e4cfd !important;
+    outline: 2px solid var(--ac-focus-ring, #0e4cfd) !important;
     outline-offset: 2px !important;
 }
 
 /* Inputs already have a box-shadow focus style from Bootstrap; enhance it */
 .form-control:focus-visible {
-    outline: 2px solid #0e4cfd !important;
+    outline: 2px solid var(--ac-focus-ring, #0e4cfd) !important;
     outline-offset: 1px !important;
-    box-shadow: 0 0 0 0.2rem rgba(14, 76, 253, 0.25) !important;
+    box-shadow: 0 0 0 0.2rem var(--ac-focus-ring-glow, rgba(14, 76, 253, 0.25)) !important;
 }
 
 /* Buttons: ensure outline is clearly visible on all button variants */
 .btn:focus-visible {
-    outline: 2px solid #0e4cfd !important;
+    outline: 2px solid var(--ac-focus-ring, #0e4cfd) !important;
     outline-offset: 2px !important;
-    box-shadow: 0 0 0 0.2rem rgba(14, 76, 253, 0.25) !important;
+    box-shadow: 0 0 0 0.2rem var(--ac-focus-ring-glow, rgba(14, 76, 253, 0.25)) !important;
 }
 
 /* Links inside nav / sidebar */
 .nav-link:focus-visible,
 .sidebar-link:focus-visible,
 .metismenu a:focus-visible {
-    outline: 2px solid #0e4cfd !important;
+    outline: 2px solid var(--ac-focus-ring, #0e4cfd) !important;
     outline-offset: 2px !important;
 }
 
@@ -480,13 +481,13 @@ button[disabled],
 .action-btn:focus-visible,
 .tag_accept_button:focus-visible,
 .tag_deny_button:focus-visible {
-    outline: 2px solid #0e4cfd !important;
+    outline: 2px solid var(--ac-focus-ring, #0e4cfd) !important;
     outline-offset: 2px !important;
 }
 
 /* Accordion / collapse triggers */
 [data-toggle="collapse"]:focus-visible {
-    outline: 2px solid #0e4cfd !important;
+    outline: 2px solid var(--ac-focus-ring, #0e4cfd) !important;
     outline-offset: 2px !important;
 }
 
@@ -554,7 +555,7 @@ button[disabled],
 */
 img {
     font-size: 12px;
-    color: #767676;
+    color: var(--ac-ink-muted, #767676);
 }
 
 /* Ensure decorative images marked with empty alt don't show broken icon */

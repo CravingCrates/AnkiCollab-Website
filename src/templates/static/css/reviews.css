@@ -132,3 +132,132 @@
 @media (prefers-reduced-motion: reduce) {
   .review-row.removing { transition: none; }
 }
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --reviews-accent: #4aa8d8;
+    --reviews-accent-tint: rgba(74, 168, 216, 0.16);
+    --reviews-text: #f5f5f7;
+    --reviews-muted: #94a3b8;
+    --reviews-line: #38383d;
+    --reviews-surface: #1c1c1e;
+    --reviews-neutral-hover: #242428;
+    --reviews-danger: #ff8080;
+    --reviews-success: #4ade80;
+  }
+
+  .reviews-page {
+    background-color: #0b0c0f;
+  }
+
+  .reviews-search:focus-within {
+    outline: 3px solid rgba(92, 184, 230, 0.35);
+  }
+
+  .reviews-deck-option.selected {
+    background: #0c6aa0;
+    border-color: #0c6aa0;
+    color: #ffffff;
+  }
+
+  .reviews-deck-search {
+    background: #16161a;
+    color: var(--reviews-text);
+    border-color: #6b7280;
+  }
+
+  .reviews-deck-search::placeholder,
+  .reviews-search input::placeholder {
+    color: #94a3b8;
+  }
+
+  .review-chevron {
+    color: #94a3b8;
+  }
+
+  .reviews-detail-body .note-card {
+    background: #242428;
+    border-color: #38383d;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+  }
+
+  .reviews-detail-body .note-content-display {
+    color: var(--reviews-text);
+  }
+
+  .reviews-tag-chip {
+    background: #2c2c30;
+    border-color: #38383d;
+    color: #cbd5e1;
+  }
+
+  .reviews-tag-added {
+    background: rgba(46, 160, 67, 0.22);
+    border-color: rgba(46, 160, 67, 0.42);
+    color: #7ee787;
+  }
+
+  .reviews-tag-removed {
+    background: rgba(248, 81, 73, 0.22);
+    border-color: rgba(248, 81, 73, 0.42);
+    color: #ffa198;
+  }
+
+  .reviews-approve {
+    background: #15803d;
+    border-color: #15803d;
+    color: #ffffff;
+  }
+
+  .reviews-approve:hover {
+    background: #166534;
+    border-color: #166534;
+  }
+
+  .reviews-reject:hover {
+    background: rgba(255, 107, 107, 0.14);
+  }
+
+  .reviews-page .mathjax-toggle-btn.mathjax-toggle-btn-light {
+    background: var(--reviews-surface);
+    color: var(--reviews-text);
+    border-color: #36526e;
+  }
+
+  .reviews-page .mathjax-toggle-btn.mathjax-toggle-btn-light:hover {
+    background: #2c2c30;
+    color: #ffffff;
+    border-color: #4d7091;
+  }
+
+  .reviews-page .mathjax-toggle-btn.mathjax-toggle-btn-light:is(.active, [aria-pressed="true"]) {
+    background: #0c2d42;
+    color: #bae6fd;
+    border-color: #38bdf8;
+  }
+
+  .review-row:focus-visible,
+  .reviews-icon-button:focus-visible,
+  .reviews-action:focus-visible,
+  .reviews-full-editor:focus-visible,
+  .reviews-back-button:focus-visible {
+    outline: 3px solid #5cb8e6;
+    outline-offset: 2px;
+  }
+}
+
+@media (forced-colors: active) {
+  .review-row.selected,
+  .reviews-deck-option.selected,
+  .reviews-sort-btn.active {
+    outline: 2px solid Highlight;
+  }
+
+  .reviews-tag-added {
+    outline: 1px solid Highlight;
+  }
+
+  .reviews-tag-removed {
+    outline: 1px dashed GrayText;
+  }
+}

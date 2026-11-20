@@ -48,6 +48,17 @@ window.MathJaxEngine = (function () {
         'margin', 'margin-top', 'margin-bottom', 'margin-left', 'margin-right', 'display'
     ]);
 
+    const MATHJAX_SENTINEL_BG_CLASSES = new Map([
+        ['#fecaca', 'mjx-diff-del-bg'],
+        ['#bbf7d0', 'mjx-diff-ins-bg']
+    ]);
+
+    const MATHJAX_SENTINEL_FG_CLASSES = new Map([
+        ['#991b1b', 'mjx-diff-del-fg'],
+        ['#166534', 'mjx-diff-ins-fg'],
+        ['#2563eb', 'mjx-cloze-fg']
+    ]);
+
     const SKIP_TAGS = new Set(['SCRIPT', 'STYLE', 'TEXTAREA', 'CODE', 'PRE', 'NOSCRIPT', 'SVG']);
 
     let workerIframe = null;
@@ -347,6 +358,48 @@ window.MathJaxEngine = (function () {
         return safeDeclarations;
     }
 
+    function normalizeSentinelHex(value) {
+        if (typeof value !== 'string') return '';
+        const trimmed = value.trim().toLowerCase();
+        if (/^#[0-9a-f]{6}$/.test(trimmed)) {
+            return trimmed;
+        }
+        const rgbMatch = /^rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)(?:\s*,\s*1(?:\.0+)?)?\s*\)$/.exec(trimmed);
+        if (rgbMatch) {
+            const toHex = function (n) {
+                const num = Math.max(0, Math.min(255, Number(n)));
+                return (num < 16 ? '0' : '') + num.toString(16);
+            };
+            return '#' + toHex(rgbMatch[1]) + toHex(rgbMatch[2]) + toHex(rgbMatch[3]);
+        }
+        return '';
+    }
+
+    function collectSentinelClass(canonicalTag, propName, rawVal, extraClasses) {
+        const hex = normalizeSentinelHex(rawVal);
+        if (!hex) return false;
+        if (canonicalTag === 'rect') {
+            if (propName === 'fill') {
+                const bgClass = MATHJAX_SENTINEL_BG_CLASSES.get(hex);
+                if (bgClass) {
+                    if (!extraClasses.includes(bgClass)) {
+                        extraClasses.push(bgClass);
+                    }
+                    return true;
+                }
+            }
+        } else if (propName === 'fill' || propName === 'stroke' || propName === 'color') {
+            const fgClass = MATHJAX_SENTINEL_FG_CLASSES.get(hex);
+            if (fgClass) {
+                if (!extraClasses.includes(fgClass)) {
+                    extraClasses.push(fgClass);
+                }
+                return true;
+            }
+        }
+        return false;
+    }
+
     function sanitizeSvgNode(sourceNode, path, styleBindings) {
         if (!sourceNode || sourceNode.nodeType !== Node.ELEMENT_NODE) {
             return null;
@@ -359,20 +412,53 @@ window.MathJaxEngine = (function () {
         const cleanEl = document.createElementNS(SVG_NS, canonicalTag);
         const attrs = sourceNode.attributes;
         let decls = [];
+        let existingClass = '';
+        const extraClasses = [];
         for (let i = 0; i < attrs.length; i++) {
             const attr = attrs[i];
             const name = attr.name;
             if (name === 'style' || name === 'data-mjx-style') {
                 const parsed = parseSafeSvgStyles(attr.value);
                 if (parsed.length) {
-                    decls = decls.concat(parsed);
+                    for (let p = 0; p < parsed.length; p++) {
+                        if (!collectSentinelClass(canonicalTag, parsed[p].prop, parsed[p].val, extraClasses)) {
+                            decls.push(parsed[p]);
+                        }
+                    }
                 }
             } else if (ALLOWED_SVG_ATTRS.has(name)) {
                 const val = attr.value;
                 if (/^(?:javascript:|data:text\/html|vbscript:)/i.test(val.trim())) {
                     continue;
                 }
+                if (name === 'class') {
+                    existingClass = val;
+                    continue;
+                }
+                collectSentinelClass(canonicalTag, name, val, extraClasses);
                 cleanEl.setAttribute(name, val);
+            }
+        }
+        if (existingClass || extraClasses.length) {
+            const mergedClasses = [];
+            const seenClasses = new Set();
+            const existingTokens = existingClass ? existingClass.trim().split(/\s+/) : [];
+            for (let c = 0; c < existingTokens.length; c++) {
+                const tok = existingTokens[c];
+                if (tok && !seenClasses.has(tok)) {
+                    seenClasses.add(tok);
+                    mergedClasses.push(tok);
+                }
+            }
+            for (let c = 0; c < extraClasses.length; c++) {
+                const tok = extraClasses[c];
+                if (tok && !seenClasses.has(tok)) {
+                    seenClasses.add(tok);
+                    mergedClasses.push(tok);
+                }
+            }
+            if (mergedClasses.length) {
+                cleanEl.setAttribute('class', mergedClasses.join(' '));
             }
         }
         if (decls.length) {

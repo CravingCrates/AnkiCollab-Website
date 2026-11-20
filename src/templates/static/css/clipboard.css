@@ -17,15 +17,26 @@
     outline: none;
 }
 
+.btn-copy-key:focus-visible {
+    border-color: var(--ac-focus-ring, #0e4cfd);
+    outline: 2px solid var(--ac-focus-ring, #0e4cfd);
+    outline-offset: 2px;
+}
+
 .btn-copy-key.is-copied {
     border-color: #0071e3;
     background-color: #0071e3;
     color: #fff;
 }
 
+.btn-copy-key.is-copy-failed {
+    border-color: var(--ac-danger-ink, #c62828);
+    color: var(--ac-danger-ink, #c62828);
+}
+
 .sheet-text {
     font-size: 12px;
-    color: var(--text-secondary);
+    color: var(--ac-ink-secondary, #374151);
     line-height: 1.4;
 }
 
@@ -41,5 +52,41 @@
 @media (prefers-reduced-motion: reduce) {
     .btn-copy-key {
         transition: none;
+    }
+}
+
+@media (prefers-color-scheme: dark) {
+    .btn-copy-key {
+        border-color: #6b7280;
+        background: #242428;
+        color: #f5f5f7;
+    }
+
+    .btn-copy-key:hover,
+    .btn-copy-key:focus {
+        border-color: #5cb8e6;
+        color: #7cc9ee;
+        background: #2c2c30;
+    }
+
+    .btn-copy-key.is-copied {
+        border-color: #0c6aa0;
+        background-color: #0c6aa0;
+        color: #ffffff;
+    }
+
+    .btn-copy-key.is-copy-failed {
+        border-color: #ff8080;
+        color: #ff8080;
+    }
+
+    .sheet-text {
+        color: #cbd5e1;
+    }
+
+    .sheet-path {
+        color: #f5f5f7;
+        background: #2c2c30;
+        border: 1px solid #38383d;
     }
 }

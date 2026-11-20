@@ -1,6 +1,6 @@
 /* Primary structure */
 body { 
-  background: #F3F3F9; 
+  background: var(--ac-canvas, #F3F3F9); 
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 }
 
@@ -177,17 +177,18 @@ del[data-diff], ins[data-diff] { text-decoration: none !important; }
 }
 
 .diff-content {
-  background: white;
+  background: var(--ac-surface, white);
   padding: 12px;
   border-radius: 8px;
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--ac-line-hairline, #e2e8f0);
   font-size: 12px;
 }
 
 .empty-state {
   text-align: center;
   padding: 80px 40px;
-  background: white;
+  background: var(--ac-surface, white);
+  color: var(--ac-ink-muted, inherit);
   border-radius: 16px;
   box-shadow: 0 2px 20px rgba(0, 0, 0, 0.04);
 }
@@ -392,14 +393,14 @@ del[data-diff], ins[data-diff] { text-decoration: none !important; }
 }
 
 .note-content-display {
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--ac-line-hairline, #e2e8f0);
   padding: 14px 16px;
   margin-top: 5px;
   min-height: 20px;
   border-radius: 8px;
   line-height: 1.65;
   font-size: 14px;
-  color: #1e293b;
+  color: var(--ac-ink-primary, #1e293b);
   word-wrap: break-word;
   overflow-wrap: anywhere;
   overflow: auto;
@@ -474,11 +475,35 @@ del[data-diff], ins[data-diff] { text-decoration: none !important; }
   border-radius: revert;
 }
 
+/* Global: Bootstrap reboot ol, ul { padding-left: 2rem; margin-bottom: 1rem } */
+.note-content-display ul,
+.note-content-display ol {
+  padding-left: revert;
+  padding-inline-start: revert;
+  margin-block: 0.5em;
+}
+
+.note-content-display :is(ul, ol):first-child {
+  margin-block-start: 0;
+}
+
+.note-content-display :is(ul, ol):last-child {
+  margin-block-end: 0;
+}
+
+.note-content-display :is(ul, ol) :is(ul, ol) {
+  margin-block: 0;
+}
+
+.note-content-display li {
+  list-style: revert;
+}
+
 /* Collapsible reviewed sections */
 .collapsible-panel {
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--ac-line-hairline, #e2e8f0);
   border-radius: 12px;
-  background: #fff;
+  background: var(--ac-surface, #fff);
   margin-top: 16px;
   overflow: hidden;
   box-shadow: 0 2px 6px rgba(15, 23, 42, 0.06);
@@ -492,7 +517,7 @@ del[data-diff], ins[data-diff] { text-decoration: none !important; }
   list-style: none;
   padding: 14px 18px;
   font-weight: 600;
-  color: #0f172a;
+  color: var(--ac-ink-primary, #0f172a);
 }
 
 .collapsible-panel summary::-webkit-details-marker {
@@ -1415,6 +1440,20 @@ del[data-diff], ins[data-diff] { text-decoration: none !important; }
   line-height: 1.5;
 }
 
+.diff-highlight-block,
+.diff-content :is(ins, del)[data-diff]:has(> :is(ul, ol, div, p, table, blockquote, pre)) {
+  display: block;
+  padding: 4px 8px;
+  border-radius: 4px;
+}
+
+li.diff-highlight-ins,
+li.diff-highlight-del {
+  display: list-item;
+  padding: 1px 4px;
+  border-radius: 4px;
+}
+
 /* Character-level diff highlight — subtle deeper tint on the exact changed
    characters within a word-level replacement (e.g. spelling corrections).
    Works in both inline diff and split diff views. */
@@ -1590,6 +1629,79 @@ del[data-diff], ins[data-diff] { text-decoration: none !important; }
   .suggestion-box {
     border: 1px solid rgba(255, 255, 255, 0.1);
     box-shadow: 0 2px 12px rgba(0, 0, 0, 0.3);
+  }
+
+  .note-content-display a {
+    color: var(--ac-accent);
+    text-decoration: underline;
+  }
+
+  .note-content-display a:hover {
+    color: var(--ac-accent-hover);
+  }
+
+  .diff-content ins[data-diff],
+  .diff-highlight-ins {
+    background: rgba(46, 160, 67, 0.25);
+    color: #7ee787;
+  }
+
+  .diff-content del[data-diff],
+  .diff-highlight-del {
+    background: rgba(248, 81, 73, 0.24);
+    color: #ffa198;
+  }
+
+  [data-diff-char] {
+    background-color: rgba(255, 255, 255, 0.14);
+  }
+
+  del [data-diff-char] {
+    background-color: rgba(248, 81, 73, 0.34);
+  }
+
+  ins [data-diff-char] {
+    background-color: rgba(46, 160, 67, 0.34);
+  }
+
+  .original-side .note-content-display,
+  .original-side .field-content {
+    border-color: rgba(248, 81, 73, 0.3);
+    background: rgba(248, 81, 73, 0.09);
+  }
+
+  .suggestion-side .diff-content {
+    border-color: rgba(46, 160, 67, 0.32);
+    background: rgba(46, 160, 67, 0.1);
+  }
+
+  .lazy-load-image {
+    border-color: #54545c;
+    background-color: #242428;
+  }
+
+  .lazy-load-image::after {
+    color: #f5f5f7;
+    background-color: rgba(28, 28, 30, 0.85);
+  }
+
+  .lazy-load-image.error {
+    border-color: #f87171;
+  }
+
+  .lazy-load-image.error::after {
+    color: #fecaca;
+    background-color: rgba(69, 22, 27, 0.92);
+  }
+
+  .img-diff-wrapper.added {
+    background-color: rgba(46, 160, 67, 0.14);
+    border-color: #34d399;
+  }
+
+  .img-diff-wrapper.removed {
+    background-color: rgba(248, 81, 73, 0.14);
+    border-color: #f87171;
   }
 }
 
@@ -2105,8 +2217,8 @@ del[data-diff], ins[data-diff] { text-decoration: none !important; }
 
 /* Legacy suggestion-box for non-grouped items */
 .suggestion-box {
-  background: white;
-  border: 1px solid #e5e7eb;
+  background: var(--ac-surface, white);
+  border: 1px solid var(--ac-line-hairline, #e5e7eb);
   border-radius: 10px;
   padding: 14px 16px;
   margin-bottom: 12px;
@@ -3270,7 +3382,7 @@ del[data-diff], ins[data-diff] { text-decoration: none !important; }
 .edit-field-item .trumbowyg-editor table,
 .edit-field-item .trumbowyg-editor th,
 .edit-field-item .trumbowyg-editor td {
-  border: 1px solid #ccc;
+  border: 1px solid var(--ac-line-hairline, #ccc);
   padding: 4px 8px;
   text-align: left;
   vertical-align: top;
@@ -3281,7 +3393,8 @@ del[data-diff], ins[data-diff] { text-decoration: none !important; }
 
 .edit-field-item .trumbowyg-editor th {
   font-weight: bold;
-  background: #f5f5f5;
+  background: var(--ac-surface-subtle, #f5f5f5);
+  color: var(--ac-ink-primary, inherit);
 }
 
 .edit-field-item .trumbowyg-editor tr:nth-child(even) {
@@ -3300,6 +3413,7 @@ del[data-diff], ins[data-diff] { text-decoration: none !important; }
 }
 
 .edit-field-item .trumbowyg-editor li {
+  list-style: revert;
   margin: 0;
   padding: 0;
 }
@@ -3309,7 +3423,7 @@ del[data-diff], ins[data-diff] { text-decoration: none !important; }
 }
 
 .edit-field-item .trumbowyg-editor a {
-  color: #0066cc;
+  color: var(--ac-accent, #0066cc);
   text-decoration: underline;
 }
 
@@ -3488,20 +3602,21 @@ del[data-diff], ins[data-diff] { text-decoration: none !important; }
 .mathjax-toggle-btn.mathjax-toggle-btn-light {
   height: 34px;
   border-radius: 6px;
-  border: 1px solid #d9e2ec;
-  background: #ffffff;
-  color: #52606d;
+  border: 1px solid var(--ac-line-hairline, #d9e2ec);
+  background: var(--ac-surface, #ffffff);
+  color: var(--ac-ink-secondary, #52606d);
 }
 
 .mathjax-toggle-btn.mathjax-toggle-btn-light:hover {
-  background: #f5f7f9;
-  color: #1f2933;
+  background: var(--ac-surface-subtle, #f5f7f9);
+  color: var(--ac-ink-primary, #1f2933);
 }
 
-.mathjax-toggle-btn.mathjax-toggle-btn-light.active {
-  background: rgba(0, 102, 153, 0.09);
-  border-color: #006699;
-  color: #006699;
+.mathjax-toggle-btn.mathjax-toggle-btn-light.active,
+.mathjax-toggle-btn.mathjax-toggle-btn-light[aria-pressed="true"] {
+  background: var(--ac-accent-soft, rgba(0, 102, 153, 0.09));
+  border-color: var(--ac-accent, #006699);
+  color: var(--ac-accent, #006699);
   box-shadow: none;
 }
 
@@ -3533,27 +3648,85 @@ del[data-diff], ins[data-diff] { text-decoration: none !important; }
 .mathjax-rendered.mathjax-error {
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   font-size: 0.9em;
-  background: #fef2f2;
-  color: #991b1b;
-  border: 1px dashed #fca5a5;
+  background: var(--ac-math-error-bg, #fef2f2);
+  color: var(--ac-math-error-ink, #991b1b);
+  border: 1px dashed var(--ac-math-error-border, #fca5a5);
   border-radius: 4px;
   padding: 1px 4px;
 }
 
+.mathjax-rendered .mjx-diff-del-bg {
+  fill: var(--ac-math-diff-del-bg, #fecaca) !important;
+}
+
+.mathjax-rendered .mjx-diff-del-fg {
+  fill: var(--ac-math-diff-del-ink, #991b1b) !important;
+  stroke: var(--ac-math-diff-del-ink, #991b1b) !important;
+  color: var(--ac-math-diff-del-ink, #991b1b) !important;
+}
+
+.mathjax-rendered .mjx-diff-ins-bg {
+  fill: var(--ac-math-diff-ins-bg, #bbf7d0) !important;
+}
+
+.mathjax-rendered .mjx-diff-ins-fg {
+  fill: var(--ac-math-diff-ins-ink, #166534) !important;
+  stroke: var(--ac-math-diff-ins-ink, #166534) !important;
+  color: var(--ac-math-diff-ins-ink, #166534) !important;
+}
+
+.mathjax-rendered .mjx-cloze-fg {
+  fill: var(--ac-math-cloze-ink, #2563eb) !important;
+  stroke: var(--ac-math-cloze-ink, #2563eb) !important;
+  color: var(--ac-math-cloze-ink, #2563eb) !important;
+}
+
 del[data-diff] .mathjax-rendered,
 .diff-highlight-del .mathjax-rendered {
-  background: rgba(254, 202, 202, 0.55);
-  border: 1px solid #f87171;
+  background: var(--ac-math-diff-del-bg, #fecaca);
+  color: var(--ac-math-diff-del-ink, #991b1b);
+  border: 1px solid var(--ac-math-diff-del-border, #f87171);
   border-radius: 6px;
   padding: 2px 5px;
 }
 
 ins[data-diff] .mathjax-rendered,
 .diff-highlight-ins .mathjax-rendered {
-  background: rgba(187, 247, 208, 0.55);
-  border: 1px solid #4ade80;
+  background: var(--ac-math-diff-ins-bg, #bbf7d0);
+  color: var(--ac-math-diff-ins-ink, #166534);
+  border: 1px solid var(--ac-math-diff-ins-border, #4ade80);
   border-radius: 6px;
   padding: 2px 5px;
+}
+
+@media (forced-colors: active) {
+  .mathjax-rendered .mjx-diff-del-bg,
+  .mathjax-rendered .mjx-diff-ins-bg {
+    fill: Canvas !important;
+  }
+
+  .mathjax-rendered .mjx-diff-del-fg,
+  .mathjax-rendered .mjx-diff-ins-fg,
+  .mathjax-rendered .mjx-cloze-fg {
+    fill: CanvasText !important;
+    stroke: CanvasText !important;
+    color: CanvasText !important;
+  }
+
+  del[data-diff] .mathjax-rendered,
+  .diff-highlight-del .mathjax-rendered {
+    background: Canvas;
+    color: CanvasText;
+    border-color: GrayText;
+    border-style: dashed;
+  }
+
+  ins[data-diff] .mathjax-rendered,
+  .diff-highlight-ins .mathjax-rendered {
+    background: Canvas;
+    color: CanvasText;
+    border-color: Highlight;
+  }
 }
 
 .edit-panel-header-actions {
@@ -3563,8 +3736,8 @@ ins[data-diff] .mathjax-rendered,
 }
 
 .mathjax-editor-preview {
-  border-top: 1px solid #e2e8f0;
-  background: #f8fafc;
+  border-top: 1px solid var(--ac-line-hairline, #e2e8f0);
+  background: var(--ac-surface-subtle, #f8fafc);
   padding: 10px 14px 12px;
 }
 
@@ -3576,7 +3749,7 @@ ins[data-diff] .mathjax-rendered,
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.4px;
-  color: #475569;
+  color: var(--ac-ink-muted, #475569);
   margin-bottom: 6px;
 }
 
@@ -3590,12 +3763,12 @@ ins[data-diff] .mathjax-rendered,
 }
 
 .mathjax-editor-preview-body {
-  background: #ffffff;
-  border: 1px solid #e2e8f0;
+  background: var(--ac-surface, #ffffff);
+  border: 1px solid var(--ac-line-hairline, #e2e8f0);
   border-radius: 8px;
   padding: 10px 12px;
   font-size: 14px;
   line-height: 1.6;
-  color: #1e293b;
+  color: var(--ac-ink-primary, #1e293b);
   overflow-x: auto;
 }

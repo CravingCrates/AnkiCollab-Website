@@ -2117,8 +2117,6 @@ a {transition: all 0.4s ease-in-out;
 a:focus, a:hover {text-decoration: none;}
 a.link {color: #464a53;}
 a.link:focus, a.link:hover {color: #4d7cff;}
-ul {padding: 0;}
-li {list-style: none;}
 .img-responsive {width: 100%;
   height: auto;
   display: inline-block;}

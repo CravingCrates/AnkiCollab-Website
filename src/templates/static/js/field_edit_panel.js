@@ -566,7 +566,7 @@ window.FieldEditPanel = (function() {
                 return setupFieldEditor($editor, noteId).catch(error => {
                     const position = $editor.data('position');
                     console.error(`Failed to initialize editor for position ${position}:`, error);
-                    $editor.html('<p style="color:red;">Error initializing editor.</p>').css('border', '2px solid red');
+                    $editor.html('<p class="text-danger">Error initializing editor.</p>').addClass('border border-danger');
                 });
             }).get()
         );
@@ -738,15 +738,24 @@ window.FieldEditPanel = (function() {
                 return;
             }
 
-            event.preventDefault();
-            event.stopPropagation();
-
             const selection = window.getSelection();
             if (!selection || selection.rangeCount === 0) {
                 return;
             }
 
             const range = selection.getRangeAt(0);
+            const anchorNode = range.commonAncestorContainer;
+            const anchorEl = anchorNode.nodeType === Node.ELEMENT_NODE ? anchorNode : anchorNode.parentElement;
+            if (anchorEl) {
+                const listAncestor = anchorEl.closest('li, ul, ol');
+                if (listAncestor && this.contains(listAncestor)) {
+                    return;
+                }
+            }
+
+            event.preventDefault();
+            event.stopPropagation();
+
             const br = document.createElement('br');
             const zws = document.createTextNode('\u200B'); // Zero-width space for cursor positioning
 

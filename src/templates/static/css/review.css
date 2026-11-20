@@ -628,6 +628,17 @@ body:has(.note-review-page),
     text-decoration: none !important;
 }
 
+.note-review-page .diff-highlight-block,
+.note-review-page .diff-content :is(ins, del)[data-diff]:has(> :is(ul, ol, div, p, table, blockquote, pre)) {
+    display: block;
+    padding: 4px 8px;
+}
+
+.note-review-page :is(li.diff-highlight-ins, li.diff-highlight-del) {
+    display: list-item;
+    padding: 1px 4px;
+}
+
 .note-review-page .published-side .tags-section {
     margin-top: 2px;
     padding-top: 14px;
@@ -983,7 +994,7 @@ body:has(.note-review-page),
         --ac-ink-secondary: #cbd5e1;
         --ac-ink-tertiary: #94a3b8;
         --ac-line-hairline: #38383d;
-        --ac-line-strong: #54545c;
+        --ac-line-strong: #6b7280;
         --ac-accent: #4aa8d8;
         --ac-accent-hover: #67bae3;
         --ac-accent-soft: rgba(74, 168, 216, 0.16);
@@ -1097,6 +1108,25 @@ body:has(.note-review-page),
 
     .note-review-page .note-card.note-card-removed {
         border-left-color: #f85149;
+    }
+
+    .note-review-page .tag-chip-add,
+    .note-review-page .note-status-badge.badge-new {
+        border-color: rgba(46, 160, 67, 0.4);
+    }
+
+    .note-review-page .tag-chip-remove,
+    .note-review-page .note-status-badge.badge-removal {
+        border-color: rgba(248, 81, 73, 0.4);
+    }
+
+    .note-review-page .note_tag_container.tag-move {
+        border-color: rgba(74, 168, 216, 0.35);
+    }
+
+    .note-review-page .review-field-actions .revert-btn:hover:not(:disabled),
+    .note-review-page .suggestions-side .revert-btn:hover:not(:disabled) {
+        border-color: rgba(255, 128, 128, 0.45);
     }
 
     .note-review-page .tag-revert-btn:hover {

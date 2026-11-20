@@ -64,7 +64,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 text: "This will permanently delete your account and all associated data. This action cannot be undone!",
                 icon: "warning",
                 showCancelButton: true,
-                confirmButtonColor: "#d33",
+                confirmButtonColor: "#c62828",
                 confirmButtonText: "Yes, delete my account",
                 cancelButtonText: "Cancel",
                 showLoaderOnConfirm: true
