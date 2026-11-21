@@ -17,11 +17,10 @@ travis-ci = { repository = "seikichi/htmldiff" }
 appveyor = { repository = "seikichi/htmldiff" }
 
 [dependencies]
-kuchiki = "0.8.1"
+kuchikiki = "0.8.9-speedreader"
 rand = "0.10.3"
 unicode-segmentation = "1.13.3"
 
 [dev-dependencies]
 proptest = "1.12.0"
 rand = "0.10.3" # reuse same version
-kuchiki = "0.8.1"

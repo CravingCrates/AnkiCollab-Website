@@ -1,5 +1,5 @@
-use kuchiki::traits::*;
-use kuchiki::{parse_html, ElementData, NodeRef};
+use kuchikiki::traits::*;
+use kuchikiki::{parse_html, ElementData, NodeRef};
 use std::collections::{HashMap, HashSet};
 use unicode_segmentation::UnicodeSegmentation;
 
@@ -65,7 +65,7 @@ fn is_unescaped_backslash(bytes: &[u8], backslash_idx: usize) -> bool {
 }
 
 /// Replace `<br>`/`<br/>` tags inside closed MathJax blocks (`\(...\)` or `\[...\]`)
-/// that contain no other HTML tags and no nested openers, so `kuchiki` keeps the
+/// that contain no other HTML tags and no nested openers, so `kuchikiki` keeps the
 /// multi-line formula in a single text node during diffing.
 fn protect_mathjax_br(s: &str) -> String {
     if (!s.contains("\\(") && !s.contains("\\[")) || !s.to_ascii_lowercase().contains("<br") {
@@ -168,8 +168,8 @@ pub fn diff_html(old: &str, new: &str) -> String {
     // Wrap fragments to avoid full HTML skeleton differences
     let wrapped_old = format!("<div data-htmldiff-root>{}</div>", old_protected);
     let wrapped_new = format!("<div data-htmldiff-root>{}</div>", new_protected);
-    let old_doc = parse_html().one(wrapped_old);
-    let new_doc = parse_html().one(wrapped_new);
+    let old_doc = parse_html().one(wrapped_old).document_node;
+    let new_doc = parse_html().one(wrapped_new).document_node;
     // Find wrapper elements
     let old_root = find_wrapper(&old_doc).unwrap_or(old_doc);
     let new_root = find_wrapper(&new_doc).unwrap_or(new_doc);

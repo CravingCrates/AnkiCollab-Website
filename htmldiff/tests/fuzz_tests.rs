@@ -1,6 +1,6 @@
 use htmldiff::htmldiff;
-use kuchiki::parse_html;
-use kuchiki::traits::*;
+use kuchikiki::parse_html;
+use kuchikiki::traits::*;
 use proptest::prelude::*;
 use rand::rngs::StdRng;
 use rand::SeedableRng;
@@ -264,7 +264,7 @@ fn apply_random_edits(
 
 /// Helper: return true if `token` appears inside any <ins data-diff> node of parsed `html_out`
 fn token_in_ins(html_out: &str, token: &str) -> bool {
-    let doc = parse_html().one(html_out);
+    let doc = parse_html().one(html_out).document_node;
     if let Ok(nodes) = doc.select("ins[data-diff]") {
         for matched in nodes {
             let text = matched.as_node().text_contents();
@@ -278,7 +278,7 @@ fn token_in_ins(html_out: &str, token: &str) -> bool {
 
 /// Helper: return true if `token` appears inside any <del data-diff> node of parsed `html_out`
 fn token_in_del(html_out: &str, token: &str) -> bool {
-    let doc = parse_html().one(html_out);
+    let doc = parse_html().one(html_out).document_node;
     if let Ok(nodes) = doc.select("del[data-diff]") {
         for matched in nodes {
             let text = matched.as_node().text_contents();
@@ -311,7 +311,7 @@ fn fuzz_dom_diff_generator() {
         validate_no_bad_nesting(&out);
 
         // 1) Output should be parseable HTML
-        let parsed = parse_html().one(out.clone());
+        let parsed = parse_html().one(out.clone()).document_node;
         // If parse_html() panics or fails that's already bad; here we assert the document contains something
         let text = parsed.text_contents();
         assert!(
@@ -448,7 +448,7 @@ proptest! {
     #[test]
     fn prop_small_random_html(a in small_html(), b in small_html()) {
     let out = htmldiff(&a, &b);
-        let _ = parse_html().one(out.clone());
+        let _ = parse_html().one(out.clone()).document_node;
         validate_no_bad_nesting(&out);
     }
 }
@@ -497,7 +497,7 @@ proptest! {
     fn prop_malformed_html(a in malformed_html(), b in malformed_html()) {
     let out = htmldiff(&a, &b);
         // Parser should not panic
-        let _ = parse_html().one(out.clone());
+        let _ = parse_html().one(out.clone()).document_node;
         validate_no_bad_nesting(&out);
     }
 }
