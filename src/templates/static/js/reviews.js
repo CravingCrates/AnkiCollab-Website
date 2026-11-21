@@ -6,6 +6,7 @@ $(function() {
     let selectedRow = null;
     let activeDeck = '';
     let request = null;
+    let isActionInProgress = false;
     const SORT_OFF = 0, SORT_ASC = 1, SORT_DESC = 2;
     const sortState = { author: SORT_OFF, time: SORT_OFF, info: SORT_OFF };
     let currentDomSortKey = null;
@@ -284,42 +285,71 @@ $(function() {
         selectRow($(visible[index]), true);
     }
 
-    function removeSelectedRow() {
+    function removeSelectedRow(targetRow) {
+        const row = targetRow && targetRow.length ? targetRow : selectedRow;
+        if (!row || !row.length) return;
         const visible = filteredRows().toArray();
-        const index = selectedRow ? visible.indexOf(selectedRow[0]) : -1;
-        const next = $(visible[index + 1] || visible[index - 1]);
-        const row = selectedRow;
+        const index = visible.indexOf(row[0]);
+        const next = index >= 0 ? $(visible[index + 1] || visible[index - 1]) : $();
         row.addClass('removing');
         setTimeout(function() {
             const rowEl = row[0];
+            const wasSelected = Boolean(selectedRow && selectedRow[0] === rowEl);
             row.remove();
             rowItems = rowItems.filter(item => item.element !== rowEl);
-            selectedRow = null;
-            clearDetail();
+            if (wasSelected) {
+                selectedRow = null;
+                clearDetail();
+            }
             buildDeckControl();
             refreshList();
-            if (next.length && next.closest('body').length) selectRow(next, false);
+            if (wasSelected && next.length && next.closest('body').length) selectRow(next, false);
         }, 190);
     }
 
     async function actOnSelected(action) {
-        if (!selectedRow) return;
-        const meta = getRowMeta(selectedRow[0]);
-        const commitId = meta ? meta.commitId : selectedRow.data('commit-id');
-        const buttons = $('.reviews-action').prop('disabled', true);
+        if (!selectedRow || selectedRow.hasClass('removing') || isActionInProgress) return;
+        if (action !== 'approve' && action !== 'deny') return;
+        const targetRow = selectedRow;
+        const meta = getRowMeta(targetRow[0]);
+        const commitId = meta ? meta.commitId : targetRow.data('commit-id');
+        if (!commitId) return;
+
+        isActionInProgress = true;
+        let buttons = null;
         try {
-            const response = await fetch(`/${action === 'approve' ? 'ApproveCommit' : 'DenyCommit'}/${commitId}`, {
-                method: 'POST', credentials: 'same-origin', redirect: 'manual',
-                headers: action === 'deny' ? { 'Content-Type': 'application/json' } : {},
-                body: action === 'deny' ? JSON.stringify({ silent: true }) : undefined
-            });
+            let denyOptions = null;
+            if (action === 'deny') {
+                // Keep buttons enabled while the modal is open so native focus restoration works on cancel.
+                denyOptions = await window.SharedUI.showDenySuggestionModal();
+                if (!denyOptions || denyOptions.cancelled) return;
+            }
+
+            buttons = $('.reviews-action').prop('disabled', true);
+            const fetchOptions = {
+                method: 'POST',
+                credentials: 'same-origin',
+                redirect: 'manual'
+            };
+            if (action === 'deny') {
+                fetchOptions.headers = { 'Content-Type': 'application/json' };
+                fetchOptions.body = JSON.stringify({
+                    silent: !!denyOptions.silent,
+                    reason: denyOptions.reason || ''
+                });
+            }
+
+            const response = await fetch(`/${action === 'approve' ? 'ApproveCommit' : 'DenyCommit'}/${commitId}`, fetchOptions);
             if (response.type !== 'opaqueredirect' && !response.ok) throw new Error(`Request failed: ${response.status}`);
             try { sessionStorage.removeItem(`commit_select::${commitId}`); } catch (e) {}
-            removeSelectedRow();
+            removeSelectedRow(targetRow);
         } catch (error) {
             console.error('Review action failed:', error);
             alert('An error occurred while processing this review.');
-        } finally { buttons.prop('disabled', false); }
+        } finally {
+            if (buttons) buttons.prop('disabled', false);
+            isActionInProgress = false;
+        }
     }
 
     buildDeckControl();

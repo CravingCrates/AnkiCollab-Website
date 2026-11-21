@@ -971,9 +971,300 @@ window.SharedUI = (function() {
     }
 
 
+    // --- Modal Dialog Helpers ---
+
+    function isReducedMotion() {
+        return window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    }
+
+    /**
+     * Opens a native modal <dialog> card and resolves when dismissed or confirmed.
+     * @param {{ title: string, message: string, dismissValue: any, buildContent?: Function }} options
+     * @returns {Promise<any>}
+     */
+    function openModalDialog(options) {
+        return new Promise(function(resolve) {
+            var settled = false;
+            var isClosing = false;
+            var closeTimer = null;
+            var dialog = document.createElement('dialog');
+            dialog.className = 'ac-modal-card';
+
+            var headingId = 'ac-modal-heading-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2);
+            dialog.setAttribute('aria-labelledby', headingId);
+
+            var heading = document.createElement('h2');
+            heading.className = 'ac-modal-title';
+            heading.id = headingId;
+            heading.textContent = options.title;
+
+            var body = document.createElement('p');
+            body.className = 'ac-modal-body';
+            body.textContent = options.message;
+
+            dialog.appendChild(heading);
+            dialog.appendChild(body);
+
+            function finish(value) {
+                if (settled) return;
+                settled = true;
+                if (closeTimer) {
+                    clearTimeout(closeTimer);
+                    closeTimer = null;
+                }
+                dialog.returnValue = '';
+                if (dialog.parentNode) {
+                    dialog.parentNode.removeChild(dialog);
+                }
+                resolve(value);
+            }
+
+            function closeWithValue(value, returnCode) {
+                if (settled || isClosing) return;
+                isClosing = true;
+                dialog._pendingResult = value;
+                dialog.classList.remove('is-visible');
+                var delay = isReducedMotion() ? 0 : 200;
+                closeTimer = setTimeout(function() {
+                    closeTimer = null;
+                    if (dialog.open) {
+                        dialog.close(returnCode || '');
+                    } else {
+                        finish(value);
+                    }
+                }, delay);
+            }
+
+            if (typeof options.buildContent === 'function') {
+                options.buildContent(dialog, closeWithValue);
+            }
+
+            function isOutsideDialog(event) {
+                var rect = dialog.getBoundingClientRect();
+                return (
+                    event.clientX < rect.left ||
+                    event.clientX > rect.right ||
+                    event.clientY < rect.top ||
+                    event.clientY > rect.bottom
+                );
+            }
+
+            var pressedOutside = false;
+            dialog.addEventListener('pointerdown', function(event) {
+                pressedOutside = isOutsideDialog(event);
+            });
+            dialog.addEventListener('pointerup', function(event) {
+                if (pressedOutside && isOutsideDialog(event)) {
+                    closeWithValue(options.dismissValue);
+                }
+                pressedOutside = false;
+            });
+
+            dialog.addEventListener('cancel', function(event) {
+                // Pressing Escape during a closing fade-out should always cancel rather than confirm.
+                event.preventDefault();
+                if (closeTimer) {
+                    clearTimeout(closeTimer);
+                    closeTimer = null;
+                }
+                isClosing = false;
+                if (dialog.open) {
+                    dialog.close('');
+                } else {
+                    finish(options.dismissValue);
+                }
+            });
+
+            dialog.addEventListener('close', function() {
+                var result = isClosing ? dialog._pendingResult : options.dismissValue;
+                finish(result);
+            });
+
+            document.body.appendChild(dialog);
+            dialog.showModal();
+            requestAnimationFrame(function() {
+                dialog.classList.add('is-visible');
+            });
+        });
+    }
+
+    /**
+     * Displays a two-button confirmation modal dialog.
+     * @param {string} title
+     * @param {string} message
+     * @returns {Promise<boolean>}
+     */
+    function showSimpleConfirmModal(title, message) {
+        return openModalDialog({
+            title: title,
+            message: message,
+            dismissValue: false,
+            buildContent: function(dialog, closeWithValue) {
+                var footer = document.createElement('div');
+                footer.className = 'ac-modal-footer';
+
+                var footerLeft = document.createElement('div');
+                footerLeft.className = 'ac-modal-footer-left';
+
+                var footerRight = document.createElement('div');
+                footerRight.className = 'ac-modal-footer-right';
+
+                var cancelBtn = document.createElement('button');
+                cancelBtn.className = 'ac-modal-btn ac-modal-btn-secondary';
+                cancelBtn.type = 'button';
+                cancelBtn.textContent = 'Cancel';
+                // Focus the safe action by default on confirmation dialogs
+                cancelBtn.autofocus = true;
+
+                var confirmBtn = document.createElement('button');
+                confirmBtn.className = 'ac-modal-btn ac-modal-btn-primary';
+                confirmBtn.type = 'button';
+                confirmBtn.textContent = 'Confirm';
+
+                cancelBtn.addEventListener('click', function() {
+                    closeWithValue(false, 'cancel');
+                });
+                confirmBtn.addEventListener('click', function() {
+                    closeWithValue(true, 'confirm');
+                });
+
+                footerLeft.appendChild(cancelBtn);
+                footerRight.appendChild(confirmBtn);
+                footer.appendChild(footerLeft);
+                footer.appendChild(footerRight);
+                dialog.appendChild(footer);
+            }
+        });
+    }
+
+    /**
+     * Displays a single-button informational modal dialog.
+     * @param {string} title
+     * @param {string} message
+     * @returns {Promise<void>}
+     */
+    function showInfoModal(title, message) {
+        return openModalDialog({
+            title: title,
+            message: message,
+            dismissValue: undefined,
+            buildContent: function(dialog, closeWithValue) {
+                var footer = document.createElement('div');
+                footer.className = 'ac-modal-footer';
+
+                var footerRight = document.createElement('div');
+                footerRight.className = 'ac-modal-footer-right';
+                footerRight.style.marginLeft = 'auto';
+
+                var okBtn = document.createElement('button');
+                okBtn.className = 'ac-modal-btn ac-modal-btn-primary';
+                okBtn.type = 'button';
+                okBtn.textContent = 'OK';
+                okBtn.autofocus = true;
+
+                okBtn.addEventListener('click', function() {
+                    closeWithValue(undefined, 'ok');
+                });
+
+                footerRight.appendChild(okBtn);
+                footer.appendChild(footerRight);
+                dialog.appendChild(footer);
+            }
+        });
+    }
+
+    /**
+     * Prompts the maintainer to decline a suggestion silently or with feedback.
+     * @returns {Promise<{ cancelled: boolean, silent?: boolean, reason?: string }>}
+     */
+    function showDenySuggestionModal() {
+        return openModalDialog({
+            title: 'Decline Suggestion',
+            message: 'You can decline silently or send optional feedback to the submitter.',
+            dismissValue: { cancelled: true },
+            buildContent: function(dialog, closeWithValue) {
+                var textarea = document.createElement('textarea');
+                textarea.className = 'ac-modal-textarea';
+                textarea.placeholder = 'Optional feedback for the submitter\u2026';
+                textarea.maxLength = 2000;
+                textarea.autofocus = true;
+                textarea.setAttribute('aria-label', 'Feedback message');
+
+                var charCount = document.createElement('div');
+                charCount.className = 'ac-modal-charcount';
+                charCount.textContent = '0 / 2000';
+
+                var footer = document.createElement('div');
+                footer.className = 'ac-modal-footer';
+
+                var leftActions = document.createElement('div');
+                leftActions.className = 'ac-modal-footer-left';
+
+                var rightActions = document.createElement('div');
+                rightActions.className = 'ac-modal-footer-right';
+
+                var cancelBtn = document.createElement('button');
+                cancelBtn.className = 'ac-modal-btn ac-modal-btn-plain';
+                cancelBtn.type = 'button';
+                cancelBtn.textContent = 'Cancel';
+
+                var silentBtn = document.createElement('button');
+                silentBtn.className = 'ac-modal-btn ac-modal-btn-secondary';
+                silentBtn.type = 'button';
+                silentBtn.textContent = 'Decline Silently';
+
+                var notifyBtn = document.createElement('button');
+                notifyBtn.className = 'ac-modal-btn ac-modal-btn-danger';
+                notifyBtn.type = 'button';
+                notifyBtn.textContent = 'Decline & Notify';
+
+                cancelBtn.addEventListener('click', function() {
+                    closeWithValue({ cancelled: true }, 'cancel');
+                });
+
+                silentBtn.addEventListener('click', function() {
+                    closeWithValue({
+                        cancelled: false,
+                        silent: true,
+                        reason: textarea.value || ''
+                    }, 'silent');
+                });
+
+                notifyBtn.addEventListener('click', function() {
+                    closeWithValue({
+                        cancelled: false,
+                        silent: false,
+                        reason: textarea.value || ''
+                    }, 'notify');
+                });
+
+                textarea.addEventListener('input', function() {
+                    var len = textarea.value.length;
+                    charCount.textContent = String(len) + ' / 2000';
+                    charCount.classList.toggle('near-limit', len >= 1600 && len < 1900);
+                    charCount.classList.toggle('at-limit', len >= 1900);
+                });
+
+                leftActions.appendChild(cancelBtn);
+                rightActions.appendChild(silentBtn);
+                rightActions.appendChild(notifyBtn);
+                footer.appendChild(leftActions);
+                footer.appendChild(rightActions);
+
+                dialog.appendChild(textarea);
+                dialog.appendChild(charCount);
+                dialog.appendChild(footer);
+            }
+        });
+    }
+
     // --- Public API ---
     return {
         initializePage,
         initializeNoteCard,
+        openModalDialog,
+        showSimpleConfirmModal,
+        showInfoModal,
+        showDenySuggestionModal,
     };
 })();
