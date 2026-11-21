@@ -231,7 +231,7 @@ impl Auth {
         let token = encode(
             &Header::default(),
             &claims,
-            &EncodingKey::from_secret(self.jwt_secret.as_bytes()),
+            &EncodingKey::from_secret(self.jwt_secret.as_bytes())?,
         )?;
 
         // Insert login log (best-effort)
@@ -273,7 +273,7 @@ impl Auth {
     pub fn verify_token(&self, token: &str) -> Result<Claims, AuthError> {
         let token_data = decode::<Claims>(
             token,
-            &DecodingKey::from_secret(self.jwt_secret.as_bytes()),
+            &DecodingKey::from_secret(self.jwt_secret.as_bytes())?,
             &Validation::default(),
         )?;
 
@@ -557,7 +557,10 @@ pub async fn notify_offsite_deletion(webhook_url: &str, hashed_id: String) {
 
 #[cfg(test)]
 mod tests {
-    use super::SessionAge;
+    use super::{
+        decode, encode, Claims, DecodingKey, EncodingKey, Header, OffsetDateTime, SessionAge,
+        Validation,
+    };
     use std::time::Duration;
 
     #[test]
@@ -580,5 +583,66 @@ mod tests {
         // This server cannot mint one. Failing closed keeps a backwards clock
         // adjustment from waiving a step-up for every session at once.
         assert!(!SessionAge(-1).is_within(Duration::from_mins(10)));
+    }
+
+    #[test]
+    fn jwt_claims_round_trip_with_integer_sub() {
+        let secret = b"test-jwt-secret-with-sufficient-entropy";
+        let now = OffsetDateTime::now_utc().unix_timestamp();
+        let claims = Claims {
+            sub: 42,
+            iat: now,
+            exp: now + 3600,
+        };
+
+        let encoding_key = EncodingKey::from_secret(secret).expect("non-empty secret");
+        let decoding_key = DecodingKey::from_secret(secret).expect("non-empty secret");
+
+        let token = encode(&Header::default(), &claims, &encoding_key).expect("encode succeeds");
+        let decoded =
+            decode::<Claims>(&token, &decoding_key, &Validation::default()).expect("decode passes");
+
+        assert_eq!(decoded.claims.sub, claims.sub);
+        assert_eq!(decoded.claims.iat, claims.iat);
+        assert_eq!(decoded.claims.exp, claims.exp);
+    }
+
+    #[test]
+    fn jwt_decode_rejects_wrong_secret() {
+        let now = OffsetDateTime::now_utc().unix_timestamp();
+        let claims = Claims {
+            sub: 42,
+            iat: now,
+            exp: now + 3600,
+        };
+
+        let encoding_key = EncodingKey::from_secret(b"correct-secret").expect("non-empty secret");
+        let wrong_key = DecodingKey::from_secret(b"wrong-secret").expect("non-empty secret");
+
+        let token = encode(&Header::default(), &claims, &encoding_key).expect("encode succeeds");
+        assert!(decode::<Claims>(&token, &wrong_key, &Validation::default()).is_err());
+    }
+
+    #[test]
+    fn jwt_decode_rejects_expired_claims() {
+        let secret = b"test-jwt-secret-with-sufficient-entropy";
+        let now = OffsetDateTime::now_utc().unix_timestamp();
+        let claims = Claims {
+            sub: 42,
+            iat: now - 240,
+            exp: now - 120,
+        };
+
+        let encoding_key = EncodingKey::from_secret(secret).expect("non-empty secret");
+        let decoding_key = DecodingKey::from_secret(secret).expect("non-empty secret");
+
+        let token = encode(&Header::default(), &claims, &encoding_key).expect("encode succeeds");
+        assert!(decode::<Claims>(&token, &decoding_key, &Validation::default()).is_err());
+    }
+
+    #[test]
+    fn jwt_empty_secret_is_rejected() {
+        assert!(EncodingKey::from_secret(b"").is_err());
+        assert!(DecodingKey::from_secret(b"").is_err());
     }
 }

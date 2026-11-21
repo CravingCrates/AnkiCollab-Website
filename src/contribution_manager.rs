@@ -1,9 +1,9 @@
 //! Contribution ("HUMANS") statistics for a deck.
 
 use crate::{database, Return};
-use chrono::{Datelike, NaiveDate};
 use serde::Serialize;
 use std::collections::BTreeMap;
+use time::Date;
 
 /// Per-contributor rows are withheld below this many distinct contributors (k-anonymity).
 pub const MIN_CONTRIBUTORS_FOR_BREAKDOWN: i64 = 5;
@@ -23,7 +23,7 @@ pub enum Granularity {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct SnapshotPoint {
-    pub on: NaiveDate,
+    pub on: Date,
     pub total: i64,
     pub active_30d: i64,
     pub active_90d: i64,
@@ -62,7 +62,7 @@ pub fn breakdown_visible(distinct_contributors: i64) -> bool {
 #[must_use]
 pub fn build_timeline(
     snapshots: &[SnapshotPoint],
-    new_by_date: &BTreeMap<NaiveDate, i64>,
+    new_by_date: &BTreeMap<Date, i64>,
     granularity: Granularity,
 ) -> Vec<TimelineBucket> {
     let mut buckets: Vec<TimelineBucket> = Vec::new();
@@ -111,12 +111,11 @@ pub fn build_timeline(
     buckets
 }
 
-fn bucket_label(on: NaiveDate, granularity: Granularity) -> String {
+fn bucket_label(on: Date, granularity: Granularity) -> String {
     match granularity {
-        Granularity::Daily => on.format("%Y-%m-%d").to_string(),
+        Granularity::Daily => on.to_string(),
         Granularity::Weekly => {
-            let year = on.iso_week().year();
-            let week = on.iso_week().week();
+            let (year, week, _) = on.to_iso_week_date();
             format!("{year}-W{week:02}")
         }
     }
@@ -339,7 +338,7 @@ pub async fn get_timeline(
     db_state: &database::AppState,
     deck_id: i64,
     days: i64,
-) -> Return<(Vec<SnapshotPoint>, BTreeMap<NaiveDate, i64>)> {
+) -> Return<(Vec<SnapshotPoint>, BTreeMap<Date, i64>)> {
     let client = database::client(db_state).await?;
 
     let snapshot_rows = client
@@ -372,7 +371,7 @@ pub async fn get_timeline(
          GROUP BY 1"
     );
     let new_rows = client.query(&new_query, &[&deck_id, &days]).await?;
-    let new_by_date: BTreeMap<NaiveDate, i64> = new_rows
+    let new_by_date: BTreeMap<Date, i64> = new_rows
         .iter()
         .map(|row| (row.get(0), row.get(1)))
         .collect();
@@ -617,10 +616,7 @@ pub async fn activity_tracked(db_state: &database::AppState, deck_id: i64) -> Re
 
 /// The earliest snapshot date, so the page can say "tracking since <date>" rather than pretend
 /// history starts at zero.
-pub async fn tracking_since(
-    db_state: &database::AppState,
-    deck_id: i64,
-) -> Return<Option<NaiveDate>> {
+pub async fn tracking_since(db_state: &database::AppState, deck_id: i64) -> Return<Option<Date>> {
     let client = database::client(db_state).await?;
     let row = client
         .query_one(
@@ -695,13 +691,13 @@ pub async fn get_contributor_suggestions(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use chrono::{Duration, Weekday};
+    use time::{Month, SignedDuration, Weekday};
 
-    fn monday_of_week(year: i32, week: u32) -> NaiveDate {
-        NaiveDate::from_isoywd_opt(year, week, Weekday::Mon).expect("valid ISO week")
+    fn monday_of_week(year: i32, week: u8) -> Date {
+        Date::from_iso_week_date(year, week, Weekday::Monday).expect("valid ISO week")
     }
 
-    fn point(on: NaiveDate, total: i64) -> SnapshotPoint {
+    fn point(on: Date, total: i64) -> SnapshotPoint {
         SnapshotPoint {
             on,
             total,
@@ -787,7 +783,7 @@ mod tests {
     #[test]
     fn arrivals_and_departures_are_derived_from_the_totals() {
         let day1 = monday_of_week(2026, 41);
-        let day2 = day1 + Duration::days(1);
+        let day2 = day1 + SignedDuration::days(1);
         let mut new_by_date = BTreeMap::new();
         new_by_date.insert(day2, 4);
 
@@ -807,7 +803,7 @@ mod tests {
     #[test]
     fn a_pure_departure_shows_as_unsubscribed() {
         let day1 = monday_of_week(2026, 41);
-        let day2 = day1 + Duration::days(1);
+        let day2 = day1 + SignedDuration::days(1);
         let buckets = build_timeline(
             &[point(day1, 100), point(day2, 98)],
             &BTreeMap::new(),
@@ -821,7 +817,7 @@ mod tests {
     #[test]
     fn legacy_rows_leaving_never_produce_negative_unsubscribes() {
         let day1 = monday_of_week(2026, 41);
-        let day2 = day1 + Duration::days(1);
+        let day2 = day1 + SignedDuration::days(1);
         let mut new_by_date = BTreeMap::new();
         new_by_date.insert(day2, 1);
 
@@ -838,8 +834,8 @@ mod tests {
     #[test]
     fn weekly_buckets_collapse_a_week_and_sum_its_changes() {
         let monday = monday_of_week(2026, 41);
-        let tuesday = monday + Duration::days(1);
-        let next_monday = monday + Duration::days(7);
+        let tuesday = monday + SignedDuration::days(1);
+        let next_monday = monday + SignedDuration::days(7);
         let mut new_by_date = BTreeMap::new();
         new_by_date.insert(tuesday, 2);
 
@@ -864,9 +860,17 @@ mod tests {
     }
 
     #[test]
+    fn weekly_buckets_use_iso_week_year_across_year_boundaries() {
+        let dec_30_2024 = Date::from_calendar_date(2024, Month::December, 30).unwrap();
+        let jan_1_2021 = Date::from_calendar_date(2021, Month::January, 1).unwrap();
+        assert_eq!(bucket_label(dec_30_2024, Granularity::Weekly), "2025-W01");
+        assert_eq!(bucket_label(jan_1_2021, Granularity::Weekly), "2020-W53");
+    }
+
+    #[test]
     fn timeline_carries_the_active_counts_of_the_last_snapshot_in_a_bucket() {
         let monday = monday_of_week(2026, 41);
-        let tuesday = monday + Duration::days(1);
+        let tuesday = monday + SignedDuration::days(1);
         let mut first = point(monday, 100);
         first.active_30d = 40;
         let mut second = point(tuesday, 101);

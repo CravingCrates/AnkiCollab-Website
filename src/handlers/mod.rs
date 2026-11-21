@@ -1,0 +1,13 @@
+pub(crate) mod auth;
+pub(crate) mod commits;
+pub(crate) mod common;
+pub(crate) mod contributions;
+pub(crate) mod decks;
+pub(crate) mod maintainers;
+pub(crate) mod notes;
+pub(crate) mod notetypes;
+pub(crate) mod notifications;
+pub(crate) mod pages;
+pub(crate) mod stats;
+pub(crate) mod subscription_policy;
+pub(crate) mod suggestions;

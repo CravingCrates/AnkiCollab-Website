@@ -4,10 +4,10 @@ use std::time::Duration;
 
 use base64::engine::general_purpose::URL_SAFE_NO_PAD;
 use base64::Engine;
-use chrono::{Duration as ChronoDuration, Utc};
 use hmac::{Hmac, KeyInit, Mac};
 use serde::{Deserialize, Serialize};
 use sha2::Sha256;
+use time::{OffsetDateTime, SignedDuration};
 
 type HmacSha256 = Hmac<Sha256>;
 
@@ -122,16 +122,15 @@ impl MediaTokenService {
     }
 
     fn expiry_from_duration(duration: Duration) -> Result<i64, MediaTokenError> {
-        let chrono_duration =
-            ChronoDuration::from_std(duration).map_err(|_| MediaTokenError::InvalidTtl)?;
-        Ok(Utc::now()
-            .checked_add_signed(chrono_duration)
+        let ttl = SignedDuration::try_from(duration).map_err(|_| MediaTokenError::InvalidTtl)?;
+        Ok(OffsetDateTime::now_utc()
+            .checked_add(ttl)
             .ok_or(MediaTokenError::InvalidTtl)?
-            .timestamp())
+            .unix_timestamp())
     }
 
     fn ensure_not_expired(exp: i64) -> Result<(), MediaTokenError> {
-        if Utc::now().timestamp() > exp {
+        if OffsetDateTime::now_utc().unix_timestamp() > exp {
             return Err(MediaTokenError::Expired);
         }
         Ok(())
@@ -196,4 +195,66 @@ enum TokenPayload {
 struct TokenEnvelope {
     version: u8,
     payload: TokenPayload,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn test_service(ttl: Duration) -> MediaTokenService {
+        MediaTokenService::new(vec![0xAB; 32], ttl).expect("valid test secret")
+    }
+
+    #[test]
+    fn download_token_round_trip_succeeds() {
+        let service = test_service(Duration::from_secs(60));
+        let token = service
+            .generate_download_token(DownloadTokenParams {
+                hash: "deck_hash_value".to_string(),
+                user_id: 42,
+                deck_hash: "parent_deck_hash".to_string(),
+                filename: Some("image.png".to_string()),
+            })
+            .expect("token generation should succeed");
+
+        let claims = service
+            .verify_download_token(&token)
+            .expect("fresh token should verify");
+        assert_eq!(claims.hash, "deck_hash_value");
+        assert_eq!(claims.user_id, 42);
+        assert_eq!(claims.deck_hash, "parent_deck_hash");
+        assert_eq!(claims.filename.as_deref(), Some("image.png"));
+        assert!(claims.exp >= OffsetDateTime::now_utc().unix_timestamp());
+    }
+
+    #[test]
+    fn expired_download_token_is_rejected() {
+        let service = test_service(Duration::from_secs(60));
+        let token = service
+            .encode(TokenPayload::Download(DownloadTokenClaims {
+                hash: "deck_hash_value".to_string(),
+                user_id: 42,
+                deck_hash: "parent_deck_hash".to_string(),
+                filename: None,
+                exp: OffsetDateTime::now_utc().unix_timestamp() - 10,
+            }))
+            .expect("encoding expired token should succeed");
+
+        let err = service
+            .verify_download_token(&token)
+            .expect_err("expired token must fail verification");
+        assert!(matches!(err, MediaTokenError::Expired));
+    }
+
+    #[test]
+    fn overflowing_ttl_returns_invalid_ttl() {
+        assert!(matches!(
+            MediaTokenService::expiry_from_duration(Duration::MAX),
+            Err(MediaTokenError::InvalidTtl)
+        ));
+        assert!(matches!(
+            MediaTokenService::expiry_from_duration(Duration::from_secs(i64::MAX.cast_unsigned())),
+            Err(MediaTokenError::InvalidTtl)
+        ));
+    }
 }
