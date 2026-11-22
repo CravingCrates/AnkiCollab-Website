@@ -1,128 +1,329 @@
 <!DOCTYPE html>
 <html lang="en">
   <head>
-    {% set page_title = "Contributions" %}
+    {% set page_title = deck_name ~ " — Contributions" %}
     {% include "header_template.html" %}
-    <link
-    href="/static/plugins/tables/css/datatable/dataTables.bootstrap5.min.css"
-    rel="stylesheet"
-  />
-    <link href="/static/css/contributions.css" rel="stylesheet" />
+    <link href="/static/plugins/tables/css/datatable/dataTables.bootstrap5.min.css" rel="stylesheet" />
+    <link href="/static/css/deck_insights.css" rel="stylesheet" />
   </head>
   {% include "layout_header.html" %}
 
-        <div class="container-fluid mt-3">
-          <div class="mb-4">
-            <h1 class="mb-1">Contributions</h1>
-            <p class="text-muted mb-0">
-              {{ deck_name }} &middot;
-              <a href="/Statistics/{{deck_hash}}">Notes statistics</a>
-            </p>
-          </div>
-
-          <div class="row mb-4">
-            <div class="col-lg-10 col-xl-8">
-              {% for sentence in digest %}
-              <p class="lead text-dark mb-2">{{ sentence }}</p>
-              {% endfor %}
-            </div>
-          </div>
-
-          <div class="card">
-            <div class="card-body">
-              <h2 class="mb-1">Subscriber timeline</h2>
-              <p class="text-muted">
+        <div class="di-page">
+          <header class="di-header">
+            <div class="di-header-main">
+              <nav class="di-breadcrumb" aria-label="Breadcrumb">
+                <a href="/ManageDecks" class="di-crumb-link">
+                  <i class="fa-solid fa-arrow-left" aria-hidden="true"></i>
+                  <span>Manage Decks</span>
+                </a>
+                <span class="di-crumb-sep" aria-hidden="true">/</span>
+                <span>{{ deck_name }}</span>
+              </nav>
+              <div class="di-title-row">
+                <h1 class="di-title">{{ deck_name }}</h1>
+              </div>
+              <p class="di-header-meta mb-0">
+                <span>Community contributions &amp; subscriber health</span>
                 {% if tracking_since %}
-                Tracking since {{ tracking_since }}. Nothing before that date was recorded, so the
-                line starts small and grows from there.
-                {% else %}
-                Subscriber history begins with the first daily snapshot, a job that runs once a
-                day. The first one has not run yet.
-                {% endif %}
-                {% if not activity_tracked %}
-                Per-subscriber sync activity is not recorded yet; that begins with the next add-on
-                update. Until then only the subscriber count is shown.
+                <span aria-hidden="true">&middot;</span>
+                <span class="di-num">Tracking subscribers since {{ tracking_since }}</span>
                 {% endif %}
               </p>
+            </div>
+            <div class="di-header-actions">
+              {% if speed.pending > 0 %}
+              <a href="/reviews" class="di-action-pill">
+                <i class="fa-solid fa-inbox" aria-hidden="true"></i>
+                <span>Review queue</span>
+                <span class="di-action-badge">{{ speed.pending }}</span>
+              </a>
+              {% endif %}
+              <nav class="di-segmented" aria-label="Deck insight views">
+                {% if stats_enabled %}
+                <a class="di-seg-item" href="/Statistics/{{ deck_hash }}">Statistics</a>
+                {% else %}
+                <span class="di-seg-item is-disabled">Statistics <span class="visually-hidden">(disabled in Manage Decks)</span></span>
+                {% endif %}
+                <a class="di-seg-item is-active" href="/Contributions/{{ deck_hash }}" aria-current="page">Contributions</a>
+              </nav>
+            </div>
+          </header>
 
-              <div class="mb-3">
-                <div class="btn-group btn-group-sm mb-2" role="group" aria-label="Bucket size">
-                  <a class="btn {% if bucket =="daily" %}btn-secondary{% else %}btn-outline-secondary{% endif %}" href="/Contributions/{{deck_hash}}?bucket=daily&amp;active={{active_filter}}&amp;days={{window_days}}"{% if bucket == "daily" %} aria-current="true"{% endif %}>Daily</a>
-                  <a class="btn {% if bucket =="weekly" %}btn-secondary{% else %}btn-outline-secondary{% endif %}" href="/Contributions/{{deck_hash}}?bucket=weekly&amp;active={{active_filter}}&amp;days={{window_days}}"{% if bucket == "weekly" %} aria-current="true"{% endif %}>Weekly</a>
-                </div>
-                <div class="btn-group btn-group-sm mb-2" role="group" aria-label="Which subscribers to count">
-                  <a class="btn {% if active_filter =="all" or not activity_tracked %}btn-secondary{% else %}btn-outline-secondary{% endif %}" href="/Contributions/{{deck_hash}}?bucket={{bucket}}&amp;active=all&amp;days={{window_days}}"{% if active_filter == "all" or not activity_tracked %} aria-current="true"{% endif %}>All</a>
-                  {% if activity_tracked %}
-                  <a class="btn {% if active_filter =="30" %}btn-secondary{% else %}btn-outline-secondary{% endif %}" href="/Contributions/{{deck_hash}}?bucket={{bucket}}&amp;active=30&amp;days={{window_days}}"{% if active_filter == "30" %} aria-current="true"{% endif %}>Active 30 days</a>
-                  <a class="btn {% if active_filter =="90" %}btn-secondary{% else %}btn-outline-secondary{% endif %}" href="/Contributions/{{deck_hash}}?bucket={{bucket}}&amp;active=90&amp;days={{window_days}}"{% if active_filter == "90" %} aria-current="true"{% endif %}>Active 90 days</a>
+          <section class="di-card di-digest" aria-label="Summary">
+            <div class="di-digest-list">
+              {% for sentence in digest %}
+              <p class="di-digest-line">{{ sentence }}</p>
+              {% endfor %}
+            </div>
+          </section>
+
+          <section class="di-kpi-grid" aria-label="Key community metrics">
+            <article class="di-kpi-card">
+              <span class="di-kpi-label">Subscribers</span>
+              <div class="di-kpi-value-row">
+                <span class="di-kpi-value">{{ subscriber_summary.total }}</span>
+              </div>
+              <p class="di-kpi-sub mb-0">
+                {% if subscriber_summary.net_30d is not none %}
+                  {% if subscriber_summary.net_30d > 0 %}
+                  <span class="di-delta-up di-num">+{{ subscriber_summary.net_30d }}</span> in last 30d &middot; deck &amp; subdecks
+                  {% elif subscriber_summary.net_30d < 0 %}
+                  <span class="di-num">{{ subscriber_summary.net_30d }}</span> in last 30d &middot; deck &amp; subdecks
+                  {% else %}
+                  No net change in 30d &middot; deck &amp; subdecks
                   {% endif %}
+                {% else %}
+                Subtree subscribers across deck and subdecks
+                {% endif %}
+              </p>
+            </article>
+
+            <article class="di-kpi-card">
+              <span class="di-kpi-label">Active Learners (30d)</span>
+              <div class="di-kpi-value-row">
+                {% if activity_tracked and subscriber_summary.active_30d is not none %}
+                <span class="di-kpi-value">{{ subscriber_summary.active_30d }}</span>
+                {% else %}
+                <span class="di-kpi-value">&mdash;</span>
+                {% endif %}
+              </div>
+              <p class="di-kpi-sub mb-0">
+                {% if activity_tracked and subscriber_summary.active_90d is not none %}
+                  {% if subscriber_summary.stickiness_30d_pct is not none %}
+                  <span class="di-num">{{ subscriber_summary.stickiness_30d_pct | round(precision=0) }}%</span> of subscribers &middot;
+                  {% endif %}
+                  <span class="di-num">{{ subscriber_summary.active_90d }}</span> synced in 90d
+                {% else %}
+                Sync activity starts once clients update and pull changes
+                {% endif %}
+              </p>
+            </article>
+
+            <article class="di-kpi-card">
+              <span class="di-kpi-label">Pending Queue</span>
+              <div class="di-kpi-value-row">
+                <span class="di-kpi-value">{{ speed.pending }}</span>
+              </div>
+              <p class="di-kpi-sub mb-0">
+                {% if speed.pending == 0 %}
+                Nothing waiting for maintainer review
+                {% else %}
+                  {% if speed.oldest_pending_days is not none %}
+                    {% if speed.oldest_pending_days == 0 %}Oldest arrived today{% else %}Oldest waiting <span class="di-num">{{ speed.oldest_pending_days }}</span> day{% if speed.oldest_pending_days != 1 %}s{% endif %}{% endif %}
+                    &middot;
+                  {% endif %}
+                  <a href="/reviews">Review queue</a>
+                {% endif %}
+              </p>
+            </article>
+
+            <article class="di-kpi-card">
+              <span class="di-kpi-label">Review Pace (90d)</span>
+              <div class="di-kpi-value-row">
+                <span class="di-kpi-value">
+                  {% if speed.median_hours is not none %}
+                    {% if speed.median_hours < 48 %}{{ speed.median_hours | round(precision=1) }}h{% else %}{{ (speed.median_hours / 24) | round(precision=1) }}d{% endif %}
+                  {% else %}
+                    &mdash;
+                  {% endif %}
+                </span>
+              </div>
+              <p class="di-kpi-sub mb-0">
+                {% if speed.p90_hours is not none %}
+                Slowest 10%: <span class="di-num">{% if speed.p90_hours < 48 %}{{ speed.p90_hours | round(precision=1) }}h{% else %}{{ (speed.p90_hours / 24) | round(precision=1) }}d{% endif %}</span>{% if funnel.acceptance_ratio is not none %} &middot; <span class="di-num">{{ (funnel.acceptance_ratio * 100) | round(precision=0) }}%</span> accepted{% endif %}
+                {% elif funnel.acceptance_ratio is not none %}
+                <span class="di-num">{{ (funnel.acceptance_ratio * 100) | round(precision=0) }}%</span> of reviewed suggestions accepted
+                {% else %}
+                Median wait appears once suggestions are reviewed
+                {% endif %}
+              </p>
+            </article>
+          </section>
+
+          <section class="di-card" aria-labelledby="timeline-heading">
+            <div class="di-card-head">
+              <div>
+                <h2 id="timeline-heading" class="di-card-title">Subscriber Growth &amp; Flow</h2>
+                <p class="di-card-subtitle">
+                  {% if tracking_since %}
+                  Cumulative subscribers plotted on the left axis; daily arrivals and unsubscribes on the right axis.
+                  {% else %}
+                  Subscriber history starts after the first daily snapshot job runs.
+                  {% endif %}
+                  {% if not activity_tracked %}
+                  Per-subscriber sync activity is not recorded yet.
+                  {% endif %}
+                </p>
+              </div>
+            </div>
+
+            <div class="di-toolbar">
+              <div class="di-segmented" role="group" aria-label="Time window">
+                <a class="di-seg-item {% if window_days == 30 %}is-active{% endif %}" href="/Contributions/{{ deck_hash }}?bucket={{ bucket }}&amp;active={{ active_filter }}&amp;days=30"{% if window_days == 30 %} aria-current="true"{% endif %}>30d</a>
+                <a class="di-seg-item {% if window_days == 90 %}is-active{% endif %}" href="/Contributions/{{ deck_hash }}?bucket={{ bucket }}&amp;active={{ active_filter }}&amp;days=90"{% if window_days == 90 %} aria-current="true"{% endif %}>90d</a>
+                <a class="di-seg-item {% if window_days == 365 %}is-active{% endif %}" href="/Contributions/{{ deck_hash }}?bucket={{ bucket }}&amp;active={{ active_filter }}&amp;days=365"{% if window_days == 365 %} aria-current="true"{% endif %}>1y</a>
+                <a class="di-seg-item {% if window_days == 1095 %}is-active{% endif %}" href="/Contributions/{{ deck_hash }}?bucket={{ bucket }}&amp;active={{ active_filter }}&amp;days=1095"{% if window_days == 1095 %} aria-current="true"{% endif %}>All</a>
+              </div>
+              <div class="di-segmented" role="group" aria-label="Bucket size">
+                <a class="di-seg-item {% if bucket == "daily" %}is-active{% endif %}" href="/Contributions/{{ deck_hash }}?bucket=daily&amp;active={{ active_filter }}&amp;days={{ window_days }}"{% if bucket == "daily" %} aria-current="true"{% endif %}>Daily</a>
+                <a class="di-seg-item {% if bucket == "weekly" %}is-active{% endif %}" href="/Contributions/{{ deck_hash }}?bucket=weekly&amp;active={{ active_filter }}&amp;days={{ window_days }}"{% if bucket == "weekly" %} aria-current="true"{% endif %}>Weekly</a>
+              </div>
+              {% if activity_tracked %}
+              <div class="di-segmented" role="group" aria-label="Subscriber cohort">
+                <a class="di-seg-item {% if active_filter == "all" %}is-active{% endif %}" href="/Contributions/{{ deck_hash }}?bucket={{ bucket }}&amp;active=all&amp;days={{ window_days }}"{% if active_filter == "all" %} aria-current="true"{% endif %}>All</a>
+                <a class="di-seg-item {% if active_filter == "30" %}is-active{% endif %}" href="/Contributions/{{ deck_hash }}?bucket={{ bucket }}&amp;active=30&amp;days={{ window_days }}"{% if active_filter == "30" %} aria-current="true"{% endif %}>Active 30d</a>
+                <a class="di-seg-item {% if active_filter == "90" %}is-active{% endif %}" href="/Contributions/{{ deck_hash }}?bucket={{ bucket }}&amp;active=90&amp;days={{ window_days }}"{% if active_filter == "90" %} aria-current="true"{% endif %}>Active 90d</a>
+              </div>
+              {% endif %}
+            </div>
+
+            {% if timeline | length > 0 %}
+            <div class="di-chart-box di-chart-box-tall">
+              <canvas id="subscriberTimelineChart"
+                      role="img"
+                      aria-label="Dual-axis chart of subscribers and daily arrivals or departures over time."
+                      data-labels='{{ chart_labels | json_encode }}'
+                      data-series='{{ chart_total | json_encode }}'
+                      data-active-30d='{{ chart_active_30d | json_encode }}'
+                      data-active-90d='{{ chart_active_90d | json_encode }}'
+                      data-new='{{ chart_new | json_encode }}'
+                      data-unsubscribed='{{ chart_unsubscribed | json_encode }}'
+                      data-view="{{ active_filter }}"
+                      data-tracked="{{ activity_tracked }}"></canvas>
+            </div>
+
+            <details class="di-disclosure" id="timelineDisclosure">
+              <summary>Show tabular subscriber data ({{ timeline | length }} buckets)</summary>
+              <div class="di-disclosure-body">
+                <div class="di-table-wrap">
+                  <table id="timelineOverview" class="table di-table">
+                    <caption class="visually-hidden">Subscribers, active subscribers and subscription flows for every bucket</caption>
+                    <thead>
+                      <tr>
+                        <th scope="col">Date</th>
+                        <th scope="col" class="text-end">Subscribers</th>
+                        <th scope="col" class="text-end">Active 30d</th>
+                        <th scope="col" class="text-end">Active 90d</th>
+                        <th scope="col" class="text-end">New</th>
+                        <th scope="col" class="text-end">Unsubscribed</th>
+                        <th scope="col" class="text-end">Net</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {% for point in timeline %}
+                      <tr>
+                        <td class="di-num">{{ point.label }}</td>
+                        <td class="text-end di-num">{{ point.total }}</td>
+                        <td class="text-end di-num">{% if activity_tracked %}{{ point.active_30d }}{% else %}<span title="Not tracked yet">&mdash;</span><span class="visually-hidden">not tracked yet</span>{% endif %}</td>
+                        <td class="text-end di-num">{% if activity_tracked %}{{ point.active_90d }}{% else %}<span title="Not tracked yet">&mdash;</span><span class="visually-hidden">not tracked yet</span>{% endif %}</td>
+                        <td class="text-end di-num">{{ point.new }}</td>
+                        <td class="text-end di-num">{{ point.unsubscribed }}</td>
+                        <td class="text-end di-num">{{ point.net }}</td>
+                      </tr>
+                      {% endfor %}
+                    </tbody>
+                  </table>
                 </div>
               </div>
+            </details>
+            {% else %}
+            <p class="di-card-subtitle mb-0">
+              The first daily snapshot has not run yet. Once it has, subscriber totals, arrivals,
+              and departures appear here.
+            </p>
+            {% endif %}
+          </section>
 
-              {% if timeline | length > 0 %}
-              <div class="contributions-chart">
-                <canvas id="subscriberTimelineChart"
-                        role="img"
-                        aria-label="Subscribers over time. The table below lists the same numbers."
-                        data-labels='{{ chart_labels | json_encode }}'
-                        data-series='{{ chart_total | json_encode }}'
-                        data-active-30d='{{ chart_active_30d | json_encode }}'
-                        data-active-90d='{{ chart_active_90d | json_encode }}'
-                        data-new='{{ chart_new | json_encode }}'
-                        data-unsubscribed='{{ chart_unsubscribed | json_encode }}'
-                        data-view="{{ active_filter }}"
-                        data-tracked="{{ activity_tracked }}"></canvas>
+          <section class="di-bento-grid" aria-label="Suggestion activity and categories">
+            <article class="di-card">
+              <div class="di-card-head">
+                <div>
+                  <h2 class="di-card-title">Suggestion Activity</h2>
+                  <p class="di-card-subtitle">Submitted suggestions compared with review outcomes over the selected window.</p>
+                </div>
               </div>
-              <div class="table-responsive">
-                <table id="timelineOverview" class="table table-sm">
-                  <caption class="visually-hidden">Subscribers, active subscribers and subscription flows for every bucket</caption>
+              {% if suggestion_timeline | length > 0 %}
+              <div class="di-chart-box">
+                <canvas id="suggestionActivityChart"
+                        role="img"
+                        aria-label="Chart comparing submitted suggestions against accepted and feedback-given reviews over time."
+                        data-labels='{{ sugg_labels | json_encode }}'
+                        data-submitted='{{ sugg_submitted | json_encode }}'
+                        data-accepted='{{ sugg_accepted | json_encode }}'
+                        data-declined='{{ sugg_declined | json_encode }}'></canvas>
+              </div>
+              {% else %}
+              <p class="di-card-subtitle mb-0">No suggestion activity in this time window yet.</p>
+              {% endif %}
+            </article>
+
+            <article class="di-card">
+              <div class="di-card-head">
+                <div>
+                  <h2 class="di-card-title">What Contributors Improve</h2>
+                  <p class="di-card-subtitle">Breakdown by contributor-selected rationale.</p>
+                </div>
+              </div>
+              {% if rationales | length > 0 %}
+              <div class="di-table-wrap">
+                <table class="table di-table">
+                  <caption class="visually-hidden">Suggestions grouped by category and acceptance rate</caption>
                   <thead>
                     <tr>
-                      <th scope="col">Date</th>
-                      <th scope="col">Subscribers</th>
-                      <th scope="col">Active 30d</th>
-                      <th scope="col">Active 90d</th>
-                      <th scope="col">New</th>
-                      <th scope="col">Unsubscribed</th>
-                      <th scope="col">Net</th>
+                      <th scope="col">Category</th>
+                      <th scope="col">Share</th>
+                      <th scope="col" class="text-end">Submitted</th>
+                      <th scope="col" class="text-end">Accepted</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {% for point in timeline %}
+                    {% for item in rationales %}
                     <tr>
-                      <td>{{ point.label }}</td>
-                      <td>{{ point.total }}</td>
-                      <td>{% if activity_tracked %}{{ point.active_30d }}{% else %}<span title="Not tracked yet">&mdash;</span><span class="visually-hidden">not tracked yet</span>{% endif %}</td>
-                      <td>{% if activity_tracked %}{{ point.active_90d }}{% else %}<span title="Not tracked yet">&mdash;</span><span class="visually-hidden">not tracked yet</span>{% endif %}</td>
-                      <td>{{ point.new }}</td>
-                      <td>{{ point.unsubscribed }}</td>
-                      <td>{{ point.net }}</td>
+                      <th scope="row" class="fw-semibold">{{ item.rationale }}</th>
+                      <td>
+                        <div class="di-metric-bar">
+                          <div class="di-metric-bar-track">
+                            <svg class="di-bar-svg" viewBox="0 0 100 6" preserveAspectRatio="none" aria-hidden="true" focusable="false">
+                              <rect class="di-bar-track" x="0" y="0" width="100" height="6"></rect>
+                              <rect class="di-fill-accent" x="0" y="0" width="{{ item.share_pct | round(precision=1) }}" height="6"></rect>
+                            </svg>
+                          </div>
+                          <span class="di-metric-val">{{ item.share_pct | round(precision=0) }}%</span>
+                        </div>
+                      </td>
+                      <td class="text-end di-num">{{ item.submitted }}</td>
+                      <td class="text-end di-num">
+                        {% if item.acceptance_ratio is not none %}
+                        {{ (item.acceptance_ratio * 100) | round(precision=0) }}%
+                        {% else %}
+                        <span class="text-muted" title="Shown once at least 5 suggestions in this category are reviewed">&mdash;</span>
+                        {% endif %}
+                      </td>
                     </tr>
                     {% endfor %}
                   </tbody>
                 </table>
               </div>
               {% else %}
-              <p class="mb-0">
-                The first daily snapshot has not run yet. Once it has, subscribers, new
-                subscriptions and unsubscribes are charted here.
-              </p>
+              <p class="di-card-subtitle mb-0">No suggestions recorded yet.</p>
               {% endif %}
-            </div>
-          </div>
+            </article>
+          </section>
 
-          <div class="card">
-            <div class="card-body">
-              <h2 class="mb-1">Suggestion funnel</h2>
-              <p class="text-muted">
-                Every suggestion sent for this deck. "Feedback given" means it was looked at and did
-                not go in as it was, which is a normal part of working on a deck together.
-              </p>
-
+          <section class="di-bento-grid" aria-label="Suggestion outcomes and review turnaround">
+            <article class="di-card">
+              <div class="di-card-head">
+                <div>
+                  <h2 class="di-card-title">Suggestion Funnel</h2>
+                  <p class="di-card-subtitle">
+                    Every suggestion sent for this deck. &ldquo;Feedback given&rdquo; means it was looked at and needed changes before going in.
+                  </p>
+                </div>
+              </div>
               {% if funnel.submitted == 0 %}
-              <p class="mb-0">No suggestions yet.</p>
+              <p class="di-card-subtitle mb-0">No suggestions yet.</p>
               {% else %}
-              <svg class="contributions-funnel"
+              <svg class="di-bar-svg di-bar-svg-lg"
                    viewBox="0 0 {{ funnel.submitted }} 1"
                    preserveAspectRatio="none"
                    role="img"
@@ -134,8 +335,8 @@
                 {% if funnel.unrecorded > 0 %}<rect class="funnel-unrecorded" x="{{ funnel.accepted + funnel.declined + funnel.pending }}" y="0" width="{{ funnel.unrecorded }}" height="1"></rect>{% endif %}
               </svg>
 
-              <div class="table-responsive">
-                <table class="table table-sm mb-0">
+              <div class="di-table-wrap">
+                <table class="table di-table">
                   <caption class="visually-hidden">What became of every suggestion sent for this deck</caption>
                   <thead>
                     <tr>
@@ -145,200 +346,257 @@
                   </thead>
                   <tbody>
                     <tr>
-                      <th scope="row" class="fw-normal">Accepted</th>
-                      <td class="text-end">{{ funnel.accepted }}</td>
+                      <th scope="row" class="fw-normal"><span class="di-swatch di-swatch-accepted" aria-hidden="true"></span>Accepted</th>
+                      <td class="text-end di-num">{{ funnel.accepted }}</td>
                     </tr>
                     <tr>
-                      <th scope="row" class="fw-normal">Feedback given</th>
-                      <td class="text-end">{{ funnel.declined }}</td>
+                      <th scope="row" class="fw-normal"><span class="di-swatch di-swatch-declined" aria-hidden="true"></span>Feedback given</th>
+                      <td class="text-end di-num">{{ funnel.declined }}</td>
                     </tr>
                     <tr>
-                      <th scope="row" class="fw-normal">Waiting for review</th>
-                      <td class="text-end">{{ funnel.pending }}</td>
+                      <th scope="row" class="fw-normal"><span class="di-swatch di-swatch-pending" aria-hidden="true"></span>Waiting for review</th>
+                      <td class="text-end di-num">{{ funnel.pending }}</td>
                     </tr>
                     {% if funnel.unrecorded > 0 %}
                     <tr>
-                      <th scope="row" class="fw-normal">
-                        Reviewed, outcome not recorded
-                      </th>
-                      <td class="text-end">{{ funnel.unrecorded }}</td>
+                      <th scope="row" class="fw-normal"><span class="di-swatch di-swatch-unrecorded" aria-hidden="true"></span>Reviewed, outcome not recorded</th>
+                      <td class="text-end di-num">{{ funnel.unrecorded }}</td>
                     </tr>
                     {% endif %}
                     <tr>
-                      <th scope="row" class="fw-normal">Submitted in total</th>
-                      <td class="text-end">{{ funnel.submitted }}</td>
+                      <th scope="row" class="fw-semibold">Submitted in total</th>
+                      <td class="text-end di-num fw-semibold">{{ funnel.submitted }}</td>
                     </tr>
                   </tbody>
                 </table>
               </div>
 
-              <p class="mb-0 mt-3">
+              <p class="di-card-subtitle mt-3 mb-0">
                 {% if funnel.acceptance_ratio is not none %}
-                {{ (funnel.acceptance_ratio * 100) | round(precision=1) }}% of reviewed suggestions
-                were accepted.
+                <strong class="di-num">{{ (funnel.acceptance_ratio * 100) | round(precision=1) }}%</strong> of reviewed suggestions were accepted.
                 {% else %}
-                An acceptance rate appears once five suggestions have been reviewed; below that it
-                would be noise rather than information.
+                An acceptance rate appears once five suggestions have been reviewed; below that it would be noise rather than signal.
                 {% endif %}
               </p>
               {% endif %}
-            </div>
-          </div>
+            </article>
 
-          <div class="card">
-            <div class="card-body">
-              <h2 class="mb-1">Review speed</h2>
-              <p class="text-muted">
-                How long a suggestion waits before a maintainer looks at it.
-              </p>
-              <dl class="row mb-0">
-                <dt class="col-sm-7 fw-normal">Median wait</dt>
-                <dd class="col-sm-5 text-sm-right">
+            <article class="di-card">
+              <div class="di-card-head">
+                <div>
+                  <h2 class="di-card-title">Review Speed &amp; Backlog</h2>
+                  <p class="di-card-subtitle">How quickly suggestions move from submission to maintainer verdict (last 90 days).</p>
+                </div>
+              </div>
+
+              <dl class="di-kv-list">
+                <dt>Median wait</dt>
+                <dd>
                   {% if speed.median_hours is not none %}{% if speed.median_hours < 48 %}{{ speed.median_hours | round(precision=1) }} hours{% else %}{{ (speed.median_hours / 24) | round(precision=1) }} days{% endif %}{% else %}Not reviewed yet{% endif %}
                 </dd>
-                <dt class="col-sm-7 fw-normal">Slowest 10% of reviews</dt>
-                <dd class="col-sm-5 text-sm-right">
+                <dt>Slowest 10% of reviews</dt>
+                <dd>
                   {% if speed.p90_hours is not none %}{% if speed.p90_hours < 48 %}{{ speed.p90_hours | round(precision=1) }} hours{% else %}{{ (speed.p90_hours / 24) | round(precision=1) }} days{% endif %}{% else %}Not reviewed yet{% endif %}
                 </dd>
-                <dt class="col-sm-7 fw-normal">Waiting now</dt>
-                <dd class="col-sm-5 text-sm-right">
+                <dt>Waiting now</dt>
+                <dd>
                   {% if speed.pending == 0 %}
                   Nothing waiting
                   {% elif speed.oldest_pending_days is not none %}
-                  {{ speed.pending }}{% if speed.oldest_pending_days == 0 %}, the oldest since today{% else %}, the oldest for {{ speed.oldest_pending_days }}{% if speed.oldest_pending_days == 1 %} day{% else %} days{% endif %}{% endif %}
+                  {{ speed.pending }}{% if speed.oldest_pending_days == 0 %}, oldest from today{% else %}, oldest {{ speed.oldest_pending_days }} day{% if speed.oldest_pending_days != 1 %}s{% endif %}{% endif %}
                   {% else %}
                   {{ speed.pending }}
                   {% endif %}
                 </dd>
               </dl>
-            </div>
-          </div>
 
-          <div class="card">
-            <div class="card-body">
-              <h2 class="mb-1">Maintainer team</h2>
-              <p class="text-muted">
-                Who has reviewed suggestions here. Reviews recorded before we started naming the
-                reviewer are grouped as one row.
-              </p>
-              {% if team | length > 0 %}
-              <div class="table-responsive">
-                <table id="teamOverview" class="table table-sm">
-                  <caption class="visually-hidden">Reviews performed per maintainer</caption>
-                  <thead>
-                    <tr>
-                      <th scope="col">Maintainer</th>
-                      <th scope="col" class="text-end">Reviewed</th>
-                      <th scope="col" class="text-end">Accepted</th>
-                      <th scope="col" class="text-end">Feedback given</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {% for member in team %}
-                    <tr>
-                      <th scope="row" class="fw-normal">
-                        {% if member.name %}{{ member.name }}{% else %}<span class="text-muted">Not recorded</span>{% endif %}
-                      </th>
-                      <td class="text-end">{{ member.reviewed }}</td>
-                      <td class="text-end">{{ member.accepted }}</td>
-                      <td class="text-end">{{ member.declined }}</td>
-                    </tr>
-                    {% endfor %}
-                  </tbody>
-                </table>
-              </div>
-              {% else %}
-              <p class="mb-0">No reviews have been recorded for this deck yet.</p>
-              {% endif %}
-            </div>
-          </div>
-
-          <div class="card">
-            <div class="card-body">
-              <h2 class="mb-1">Contributors</h2>
-              {% if not breakdown_visible %}
-              <p class="mb-0">
-                {{ distinct_contributors }} {% if distinct_contributors == 1 %}person has{% else %}people have{% endif %}
-                sent suggestions for this deck. A per-person breakdown is withheld below five
-                contributors, because with so few it would say more about an individual than about
-                the deck.
-              </p>
-              {% else %}
-              <p class="text-muted">
-                {{ distinct_contributors }} contributors in total; showing up to {{ contributors_cap }},
-                most accepted suggestions first.
-              </p>
-              <div class="table-responsive">
-                <table id="contributorsOverview" class="table table-sm">
-                  <caption class="visually-hidden">Suggestions per contributor</caption>
-                  <thead>
-                    <tr>
-                      <th scope="col">Contributor</th>
-                      <th scope="col" class="text-end">Submitted</th>
-                      <th scope="col" class="text-end">Accepted</th>
-                      <th scope="col" class="text-end">Feedback given</th>
-                      <th scope="col" class="text-end">Waiting</th>
-                      <th scope="col">Last contribution</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {% for contributor in contributors %}
-                    <tr>
-                      <th scope="row" class="fw-normal">
-                        <a href="/Contributions/{{deck_hash}}/contributor/{{contributor.username_url}}">{{ contributor.username }}</a>
-                      </th>
-                      <td class="text-end">{{ contributor.submitted }}</td>
-                      <td class="text-end">{{ contributor.accepted }}</td>
-                      <td class="text-end">{{ contributor.declined }}</td>
-                      <td class="text-end">{{ contributor.pending }}</td>
-                      <td>{% if contributor.last_contribution %}{{ contributor.last_contribution }}{% else %}<span class="text-muted">&mdash;</span>{% endif %}</td>
-                    </tr>
-                    {% endfor %}
-                  </tbody>
-                </table>
+              {% if turnaround_total > 0 %}
+              <div class="di-dist-list" aria-label="Review turnaround distribution">
+                {% for bucket_row in turnaround_buckets %}
+                <div class="di-dist-row">
+                  <span class="di-dist-label">{{ bucket_row.label }}</span>
+                  <svg class="di-bar-svg" viewBox="0 0 100 6" preserveAspectRatio="none" aria-hidden="true" focusable="false">
+                    <rect class="di-bar-track" x="0" y="0" width="100" height="6"></rect>
+                    <rect class="{% if bucket_row.tone == 'success' %}di-fill-success{% elif bucket_row.tone == 'warning' %}di-fill-warning{% elif bucket_row.tone == 'danger' %}di-fill-danger{% else %}di-fill-accent{% endif %}" x="0" y="0" width="{{ bucket_row.share_pct | round(precision=1) }}" height="6"></rect>
+                  </svg>
+                  <span class="di-dist-count">{{ bucket_row.count }} ({{ bucket_row.share_pct | round(precision=0) }}%)</span>
+                </div>
+                {% endfor %}
               </div>
               {% endif %}
+
+              {% if subdeck_backlog | length > 0 %}
+              <div class="di-backlog-box">
+                <h3 class="di-backlog-title">Where pending suggestions sit</h3>
+                <ul class="di-backlog-list">
+                  {% for row in subdeck_backlog %}
+                  <li class="di-backlog-item">
+                    <div class="di-path" title="{{ row.path }}">
+                      {% if row.prefix %}<span class="di-path-prefix">{{ row.prefix }}</span>{% endif %}<span class="di-path-leaf">{{ row.leaf }}</span>
+                    </div>
+                    <span class="di-pill di-pill-neutral">
+                      {{ row.pending }} waiting{% if row.oldest_days is not none and row.oldest_days > 0 %} &middot; {{ row.oldest_days }}d{% endif %}
+                    </span>
+                  </li>
+                  {% endfor %}
+                </ul>
+              </div>
+              {% endif %}
+            </article>
+          </section>
+
+          <section class="di-card" aria-labelledby="team-heading">
+            <div class="di-card-head">
+              <div>
+                <h2 id="team-heading" class="di-card-title">Maintainer Team</h2>
+                <p class="di-card-subtitle">
+                  Reviews completed per maintainer across the last 30 days and all time. Reviews recorded before reviewer attribution existed appear as &ldquo;Not recorded&rdquo;.
+                </p>
+              </div>
             </div>
-          </div>
+            {% if team | length > 0 %}
+            <div class="di-table-wrap">
+              <table id="teamOverview" class="table di-table">
+                <caption class="visually-hidden">Reviews performed per maintainer</caption>
+                <thead>
+                  <tr>
+                    <th scope="col">Maintainer</th>
+                    <th scope="col" class="text-end">Last 30d</th>
+                    <th scope="col" class="text-end">All Time</th>
+                    <th scope="col" class="text-end">Accepted</th>
+                    <th scope="col" class="text-end">Feedback Given</th>
+                    <th scope="col">Workload Share</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% for member in team %}
+                  <tr>
+                    <th scope="row" class="fw-semibold">
+                      {% if member.name %}{{ member.name }}{% else %}<span class="text-muted fw-normal">Not recorded</span>{% endif %}
+                    </th>
+                    <td class="text-end di-num">{{ member.reviewed_30d }}</td>
+                    <td class="text-end di-num">{{ member.reviewed }}</td>
+                    <td class="text-end di-num">{{ member.accepted }}</td>
+                    <td class="text-end di-num">{{ member.declined }}</td>
+                    <td>
+                      <div class="di-metric-bar">
+                        <div class="di-metric-bar-track">
+                          <svg class="di-bar-svg" viewBox="0 0 100 6" preserveAspectRatio="none" aria-hidden="true" focusable="false">
+                            <rect class="di-bar-track" x="0" y="0" width="100" height="6"></rect>
+                            <rect class="di-fill-accent" x="0" y="0" width="{{ member.share_pct | round(precision=1) }}" height="6"></rect>
+                          </svg>
+                        </div>
+                        <span class="di-metric-val">{{ member.share_pct | round(precision=0) }}%</span>
+                      </div>
+                    </td>
+                  </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+            {% else %}
+            <p class="di-card-subtitle mb-0">No reviews have been recorded for this deck yet.</p>
+            {% endif %}
+          </section>
+
+          <section class="di-card" aria-labelledby="contributors-heading">
+            <div class="di-card-head">
+              <div>
+                <h2 id="contributors-heading" class="di-card-title">Contributors</h2>
+                {% if breakdown_visible %}
+                <p class="di-card-subtitle">
+                  {{ distinct_contributors }} contributors in total; showing up to {{ contributors_cap }}, most accepted suggestions first. Select a name to view their suggestions.
+                </p>
+                {% endif %}
+              </div>
+            </div>
+            {% if not breakdown_visible %}
+            <p class="di-card-subtitle mb-0">
+              {{ distinct_contributors }} {% if distinct_contributors == 1 %}person has{% else %}people have{% endif %}
+              sent suggestions for this deck. A per-person breakdown is withheld below five
+              contributors, because with so few it would say more about an individual than about
+              the deck.
+            </p>
+            {% else %}
+            <div class="di-community-strip di-num">
+              <span><strong>{{ community_health.active_contributors_30d }}</strong> active in last 30d</span>
+              <span aria-hidden="true">&middot;</span>
+              <span><strong>{{ community_health.returning_contributors }}</strong> returning contributors (&ge; 2 accepted)</span>
+              <span aria-hidden="true">&middot;</span>
+              <span><strong>{{ community_health.notes_improved }}</strong> distinct notes improved</span>
+            </div>
+            <div class="di-table-wrap">
+              <table id="contributorsOverview" class="table di-table">
+                <caption class="visually-hidden">Suggestions per contributor</caption>
+                <thead>
+                  <tr>
+                    <th scope="col">Contributor</th>
+                    <th scope="col" class="text-end">Submitted</th>
+                    <th scope="col" class="text-end">Accepted</th>
+                    <th scope="col" class="text-end">Feedback Given</th>
+                    <th scope="col" class="text-end">Waiting</th>
+                    <th scope="col">Last Contribution</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% for contributor in contributors %}
+                  <tr>
+                    <th scope="row" class="fw-semibold">
+                      <a href="/Contributions/{{ deck_hash }}/contributor/{{ contributor.username_url }}">{{ contributor.username }}</a>
+                    </th>
+                    <td class="text-end di-num">{{ contributor.submitted }}</td>
+                    <td class="text-end di-num">{{ contributor.accepted }}</td>
+                    <td class="text-end di-num">{{ contributor.declined }}</td>
+                    <td class="text-end di-num">{{ contributor.pending }}</td>
+                    <td class="di-num">{% if contributor.last_contribution %}{{ contributor.last_contribution }}{% else %}<span class="text-muted">&mdash;</span>{% endif %}</td>
+                  </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+            {% endif %}
+          </section>
 
           {% if breakdown_visible and top_contributors | length > 0 %}
-          <div class="card">
-            <div class="card-body">
-              <h2 class="mb-1">Top contributors, last 30 days</h2>
-              <p class="text-muted">
-                Accepted suggestions only, so this list cannot be read as a ranking of activity.
-              </p>
-              <div class="table-responsive">
-                <table id="topContributorsOverview" class="table table-sm mb-0">
-                  <caption class="visually-hidden">Contributors with accepted suggestions in the last 30 days</caption>
-                  <thead>
-                    <tr>
-                      <th scope="col">Contributor</th>
-                      <th scope="col" class="text-end">Accepted</th>
-                      <th scope="col">Last accepted</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {% for contributor in top_contributors %}
-                    <tr>
-                      <th scope="row" class="fw-normal">
-                        <a href="/Contributions/{{deck_hash}}/contributor/{{contributor.username_url}}">{{ contributor.username }}</a>
-                      </th>
-                      <td class="text-end">{{ contributor.accepted }}</td>
-                      <td>{% if contributor.last_contribution %}{{ contributor.last_contribution }}{% else %}<span class="text-muted">&mdash;</span>{% endif %}</td>
-                    </tr>
-                    {% endfor %}
-                  </tbody>
-                </table>
+          <section class="di-card" aria-labelledby="top-contributors-heading">
+            <div class="di-card-head">
+              <div>
+                <h2 id="top-contributors-heading" class="di-card-title">Recent Accepted Contributions (Last 30 Days)</h2>
+                <p class="di-card-subtitle">
+                  Counts accepted suggestions only, so maintainers know who to thank this month without ranking raw activity.
+                </p>
               </div>
             </div>
-          </div>
+            <div class="di-table-wrap">
+              <table id="topContributorsOverview" class="table di-table">
+                <caption class="visually-hidden">Contributors with accepted suggestions in the last 30 days</caption>
+                <thead>
+                  <tr>
+                    <th scope="col">Contributor</th>
+                    <th scope="col" class="text-end">Accepted</th>
+                    <th scope="col">Last Accepted</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% for contributor in top_contributors %}
+                  <tr>
+                    <th scope="row" class="fw-semibold">
+                      <a href="/Contributions/{{ deck_hash }}/contributor/{{ contributor.username_url }}">{{ contributor.username }}</a>
+                    </th>
+                    <td class="text-end di-num">{{ contributor.accepted }}</td>
+                    <td class="di-num">{% if contributor.last_contribution %}{{ contributor.last_contribution }}{% else %}<span class="text-muted">&mdash;</span>{% endif %}</td>
+                  </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+          </section>
           {% endif %}
         </div>
+
         {% include "layout_footer.html" %}
         <script src="/static/plugins/chart.js/chart.umd.js"></script>
         <script src="/static/plugins/tables/js/datatable/dataTables.bootstrap5.min.js"></script>
-        <script src="/static/plugins/tables/js/datatable-init/datatable-basic.min.js"></script>
         <script src="/static/js/contributions.js"></script>
   </body>
 </html>

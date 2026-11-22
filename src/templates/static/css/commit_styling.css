@@ -761,7 +761,7 @@ del[data-diff], ins[data-diff] { text-decoration: none !important; }
   margin-bottom: 20px;
 }
 
-/* Compact Apple-style note header */
+/* Compact note header */
 .note-header-compact {
   display: flex;
   align-items: center;
@@ -2770,7 +2770,7 @@ li.diff-highlight-del {
   display: none !important;
 }
 
-/* Denied field/tag changes - Apple-inspired minimal design */
+/* Denied field/tag changes - minimal design */
 .denied-field-change {
   background: linear-gradient(135deg, #fff5f5 0%, #fef2f2 100%);
   border: 1px solid #fecaca;

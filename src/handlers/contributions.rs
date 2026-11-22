@@ -44,11 +44,13 @@ impl ContributionsQuery {
 async fn contributions_deck(
     appstate: &Arc<AppState>,
     deck_hash: &str,
-) -> Return<Option<(i64, String)>> {
+) -> Return<Option<(i64, String, bool)>> {
     let client = database::client(appstate).await?;
     let row = client
         .query_opt(
-            "SELECT id, COALESCE(NULLIF(BTRIM(full_path), ''), NULLIF(BTRIM(name), ''), '')
+            "SELECT id,
+                    COALESCE(NULLIF(BTRIM(full_path), ''), NULLIF(BTRIM(name), ''), ''),
+                    COALESCE(stats_enabled, false)
                FROM anki.decks
               WHERE human_hash = $1 AND deleted_at IS NULL",
             &[&deck_hash],
@@ -57,7 +59,7 @@ async fn contributions_deck(
     Ok(row.map(|row| {
         let path: String = row.get(1);
         let display = contribution_manager::deck_display_name_from_path(&path);
-        (row.get(0), display)
+        (row.get(0), display, row.get(2))
     }))
 }
 
@@ -69,7 +71,9 @@ pub(crate) async fn show_contributions(
 ) -> Result<impl IntoResponse, Error> {
     let user = check_login(user)?;
 
-    let Some((deck_id, deck_name)) = contributions_deck(&appstate, &deck_hash).await? else {
+    let Some((deck_id, deck_name, stats_enabled)) =
+        contributions_deck(&appstate, &deck_hash).await?
+    else {
         return error_page(&appstate, "Deck not found");
     };
 
@@ -97,6 +101,18 @@ pub(crate) async fn show_contributions(
         contribution_manager::get_timeline(&appstate, deck_id, window_days).await?;
 
     let timeline = contribution_manager::build_timeline(&snapshots, &new_by_date, granularity);
+    let subscriber_summary =
+        contribution_manager::summarize_subscribers(subscribers, &snapshots, activity_tracked);
+
+    let suggestion_timeline =
+        contribution_manager::get_suggestion_timeline(&appstate, deck_id, window_days, granularity)
+            .await?;
+    let rationales = contribution_manager::get_rationale_breakdown(&appstate, deck_id).await?;
+    let turnaround_buckets =
+        contribution_manager::get_review_turnaround_buckets(&appstate, deck_id).await?;
+    let turnaround_total: i64 = turnaround_buckets.iter().map(|b| b.count).sum();
+    let subdeck_backlog = contribution_manager::get_pending_by_subdeck(&appstate, deck_id).await?;
+    let community_health = contribution_manager::get_community_health(&appstate, deck_id).await?;
 
     let breakdown_visible = contribution_manager::breakdown_visible(distinct_contributors);
 
@@ -114,6 +130,8 @@ pub(crate) async fn show_contributions(
     context.insert("user", &user);
     context.insert("deck_hash", &deck_hash);
     context.insert("deck_name", &deck_name);
+    context.insert("stats_enabled", &stats_enabled);
+    context.insert("active_tab", "contributions");
     context.insert("digest", &digest);
     context.insert("funnel", &funnel);
     context.insert("speed", &speed);
@@ -129,6 +147,13 @@ pub(crate) async fn show_contributions(
     );
     context.insert("activity_tracked", &activity_tracked);
     context.insert("timeline", &timeline);
+    context.insert("subscriber_summary", &subscriber_summary);
+    context.insert("rationales", &rationales);
+    context.insert("turnaround_buckets", &turnaround_buckets);
+    context.insert("turnaround_total", &turnaround_total);
+    context.insert("subdeck_backlog", &subdeck_backlog);
+    context.insert("community_health", &community_health);
+    context.insert("suggestion_timeline", &suggestion_timeline);
     context.insert(
         "bucket",
         &match granularity {
@@ -163,6 +188,34 @@ pub(crate) async fn show_contributions(
         "chart_unsubscribed",
         &timeline.iter().map(|b| b.unsubscribed).collect::<Vec<_>>(),
     );
+    context.insert(
+        "sugg_labels",
+        &suggestion_timeline
+            .iter()
+            .map(|b| b.label.clone())
+            .collect::<Vec<_>>(),
+    );
+    context.insert(
+        "sugg_submitted",
+        &suggestion_timeline
+            .iter()
+            .map(|b| b.submitted)
+            .collect::<Vec<_>>(),
+    );
+    context.insert(
+        "sugg_accepted",
+        &suggestion_timeline
+            .iter()
+            .map(|b| b.accepted)
+            .collect::<Vec<_>>(),
+    );
+    context.insert(
+        "sugg_declined",
+        &suggestion_timeline
+            .iter()
+            .map(|b| b.declined)
+            .collect::<Vec<_>>(),
+    );
 
     let rendered_template = appstate.tera.render("contributions.html", &context)?;
     Ok(Html(rendered_template))
@@ -182,7 +235,9 @@ pub(crate) async fn show_contributor_suggestions(
 ) -> Result<impl IntoResponse, Error> {
     let user = check_login(user)?;
 
-    let Some((deck_id, deck_name)) = contributions_deck(&appstate, &deck_hash).await? else {
+    let Some((deck_id, deck_name, stats_enabled)) =
+        contributions_deck(&appstate, &deck_hash).await?
+    else {
         return error_page(&appstate, "Deck not found");
     };
 
@@ -202,6 +257,8 @@ pub(crate) async fn show_contributor_suggestions(
         _ => "open",
     };
 
+    let summary =
+        contribution_manager::get_contributor_summary(&appstate, deck_id, &username).await?;
     let suggestions =
         contribution_manager::get_contributor_suggestions(&appstate, deck_id, &username, state)
             .await?;
@@ -210,12 +267,15 @@ pub(crate) async fn show_contributor_suggestions(
     context.insert("user", &user);
     context.insert("deck_hash", &deck_hash);
     context.insert("deck_name", &deck_name);
+    context.insert("stats_enabled", &stats_enabled);
+    context.insert("active_tab", "contributions");
     context.insert("username", &username);
     context.insert(
         "username_url",
         &contribution_manager::url_path_segment(&username),
     );
     context.insert("state", &state);
+    context.insert("summary", &summary);
     context.insert("suggestions", &suggestions);
     context.insert(
         "suggestions_truncated",

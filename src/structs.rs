@@ -357,14 +357,23 @@ pub struct NotetypeOverview {
     pub notecount: i64,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DeckStatsInfo {
     pub hash: String,
     pub path: String,
-    pub retention: f32,
+    pub prefix_path: String,
+    pub leaf_name: String,
+    pub depth: usize,
+    pub retention: Option<f32>,
+    pub tracked_notes: i64,
+    pub total_notes: i64,
+    pub coverage_pct: f64,
+    pub lapses_avg: Option<f64>,
+    pub reps_avg: Option<f64>,
+    pub leech_count: i64,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct NoteStatsInfo {
     pub id: i64,
     pub fields: String,
@@ -372,15 +381,68 @@ pub struct NoteStatsInfo {
     pub reps: f32,
     pub retention: f32,
     pub sample_size: i32,
+    pub retention_stddev: Option<f32>,
+    pub subdeck_path: String,
+    pub subdeck_prefix: String,
+    pub subdeck_leaf: String,
+    pub has_pending_suggestion: bool,
+    pub last_updated: Option<String>,
+    pub days_since_update: Option<i64>,
+    pub revised_recently: bool,
+    pub is_leech: bool,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DeckBaseStatsInfo {
     pub note_count: i32,
+    pub total_reviewed_notes: i64,
+    pub coverage_pct: f64,
     pub lapses_avg: f64,
     pub reps_avg: f64,
     pub retention_avg: f32,
     pub contributor_count: i64,
+    pub median_sample_size: f64,
+    pub leech_count: i64,
+    pub recently_revised_struggling: i64,
+    pub trend_delta_30d: Option<f32>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RetentionBucket {
+    pub label: String,
+    pub range_key: String,
+    pub all_count: i64,
+    pub confident_count: i64,
+    pub tone: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RetentionTrendPoint {
+    pub captured_on: String,
+    pub avg_retention: f32,
+    pub avg_lapses: f32,
+    pub tracked_notes: i32,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TagStatsInfo {
+    pub tag: String,
+    pub prefix: String,
+    pub leaf: String,
+    pub note_count: i64,
+    pub avg_retention: f64,
+    pub avg_lapses: f64,
+    pub avg_reps: f64,
+    pub leech_count: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct NotetypeStatsInfo {
+    pub name: String,
+    pub note_count: i64,
+    pub avg_retention: f64,
+    pub avg_lapses: f64,
+    pub avg_reps: f64,
 }
 
 #[derive(Serialize, Deserialize)]

@@ -1,68 +1,65 @@
 <!DOCTYPE html>
-<html class="h-100" lang="en">
-
-<head>
-    {% set page_title = "Statistics" %}
+<html lang="en">
+  <head>
+    {% set page_title = deck_name ~ " — Statistics" %}
     {% include "header_template.html" %}
+    <link href="/static/css/deck_insights.css" rel="stylesheet" />
+  </head>
+  {% include "layout_header.html" %}
 
-</head>
-
-<body class="h-100">
-    
-    <!--*******************
-        Preloader start
-    ********************-->
-    <div id="preloader" role="status" aria-label="Loading" aria-hidden="true">
-        <div class="loader">
-            <svg class="circular" viewBox="25 25 50 50" aria-hidden="true" focusable="false">
-                <circle class="path" cx="50" cy="50" r="20" fill="none" stroke-width="3" stroke-miterlimit="10" />
-            </svg>
-        </div>
-    </div>
-    <!--*******************
-        Preloader end
-    ********************-->
-
-
-    <main id="main-content" class="mt-5">
-
-    <div class="login-form-bg h-100">
-        <div class="container h-100">
-            <div class="row justify-content-center h-100">
-                <div class="col-xl-6">
-                    <div class="error-content">
-                        <div class="card mb-0">
-                            <div class="card-body text-center pt-5">
-                                <h1 class="text-primary">No Stats Available!</h1>
-                                <br>
-                                <p class="mt-4">Seems like there aren't any stats available for this deck yet. Please ask your subscribers to submit more data or wait 24 hours to see them.</p>
-                                <form class="mt-5 mb-5">
-                                    
-                                    <div class="text-center mb-4 mt-4"><a href="/" class="btn btn-primary">Go to Homepage</a>
-                                    </div>
-                                </form>
-                            </div>
-                        </div>
-                    </div>
-                </div>
+        <div class="di-page">
+          <header class="di-header">
+            <div class="di-header-main">
+              <nav class="di-breadcrumb" aria-label="Breadcrumb">
+                <a href="/ManageDecks" class="di-crumb-link">
+                  <i class="fa-solid fa-arrow-left" aria-hidden="true"></i>
+                  <span>Manage Decks</span>
+                </a>
+                <span class="di-crumb-sep" aria-hidden="true">/</span>
+                <span>{{ deck_name }}</span>
+              </nav>
+              <div class="di-title-row">
+                <h1 class="di-title">{{ deck_name }}</h1>
+              </div>
+              <p class="di-header-meta mb-0">
+                <span>How well the deck teaches</span>
+                <span aria-hidden="true">&middot;</span>
+                <span>Refreshes every 24 hours</span>
+              </p>
             </div>
+            <div class="di-header-actions">
+              <nav class="di-segmented" aria-label="Deck insight views">
+                <a class="di-seg-item is-active" href="/Statistics/{{ deck_hash }}" aria-current="page">Statistics</a>
+                <a class="di-seg-item" href="/Contributions/{{ deck_hash }}">Contributions</a>
+              </nav>
+            </div>
+          </header>
+
+          <section class="di-card di-empty-card" aria-labelledby="empty-stats-heading">
+            <div class="di-empty-icon" aria-hidden="true">
+              <i class="fa-solid fa-chart-simple"></i>
+            </div>
+            <h2 id="empty-stats-heading" class="di-card-title mb-2">No review statistics yet</h2>
+            {% if not stats_enabled %}
+            <p class="di-card-subtitle">
+              Deck statistics are currently turned off for <strong>{{ deck_name }}</strong>. Enable
+              statistics from <a href="/ManageDecks">Manage Decks</a> to invite opt-in learners to
+              contribute deck-level retention signals.
+            </p>
+            {% else %}
+            <p class="di-card-subtitle">
+              Opt-in review data has not populated yet for this deck ({{ base.total_reviewed_notes }}
+              published notes). New uploads appear after the next 24-hour aggregation pass once
+              subscribers opt in from the add-on.
+            </p>
+            {% endif %}
+            <div class="di-empty-actions">
+              <a href="/Contributions/{{ deck_hash }}" class="btn btn-primary">View Contributions</a>
+              <a href="/ManageDecks" class="btn btn-outline-secondary">Back to Manage Decks</a>
+            </div>
+          </section>
         </div>
-    </div>
 
-    </main>
-
-    <!--**********************************
-        Scripts
-    ***********************************-->
-        <script src="/static/plugins/bootstrap/js/bootstrap.bundle.min.js"></script>
-    <script src="/static/js/custom.min.js"></script>
-    <script src="/static/js/settings.js"></script>
-    <script src="/static/js/gleek.js"></script>
-    <script src="/static/js/styleSwitcher.js"></script>
-</body>
+        {% include "layout_footer.html" %}
+  </body>
 </html>
-
-
-
-
-

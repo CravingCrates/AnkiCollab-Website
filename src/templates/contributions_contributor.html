@@ -1,84 +1,177 @@
 <!DOCTYPE html>
 <html lang="en">
   <head>
-    {% set page_title = "Contributor suggestions" %}
+    {% set page_title = username ~ " — " ~ deck_name %}
     {% include "header_template.html" %}
-    <link
-    href="/static/plugins/tables/css/datatable/dataTables.bootstrap5.min.css"
-    rel="stylesheet"
-  />
+    <link href="/static/plugins/tables/css/datatable/dataTables.bootstrap5.min.css" rel="stylesheet" />
+    <link href="/static/css/deck_insights.css" rel="stylesheet" />
   </head>
   {% include "layout_header.html" %}
 
-        <div class="container-fluid mt-3">
-          <div class="mb-4">
-            <h1 class="mb-1">{{ username }}</h1>
-            <p class="text-muted mb-1">Suggestions on {{ deck_name }}</p>
-            <p class="mb-0"><a href="/Contributions/{{deck_hash}}">&larr; All contributions for {{ deck_name }}</a></p>
-          </div>
-
-          <div class="card">
-            <div class="card-body">
-              <div class="btn-group btn-group-sm mb-3" role="group" aria-label="Which suggestions to show">
-                <a class="btn {% if state =="open" %}btn-secondary{% else %}btn-outline-secondary{% endif %}" href="/Contributions/{{deck_hash}}/contributor/{{username_url}}?state=open"{% if state == "open" %} aria-current="true"{% endif %}>Waiting for review</a>
-                <a class="btn {% if state =="archived" %}btn-secondary{% else %}btn-outline-secondary{% endif %}" href="/Contributions/{{deck_hash}}/contributor/{{username_url}}?state=archived"{% if state == "archived" %} aria-current="true"{% endif %}>Reviewed</a>
+        <div class="di-page">
+          <header class="di-header">
+            <div class="di-header-main">
+              <nav class="di-breadcrumb" aria-label="Breadcrumb">
+                <a href="/Contributions/{{ deck_hash }}" class="di-crumb-link">
+                  <i class="fa-solid fa-arrow-left" aria-hidden="true"></i>
+                  <span>Contributions for {{ deck_name }}</span>
+                </a>
+                <span class="di-crumb-sep" aria-hidden="true">/</span>
+                <span>{{ username }}</span>
+              </nav>
+              <div class="di-title-row">
+                <h1 class="di-title">{{ username }}</h1>
               </div>
-              <p class="text-muted">
-                Reviewed means accepted or given feedback on. Neither is a rejection.
-              </p>
-
-              {% if suggestions | length > 0 %}
-              <div class="table-responsive">
-                <table id="suggestionOverview" class="table table-sm mb-0">
-                  <caption class="visually-hidden">Suggestions from {{ username }} on this deck</caption>
-                  <thead>
-                    <tr>
-                      <th scope="col">Suggestion</th>
-                      <th scope="col">Category</th>
-                      <th scope="col">What</th>
-                      <th scope="col">Submitted</th>
-                      <th scope="col">Status</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {% for suggestion in suggestions %}
-                    <tr>
-                      <th scope="row" class="fw-normal"><a href="/commit_history/{{suggestion.commit_id}}">{{ suggestion.commit_id }}</a></th>
-                      <td>{{ suggestion.rationale }}</td>
-                      <td>{% if suggestion.info %}{{ suggestion.info }}{% else %}<span class="text-muted">&mdash;</span>{% endif %}</td>
-                      <td>{{ suggestion.submitted_at }}</td>
-                      <td>
-                        {% if suggestion.accepted %}
-                        <span class="badge badge-success">Accepted</span>
-                        {% elif suggestion.declined %}
-                        <span class="badge badge-secondary">Feedback given</span>
-                        {% else %}
-                        <span class="badge badge-light">Waiting</span>
-                        {% endif %}
-                      </td>
-                    </tr>
-                    {% endfor %}
-                  </tbody>
-                </table>
-              </div>
-              {% else %}
-              <p class="mb-0">
-                {% if state == "open" %}
-                Nothing waiting for review on this deck.
+              <p class="di-header-meta mb-0">
+                {% if summary.first_contribution and summary.last_contribution %}
+                <span class="di-num">Active {{ summary.first_contribution }} &ndash; {{ summary.last_contribution }}</span>
+                {% elif summary.last_contribution %}
+                <span class="di-num">Latest contribution {{ summary.last_contribution }}</span>
                 {% else %}
-                Nothing has been reviewed yet.
+                <span>Suggestions on {{ deck_name }}</span>
+                {% endif %}
+                {% if summary.top_rationales | length > 0 %}
+                <span aria-hidden="true">&middot;</span>
+                <span>
+                  Focus:
+                  {% for item in summary.top_rationales %}
+                    {{ item.rationale }} ({{ item.count }}){% if not loop.last %}, {% endif %}
+                  {% endfor %}
+                </span>
                 {% endif %}
               </p>
-              {% endif %}
-              {% if suggestions_truncated %}
-              <p class="text-muted mb-0 mt-3">Showing the most recent {{ suggestions | length }}.</p>
+            </div>
+
+            <div class="di-header-actions">
+              {% if summary.milestone.current_name is not none %}
+              <div class="di-milestone" aria-label="Contributor milestone">
+                <span class="di-milestone-tier">{{ summary.milestone.current_name }}</span>
+                {% if summary.milestone.next_name is not none and summary.milestone.remaining_to_next is not none %}
+                <svg class="di-bar-svg di-milestone-track" viewBox="0 0 100 4" preserveAspectRatio="none" aria-hidden="true" focusable="false">
+                  <rect class="di-bar-track" x="0" y="0" width="100" height="4"></rect>
+                  <rect class="di-fill-accent" x="0" y="0" width="{{ summary.milestone.progress_pct }}" height="4"></rect>
+                </svg>
+                <span class="di-num">{{ summary.milestone.remaining_to_next }} to {{ summary.milestone.next_name }}</span>
+                {% endif %}
+              </div>
               {% endif %}
             </div>
-          </div>
+          </header>
+
+          <section class="di-kpi-grid" aria-label="Contributor summary metrics">
+            <article class="di-kpi-card">
+              <span class="di-kpi-label">Submitted</span>
+              <div class="di-kpi-value-row">
+                <span class="di-kpi-value">{{ summary.submitted }}</span>
+              </div>
+              <p class="di-kpi-sub mb-0">Total suggestions on {{ deck_name }}</p>
+            </article>
+
+            <article class="di-kpi-card">
+              <span class="di-kpi-label">Accepted</span>
+              <div class="di-kpi-value-row">
+                <span class="di-kpi-value">{{ summary.accepted }}</span>
+              </div>
+              <p class="di-kpi-sub mb-0">
+                {% if summary.acceptance_ratio is not none %}<span class="di-num">{{ (summary.acceptance_ratio * 100) | round(precision=0) }}%</span> of reviewed &middot; {% endif %}Merged into the deck
+              </p>
+            </article>
+
+            <article class="di-kpi-card">
+              <span class="di-kpi-label">Feedback Given</span>
+              <div class="di-kpi-value-row">
+                <span class="di-kpi-value">{{ summary.declined }}</span>
+              </div>
+              <p class="di-kpi-sub mb-0">Reviewed with changes requested</p>
+            </article>
+
+            <article class="di-kpi-card">
+              <span class="di-kpi-label">Waiting for Review</span>
+              <div class="di-kpi-value-row">
+                <span class="di-kpi-value">{{ summary.pending }}</span>
+              </div>
+              <p class="di-kpi-sub mb-0">Open in maintainer queue</p>
+            </article>
+          </section>
+
+          <section class="di-card" aria-labelledby="contributor-suggestions-heading">
+            <div class="di-card-head">
+              <div>
+                <h2 id="contributor-suggestions-heading" class="di-card-title">Suggestions</h2>
+                <p class="di-card-subtitle">
+                  Reviewed means accepted or given feedback on &mdash; neither is a rejection.
+                </p>
+              </div>
+              <div class="di-segmented" role="group" aria-label="Which suggestions to show">
+                <a class="di-seg-item {% if state == "open" %}is-active{% endif %}" href="/Contributions/{{ deck_hash }}/contributor/{{ username_url }}?state=open"{% if state == "open" %} aria-current="true"{% endif %}>Waiting for review</a>
+                <a class="di-seg-item {% if state == "archived" %}is-active{% endif %}" href="/Contributions/{{ deck_hash }}/contributor/{{ username_url }}?state=archived"{% if state == "archived" %} aria-current="true"{% endif %}>Reviewed</a>
+              </div>
+            </div>
+
+            {% if suggestions | length > 0 %}
+            <div class="di-table-wrap">
+              <table id="suggestionOverview" class="table di-table">
+                <caption class="visually-hidden">Suggestions from {{ username }} on this deck</caption>
+                <thead>
+                  <tr>
+                    <th scope="col">Suggestion</th>
+                    <th scope="col">Category</th>
+                    <th scope="col">Details</th>
+                    <th scope="col">Submitted</th>
+                    <th scope="col">Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% for suggestion in suggestions %}
+                  <tr>
+                    <th scope="row" class="fw-semibold di-num">
+                      {% if suggestion.open %}
+                      <a href="/commit/{{ suggestion.commit_id }}">#{{ suggestion.commit_id }}</a>
+                      {% else %}
+                      <a href="/commit_history/{{ suggestion.commit_id }}">#{{ suggestion.commit_id }}</a>
+                      {% endif %}
+                    </th>
+                    <td>{{ suggestion.rationale }}</td>
+                    <td>{% if suggestion.info %}{{ suggestion.info }}{% else %}<span class="text-muted">&mdash;</span>{% endif %}</td>
+                    <td class="di-num">{{ suggestion.submitted_at }}</td>
+                    <td>
+                      {% if suggestion.accepted %}
+                      <span class="di-pill di-pill-success">
+                        <i class="fa-solid fa-check" aria-hidden="true"></i>
+                        <span>Accepted</span>
+                      </span>
+                      {% elif suggestion.declined %}
+                      <span class="di-pill di-pill-neutral">Feedback given</span>
+                      {% else %}
+                      <span class="di-pill di-pill-accent">
+                        <i class="fa-solid fa-clock" aria-hidden="true"></i>
+                        <span>Waiting</span>
+                      </span>
+                      {% endif %}
+                    </td>
+                  </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+            {% else %}
+            <p class="di-card-subtitle mb-0">
+              {% if state == "open" %}
+              Nothing waiting for review on this deck.
+              {% else %}
+              Nothing has been reviewed yet.
+              {% endif %}
+            </p>
+            {% endif %}
+
+            {% if suggestions_truncated %}
+            <p class="di-card-subtitle mb-0 mt-3">Showing the most recent {{ suggestions | length }}.</p>
+            {% endif %}
+          </section>
         </div>
+
         {% include "layout_footer.html" %}
         <script src="/static/plugins/tables/js/datatable/dataTables.bootstrap5.min.js"></script>
-        <script src="/static/plugins/tables/js/datatable-init/datatable-basic.min.js"></script>
         <script src="/static/js/contributions.js"></script>
   </body>
 </html>
