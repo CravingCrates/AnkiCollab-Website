@@ -158,6 +158,10 @@ pub(crate) fn build_router(
             get(stats_handlers::show_statistics),
         )
         .route(
+            "/Statistics/{deck_hash}/sections",
+            get(stats_handlers::show_statistics_sections),
+        )
+        .route(
             "/Contributions/{deck_hash}",
             get(contribution_handlers::show_contributions),
         )

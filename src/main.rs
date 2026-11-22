@@ -28,6 +28,7 @@ pub mod optional_tags_manager;
 pub mod pairing;
 pub mod passkey;
 mod server;
+pub mod stats_cache;
 pub mod stats_manager;
 pub mod structs;
 pub mod suggestion_manager;

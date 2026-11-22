@@ -8,6 +8,7 @@ use tracing_subscriber::{
 };
 
 use crate::database::{self, AppState};
+use crate::stats_cache::StatsCache;
 use crate::user::Auth;
 use crate::{media_tokens, pairing, passkey};
 
@@ -97,6 +98,7 @@ pub(crate) async fn build_app_state() -> Arc<AppState> {
         passkey_challenges: Arc::new(passkey::ChallengeStore::new()),
         passkey_guard,
         pairing_attempts: Arc::new(pairing::CodeGuessTracker::new()),
+        stats_cache: Arc::new(StatsCache::new()),
     })
 }
 
@@ -137,11 +139,13 @@ pub(crate) fn spawn_background_sweeps(state: &Arc<AppState>) {
     let challenge_store = state.passkey_challenges.clone();
     let passkey_guard = state.passkey_guard.clone();
     let pairing_attempts = state.pairing_attempts.clone();
+    let stats_cache = state.stats_cache.clone();
     std::thread::spawn(move || loop {
         std::thread::sleep(std::time::Duration::from_mins(1));
         challenge_store.retain_recent();
         passkey_guard.sweep();
         pairing_attempts.retain_recent();
+        stats_cache.prune_expired();
         if !challenge_store.is_empty() {
             tracing::debug!(
                 outstanding = challenge_store.len(),
@@ -325,10 +329,45 @@ mod tests {
         stats_ctx.insert("trend_labels", &vec!["2026-10-20", "2026-11-20"]);
         stats_ctx.insert("trend_retention", &vec![82.9_f32, 84.5_f32]);
         stats_ctx.insert("trend_lapses", &vec![2.0_f32, 1.8_f32]);
+        stats_ctx.insert("is_deferred", &false);
 
         let rendered_stats = tera.render("statistics.html", &stats_ctx).unwrap();
         assert!(rendered_stats.contains("Anatomy"));
+        assert!(rendered_stats.contains("Cards Needing Attention"));
+        assert!(!rendered_stats.contains("data-stats-deferred-url="));
         assert!(!rendered_stats.contains("style=\""));
+
+        let rendered_partial = tera
+            .render("partials/statistics_body.html", &stats_ctx)
+            .unwrap();
+        assert!(rendered_partial.contains("Cards Needing Attention"));
+        assert!(rendered_partial.contains("di-deferred-section"));
+        assert!(!rendered_partial.contains("style=\""));
+
+        let mut partial_empty_ctx = stats_ctx.clone();
+        let mut empty_base = base.clone();
+        empty_base.note_count = 0;
+        partial_empty_ctx.insert("base", &empty_base);
+        let rendered_partial_empty = tera
+            .render("partials/statistics_body.html", &partial_empty_ctx)
+            .unwrap();
+        assert!(rendered_partial_empty.contains("No review statistics yet"));
+        assert!(!rendered_partial_empty.contains("style=\""));
+
+        let mut deferred_ctx = tera::Context::new();
+        deferred_ctx.insert("user", &serde_json::json!({ "username": "alice" }));
+        deferred_ctx.insert("deck_hash", "abc");
+        deferred_ctx.insert("deck_name", "Anatomy");
+        deferred_ctx.insert("stats_enabled", &true);
+        deferred_ctx.insert("active_tab", "statistics");
+        deferred_ctx.insert("is_deferred", &true);
+        deferred_ctx.insert("shell_note_count", &120_i32);
+        deferred_ctx.insert("shell_retention_avg", &84.5_f32);
+        let rendered_deferred = tera.render("statistics.html", &deferred_ctx).unwrap();
+        assert!(rendered_deferred.contains(r#"data-stats-deferred-url="/Statistics/abc/sections""#));
+        assert!(rendered_deferred.contains("84.5%"));
+        assert!(rendered_deferred.contains("di-skeleton"));
+        assert!(!rendered_deferred.contains("style=\""));
 
         let rendered_empty = tera.render("empty_stats.html", &stats_ctx).unwrap();
         assert!(rendered_empty.contains("No review statistics yet"));

@@ -1,11 +1,26 @@
 use crate::database;
+use crate::stats_cache::DeckStatsPayload;
 use crate::structs::{
     DeckBaseStatsInfo, DeckStatsInfo, NoteStatsInfo, NotetypeStatsInfo, RetentionBucket,
     RetentionTrendPoint, TagStatsInfo,
 };
 use async_recursion::async_recursion;
 use std::collections::{HashMap, HashSet};
+use std::sync::Arc;
 use time::{Date, Duration};
+
+pub type DynError = Box<dyn std::error::Error + Send + Sync>;
+
+/// Lightweight metadata read directly from `anki.decks` for instant shell rendering.
+#[derive(Debug, Clone)]
+pub struct DeckStatsShell {
+    pub deck_id: i64,
+    pub deck_name: String,
+    pub stats_enabled: bool,
+    pub note_count: i32,
+    pub retention_avg: f32,
+    pub stats_learner_count: Option<i32>,
+}
 
 /// Minimum distinct reporting learners before learner-spread or group rollups are shown.
 pub const MIN_LEARNER_SAMPLE: i64 = 5;
@@ -173,7 +188,7 @@ pub fn compute_trend_delta_30d(points: &[(Date, f32)]) -> Option<f32> {
     Some(delta)
 }
 
-pub async fn update_stats(db_state: &database::AppState) -> Result<(), Box<dyn std::error::Error>> {
+pub async fn update_stats(db_state: &database::AppState) -> Result<(), DynError> {
     // Refresh the note calculated_stats
     calculate_note_stats(db_state).await?;
 
@@ -182,6 +197,8 @@ pub async fn update_stats(db_state: &database::AppState) -> Result<(), Box<dyn s
 
     // Capture daily deck retention snapshot for trend tracking (k-anonymity >= 5 learners)
     snapshot_deck_retention(db_state).await?;
+
+    db_state.stats_cache.invalidate_all();
 
     Ok(())
 }
@@ -238,9 +255,7 @@ fn calculate_note_stats_sql(include_stddev: bool) -> String {
     )
 }
 
-pub async fn calculate_note_stats(
-    db_state: &database::AppState,
-) -> Result<(), Box<dyn std::error::Error>> {
+pub async fn calculate_note_stats(db_state: &database::AppState) -> Result<(), DynError> {
     let client = database::client(db_state).await?;
     let query = calculate_note_stats_sql(true);
     if let Err(err) = client.execute(&query, &[]).await {
@@ -276,11 +291,22 @@ pub async fn calculate_note_stats(
     Ok(())
 }
 
-pub async fn snapshot_deck_retention(
-    db_state: &database::AppState,
-) -> Result<(), Box<dyn std::error::Error>> {
-    let client = database::client(db_state).await?;
-    let query = "
+fn snapshot_deck_retention_sql(include_learner_count_update: bool) -> String {
+    let update_cte = if include_learner_count_update {
+        ",
+        updated_learner_counts AS (
+            UPDATE anki.decks d
+            SET stats_learner_count = asl.learner_count::int
+            FROM all_subtree_learners asl
+            WHERE d.id = asl.deck_id
+              AND d.stats_learner_count IS DISTINCT FROM asl.learner_count::int
+        )"
+    } else {
+        ""
+    };
+
+    format!(
+        "
         WITH RECURSIVE enabled_decks AS (
             SELECT id, parent
             FROM anki.decks
@@ -308,12 +334,13 @@ pub async fn snapshot_deck_retention(
               AND NOT n.deleted
             GROUP BY n.deck, ns.user_hash
         ),
-        subtree_learners AS (
-            SELECT des.ancestor_id AS deck_id, COUNT(DISTINCT pdl.user_hash)::bigint AS learner_count
-            FROM descendants des
-            JOIN per_deck_learners pdl ON pdl.deck_id = des.descendant_id
-            GROUP BY des.ancestor_id
-            HAVING COUNT(DISTINCT pdl.user_hash) >= $1::bigint
+        all_subtree_learners AS (
+            SELECT e.id AS deck_id,
+                   COUNT(DISTINCT pdl.user_hash)::bigint AS learner_count
+            FROM enabled_decks e
+            LEFT JOIN descendants des ON des.ancestor_id = e.id
+            LEFT JOIN per_deck_learners pdl ON pdl.deck_id = des.descendant_id
+            GROUP BY e.id
         ),
         direct_calc AS (
             SELECT n.deck AS deck_id,
@@ -336,32 +363,51 @@ pub async fn snapshot_deck_retention(
             JOIN direct_calc dc ON dc.deck_id = des.descendant_id
             GROUP BY des.ancestor_id
             HAVING SUM(dc.cnt_retention) > 0 AND SUM(dc.tracked_notes) > 0
-        )
+        ){update_cte}
         INSERT INTO anki.deck_retention_daily (deck_id, captured_on, avg_retention, avg_lapses, tracked_notes)
         SELECT sc.deck_id, CURRENT_DATE, sc.avg_retention, sc.avg_lapses, sc.tracked_notes
         FROM subtree_calc sc
-        JOIN subtree_learners sl ON sl.deck_id = sc.deck_id
+        JOIN all_subtree_learners asl ON asl.deck_id = sc.deck_id
+        WHERE asl.learner_count >= $1::bigint
         ON CONFLICT (deck_id, captured_on) DO UPDATE
            SET avg_retention = EXCLUDED.avg_retention,
                avg_lapses    = EXCLUDED.avg_lapses,
                tracked_notes = EXCLUDED.tracked_notes
-    ";
-    if let Err(err) = client.execute(query, &[&MIN_LEARNER_SAMPLE]).await {
-        if is_undefined_schema_error(&err) {
-            tracing::warn!(
-                error = %err,
-                "anki.deck_retention_daily missing; skipping daily retention snapshot until migration_stats_insights.sql is applied"
-            );
-            return Ok(());
-        }
-        return Err(Box::new(err));
-    }
-    Ok(())
+        "
+    )
 }
 
-pub async fn get_leaf_decks(
-    db_state: &database::AppState,
-) -> Result<Vec<i64>, Box<dyn std::error::Error>> {
+pub async fn snapshot_deck_retention(db_state: &database::AppState) -> Result<(), DynError> {
+    let client = database::client(db_state).await?;
+    let query = snapshot_deck_retention_sql(true);
+    match client.execute(&query, &[&MIN_LEARNER_SAMPLE]).await {
+        Ok(_) => Ok(()),
+        Err(err) if is_undefined_schema_error(&err) => {
+            tracing::warn!(
+                error = %err,
+                "decks.stats_learner_count or anki.deck_retention_daily missing; falling back to snapshot without cached learner count"
+            );
+            let fallback_query = snapshot_deck_retention_sql(false);
+            if let Err(fallback_err) = client
+                .execute(&fallback_query, &[&MIN_LEARNER_SAMPLE])
+                .await
+            {
+                if is_undefined_schema_error(&fallback_err) {
+                    tracing::warn!(
+                        error = %fallback_err,
+                        "anki.deck_retention_daily missing; skipping daily retention snapshot until migration is applied"
+                    );
+                    return Ok(());
+                }
+                return Err(Box::new(fallback_err));
+            }
+            Ok(())
+        }
+        Err(err) => Err(Box::new(err)),
+    }
+}
+
+pub async fn get_leaf_decks(db_state: &database::AppState) -> Result<Vec<i64>, DynError> {
     let client = database::client(db_state).await?;
     let query = "
         WITH RECURSIVE cte AS (
@@ -387,7 +433,7 @@ pub async fn get_leaf_decks(
 pub async fn calculate_average_retention(
     db_state: &database::AppState,
     deck: i64,
-) -> Result<Option<f32>, Box<dyn std::error::Error>> {
+) -> Result<Option<f32>, DynError> {
     let client = database::client(db_state).await?;
     let query = "
         WITH notes_with_stats AS (
@@ -427,7 +473,7 @@ pub async fn calculate_average_retention(
 pub async fn update_deck_and_parent_retention(
     db_state: &database::AppState,
     deck: i64,
-) -> Result<(), Box<dyn std::error::Error>> {
+) -> Result<(), DynError> {
     let client = database::client(db_state).await?;
     // Get the note count for the current deck and its subdecks
     let update_note_count_query = "
@@ -461,9 +507,7 @@ pub async fn update_deck_and_parent_retention(
     Ok(())
 }
 
-pub async fn update_all_decks(
-    db_state: &database::AppState,
-) -> Result<(), Box<dyn std::error::Error>> {
+pub async fn update_all_decks(db_state: &database::AppState) -> Result<(), DynError> {
     let leaf_decks = get_leaf_decks(db_state).await?;
 
     for deck in leaf_decks {
@@ -473,100 +517,212 @@ pub async fn update_all_decks(
     Ok(())
 }
 
-pub async fn get_base_deck_info(
+const BASE_AND_DIST_COLS: usize = 6;
+
+const RETENTION_BUCKET_SPECS: [(&str, &str, &str); 7] = [
+    ("< 60%", "lt60", "danger"),
+    ("60–70%", "60_70", "danger"),
+    ("70–80%", "70_80", "warning"),
+    ("80–85%", "80_85", "accent"),
+    ("85–90%", "85_90", "success"),
+    ("90–95%", "90_95", "success"),
+    ("95–100%", "95_100", "accent"),
+];
+
+fn deck_stats_shell_sql(include_learner_count: bool) -> &'static str {
+    if include_learner_count {
+        "SELECT id,
+                COALESCE(NULLIF(BTRIM(full_path), ''), NULLIF(BTRIM(name), ''), ''),
+                COALESCE(stats_enabled, false),
+                COALESCE(notes_with_stats_count, 0),
+                COALESCE(retention, 0.0),
+                stats_learner_count
+           FROM anki.decks
+          WHERE human_hash = $1 AND deleted_at IS NULL"
+    } else {
+        "SELECT id,
+                COALESCE(NULLIF(BTRIM(full_path), ''), NULLIF(BTRIM(name), ''), ''),
+                COALESCE(stats_enabled, false),
+                COALESCE(notes_with_stats_count, 0),
+                COALESCE(retention, 0.0),
+                NULL::integer AS stats_learner_count
+           FROM anki.decks
+          WHERE human_hash = $1 AND deleted_at IS NULL"
+    }
+}
+
+pub async fn get_deck_stats_shell(
     db_state: &database::AppState,
-    deck_hash: &String,
-) -> Result<DeckBaseStatsInfo, Box<dyn std::error::Error>> {
+    deck_hash: &str,
+) -> crate::Return<Option<DeckStatsShell>> {
     let client = database::client(db_state).await?;
+    let row = match client
+        .query_opt(deck_stats_shell_sql(true), &[&deck_hash])
+        .await
+    {
+        Ok(row) => row,
+        Err(err) if is_undefined_schema_error(&err) => {
+            tracing::warn!(
+                error = %err,
+                "decks.stats_learner_count missing; falling back to legacy shell metadata query"
+            );
+            client
+                .query_opt(deck_stats_shell_sql(false), &[&deck_hash])
+                .await?
+        }
+        Err(err) => return Err(err.into()),
+    };
 
-    let query1 = "
-        SELECT COALESCE(notes_with_stats_count, 0), COALESCE(retention, 0.0)
-        FROM decks
+    Ok(row.map(|row| {
+        let deck_path: String = row.get(1);
+        DeckStatsShell {
+            deck_id: row.get(0),
+            deck_name: crate::contribution_manager::deck_display_name_from_path(&deck_path),
+            stats_enabled: row.get(2),
+            note_count: row.get(3),
+            retention_avg: row.get(4),
+            stats_learner_count: row.get(5),
+        }
+    }))
+}
+
+pub async fn get_total_reviewed_notes(
+    db_state: &database::AppState,
+    deck_hash: &str,
+) -> crate::Return<i64> {
+    let client = database::client(db_state).await?;
+    let row = client
+        .query_one(
+            "WITH RECURSIVE cte AS (
+                SELECT id
+                FROM anki.decks
+                WHERE human_hash = $1 AND deleted_at IS NULL
+                UNION ALL
+                SELECT d.id
+                FROM cte JOIN anki.decks d ON d.parent = cte.id
+                WHERE d.deleted_at IS NULL
+            )
+            SELECT COUNT(*)::bigint
+            FROM anki.notes n
+            WHERE n.deck IN (SELECT id FROM cte)
+              AND NOT n.deleted
+              AND n.reviewed",
+            &[&deck_hash],
+        )
+        .await?;
+    Ok(row.get(0))
+}
+
+const fn base_and_distribution_sql() -> &'static str {
+    "WITH RECURSIVE cte AS (
+        SELECT id
+        FROM anki.decks
         WHERE human_hash = $1 AND deleted_at IS NULL
-    ";
-    let rows = client.query(query1, &[&deck_hash]).await?;
-    let (note_count, retention_avg) = if let Some(row) = rows.first() {
-        (row.get(0), row.get(1))
-    } else {
-        return Err(Box::new(std::io::Error::other(
-            "No deck found with the given hash",
-        )));
+        UNION ALL
+        SELECT d.id
+        FROM cte JOIN anki.decks d ON d.parent = cte.id
+        WHERE d.deleted_at IS NULL
+    ),
+    active_notes AS (
+        SELECT n.reviewed,
+               n.last_update,
+               cs.lapses,
+               cs.reps,
+               cs.retention,
+               cs.sample_size
+        FROM anki.notes n
+        LEFT JOIN anki.calculated_stats cs ON cs.note_id = n.id
+        WHERE n.deck IN (SELECT id FROM cte)
+          AND NOT n.deleted
+    )
+    SELECT
+        COUNT(*) FILTER (WHERE reviewed)::bigint,
+        COALESCE(AVG(lapses), 0)::float8,
+        COALESCE(AVG(reps), 0)::float8,
+        COALESCE(PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY sample_size), 0)::float8,
+        COUNT(*) FILTER (WHERE sample_size >= 5 AND (retention < 70.0 OR lapses >= 4.0))::bigint,
+        COUNT(*) FILTER (WHERE sample_size >= 5 AND (retention < 70.0 OR lapses >= 4.0) AND last_update >= now() - INTERVAL '60 days')::bigint,
+        COUNT(*) FILTER (WHERE retention IS NOT NULL AND retention < 60)::bigint,
+        COUNT(*) FILTER (WHERE retention IS NOT NULL AND retention < 60 AND sample_size >= 5)::bigint,
+        COUNT(*) FILTER (WHERE retention IS NOT NULL AND retention >= 60 AND retention < 70)::bigint,
+        COUNT(*) FILTER (WHERE retention IS NOT NULL AND retention >= 60 AND retention < 70 AND sample_size >= 5)::bigint,
+        COUNT(*) FILTER (WHERE retention IS NOT NULL AND retention >= 70 AND retention < 80)::bigint,
+        COUNT(*) FILTER (WHERE retention IS NOT NULL AND retention >= 70 AND retention < 80 AND sample_size >= 5)::bigint,
+        COUNT(*) FILTER (WHERE retention IS NOT NULL AND retention >= 80 AND retention < 85)::bigint,
+        COUNT(*) FILTER (WHERE retention IS NOT NULL AND retention >= 80 AND retention < 85 AND sample_size >= 5)::bigint,
+        COUNT(*) FILTER (WHERE retention IS NOT NULL AND retention >= 85 AND retention < 90)::bigint,
+        COUNT(*) FILTER (WHERE retention IS NOT NULL AND retention >= 85 AND retention < 90 AND sample_size >= 5)::bigint,
+        COUNT(*) FILTER (WHERE retention IS NOT NULL AND retention >= 90 AND retention < 95)::bigint,
+        COUNT(*) FILTER (WHERE retention IS NOT NULL AND retention >= 90 AND retention < 95 AND sample_size >= 5)::bigint,
+        COUNT(*) FILTER (WHERE retention IS NOT NULL AND retention >= 95)::bigint,
+        COUNT(*) FILTER (WHERE retention IS NOT NULL AND retention >= 95 AND sample_size >= 5)::bigint
+    FROM active_notes"
+}
+
+fn retention_buckets_from_row(row: &tokio_postgres::Row) -> Vec<RetentionBucket> {
+    RETENTION_BUCKET_SPECS
+        .into_iter()
+        .enumerate()
+        .map(|(idx, (label, range_key, tone))| {
+            let all_idx = BASE_AND_DIST_COLS + idx * 2;
+            let conf_idx = all_idx + 1;
+            RetentionBucket {
+                label: label.to_string(),
+                range_key: range_key.to_string(),
+                all_count: row.get(all_idx),
+                confident_count: row.get(conf_idx),
+                tone: tone.to_string(),
+            }
+        })
+        .collect()
+}
+
+pub async fn get_base_and_distribution(
+    db_state: &database::AppState,
+    shell: &DeckStatsShell,
+    deck_hash: &str,
+) -> Result<(DeckBaseStatsInfo, Vec<RetentionBucket>), DynError> {
+    let client = database::client(db_state).await?;
+    let row = client
+        .query_one(base_and_distribution_sql(), &[&deck_hash])
+        .await?;
+
+    let total_reviewed_notes: i64 = row.get(0);
+    let lapses_avg: f64 = row.get(1);
+    let reps_avg: f64 = row.get(2);
+    let median_sample_size: f64 = row.get(3);
+    let leech_count: i64 = row.get(4);
+    let recently_revised_struggling: i64 = row.get(5);
+    let buckets = retention_buckets_from_row(&row);
+    drop(client);
+
+    let contributor_count = match shell.stats_learner_count {
+        Some(count) => i64::from(count.max(0)),
+        None => get_contributor_count(db_state, deck_hash).await?,
     };
+    let coverage_pct = coverage_percentage(i64::from(shell.note_count), total_reviewed_notes);
 
-    let query2 = "
-        WITH RECURSIVE cte AS (
-            SELECT id
-            FROM decks
-            WHERE human_hash = $1 AND deleted_at IS NULL
-            UNION ALL
-            SELECT d.id
-            FROM cte JOIN decks d ON d.parent = cte.id
-            WHERE d.deleted_at IS NULL
-        ),
-        active_notes AS (
-            SELECT n.id, n.reviewed, n.last_update
-            FROM cte
-            JOIN notes n ON cte.id = n.deck
-            WHERE NOT n.deleted
-        ),
-        tracked AS (
-            SELECT cs.lapses, cs.reps, cs.retention, cs.sample_size, an.last_update
-            FROM active_notes an
-            JOIN calculated_stats cs ON an.id = cs.note_id
-        )
-        SELECT
-            (SELECT COUNT(*) FROM active_notes WHERE reviewed)::bigint,
-            COALESCE((SELECT AVG(lapses) FROM tracked), 0)::float8,
-            COALESCE((SELECT AVG(reps) FROM tracked), 0)::float8,
-            COALESCE((SELECT PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY sample_size) FROM tracked), 0)::float8,
-            COALESCE((SELECT COUNT(*) FROM tracked WHERE sample_size >= 5 AND (retention < 70.0 OR lapses >= 4.0)), 0)::bigint,
-            COALESCE((SELECT COUNT(*) FROM tracked WHERE sample_size >= 5 AND (retention < 70.0 OR lapses >= 4.0) AND last_update >= now() - INTERVAL '60 days'), 0)::bigint
-    ";
-    let rows = client.query(query2, &[&deck_hash]).await?;
-    let (
-        total_reviewed_notes,
-        lapses_avg,
-        reps_avg,
-        median_sample_size,
-        leech_count,
-        recently_revised_struggling,
-    ) = if let Some(row) = rows.first() {
-        (
-            row.get(0),
-            row.get(1),
-            row.get(2),
-            row.get(3),
-            row.get(4),
-            row.get(5),
-        )
-    } else {
-        return Err(Box::new(std::io::Error::other(
-            "No calculated stats found for the given deck",
-        )));
-    };
-
-    let contributor_count = get_contributor_count(db_state, deck_hash).await?;
-    let coverage_pct = coverage_percentage(i64::from(note_count), total_reviewed_notes);
-
-    Ok(DeckBaseStatsInfo {
-        note_count,
+    let base = DeckBaseStatsInfo {
+        note_count: shell.note_count,
         total_reviewed_notes,
         coverage_pct,
         lapses_avg,
         reps_avg,
-        retention_avg,
+        retention_avg: shell.retention_avg,
         contributor_count,
         median_sample_size,
         leech_count,
         recently_revised_struggling,
         trend_delta_30d: None,
-    })
+    };
+
+    Ok((base, buckets))
 }
 
 pub async fn get_deck_stat_info(
     db_state: &database::AppState,
-    deck_hash: &String,
-) -> Result<Vec<DeckStatsInfo>, Box<dyn std::error::Error>> {
+    deck_hash: &str,
+) -> Result<Vec<DeckStatsInfo>, DynError> {
     let client = database::client(db_state).await?;
     let query = "
         WITH RECURSIVE subtree AS (
@@ -661,72 +817,10 @@ pub async fn get_deck_stat_info(
     Ok(res)
 }
 
-pub async fn get_retention_distribution(
-    db_state: &database::AppState,
-    deck_hash: &str,
-) -> Result<Vec<RetentionBucket>, Box<dyn std::error::Error>> {
-    let client = database::client(db_state).await?;
-    let query = "
-        WITH RECURSIVE cte AS (
-            SELECT id FROM anki.decks WHERE human_hash = $1 AND deleted_at IS NULL
-            UNION ALL
-            SELECT d.id FROM anki.decks d JOIN cte ON d.parent = cte.id WHERE d.deleted_at IS NULL
-        ),
-        tracked AS (
-            SELECT cs.retention, cs.sample_size
-            FROM anki.notes n
-            JOIN anki.calculated_stats cs ON cs.note_id = n.id
-            WHERE n.deck IN (SELECT id FROM cte)
-              AND NOT n.deleted
-              AND cs.retention IS NOT NULL
-        )
-        SELECT
-            COUNT(*) FILTER (WHERE retention < 60)::bigint,
-            COUNT(*) FILTER (WHERE retention < 60 AND sample_size >= 5)::bigint,
-            COUNT(*) FILTER (WHERE retention >= 60 AND retention < 70)::bigint,
-            COUNT(*) FILTER (WHERE retention >= 60 AND retention < 70 AND sample_size >= 5)::bigint,
-            COUNT(*) FILTER (WHERE retention >= 70 AND retention < 80)::bigint,
-            COUNT(*) FILTER (WHERE retention >= 70 AND retention < 80 AND sample_size >= 5)::bigint,
-            COUNT(*) FILTER (WHERE retention >= 80 AND retention < 85)::bigint,
-            COUNT(*) FILTER (WHERE retention >= 80 AND retention < 85 AND sample_size >= 5)::bigint,
-            COUNT(*) FILTER (WHERE retention >= 85 AND retention < 90)::bigint,
-            COUNT(*) FILTER (WHERE retention >= 85 AND retention < 90 AND sample_size >= 5)::bigint,
-            COUNT(*) FILTER (WHERE retention >= 90 AND retention < 95)::bigint,
-            COUNT(*) FILTER (WHERE retention >= 90 AND retention < 95 AND sample_size >= 5)::bigint,
-            COUNT(*) FILTER (WHERE retention >= 95)::bigint,
-            COUNT(*) FILTER (WHERE retention >= 95 AND sample_size >= 5)::bigint
-        FROM tracked
-    ";
-    let row = client.query_one(query, &[&deck_hash]).await?;
-
-    let specs = [
-        ("< 60%", "lt60", "danger", 0, 1),
-        ("60–70%", "60_70", "danger", 2, 3),
-        ("70–80%", "70_80", "warning", 4, 5),
-        ("80–85%", "80_85", "accent", 6, 7),
-        ("85–90%", "85_90", "success", 8, 9),
-        ("90–95%", "90_95", "success", 10, 11),
-        ("95–100%", "95_100", "accent", 12, 13),
-    ];
-
-    Ok(specs
-        .into_iter()
-        .map(
-            |(label, range_key, tone, all_idx, conf_idx)| RetentionBucket {
-                label: label.to_string(),
-                range_key: range_key.to_string(),
-                all_count: row.get(all_idx),
-                confident_count: row.get(conf_idx),
-                tone: tone.to_string(),
-            },
-        )
-        .collect())
-}
-
 pub async fn get_retention_trend(
     db_state: &database::AppState,
     deck_id: i64,
-) -> Result<(Vec<RetentionTrendPoint>, Option<f32>), Box<dyn std::error::Error>> {
+) -> Result<(Vec<RetentionTrendPoint>, Option<f32>), DynError> {
     let client = database::client(db_state).await?;
     let rows = client
         .query(
@@ -763,7 +857,7 @@ pub async fn get_retention_trend(
 pub async fn get_tag_stats(
     db_state: &database::AppState,
     deck_hash: &str,
-) -> Result<Vec<TagStatsInfo>, Box<dyn std::error::Error>> {
+) -> Result<Vec<TagStatsInfo>, DynError> {
     let client = database::client(db_state).await?;
     let raw_tag_rows = client
         .query(
@@ -771,17 +865,21 @@ pub async fn get_tag_stats(
                 SELECT id FROM anki.decks WHERE human_hash = $1 AND deleted_at IS NULL
                 UNION ALL
                 SELECT d.id FROM anki.decks d JOIN cte ON d.parent = cte.id WHERE d.deleted_at IS NULL
+            ),
+            sample_tags AS (
+                SELECT BTRIM(t.content) AS tag
+                FROM anki.notes n
+                JOIN anki.calculated_stats cs ON cs.note_id = n.id
+                JOIN anki.tags t ON t.note = n.id
+                WHERE n.deck IN (SELECT id FROM cte)
+                  AND NOT n.deleted
+                  AND cs.retention IS NOT NULL
+                  AND t.reviewed = true
+                  AND t.content IS NOT NULL
+                  AND BTRIM(t.content) <> ''
+                LIMIT 2000
             )
-            SELECT DISTINCT BTRIM(t.content)
-            FROM anki.notes n
-            JOIN anki.calculated_stats cs ON cs.note_id = n.id
-            JOIN anki.tags t ON t.note = n.id
-            WHERE n.deck IN (SELECT id FROM cte)
-              AND NOT n.deleted
-              AND cs.retention IS NOT NULL
-              AND t.reviewed = true
-              AND t.content IS NOT NULL
-              AND BTRIM(t.content) <> ''",
+            SELECT DISTINCT tag FROM sample_tags",
             &[&deck_hash],
         )
         .await?;
@@ -831,7 +929,14 @@ pub async fn get_tag_stats(
                   'leech', 'marked', 'suspended', 'buried', 'flag',
                   '#leech', '#marked', '#suspended', '#buried', '#flag'
               )
-              AND BTRIM(t.content) !~* '(^|::)#?(ankicollab|anki_collab|crowdanki)'
+              AND (
+                  (
+                      LOWER(t.content) NOT LIKE '%ankicollab%'
+                      AND LOWER(t.content) NOT LIKE '%anki_collab%'
+                      AND LOWER(t.content) NOT LIKE '%crowdanki%'
+                  )
+                  OR BTRIM(t.content) !~* '(^|::)#?(ankicollab|anki_collab|crowdanki)'
+              )
         )
         SELECT topic_key,
                COUNT(*)::bigint AS note_count,
@@ -885,7 +990,7 @@ pub async fn get_tag_stats(
 pub async fn get_notetype_stats(
     db_state: &database::AppState,
     deck_hash: &str,
-) -> Result<Vec<NotetypeStatsInfo>, Box<dyn std::error::Error>> {
+) -> Result<Vec<NotetypeStatsInfo>, DynError> {
     let client = database::client(db_state).await?;
     let min_sample_i32 = i32::try_from(MIN_LEARNER_SAMPLE).unwrap_or(5);
     let query = "
@@ -1005,8 +1110,8 @@ fn worst_notes_sql(include_stddev_col: bool) -> String {
 
 pub async fn get_worst_notes_info(
     db_state: &database::AppState,
-    deck_hash: &String,
-) -> Result<Vec<NoteStatsInfo>, Box<dyn std::error::Error>> {
+    deck_hash: &str,
+) -> Result<Vec<NoteStatsInfo>, DynError> {
     let client = database::client(db_state).await?;
     let query = worst_notes_sql(true);
     let rows = match client.query(&query, &[&deck_hash]).await {
@@ -1063,24 +1168,34 @@ pub async fn get_worst_notes_info(
     Ok(res)
 }
 
-pub async fn toggle_stats(
-    db_state: &database::AppState,
-    deck_id: i64,
-) -> Result<(), Box<dyn std::error::Error>> {
+pub async fn toggle_stats(db_state: &database::AppState, deck_id: i64) -> Result<(), DynError> {
     let client = database::client(db_state).await?;
     let query = "
         UPDATE decks
-        SET stats_enabled = NOT stats_enabled
+        SET stats_enabled = NOT stats_enabled,
+            stats_learner_count = NULL
         WHERE id = $1
     ";
-    client.execute(query, &[&deck_id]).await?;
+    if let Err(err) = client.execute(query, &[&deck_id]).await {
+        if is_undefined_schema_error(&err) {
+            client
+                .execute(
+                    "UPDATE decks SET stats_enabled = NOT stats_enabled WHERE id = $1",
+                    &[&deck_id],
+                )
+                .await?;
+        } else {
+            return Err(Box::new(err));
+        }
+    }
+    db_state.stats_cache.invalidate_deck(deck_id);
     Ok(())
 }
 
 pub async fn get_contributor_count(
     db_state: &database::AppState,
-    deck_hash: &String,
-) -> Result<i64, Box<dyn std::error::Error>> {
+    deck_hash: &str,
+) -> Result<i64, DynError> {
     let client = database::client(db_state).await?;
     let query = "
         WITH RECURSIVE cte AS (
@@ -1102,6 +1217,103 @@ pub async fn get_contributor_count(
     let contributor_count: i64 = row.get(0);
 
     Ok(contributor_count)
+}
+
+/// Execute the statistics queries in small batches (max 2 pooled DB connections at once)
+/// so heavy decks never exhaust the `bb8` pool while still cutting sequential latency.
+pub async fn load_deck_stats_payload(
+    db_state: &database::AppState,
+    shell: &DeckStatsShell,
+    deck_hash: &str,
+) -> Result<DeckStatsPayload, String> {
+    let (base_dist_res, deck_info_res) = tokio::join!(
+        get_base_and_distribution(db_state, shell, deck_hash),
+        get_deck_stat_info(db_state, deck_hash),
+    );
+    let (mut base, retention_buckets) = base_dist_res.map_err(|err| {
+        tracing::warn!(error = %err, "Failed to get base deck info for statistics");
+        err.to_string()
+    })?;
+    let decks = deck_info_res.map_err(|err| {
+        tracing::warn!(error = %err, "Failed to get deck stat info");
+        err.to_string()
+    })?;
+
+    let (notes_res, tags_res) = tokio::join!(
+        get_worst_notes_info(db_state, deck_hash),
+        get_tag_stats(db_state, deck_hash),
+    );
+    let notes = notes_res.map_err(|err| {
+        tracing::warn!(error = %err, "Failed to get worst notes info");
+        err.to_string()
+    })?;
+    let tag_stats = match tags_res {
+        Ok(tags) => tags,
+        Err(err) => {
+            tracing::warn!(error = %err, "Failed to get tag stats");
+            Vec::new()
+        }
+    };
+
+    let (trend_res, notetypes_res) = tokio::join!(
+        get_retention_trend(db_state, shell.deck_id),
+        get_notetype_stats(db_state, deck_hash),
+    );
+    let (retention_trend, trend_delta_30d) = match trend_res {
+        Ok(trend) => trend,
+        Err(err) => {
+            tracing::warn!(error = %err, "Failed to get retention trend");
+            (Vec::new(), None)
+        }
+    };
+    base.trend_delta_30d = trend_delta_30d;
+
+    let notetype_stats = match notetypes_res {
+        Ok(notetypes) => notetypes,
+        Err(err) => {
+            tracing::warn!(error = %err, "Failed to get notetype stats");
+            Vec::new()
+        }
+    };
+
+    Ok(DeckStatsPayload {
+        base,
+        decks,
+        notes,
+        retention_buckets,
+        retention_trend,
+        tag_stats,
+        notetype_stats,
+    })
+}
+
+pub async fn get_or_load_deck_stats(
+    db_state: &database::AppState,
+    shell: &DeckStatsShell,
+    deck_hash: &str,
+) -> Result<Arc<DeckStatsPayload>, String> {
+    db_state
+        .stats_cache
+        .get_or_load(shell.deck_id, || {
+            load_deck_stats_payload(db_state, shell, deck_hash)
+        })
+        .await
+}
+
+pub fn warm_deck_stats_in_background(
+    db_state: Arc<database::AppState>,
+    shell: DeckStatsShell,
+    deck_hash: String,
+) {
+    tokio::spawn(async move {
+        if let Err(err) = get_or_load_deck_stats(&db_state, &shell, &deck_hash).await {
+            tracing::warn!(
+                deck_id = shell.deck_id,
+                error = %err,
+                "Background deck statistics warmup failed"
+            );
+        }
+    });
 }
 
 #[cfg(test)]
@@ -1249,5 +1461,30 @@ mod tests {
         assert!(!legacy.contains("cs.retention_stddev"));
         assert!(legacy.contains("NULL::real AS retention_stddev"));
         assert!(legacy.contains("FROM anki.note_stats ns"));
+    }
+
+    #[test]
+    fn snapshot_deck_retention_sql_supports_with_and_without_learner_count() {
+        let with_update = snapshot_deck_retention_sql(true);
+        assert!(with_update.contains("updated_learner_counts"));
+        assert!(with_update.contains("SET stats_learner_count = asl.learner_count::int"));
+        assert!(with_update.contains("WHERE asl.learner_count >= $1::bigint"));
+
+        let legacy = snapshot_deck_retention_sql(false);
+        assert!(!legacy.contains("updated_learner_counts"));
+        assert!(!legacy.contains("SET stats_learner_count"));
+        assert!(legacy.contains("WHERE asl.learner_count >= $1::bigint"));
+    }
+
+    #[test]
+    fn shell_and_merged_base_distribution_sql_have_expected_shapes() {
+        assert!(deck_stats_shell_sql(true).contains("stats_learner_count"));
+        assert!(deck_stats_shell_sql(false).contains("NULL::integer AS stats_learner_count"));
+
+        let merged = base_and_distribution_sql();
+        assert!(merged.contains("COUNT(*) FILTER (WHERE reviewed)::bigint"));
+        assert!(merged.contains("PERCENTILE_CONT(0.5)"));
+        assert!(merged.contains("retention < 60 AND sample_size >= 5"));
+        assert!(merged.contains("retention >= 95 AND sample_size >= 5"));
     }
 }

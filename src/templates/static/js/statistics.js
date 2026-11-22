@@ -1,7 +1,14 @@
-/* CSP-compliant deck statistics behavior: Chart.js reads data-* payloads and adapts to
- * light/dark color-scheme changes without inline scripts or localStorage. */
+/* CSP-compliant deck statistics behavior: supports both instant SSR and progressive
+ * deferred partial hydration, Chart.js theming, DataTables, and zero localStorage. */
 (function ($) {
     'use strict';
+
+    var activeFilter = 'all';
+    var searchFilterRegistered = false;
+    var schemeListenerRegistered = false;
+    var themeUpdaters = [];
+    var distChartInstance = null;
+    var trendChartInstance = null;
 
     function parseJsonAttr(el, attrName) {
         var raw = el.getAttribute('data-' + attrName);
@@ -70,7 +77,76 @@
         }
     }
 
-    $(function () {
+    function registerNotesSearchFilter() {
+        if (searchFilterRegistered || !$.fn.dataTable || !$.fn.dataTable.ext) {
+            return;
+        }
+        searchFilterRegistered = true;
+
+        $.fn.dataTable.ext.search.push(function (settings, _data, dataIndex) {
+            if (!settings || !settings.nTable || settings.nTable.id !== 'notesOverview') {
+                return true;
+            }
+            if (activeFilter === 'all') {
+                return true;
+            }
+            var rowNode = settings.aoData[dataIndex] && settings.aoData[dataIndex].nTr;
+            if (!rowNode) {
+                return true;
+            }
+            var confident = rowNode.getAttribute('data-confident') === '1';
+            var leech = rowNode.getAttribute('data-leech') === '1';
+            var revised = rowNode.getAttribute('data-revised') === '1';
+            var pending = rowNode.getAttribute('data-pending') === '1';
+
+            if (activeFilter === 'attention') {
+                return confident && !pending && !revised;
+            }
+            if (activeFilter === 'confident') {
+                return confident;
+            }
+            if (activeFilter === 'leech') {
+                return leech;
+            }
+            if (activeFilter === 'revised') {
+                return revised;
+            }
+            return true;
+        });
+    }
+
+    function registerSchemeListener(colorSchemeQuery) {
+        if (schemeListenerRegistered || !colorSchemeQuery) {
+            return;
+        }
+        schemeListenerRegistered = true;
+
+        var handleSchemeChange = function (event) {
+            var next = getTheme(event.matches);
+            themeUpdaters.forEach(function (fn) {
+                fn(next);
+            });
+        };
+        if (typeof colorSchemeQuery.addEventListener === 'function') {
+            colorSchemeQuery.addEventListener('change', handleSchemeChange);
+        } else if (typeof colorSchemeQuery.addListener === 'function') {
+            colorSchemeQuery.addListener(handleSchemeChange);
+        }
+    }
+
+    function destroyCharts() {
+        if (distChartInstance) {
+            distChartInstance.destroy();
+            distChartInstance = null;
+        }
+        if (trendChartInstance) {
+            trendChartInstance.destroy();
+            trendChartInstance = null;
+        }
+        themeUpdaters = [];
+    }
+
+    function initStatisticsContent() {
         var deckTable = $('#deckOverview');
         if (deckTable.length) {
             deckTable.DataTable({
@@ -91,41 +167,12 @@
             });
         }
 
-        var activeFilter = 'all';
+        activeFilter = 'all';
         var notesEl = $('#notesOverview');
         var notesTable = null;
 
         if (notesEl.length) {
-            $.fn.dataTable.ext.search.push(function (settings, _data, dataIndex) {
-                if (!settings || !settings.nTable || settings.nTable.id !== 'notesOverview') {
-                    return true;
-                }
-                if (activeFilter === 'all') {
-                    return true;
-                }
-                var rowNode = settings.aoData[dataIndex] && settings.aoData[dataIndex].nTr;
-                if (!rowNode) {
-                    return true;
-                }
-                var confident = rowNode.getAttribute('data-confident') === '1';
-                var leech = rowNode.getAttribute('data-leech') === '1';
-                var revised = rowNode.getAttribute('data-revised') === '1';
-                var pending = rowNode.getAttribute('data-pending') === '1';
-
-                if (activeFilter === 'attention') {
-                    return confident && !pending && !revised;
-                }
-                if (activeFilter === 'confident') {
-                    return confident;
-                }
-                if (activeFilter === 'leech') {
-                    return leech;
-                }
-                if (activeFilter === 'revised') {
-                    return revised;
-                }
-                return true;
-            });
+            registerNotesSearchFilter();
 
             notesTable = notesEl.DataTable({
                 destroy: true,
@@ -154,19 +201,20 @@
             return;
         }
 
+        destroyCharts();
+
         var colorSchemeQuery = window.matchMedia
             ? window.matchMedia('(prefers-color-scheme: dark)')
             : null;
         var isDark = Boolean(colorSchemeQuery && colorSchemeQuery.matches);
         var theme = getTheme(isDark);
-        var themeUpdaters = [];
 
         var distCanvas = document.getElementById('retentionDistChart');
         if (distCanvas) {
             var allSeries = parseJsonAttr(distCanvas, 'all');
             var confidentSeries = parseJsonAttr(distCanvas, 'confident');
 
-            var distChart = new Chart(distCanvas.getContext('2d'), {
+            distChartInstance = new Chart(distCanvas.getContext('2d'), {
                 type: 'bar',
                 data: {
                     labels: parseJsonAttr(distCanvas, 'labels'),
@@ -219,28 +267,33 @@
                     .attr('aria-pressed', 'false');
                 btn.addClass('is-active').attr('aria-pressed', 'true');
 
-                distChart.data.datasets[0].data = mode === 'confident' ? confidentSeries : allSeries;
-                distChart.update('none');
+                if (distChartInstance) {
+                    distChartInstance.data.datasets[0].data = mode === 'confident' ? confidentSeries : allSeries;
+                    distChartInstance.update('none');
+                }
             });
 
             themeUpdaters.push(function (next) {
-                distChart.data.datasets[0].backgroundColor = distBarColors(next);
-                distChart.options.plugins.tooltip.backgroundColor = next.tooltipBg;
-                distChart.options.plugins.tooltip.titleColor = next.tooltipTitle;
-                distChart.options.plugins.tooltip.bodyColor = next.tooltipBody;
-                distChart.options.plugins.tooltip.borderColor = next.tooltipBorder;
-                distChart.options.scales.y.border.color = next.border;
-                distChart.options.scales.y.grid.color = next.grid;
-                distChart.options.scales.y.ticks.color = next.text;
-                distChart.options.scales.x.border.color = next.border;
-                distChart.options.scales.x.ticks.color = next.text;
-                distChart.update('none');
+                if (!distChartInstance) {
+                    return;
+                }
+                distChartInstance.data.datasets[0].backgroundColor = distBarColors(next);
+                distChartInstance.options.plugins.tooltip.backgroundColor = next.tooltipBg;
+                distChartInstance.options.plugins.tooltip.titleColor = next.tooltipTitle;
+                distChartInstance.options.plugins.tooltip.bodyColor = next.tooltipBody;
+                distChartInstance.options.plugins.tooltip.borderColor = next.tooltipBorder;
+                distChartInstance.options.scales.y.border.color = next.border;
+                distChartInstance.options.scales.y.grid.color = next.grid;
+                distChartInstance.options.scales.y.ticks.color = next.text;
+                distChartInstance.options.scales.x.border.color = next.border;
+                distChartInstance.options.scales.x.ticks.color = next.text;
+                distChartInstance.update('none');
             });
         }
 
         var trendCanvas = document.getElementById('retentionTrendChart');
         if (trendCanvas) {
-            var trendChart = new Chart(trendCanvas.getContext('2d'), {
+            trendChartInstance = new Chart(trendCanvas.getContext('2d'), {
                 type: 'line',
                 data: {
                     labels: parseJsonAttr(trendCanvas, 'labels'),
@@ -327,36 +380,119 @@
             });
 
             themeUpdaters.push(function (next) {
-                trendChart.data.datasets[0].borderColor = next.accent;
-                trendChart.data.datasets[0].backgroundColor = next.accentFill;
-                trendChart.data.datasets[1].borderColor = next.secondary;
-                trendChart.options.plugins.legend.labels.color = next.text;
-                trendChart.options.plugins.tooltip.backgroundColor = next.tooltipBg;
-                trendChart.options.plugins.tooltip.titleColor = next.tooltipTitle;
-                trendChart.options.plugins.tooltip.bodyColor = next.tooltipBody;
-                trendChart.options.plugins.tooltip.borderColor = next.tooltipBorder;
-                trendChart.options.scales.y.border.color = next.border;
-                trendChart.options.scales.y.grid.color = next.grid;
-                trendChart.options.scales.y.ticks.color = next.text;
-                trendChart.options.scales.yLapses.ticks.color = next.secondary;
-                trendChart.options.scales.x.border.color = next.border;
-                trendChart.options.scales.x.ticks.color = next.text;
-                trendChart.update('none');
+                if (!trendChartInstance) {
+                    return;
+                }
+                trendChartInstance.data.datasets[0].borderColor = next.accent;
+                trendChartInstance.data.datasets[0].backgroundColor = next.accentFill;
+                trendChartInstance.data.datasets[1].borderColor = next.secondary;
+                trendChartInstance.options.plugins.legend.labels.color = next.text;
+                trendChartInstance.options.plugins.tooltip.backgroundColor = next.tooltipBg;
+                trendChartInstance.options.plugins.tooltip.titleColor = next.tooltipTitle;
+                trendChartInstance.options.plugins.tooltip.bodyColor = next.tooltipBody;
+                trendChartInstance.options.plugins.tooltip.borderColor = next.tooltipBorder;
+                trendChartInstance.options.scales.y.border.color = next.border;
+                trendChartInstance.options.scales.y.grid.color = next.grid;
+                trendChartInstance.options.scales.y.ticks.color = next.text;
+                trendChartInstance.options.scales.yLapses.ticks.color = next.secondary;
+                trendChartInstance.options.scales.x.border.color = next.border;
+                trendChartInstance.options.scales.x.ticks.color = next.text;
+                trendChartInstance.update('none');
             });
         }
 
-        if (colorSchemeQuery && themeUpdaters.length) {
-            var handleSchemeChange = function (event) {
-                var next = getTheme(event.matches);
-                themeUpdaters.forEach(function (fn) {
-                    fn(next);
-                });
-            };
-            if (typeof colorSchemeQuery.addEventListener === 'function') {
-                colorSchemeQuery.addEventListener('change', handleSchemeChange);
-            } else if (typeof colorSchemeQuery.addListener === 'function') {
-                colorSchemeQuery.addListener(handleSchemeChange);
+        registerSchemeListener(colorSchemeQuery);
+    }
+
+    function renderDeferredError(mount, syncUrl) {
+        while (mount.firstChild) {
+            mount.removeChild(mount.firstChild);
+        }
+
+        var card = document.createElement('section');
+        card.className = 'di-card di-deferred-error';
+
+        var heading = document.createElement('h2');
+        heading.className = 'di-card-title mb-2';
+        heading.textContent = 'Unable to load detailed statistics';
+        card.appendChild(heading);
+
+        var desc = document.createElement('p');
+        desc.className = 'di-card-subtitle mb-0';
+        desc.textContent = 'The request took too long or was interrupted. Retry loading or open the full synchronous view.';
+        card.appendChild(desc);
+
+        var actions = document.createElement('div');
+        actions.className = 'di-deferred-actions';
+
+        var retryBtn = document.createElement('button');
+        retryBtn.type = 'button';
+        retryBtn.className = 'btn btn-primary btn-sm';
+        retryBtn.textContent = 'Try again';
+        retryBtn.addEventListener('click', function () {
+            retryBtn.disabled = true;
+            retryBtn.textContent = 'Loading…';
+            loadDeferredStats(mount);
+        });
+        actions.appendChild(retryBtn);
+
+        if (syncUrl && syncUrl.charAt(0) === '/') {
+            var syncLink = document.createElement('a');
+            syncLink.className = 'btn btn-outline-secondary btn-sm';
+            syncLink.href = syncUrl;
+            syncLink.textContent = 'Load synchronously';
+            actions.appendChild(syncLink);
+        }
+
+        card.appendChild(actions);
+        mount.appendChild(card);
+    }
+
+    function loadDeferredStats(mount) {
+        var deferredUrl = mount.getAttribute('data-stats-deferred-url');
+        var syncUrl = mount.getAttribute('data-stats-sync-url');
+        if (!deferredUrl || deferredUrl.charAt(0) !== '/') {
+            return;
+        }
+
+        mount.setAttribute('aria-busy', 'true');
+        announceStatus('Loading deck statistics…');
+
+        window.fetch(deferredUrl, {
+            credentials: 'same-origin',
+            headers: { 'X-Requested-With': 'XMLHttpRequest' }
+        }).then(function (response) {
+            if (response.redirected && response.url && response.url.indexOf('/login') !== -1) {
+                window.location.assign(response.url);
+                return null;
             }
+            if (!response.ok) {
+                throw new Error('HTTP ' + response.status);
+            }
+            return response.text();
+        }).then(function (html) {
+            if (html === null) {
+                return;
+            }
+            mount.innerHTML = html;
+            mount.removeAttribute('data-stats-deferred-url');
+            mount.setAttribute('aria-busy', 'false');
+            mount.classList.add('di-fade-in');
+            initStatisticsContent();
+            announceStatus('Deck statistics loaded.');
+        }).catch(function () {
+            mount.setAttribute('aria-busy', 'false');
+            renderDeferredError(mount, syncUrl);
+            announceStatus('Failed to load deck statistics.');
+        });
+    }
+
+    $(function () {
+        var mount = document.getElementById('statsDeferredMount');
+        if (mount && mount.hasAttribute('data-stats-deferred-url')) {
+            loadDeferredStats(mount);
+        } else {
+            initStatisticsContent();
         }
     });
 }(jQuery));

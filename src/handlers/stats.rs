@@ -1,20 +1,127 @@
 use std::sync::Arc;
 
 use axum::{
-    extract::{Path, State},
-    response::{Html, IntoResponse, Redirect},
+    extract::{Path, Query, State},
+    http::{header, HeaderValue, StatusCode},
+    response::{Html, IntoResponse, Redirect, Response},
 };
+use serde::Deserialize;
 
-use crate::contribution_manager;
 use crate::database::{self, owned_deck_id, AppState};
-use crate::error::{self, Error};
+use crate::error::Error;
 use crate::handlers::common::{access_check, check_login, error_page};
+use crate::stats_cache::DeckStatsPayload;
 use crate::stats_manager;
+use crate::structs::DeckBaseStatsInfo;
 use crate::user::User;
+
+#[derive(Deserialize, Default)]
+pub(crate) struct StatisticsQuery {
+    #[serde(default)]
+    pub sync: Option<u8>,
+}
 
 static STATS_CACHE_KEY: std::sync::LazyLock<String> = std::sync::LazyLock::new(|| {
     std::env::var("STATS_CACHE_KEY").expect("STATS_CACHE_KEY must be set")
 });
+
+fn no_store_html(html: String) -> Response {
+    (
+        StatusCode::OK,
+        [(
+            header::CACHE_CONTROL,
+            HeaderValue::from_static("private, no-store"),
+        )],
+        Html(html),
+    )
+        .into_response()
+}
+
+fn insert_stats_payload_context(context: &mut tera::Context, payload: &DeckStatsPayload) {
+    let count_attention = payload
+        .notes
+        .iter()
+        .filter(|n| {
+            i64::from(n.sample_size) >= stats_manager::MIN_LEARNER_SAMPLE
+                && !n.has_pending_suggestion
+                && !n.revised_recently
+        })
+        .count();
+    let count_confident = payload
+        .notes
+        .iter()
+        .filter(|n| i64::from(n.sample_size) >= stats_manager::MIN_LEARNER_SAMPLE)
+        .count();
+    let count_leech = payload.notes.iter().filter(|n| n.is_leech).count();
+    let count_revised = payload.notes.iter().filter(|n| n.revised_recently).count();
+    let confident_bucket_total: i64 = payload
+        .retention_buckets
+        .iter()
+        .map(|b| b.confident_count)
+        .sum();
+
+    context.insert("decks", &payload.decks);
+    context.insert("notes", &payload.notes);
+    context.insert("base", &payload.base);
+    context.insert("retention_buckets", &payload.retention_buckets);
+    context.insert("confident_bucket_total", &confident_bucket_total);
+    context.insert("retention_trend", &payload.retention_trend);
+    context.insert("tag_stats", &payload.tag_stats);
+    context.insert("notetype_stats", &payload.notetype_stats);
+    context.insert("count_all", &payload.notes.len());
+    context.insert("count_attention", &count_attention);
+    context.insert("count_confident", &count_confident);
+    context.insert("count_leech", &count_leech);
+    context.insert("count_revised", &count_revised);
+    context.insert(
+        "hist_labels",
+        &payload
+            .retention_buckets
+            .iter()
+            .map(|b| b.label.clone())
+            .collect::<Vec<_>>(),
+    );
+    context.insert(
+        "hist_all",
+        &payload
+            .retention_buckets
+            .iter()
+            .map(|b| b.all_count)
+            .collect::<Vec<_>>(),
+    );
+    context.insert(
+        "hist_confident",
+        &payload
+            .retention_buckets
+            .iter()
+            .map(|b| b.confident_count)
+            .collect::<Vec<_>>(),
+    );
+    context.insert(
+        "trend_labels",
+        &payload
+            .retention_trend
+            .iter()
+            .map(|p| p.captured_on.clone())
+            .collect::<Vec<_>>(),
+    );
+    context.insert(
+        "trend_retention",
+        &payload
+            .retention_trend
+            .iter()
+            .map(|p| p.avg_retention)
+            .collect::<Vec<_>>(),
+    );
+    context.insert(
+        "trend_lapses",
+        &payload
+            .retention_trend
+            .iter()
+            .map(|p| p.avg_lapses)
+            .collect::<Vec<_>>(),
+    );
+}
 
 pub(crate) async fn refresh_stats_cache(
     State(appstate): State<Arc<AppState>>,
@@ -61,6 +168,7 @@ pub(crate) async fn toggle_stats(
             tracing::warn!(error = %err, "Failed to toggle deck stats");
             Error::Unknown
         })?;
+    appstate.stats_cache.invalidate_deck(deck_id);
 
     Ok(Redirect::to("/ManageDecks"))
 }
@@ -68,177 +176,107 @@ pub(crate) async fn toggle_stats(
 pub(crate) async fn show_statistics(
     State(appstate): State<Arc<AppState>>,
     Path(deck_hash): Path<String>,
+    Query(query): Query<StatisticsQuery>,
     user: Option<User>,
-) -> Result<impl IntoResponse, Error> {
+) -> Result<Response, Error> {
     let user = check_login(user)?;
-    let client = database::client(&appstate).await?;
-    let deck_row = client
-        .query_opt(
-            "SELECT id,
-                    COALESCE(NULLIF(BTRIM(full_path), ''), NULLIF(BTRIM(name), ''), ''),
-                    COALESCE(stats_enabled, false)
-               FROM anki.decks
-              WHERE human_hash = $1 AND deleted_at IS NULL",
-            &[&deck_hash],
-        )
-        .await?;
-
-    let Some(deck_row) = deck_row else {
-        return error_page(&appstate, "Deck not found");
+    let Some(shell) = stats_manager::get_deck_stats_shell(&appstate, &deck_hash).await? else {
+        return Ok(error_page(&appstate, "Deck not found")?.into_response());
     };
-    let deck_id: i64 = deck_row.get(0);
-    let deck_path: String = deck_row.get(1);
-    let deck_name = contribution_manager::deck_display_name_from_path(&deck_path);
-    let stats_enabled: bool = deck_row.get(2);
 
-    if !access_check(&appstate, deck_id, &user).await? {
-        return Err(error::Error::Unauthorized);
+    if !access_check(&appstate, shell.deck_id, &user).await? {
+        return Err(Error::Unauthorized);
     }
 
     let mut context = tera::Context::new();
     context.insert("user", &user);
     context.insert("deck_hash", &deck_hash);
-    context.insert("deck_name", &deck_name);
-    context.insert("stats_enabled", &stats_enabled);
+    context.insert("deck_name", &shell.deck_name);
+    context.insert("stats_enabled", &shell.stats_enabled);
     context.insert("active_tab", "statistics");
 
-    let mut deck_base_info = match stats_manager::get_base_deck_info(&appstate, &deck_hash).await {
-        Ok(deck_base_info) => deck_base_info,
-        Err(error) => {
-            tracing::warn!(error = %error, "Failed to get base deck info for statistics");
-            return error_page(&appstate, "Error loading deck statistics.");
-        }
-    };
-
-    if deck_base_info.note_count == 0 {
-        context.insert("base", &deck_base_info);
-        let rendered_template = appstate.tera.render("empty_stats.html", &context)?;
-        return Ok(Html(rendered_template));
+    if shell.note_count == 0 {
+        let total_reviewed_notes =
+            stats_manager::get_total_reviewed_notes(&appstate, &deck_hash).await?;
+        let base = DeckBaseStatsInfo {
+            note_count: 0,
+            total_reviewed_notes,
+            coverage_pct: 0.0,
+            lapses_avg: 0.0,
+            reps_avg: 0.0,
+            retention_avg: 0.0,
+            contributor_count: 0,
+            median_sample_size: 0.0,
+            leech_count: 0,
+            recently_revised_struggling: 0,
+            trend_delta_30d: None,
+        };
+        context.insert("base", &base);
+        let rendered = appstate.tera.render("empty_stats.html", &context)?;
+        return Ok(no_store_html(rendered));
     }
 
-    let deck_info = match stats_manager::get_deck_stat_info(&appstate, &deck_hash).await {
-        Ok(deck_info) => deck_info,
-        Err(error) => {
-            tracing::warn!(error = %error, "Failed to get deck stat info");
-            return error_page(&appstate, "Error loading deck statistics.");
-        }
-    };
-
-    let notes_info = match stats_manager::get_worst_notes_info(&appstate, &deck_hash).await {
-        Ok(notes_info) => notes_info,
-        Err(error) => {
-            tracing::warn!(error = %error, "Failed to get worst notes info");
-            return error_page(&appstate, "Error loading deck statistics.");
-        }
-    };
-
-    let retention_buckets =
-        match stats_manager::get_retention_distribution(&appstate, &deck_hash).await {
-            Ok(buckets) => buckets,
-            Err(error) => {
-                tracing::warn!(error = %error, "Failed to get retention distribution");
-                Vec::new()
+    if query.sync == Some(1) {
+        let payload = match stats_manager::get_or_load_deck_stats(&appstate, &shell, &deck_hash)
+            .await
+        {
+            Ok(payload) => payload,
+            Err(err) => {
+                tracing::warn!(error = %err, "Failed to load deck statistics synchronously");
+                return Ok(error_page(&appstate, "Error loading deck statistics.")?.into_response());
             }
         };
+        insert_stats_payload_context(&mut context, &payload);
+        context.insert("is_deferred", &false);
+        let rendered = appstate.tera.render("statistics.html", &context)?;
+        return Ok(no_store_html(rendered));
+    }
 
-    let (retention_trend, trend_delta_30d) =
-        match stats_manager::get_retention_trend(&appstate, deck_id).await {
-            Ok(trend) => trend,
-            Err(error) => {
-                tracing::warn!(error = %error, "Failed to get retention trend");
-                (Vec::new(), None)
-            }
-        };
-    deck_base_info.trend_delta_30d = trend_delta_30d;
+    if let Some(payload) = appstate.stats_cache.get(shell.deck_id) {
+        insert_stats_payload_context(&mut context, &payload);
+        context.insert("is_deferred", &false);
+        let rendered = appstate.tera.render("statistics.html", &context)?;
+        return Ok(no_store_html(rendered));
+    }
 
-    let tag_stats = match stats_manager::get_tag_stats(&appstate, &deck_hash).await {
-        Ok(tags) => tags,
-        Err(error) => {
-            tracing::warn!(error = %error, "Failed to get tag stats");
-            Vec::new()
-        }
+    stats_manager::warm_deck_stats_in_background(
+        Arc::clone(&appstate),
+        shell.clone(),
+        deck_hash.clone(),
+    );
+
+    context.insert("is_deferred", &true);
+    context.insert("shell_note_count", &shell.note_count);
+    context.insert("shell_retention_avg", &shell.retention_avg);
+
+    let rendered = appstate.tera.render("statistics.html", &context)?;
+    Ok(no_store_html(rendered))
+}
+
+pub(crate) async fn show_statistics_sections(
+    State(appstate): State<Arc<AppState>>,
+    Path(deck_hash): Path<String>,
+    user: Option<User>,
+) -> Result<Response, Error> {
+    let user = check_login(user)?;
+    let Some(shell) = stats_manager::get_deck_stats_shell(&appstate, &deck_hash).await? else {
+        return Err(Error::DeckNotFound);
     };
 
-    let notetype_stats = match stats_manager::get_notetype_stats(&appstate, &deck_hash).await {
-        Ok(notetypes) => notetypes,
-        Err(error) => {
-            tracing::warn!(error = %error, "Failed to get notetype stats");
-            Vec::new()
-        }
-    };
+    if !access_check(&appstate, shell.deck_id, &user).await? {
+        return Err(Error::Unauthorized);
+    }
 
-    let count_attention = notes_info
-        .iter()
-        .filter(|n| {
-            i64::from(n.sample_size) >= stats_manager::MIN_LEARNER_SAMPLE
-                && !n.has_pending_suggestion
-                && !n.revised_recently
-        })
-        .count();
-    let count_confident = notes_info
-        .iter()
-        .filter(|n| i64::from(n.sample_size) >= stats_manager::MIN_LEARNER_SAMPLE)
-        .count();
-    let count_leech = notes_info.iter().filter(|n| n.is_leech).count();
-    let count_revised = notes_info.iter().filter(|n| n.revised_recently).count();
-    let confident_bucket_total: i64 = retention_buckets.iter().map(|b| b.confident_count).sum();
+    let payload = stats_manager::get_or_load_deck_stats(&appstate, &shell, &deck_hash)
+        .await
+        .map_err(|_| Error::Unknown)?;
 
-    context.insert("decks", &deck_info);
-    context.insert("notes", &notes_info);
-    context.insert("base", &deck_base_info);
-    context.insert("retention_buckets", &retention_buckets);
-    context.insert("confident_bucket_total", &confident_bucket_total);
-    context.insert("retention_trend", &retention_trend);
-    context.insert("tag_stats", &tag_stats);
-    context.insert("notetype_stats", &notetype_stats);
-    context.insert("count_all", &notes_info.len());
-    context.insert("count_attention", &count_attention);
-    context.insert("count_confident", &count_confident);
-    context.insert("count_leech", &count_leech);
-    context.insert("count_revised", &count_revised);
-    context.insert(
-        "hist_labels",
-        &retention_buckets
-            .iter()
-            .map(|b| b.label.clone())
-            .collect::<Vec<_>>(),
-    );
-    context.insert(
-        "hist_all",
-        &retention_buckets
-            .iter()
-            .map(|b| b.all_count)
-            .collect::<Vec<_>>(),
-    );
-    context.insert(
-        "hist_confident",
-        &retention_buckets
-            .iter()
-            .map(|b| b.confident_count)
-            .collect::<Vec<_>>(),
-    );
-    context.insert(
-        "trend_labels",
-        &retention_trend
-            .iter()
-            .map(|p| p.captured_on.clone())
-            .collect::<Vec<_>>(),
-    );
-    context.insert(
-        "trend_retention",
-        &retention_trend
-            .iter()
-            .map(|p| p.avg_retention)
-            .collect::<Vec<_>>(),
-    );
-    context.insert(
-        "trend_lapses",
-        &retention_trend
-            .iter()
-            .map(|p| p.avg_lapses)
-            .collect::<Vec<_>>(),
-    );
+    let mut context = tera::Context::new();
+    context.insert("deck_hash", &deck_hash);
+    insert_stats_payload_context(&mut context, &payload);
 
-    let rendered_template = appstate.tera.render("statistics.html", &context)?;
-    Ok(Html(rendered_template))
+    let rendered = appstate
+        .tera
+        .render("partials/statistics_body.html", &context)?;
+    Ok(no_store_html(rendered))
 }

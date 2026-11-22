@@ -36,452 +36,107 @@
             </div>
           </header>
 
-          <section class="di-kpi-grid" aria-label="Key deck performance metrics">
-            <article class="di-kpi-card">
-              <span class="di-kpi-label">Average Retention</span>
-              <div class="di-kpi-value-row">
-                <span class="di-kpi-value">{{ base.retention_avg | round(precision=1) }}%</span>
-              </div>
-              <p class="di-kpi-sub mb-0">
-                {% if base.trend_delta_30d is not none %}
-                  {% if base.trend_delta_30d > 0.05 %}
-                  <span class="di-delta-up di-num">+{{ base.trend_delta_30d | round(precision=1) }} pts</span>
-                  {% elif base.trend_delta_30d < -0.05 %}
-                  <span class="di-delta-down di-num">{{ base.trend_delta_30d | round(precision=1) }} pts</span>
-                  {% else %}
-                  Steady
-                  {% endif %}
-                  over ~30 days &middot; <span class="di-num">{{ base.note_count }}</span> notes
-                {% else %}
-                Weighted across <span class="di-num">{{ base.note_count }}</span> tracked notes
-                {% endif %}
-              </p>
-            </article>
-
-            <article class="di-kpi-card">
-              <span class="di-kpi-label">Stats Coverage</span>
-              <div class="di-kpi-value-row">
-                <span class="di-kpi-value">{{ base.coverage_pct | round(precision=1) }}%</span>
-              </div>
-              <p class="di-kpi-sub mb-0 di-num">
-                {{ base.note_count }} of {{ base.total_reviewed_notes }} notes &middot;
-                {{ base.contributor_count }} opt-in {% if base.contributor_count == 1 %}learner{% else %}learners{% endif %}
-              </p>
-            </article>
-
-            <article class="di-kpi-card">
-              <span class="di-kpi-label">Average Lapses &amp; Reps</span>
-              <div class="di-kpi-value-row">
-                <span class="di-kpi-value">{{ base.lapses_avg | round(precision=1) }}</span>
-              </div>
-              <p class="di-kpi-sub mb-0 di-num">
-                Lapses/note &middot; {{ base.reps_avg | round(precision=1) }} avg reps &middot;
-                median {{ base.median_sample_size | round(precision=0) }} learners
-              </p>
-            </article>
-
-            <article class="di-kpi-card">
-              <span class="di-kpi-label">Leech Candidates</span>
-              <div class="di-kpi-value-row">
-                <span class="di-kpi-value">{{ base.leech_count }}</span>
-              </div>
-              <p class="di-kpi-sub mb-0">
-                {% if base.recently_revised_struggling > 0 %}
-                {{ base.recently_revised_struggling }} revised in last 60 days (awaiting re-study)
-                {% else %}
-                Notes with &lt;70% retention or &ge;4 lapses (n &ge; 5)
-                {% endif %}
-              </p>
-            </article>
-          </section>
-
-          <section class="di-bento-grid" aria-label="Retention distribution and trends">
-            <article class="di-card">
-              <div class="di-card-head">
-                <div>
-                  <h2 class="di-card-title">Retention Distribution</h2>
-                  <p class="di-card-subtitle">How tracked notes spread across retention bands.</p>
+          {% if is_deferred %}
+          <div id="statsDeferredMount"
+               data-stats-deferred-url="/Statistics/{{ deck_hash }}/sections"
+               data-stats-sync-url="/Statistics/{{ deck_hash }}?sync=1"
+               aria-busy="true">
+            <section class="di-kpi-grid" aria-label="Key deck performance metrics">
+              <article class="di-kpi-card">
+                <span class="di-kpi-label">Average Retention</span>
+                <div class="di-kpi-value-row">
+                  <span class="di-kpi-value">{{ shell_retention_avg | round(precision=1) }}%</span>
                 </div>
-                {% if confident_bucket_total > 0 %}
-                <div class="di-segmented" role="group" aria-label="Retention distribution sample filter">
-                  <button type="button" class="di-seg-item is-active" data-dist-mode="all" aria-pressed="true">All tracked</button>
-                  <button type="button" class="di-seg-item" data-dist-mode="confident" aria-pressed="false">n &ge; 5</button>
-                </div>
-                {% endif %}
-              </div>
-              <div class="di-chart-box">
-                <canvas id="retentionDistChart"
-                        role="img"
-                        aria-label="Bar chart of note counts across retention bands."
-                        data-labels='{{ hist_labels | json_encode }}'
-                        data-all='{{ hist_all | json_encode }}'
-                        data-confident='{{ hist_confident | json_encode }}'></canvas>
-              </div>
-            </article>
-
-            {% if retention_trend | length >= 2 %}
-            <article class="di-card">
-              <div class="di-card-head">
-                <div>
-                  <h2 class="di-card-title">Retention Trend (180 Days)</h2>
-                  <p class="di-card-subtitle">Daily deck averages captured when &ge; 5 learners report.</p>
-                </div>
-              </div>
-              <div class="di-chart-box">
-                <canvas id="retentionTrendChart"
-                        role="img"
-                        aria-label="Line chart of average deck retention over the last 180 days."
-                        data-labels='{{ trend_labels | json_encode }}'
-                        data-retention='{{ trend_retention | json_encode }}'
-                        data-lapses='{{ trend_lapses | json_encode }}'></canvas>
-              </div>
-            </article>
-            {% else %}
-            <article class="di-card">
-              <div class="di-card-head">
-                <div>
-                  <h2 class="di-card-title">Understanding Spaced-Repetition Lag</h2>
-                  <p class="di-card-subtitle">Why fixes take time to move deck averages.</p>
-                </div>
-              </div>
-              <p class="di-card-subtitle">
-                Because Anki schedules cards on expanding intervals, editing a confusing note today
-                only updates learner retention as subscribers encounter that card again over the
-                coming weeks.
-              </p>
-              <p class="di-card-subtitle">
-                {% if retention_trend | length == 1 %}
-                First daily retention snapshot recorded on <strong class="di-num">{{ retention_trend[0].captured_on }}</strong>.
-                Trend lines appear automatically once at least two daily snapshots exist.
-                {% else %}
-                Daily retention trend snapshots begin automatically on the next 24-hour refresh once
-                at least 5 opt-in learners have reported statistics for this deck.
-                {% endif %}
-              </p>
-              <p class="di-card-subtitle">
-                Until then, use the <strong>Revised recently</strong> badge in the triage table below
-                to avoid re-editing cards you already improved.
-              </p>
-            </article>
-            {% endif %}
-          </section>
-
-          <section class="di-card" aria-labelledby="subdecks-heading">
-            <div class="di-card-head">
-              <div>
-                <h2 id="subdecks-heading" class="di-card-title">Subdeck Breakdown</h2>
-                <p class="di-card-subtitle">Rolled up across each subdeck's tree. Select a row to inspect that subdeck.</p>
-              </div>
-            </div>
-            <div class="di-table-wrap">
-              <table id="deckOverview" class="table di-table">
-                <caption class="visually-hidden">Subdeck retention, coverage, lapses, and leech statistics</caption>
-                <thead>
-                  <tr>
-                    <th scope="col">Subdeck</th>
-                    <th scope="col">Retention</th>
-                    <th scope="col" class="text-end">Coverage</th>
-                    <th scope="col" class="text-end">Avg Lapses</th>
-                    <th scope="col" class="text-end">Avg Reps</th>
-                    <th scope="col" class="text-end">Leeches</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {% for deck in decks %}
-                  <tr>
-                    <td>
-                      <a href="/Statistics/{{ deck.hash }}" class="di-path" title="{{ deck.path }}">
-                        {% if deck.prefix_path %}<span class="di-path-prefix">{{ deck.prefix_path }}</span>{% endif %}<span class="di-path-leaf">{{ deck.leaf_name }}</span>
-                      </a>
-                    </td>
-                    <td data-order="{% if deck.retention is not none %}{{ deck.retention }}{% else %}-1{% endif %}">
-                      {% if deck.retention is not none %}
-                      <div class="di-metric-bar">
-                        <div class="di-metric-bar-track">
-                          <svg class="di-bar-svg" viewBox="0 0 100 6" preserveAspectRatio="none" aria-hidden="true" focusable="false">
-                            <rect class="di-bar-track" x="0" y="0" width="100" height="6"></rect>
-                            <rect class="{% if deck.retention >= 85 %}di-fill-success{% elif deck.retention >= 75 %}di-fill-warning{% else %}di-fill-danger{% endif %}" x="0" y="0" width="{{ deck.retention | round(precision=1) }}" height="6"></rect>
-                          </svg>
-                        </div>
-                        <span class="di-metric-val">{{ deck.retention | round(precision=1) }}%</span>
-                        {% if deck.retention >= 85 %}
-                        <span class="visually-hidden">(Healthy)</span>
-                        {% elif deck.retention >= 75 %}
-                        <span class="visually-hidden">(Moderate)</span>
-                        {% else %}
-                        <span class="visually-hidden">(Struggling)</span>
-                        {% endif %}
-                      </div>
-                      {% else %}
-                      <span class="di-pill di-pill-neutral">No data</span>
-                      {% endif %}
-                    </td>
-                    <td class="text-end di-num" data-order="{{ deck.coverage_pct }}">
-                      {{ deck.tracked_notes }}/{{ deck.total_notes }} ({{ deck.coverage_pct | round(precision=0) }}%)
-                    </td>
-                    <td class="text-end di-num" data-order="{% if deck.lapses_avg is not none %}{{ deck.lapses_avg }}{% else %}-1{% endif %}">
-                      {% if deck.lapses_avg is not none %}{{ deck.lapses_avg | round(precision=1) }}{% else %}&mdash;{% endif %}
-                    </td>
-                    <td class="text-end di-num" data-order="{% if deck.reps_avg is not none %}{{ deck.reps_avg }}{% else %}-1{% endif %}">
-                      {% if deck.reps_avg is not none %}{{ deck.reps_avg | round(precision=1) }}{% else %}&mdash;{% endif %}
-                    </td>
-                    <td class="text-end di-num" data-order="{{ deck.leech_count }}">
-                      {% if deck.leech_count > 0 %}{{ deck.leech_count }}{% else %}0{% endif %}
-                    </td>
-                  </tr>
-                  {% endfor %}
-                </tbody>
-              </table>
-            </div>
-          </section>
-
-          {% if tag_stats | length > 0 or notetype_stats | length >= 2 %}
-          <section class="di-card" aria-labelledby="topics-heading">
-            <div class="di-card-head">
-              <div>
-                <h2 id="topics-heading" class="di-card-title">
-                  {% if tag_stats | length > 0 %}Topic &amp; Tag Performance{% else %}Notetype Performance{% endif %}
-                </h2>
-                <p class="di-card-subtitle">
-                  {% if tag_stats | length > 0 %}
-                  Lowest-retention topics first. Excludes housekeeping tags (<code>leech</code>, <code>marked</code>, <code>AnkiCollab_*</code>) and requires &ge; 5 tracked notes &amp; &ge; 5 learners.
-                  {% else %}
-                  Retention compared across card templates with &ge; 5 tracked notes and &ge; 5 learners.
-                  {% endif %}
+                <p class="di-kpi-sub mb-0">
+                  Weighted across <span class="di-num">{{ shell_note_count }}</span> tracked notes
                 </p>
-              </div>
-            </div>
+              </article>
 
-            {% if tag_stats | length > 0 %}
-            <div class="di-table-wrap">
-              <table id="tagsOverview" class="table di-table">
-                <caption class="visually-hidden">Retention and lapse averages grouped by tag topic</caption>
-                <thead>
-                  <tr>
-                    <th scope="col">Topic Tag</th>
-                    <th scope="col">Avg Retention</th>
-                    <th scope="col" class="text-end">Avg Lapses</th>
-                    <th scope="col" class="text-end">Avg Reps</th>
-                    <th scope="col" class="text-end">Notes</th>
-                    <th scope="col" class="text-end">Leeches</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {% for topic in tag_stats %}
-                  <tr>
-                    <td>
-                      <div class="di-path" title="{{ topic.tag }}">
-                        {% if topic.prefix %}<span class="di-path-prefix">{{ topic.prefix }}</span>{% endif %}<span class="di-path-leaf">{{ topic.leaf }}</span>
-                      </div>
-                    </td>
-                    <td data-order="{{ topic.avg_retention }}">
-                      <div class="di-metric-bar">
-                        <div class="di-metric-bar-track">
-                          <svg class="di-bar-svg" viewBox="0 0 100 6" preserveAspectRatio="none" aria-hidden="true" focusable="false">
-                            <rect class="di-bar-track" x="0" y="0" width="100" height="6"></rect>
-                            <rect class="{% if topic.avg_retention >= 85 %}di-fill-success{% elif topic.avg_retention >= 75 %}di-fill-warning{% else %}di-fill-danger{% endif %}" x="0" y="0" width="{{ topic.avg_retention | round(precision=1) }}" height="6"></rect>
-                          </svg>
-                        </div>
-                        <span class="di-metric-val">{{ topic.avg_retention | round(precision=1) }}%</span>
-                      </div>
-                    </td>
-                    <td class="text-end di-num" data-order="{{ topic.avg_lapses }}">{{ topic.avg_lapses | round(precision=1) }}</td>
-                    <td class="text-end di-num" data-order="{{ topic.avg_reps }}">{{ topic.avg_reps | round(precision=1) }}</td>
-                    <td class="text-end di-num" data-order="{{ topic.note_count }}">{{ topic.note_count }}</td>
-                    <td class="text-end di-num" data-order="{{ topic.leech_count }}">{{ topic.leech_count }}</td>
-                  </tr>
-                  {% endfor %}
-                </tbody>
-              </table>
-            </div>
-            {% endif %}
+              <article class="di-kpi-card">
+                <span class="di-kpi-label">Stats Coverage</span>
+                <div class="di-skeleton di-sk-kpi" aria-hidden="true"></div>
+                <div class="di-skeleton di-sk-sub di-sk-w-lg" aria-hidden="true"></div>
+              </article>
 
-            {% if notetype_stats | length >= 2 %}
-            <div class="{% if tag_stats | length > 0 %}di-backlog-box{% endif %}">
-              {% if tag_stats | length > 0 %}
-              <h3 class="di-card-title mb-2">Notetype Comparison</h3>
-              <p class="di-card-subtitle mb-3">Compare card templates (for example Cloze vs. Basic) to spot structural friction.</p>
-              {% endif %}
-              <div class="di-table-wrap">
-                <table class="table di-table">
-                  <caption class="visually-hidden">Retention and review averages by notetype</caption>
-                  <thead>
-                    <tr>
-                      <th scope="col">Notetype</th>
-                      <th scope="col">Avg Retention</th>
-                      <th scope="col" class="text-end">Avg Lapses</th>
-                      <th scope="col" class="text-end">Avg Reps</th>
-                      <th scope="col" class="text-end">Notes</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {% for nt in notetype_stats %}
-                    <tr>
-                      <th scope="row" class="fw-semibold">{{ nt.name }}</th>
-                      <td>
-                        <div class="di-metric-bar">
-                          <div class="di-metric-bar-track">
-                            <svg class="di-bar-svg" viewBox="0 0 100 6" preserveAspectRatio="none" aria-hidden="true" focusable="false">
-                              <rect class="di-bar-track" x="0" y="0" width="100" height="6"></rect>
-                              <rect class="{% if nt.avg_retention >= 85 %}di-fill-success{% elif nt.avg_retention >= 75 %}di-fill-warning{% else %}di-fill-danger{% endif %}" x="0" y="0" width="{{ nt.avg_retention | round(precision=1) }}" height="6"></rect>
-                            </svg>
-                          </div>
-                          <span class="di-metric-val">{{ nt.avg_retention | round(precision=1) }}%</span>
-                        </div>
-                      </td>
-                      <td class="text-end di-num">{{ nt.avg_lapses | round(precision=1) }}</td>
-                      <td class="text-end di-num">{{ nt.avg_reps | round(precision=1) }}</td>
-                      <td class="text-end di-num">{{ nt.note_count }}</td>
-                    </tr>
-                    {% endfor %}
-                  </tbody>
-                </table>
+              <article class="di-kpi-card">
+                <span class="di-kpi-label">Average Lapses &amp; Reps</span>
+                <div class="di-skeleton di-sk-kpi" aria-hidden="true"></div>
+                <div class="di-skeleton di-sk-sub di-sk-w-lg" aria-hidden="true"></div>
+              </article>
+
+              <article class="di-kpi-card">
+                <span class="di-kpi-label">Leech Candidates</span>
+                <div class="di-skeleton di-sk-kpi di-sk-w-sm" aria-hidden="true"></div>
+                <div class="di-skeleton di-sk-sub di-sk-w-md" aria-hidden="true"></div>
+              </article>
+            </section>
+
+            <section class="di-bento-grid" aria-label="Retention distribution and trends" aria-hidden="true">
+              <article class="di-card">
+                <div class="di-card-head">
+                  <div>
+                    <h2 class="di-card-title">Retention Distribution</h2>
+                    <div class="di-skeleton di-sk-subtitle di-sk-w-md"></div>
+                  </div>
+                </div>
+                <div class="di-skeleton di-sk-chart"></div>
+              </article>
+
+              <article class="di-card">
+                <div class="di-card-head">
+                  <div>
+                    <h2 class="di-card-title">Retention Trend (180 Days)</h2>
+                    <div class="di-skeleton di-sk-subtitle di-sk-w-lg"></div>
+                  </div>
+                </div>
+                <div class="di-skeleton di-sk-chart"></div>
+              </article>
+            </section>
+
+            <section class="di-card" aria-hidden="true">
+              <div class="di-card-head">
+                <div>
+                  <h2 class="di-card-title">Subdeck Breakdown</h2>
+                  <div class="di-skeleton di-sk-subtitle di-sk-w-lg"></div>
+                </div>
               </div>
-            </div>
-            {% endif %}
-          </section>
+              <div class="di-skeleton-table">
+                <div class="di-skeleton di-skeleton-row"></div>
+                <div class="di-skeleton di-skeleton-row"></div>
+                <div class="di-skeleton di-skeleton-row"></div>
+                <div class="di-skeleton di-skeleton-row"></div>
+                <div class="di-skeleton di-skeleton-row"></div>
+              </div>
+            </section>
+
+            <section class="di-card" aria-hidden="true">
+              <div class="di-card-head">
+                <div>
+                  <h2 class="di-card-title">Cards Needing Attention</h2>
+                  <div class="di-skeleton di-sk-subtitle di-sk-w-md"></div>
+                </div>
+              </div>
+              <div class="di-skeleton-table">
+                <div class="di-skeleton di-skeleton-row"></div>
+                <div class="di-skeleton di-skeleton-row"></div>
+                <div class="di-skeleton di-skeleton-row"></div>
+                <div class="di-skeleton di-skeleton-row"></div>
+                <div class="di-skeleton di-skeleton-row"></div>
+              </div>
+            </section>
+
+            <noscript>
+              <section class="di-card di-deferred-notice">
+                <p class="mb-2">JavaScript is required to load statistics asynchronously.</p>
+                <a href="/Statistics/{{ deck_hash }}?sync=1" class="btn btn-primary btn-sm">Load statistics synchronously</a>
+              </section>
+            </noscript>
+          </div>
+          {% else %}
+          <div id="statsDeferredMount" aria-busy="false">
+            {% include "partials/statistics_body.html" %}
+          </div>
           {% endif %}
-
-          <section class="di-card" aria-labelledby="worst-notes-heading">
-            <div class="di-card-head">
-              <div>
-                <h2 id="worst-notes-heading" class="di-card-title">Cards Needing Attention</h2>
-                <p class="di-card-subtitle">
-                  Top 100 struggling notes ranked by sample-weighted retention and lapses.
-                </p>
-              </div>
-              <div class="di-segmented" role="group" aria-label="Filter cards needing attention">
-                <button type="button" class="di-seg-item is-active" data-notes-filter="all" aria-pressed="true">
-                  All <span class="di-seg-count">{{ count_all }}</span>
-                </button>
-                <button type="button" class="di-seg-item" data-notes-filter="attention" aria-pressed="false">
-                  Needs action <span class="di-seg-count">{{ count_attention }}</span>
-                </button>
-                <button type="button" class="di-seg-item" data-notes-filter="confident" aria-pressed="false">
-                  n &ge; 5 <span class="di-seg-count">{{ count_confident }}</span>
-                </button>
-                <button type="button" class="di-seg-item" data-notes-filter="leech" aria-pressed="false">
-                  Leeches <span class="di-seg-count">{{ count_leech }}</span>
-                </button>
-                <button type="button" class="di-seg-item" data-notes-filter="revised" aria-pressed="false">
-                  Revised &le;60d <span class="di-seg-count">{{ count_revised }}</span>
-                </button>
-              </div>
-            </div>
-
-            <div class="di-table-wrap">
-              <table id="notesOverview" class="table di-table">
-                <caption class="visually-hidden">Notes with lowest weighted retention and highest lapses</caption>
-                <thead>
-                  <tr>
-                    <th scope="col">Note</th>
-                    <th scope="col">Subdeck</th>
-                    <th scope="col">Retention</th>
-                    <th scope="col" class="text-end">Lapses</th>
-                    <th scope="col" class="text-end">Reps</th>
-                    <th scope="col" class="text-end">Learners</th>
-                    <th scope="col">Status</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {% for note in notes %}
-                  <tr class="{% if note.sample_size < 5 %}low-confidence{% endif %}"
-                      data-confident="{% if note.sample_size >= 5 %}1{% else %}0{% endif %}"
-                      data-leech="{% if note.is_leech %}1{% else %}0{% endif %}"
-                      data-revised="{% if note.revised_recently %}1{% else %}0{% endif %}"
-                      data-pending="{% if note.has_pending_suggestion %}1{% else %}0{% endif %}">
-                    <td>
-                      {% set note_preview = note.fields | striptags | trim %}
-                      <a href="/review/{{ note.id }}" class="di-note-link">
-                        {% if note_preview %}{{ note_preview | truncate(length=130) }}{% else %}Note #{{ note.id }}{% endif %}
-                      </a>
-                      <div class="di-note-meta">
-                        <a href="/review/{{ note.id }}" class="di-num">#{{ note.id }}</a>
-                        <span aria-hidden="true">&middot;</span>
-                        <a href="/note_history/{{ note.id }}">History</a>
-                        {% if note.last_updated %}
-                        <span aria-hidden="true">&middot;</span>
-                        <span class="di-num">Edited {{ note.last_updated }}</span>
-                        {% endif %}
-                      </div>
-                    </td>
-                    <td>
-                      <div class="di-path" title="{{ note.subdeck_path }}">
-                        {% if note.subdeck_prefix %}<span class="di-path-prefix">{{ note.subdeck_prefix }}</span>{% endif %}<span class="di-path-leaf">{{ note.subdeck_leaf }}</span>
-                      </div>
-                    </td>
-                    <td data-order="{{ note.retention }}">
-                      <div class="di-metric-bar">
-                        <div class="di-metric-bar-track">
-                          <svg class="di-bar-svg" viewBox="0 0 100 6" preserveAspectRatio="none" aria-hidden="true" focusable="false">
-                            <rect class="di-bar-track" x="0" y="0" width="100" height="6"></rect>
-                            <rect class="{% if note.retention >= 85 %}di-fill-success{% elif note.retention >= 75 %}di-fill-warning{% else %}di-fill-danger{% endif %}" x="0" y="0" width="{{ note.retention | round(precision=1) }}" height="6"></rect>
-                          </svg>
-                        </div>
-                        <span class="di-metric-val">{{ note.retention | round(precision=1) }}%</span>
-                      </div>
-                      {% if note.retention_stddev is not none %}
-                      <span class="di-spread">&plusmn;{{ note.retention_stddev | round(precision=1) }}% spread</span>
-                      {% endif %}
-                    </td>
-                    <td class="text-end di-num" data-order="{{ note.lapses }}">{{ note.lapses | round(precision=1) }}</td>
-                    <td class="text-end di-num" data-order="{{ note.reps }}">{{ note.reps | round(precision=1) }}</td>
-                    <td class="text-end di-num" data-order="{{ note.sample_size }}">
-                      {{ note.sample_size }}
-                      {% if note.sample_size < 5 %}
-                      <span class="di-spread">Low sample</span>
-                      {% endif %}
-                    </td>
-                    <td>
-                      <div class="di-status-stack">
-                        {% if note.has_pending_suggestion %}
-                        <span class="di-pill di-pill-accent">
-                          <i class="fa-solid fa-code-pull-request" aria-hidden="true"></i>
-                          <span>Fix pending</span>
-                        </span>
-                        {% endif %}
-                        {% if note.revised_recently and note.days_since_update is not none %}
-                        <span class="di-pill di-pill-success">
-                          <i class="fa-solid fa-clock-rotate-left" aria-hidden="true"></i>
-                          <span>Revised {{ note.days_since_update }}d ago</span>
-                        </span>
-                        {% endif %}
-                        {% if note.is_leech and not note.has_pending_suggestion and not note.revised_recently %}
-                        <span class="di-pill di-pill-danger">
-                          <i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i>
-                          <span>Leech</span>
-                        </span>
-                        {% elif not note.has_pending_suggestion and not note.revised_recently and note.sample_size < 5 %}
-                        <span class="di-pill di-pill-neutral">Wait for n &ge; 5</span>
-                        {% elif not note.has_pending_suggestion and not note.revised_recently %}
-                        <span class="di-pill di-pill-warning">Review</span>
-                        {% endif %}
-                      </div>
-                    </td>
-                  </tr>
-                  {% endfor %}
-                </tbody>
-              </table>
-            </div>
-
-            <details class="di-disclosure">
-              <summary>How cards are ranked &amp; what spread (&plusmn;&sigma;) means</summary>
-              <div class="di-disclosure-body">
-                <p class="mb-2">
-                  <strong>Bayesian ranking:</strong> Retention estimates are shrunk toward the deck average
-                  using the median learner count per note, so a card failed by one learner does not outrank
-                  a card consistently missed by dozens. Rows with fewer than 5 learners are dimmed as low sample.
-                </p>
-                <p class="mb-0">
-                  <strong>Learner spread (&plusmn;&sigma;) &amp; recent edits:</strong> Shown once at least 5
-                  learners have reported stats. Low retention with tight spread means nearly everyone struggles
-                  (usually unclear phrasing or missing context); wide spread means some learners know it well
-                  while others miss a prerequisite. Cards marked <em>Revised</em> were edited within 60 days and
-                  may improve naturally once subscribers reach their next scheduled review.
-                </p>
-              </div>
-            </details>
-          </section>
         </div>
 
         {% include "layout_footer.html" %}

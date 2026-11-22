@@ -41,6 +41,8 @@ body:has(.di-page),
     --di-neutral-pill-bg-light: #f1f3f5;
     --di-neutral-pill-ink-light: #495057;
     --di-bar-track-light: #e4e7ec;
+    --di-skeleton-base-light: #e9ecf0;
+    --di-skeleton-shine-light: #f4f6f9;
     --di-shadow-card-light: 0 1px 2px rgba(0, 0, 0, 0.05), 0 0 0 0.5px rgba(0, 0, 0, 0.04);
 
     --di-canvas-dark: #0b0c0f;
@@ -71,6 +73,8 @@ body:has(.di-page),
     --di-neutral-pill-bg-dark: #2c2c30;
     --di-neutral-pill-ink-dark: #cbd5e1;
     --di-bar-track-dark: #2c2c32;
+    --di-skeleton-base-dark: #2a2a2f;
+    --di-skeleton-shine-dark: #36363c;
     --di-shadow-card-dark: 0 2px 8px rgba(0, 0, 0, 0.35);
 
     /* Semantic defaults (light) */
@@ -102,6 +106,8 @@ body:has(.di-page),
     --di-neutral-pill-bg: var(--di-neutral-pill-bg-light);
     --di-neutral-pill-ink: var(--di-neutral-pill-ink-light);
     --di-bar-track: var(--di-bar-track-light);
+    --di-skeleton-base: var(--di-skeleton-base-light);
+    --di-skeleton-shine: var(--di-skeleton-shine-light);
     --di-shadow-card: var(--di-shadow-card-light);
 
     --di-radius-card: 12px;
@@ -152,6 +158,8 @@ body:has(.di-page),
         --di-neutral-pill-bg: var(--di-neutral-pill-bg-dark);
         --di-neutral-pill-ink: var(--di-neutral-pill-ink-dark);
         --di-bar-track: var(--di-bar-track-dark);
+        --di-skeleton-base: var(--di-skeleton-base-dark);
+        --di-skeleton-shine: var(--di-skeleton-shine-dark);
         --di-shadow-card: var(--di-shadow-card-dark);
     }
 }
@@ -186,6 +194,8 @@ body:has(.di-page),
         --di-neutral-pill-bg: light-dark(var(--di-neutral-pill-bg-light), var(--di-neutral-pill-bg-dark));
         --di-neutral-pill-ink: light-dark(var(--di-neutral-pill-ink-light), var(--di-neutral-pill-ink-dark));
         --di-bar-track: light-dark(var(--di-bar-track-light), var(--di-bar-track-dark));
+        --di-skeleton-base: light-dark(var(--di-skeleton-base-light), var(--di-skeleton-base-dark));
+        --di-skeleton-shine: light-dark(var(--di-skeleton-shine-light), var(--di-skeleton-shine-dark));
     }
 }
 
@@ -1138,10 +1148,128 @@ body:has(.di-page),
     }
 }
 
+/* --- Progressive Loading Skeletons & Below-the-Fold Deferred Rendering --- */
+.di-deferred-section {
+    content-visibility: auto;
+    contain-intrinsic-size: auto none auto 420px;
+}
+
+.di-skeleton {
+    display: block;
+    border-radius: 6px;
+    background-color: var(--di-skeleton-base);
+    background-image: linear-gradient(
+        90deg,
+        var(--di-skeleton-base) 0%,
+        var(--di-skeleton-shine) 45%,
+        var(--di-skeleton-base) 90%
+    );
+    background-size: 220% 100%;
+    background-position: 100% 0;
+}
+
+.di-sk-kpi {
+    height: 28px;
+    width: 96px;
+    margin-top: 8px;
+    border-radius: 8px;
+}
+
+.di-sk-sub {
+    height: 12px;
+    margin-top: 10px;
+    border-radius: 5px;
+}
+
+.di-sk-subtitle {
+    height: 12px;
+    margin-top: 6px;
+    border-radius: 5px;
+}
+
+.di-sk-w-lg {
+    width: 78%;
+}
+
+.di-sk-w-md {
+    width: 56%;
+}
+
+.di-sk-w-sm {
+    width: 68px;
+}
+
+.di-sk-chart {
+    height: 230px;
+    width: 100%;
+    border-radius: 10px;
+}
+
+.di-skeleton-table {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.di-skeleton-row {
+    height: 36px;
+    width: 100%;
+    border-radius: 8px;
+}
+
+.di-deferred-error,
+.di-deferred-notice {
+    text-align: center;
+    padding: 28px 22px;
+}
+
+.di-deferred-actions {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 12px;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+    .di-skeleton {
+        animation: di-shimmer 1.6s ease-in-out infinite;
+    }
+
+    .di-fade-in {
+        animation: di-fade-in 0.18s ease-out both;
+    }
+
+    @keyframes di-shimmer {
+        0% {
+            background-position: 100% 0;
+        }
+        100% {
+            background-position: -120% 0;
+        }
+    }
+
+    @keyframes di-fade-in {
+        from {
+            opacity: 0.72;
+        }
+        to {
+            opacity: 1;
+        }
+    }
+}
+
 @media (prefers-reduced-motion: reduce) {
     .di-seg-item,
     .di-disclosure > summary::before {
         transition: none !important;
+    }
+
+    .di-skeleton,
+    .di-fade-in {
+        animation: none !important;
+        background-image: none;
     }
 }
 
@@ -1154,6 +1282,11 @@ body:has(.di-page),
     .di-milestone,
     .di-action-pill {
         border: 1px solid CanvasText !important;
+    }
+
+    .di-skeleton {
+        border: 1px solid GrayText;
+        background-image: none;
     }
 
     .di-seg-item.is-active,

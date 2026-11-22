@@ -13,6 +13,7 @@ use tera::Tera;
 use crate::media_tokens::MediaTokenService;
 use crate::pairing::CodeGuessTracker;
 use crate::passkey::{ChallengeStore, PasskeyGuard};
+use crate::stats_cache::StatsCache;
 
 use webauthn_rs::prelude::Webauthn;
 
@@ -27,6 +28,7 @@ pub struct AppState {
     pub passkey_challenges: Arc<ChallengeStore>,
     pub passkey_guard: Arc<PasskeyGuard>,
     pub pairing_attempts: Arc<CodeGuessTracker>,
+    pub stats_cache: Arc<StatsCache>,
 }
 
 pub async fn establish_pool_connection() -> Result<
