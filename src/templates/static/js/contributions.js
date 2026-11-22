@@ -18,19 +18,19 @@
     function getChartTheme(isDark) {
         if (isDark) {
             return {
-                primary: '#4aa8d8',
-                primaryFill: 'rgba(74, 168, 216, 0.16)',
-                subscribed: '#4ade80',
-                subscribedBar: 'rgba(74, 222, 128, 0.45)',
-                unsubscribed: '#94a3b8',
-                unsubscribedBar: 'rgba(148, 163, 184, 0.45)',
-                text: '#cbd5e1',
-                grid: 'rgba(255, 255, 255, 0.08)',
-                border: 'rgba(255, 255, 255, 0.16)',
-                tooltipBg: '#242428',
+                primary: '#5cb8e6',
+                primaryFill: 'rgba(92, 184, 230, 0.18)',
+                subscribed: '#6ee7b7',
+                subscribedBar: 'rgba(110, 231, 183, 0.52)',
+                unsubscribed: '#a1aec0',
+                unsubscribedBar: 'rgba(161, 174, 192, 0.48)',
+                text: '#d5dbe3',
+                grid: 'rgba(255, 255, 255, 0.10)',
+                border: 'rgba(255, 255, 255, 0.20)',
+                tooltipBg: '#28282f',
                 tooltipTitle: '#f5f5f7',
-                tooltipBody: '#cbd5e1',
-                tooltipBorder: '#38383d'
+                tooltipBody: '#d5dbe3',
+                tooltipBorder: '#464652'
             };
         }
         return {

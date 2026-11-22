@@ -25,19 +25,19 @@
     function getTheme(isDark) {
         if (isDark) {
             return {
-                accent: '#4aa8d8',
-                accentFill: 'rgba(74, 168, 216, 0.16)',
-                success: '#4ade80',
-                warning: '#fbbf24',
-                danger: '#f87171',
-                secondary: '#94a3b8',
-                text: '#cbd5e1',
-                grid: 'rgba(255, 255, 255, 0.08)',
-                border: 'rgba(255, 255, 255, 0.16)',
-                tooltipBg: '#242428',
+                accent: '#5cb8e6',
+                accentFill: 'rgba(92, 184, 230, 0.18)',
+                success: '#6ee7b7',
+                warning: '#fde68a',
+                danger: '#fca5a5',
+                secondary: '#a1aec0',
+                text: '#d5dbe3',
+                grid: 'rgba(255, 255, 255, 0.10)',
+                border: 'rgba(255, 255, 255, 0.20)',
+                tooltipBg: '#28282f',
                 tooltipTitle: '#f5f5f7',
-                tooltipBody: '#cbd5e1',
-                tooltipBorder: '#38383d'
+                tooltipBody: '#d5dbe3',
+                tooltipBorder: '#464652'
             };
         }
         return {
@@ -72,6 +72,13 @@
 
     function announceStatus(message) {
         var region = document.getElementById('a11y-status');
+        if (region) {
+            region.textContent = message;
+        }
+    }
+
+    function announceAlert(message) {
+        var region = document.getElementById('a11y-alert') || document.getElementById('a11y-status');
         if (region) {
             region.textContent = message;
         }
@@ -456,7 +463,6 @@
         }
 
         mount.setAttribute('aria-busy', 'true');
-        announceStatus('Loading deck statistics…');
 
         window.fetch(deferredUrl, {
             credentials: 'same-origin',
@@ -483,7 +489,7 @@
         }).catch(function () {
             mount.setAttribute('aria-busy', 'false');
             renderDeferredError(mount, syncUrl);
-            announceStatus('Failed to load deck statistics.');
+            announceAlert('Failed to load deck statistics.');
         });
     }
 
