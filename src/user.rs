@@ -526,6 +526,49 @@ pub async fn purge_deleted_account_data<C: std::ops::Deref<Target = tokio_postgr
         tracing::error!(user_id, error = %e, "Failed to purge subscriptions for deleted account");
     }
 
+    // Scrub deleted username from pending/historical webhook delivery payloads
+    let normalized_username = username.trim().to_lowercase();
+    if !normalized_username.is_empty() {
+        if let Err(e) = db
+            .execute(
+                "UPDATE anki.webhook_deliveries
+                 SET payload = (
+                     SELECT COALESCE(
+                         jsonb_object_agg(
+                             kv.key,
+                             CASE
+                                 WHEN kv.key IN ('contributor', 'reviewer', 'author', 'actor', 'target')
+                                      AND jsonb_typeof(kv.value) = 'string'
+                                      AND LOWER(kv.value #>> '{}') = $1
+                                 THEN to_jsonb('Anonymous'::text)
+                                 ELSE kv.value
+                             END
+                         ),
+                         '{}'::jsonb
+                     )
+                     FROM jsonb_each(payload) AS kv(key, value)
+                 )
+                 WHERE jsonb_typeof(payload) = 'object'
+                   AND (
+                       LOWER(payload->>'contributor') = $1
+                       OR LOWER(payload->>'reviewer') = $1
+                       OR LOWER(payload->>'author') = $1
+                       OR LOWER(payload->>'actor') = $1
+                       OR LOWER(payload->>'target') = $1
+                   )",
+                &[&normalized_username],
+            )
+            .await
+        {
+            let is_missing_table = e
+                .code()
+                .is_some_and(|code| *code == tokio_postgres::error::SqlState::UNDEFINED_TABLE);
+            if !is_missing_table {
+                tracing::error!(user_id, error = %e, "Failed to scrub webhook_deliveries for deleted account");
+            }
+        }
+    }
+
     // Finally remove the user row (cascading deletes handle the rest)
     if let Err(e) = db
         .execute("DELETE FROM users WHERE id = $1", &[&user_id])

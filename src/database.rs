@@ -14,6 +14,7 @@ use crate::media_tokens::MediaTokenService;
 use crate::pairing::CodeGuessTracker;
 use crate::passkey::{ChallengeStore, PasskeyGuard};
 use crate::stats_cache::StatsCache;
+use crate::webhook_crypto::WebhookCipher;
 
 use webauthn_rs::prelude::Webauthn;
 
@@ -29,6 +30,9 @@ pub struct AppState {
     pub passkey_guard: Arc<PasskeyGuard>,
     pub pairing_attempts: Arc<CodeGuessTracker>,
     pub stats_cache: Arc<StatsCache>,
+    pub webhook_cipher: Option<Arc<WebhookCipher>>,
+    pub http_client: reqwest::Client,
+    pub webhook_test_cooldown: Arc<crate::webhook_worker::WebhookTestCooldown>,
 }
 
 pub async fn establish_pool_connection() -> Result<

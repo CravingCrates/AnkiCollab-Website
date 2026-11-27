@@ -161,9 +161,12 @@ static RE_NUMERIC_ID: std::sync::LazyLock<regex::Regex> = std::sync::LazyLock::n
 });
 static RE_DECK_HASH: std::sync::LazyLock<regex::Regex> = std::sync::LazyLock::new(|| {
     regex::Regex::new(
-        r"/(EditDeck|notes|Statistics|Maintainers|OptionalTags|ToggleStats|DeckSubscriptionPolicy)/[a-zA-Z0-9_-]+",
+        r"/(EditDeck|notes|Statistics|Contributions|Maintainers|OptionalTags|ToggleStats|DeckSubscriptionPolicy|Webhooks|DeleteDeck)/[a-zA-Z0-9_-]+",
     )
     .expect("Invalid deck hash regex")
+});
+static RE_API_DECK_HASH: std::sync::LazyLock<regex::Regex> = std::sync::LazyLock::new(|| {
+    regex::Regex::new(r"/api/decks/[a-zA-Z0-9_-]+").expect("Invalid API deck hash regex")
 });
 
 /// Sanitize URL paths by replacing numeric IDs and hashes with placeholders.
@@ -174,6 +177,7 @@ fn sanitize_path(path: &str) -> String {
 
     // Replace deck hashes in known routes (e.g., /EditDeck/abc123 -> /EditDeck/{hash})
     let result = RE_DECK_HASH.replace_all(&result, "/$1/{hash}");
+    let result = RE_API_DECK_HASH.replace_all(&result, "/api/decks/{hash}");
 
     result.to_string()
 }
@@ -624,6 +628,15 @@ impl ErrorTemplate for NoteNotFoundContext {
     }
 }
 
+fn json_api_error(status: StatusCode, message: &str) -> Response {
+    (
+        status,
+        [(axum::http::header::CACHE_CONTROL, "private, no-store")],
+        axum::Json(serde_json::json!({ "error": message })),
+    )
+        .into_response()
+}
+
 // Middleware layer that wraps the handlers
 pub async fn pretty_error_middleware(
     State(app_state): State<Arc<AppState>>,
@@ -632,6 +645,7 @@ pub async fn pretty_error_middleware(
 ) -> Response {
     let method = request.method().clone();
     let path = request.uri().path().to_owned();
+    let is_api = path.starts_with("/api/");
 
     // Process the request
     let response = next.run(request).await;
@@ -639,7 +653,7 @@ pub async fn pretty_error_middleware(
 
     // Handle AuthError
     if let Some(auth_error) = response.extensions().get::<AuthError>() {
-        let (status, _) = auth_error.get_status_and_message();
+        let (status, msg) = auth_error.get_status_and_message();
         capture_server_error(
             status,
             &method,
@@ -648,6 +662,9 @@ pub async fn pretty_error_middleware(
             Some(ErrorCategory::Authentication),
         );
         log_client_error(status, &method, &path, &auth_error.to_string());
+        if is_api {
+            return json_api_error(status, msg);
+        }
         return auth_error.render_error_template(&app_state);
     }
 
@@ -668,6 +685,14 @@ pub async fn pretty_error_middleware(
         } else {
             log_client_error(status_code, &method, &path, &error_response.error);
         }
+        if is_api {
+            let public_msg = if status_code.is_server_error() {
+                "Service temporarily unavailable. Please try again."
+            } else {
+                &error_response.error
+            };
+            return json_api_error(error_response.status, public_msg);
+        }
         return error_response.render_error_template(&app_state);
     }
 
@@ -680,12 +705,25 @@ pub async fn pretty_error_middleware(
             &path,
             &note_not_found_context.to_string(),
         );
+        if is_api {
+            return json_api_error(status_code, &note_not_found_context.to_string());
+        }
         return note_not_found_context.render_error_template(&app_state);
     }
 
     // Handle 404 - don't send to Sentry, just log locally
     if status_code == axum::http::StatusCode::NOT_FOUND {
         tracing::debug!(http.path = %path, "Page not found");
+        if is_api {
+            if response
+                .headers()
+                .get(axum::http::header::CONTENT_TYPE)
+                .is_none()
+            {
+                return json_api_error(StatusCode::NOT_FOUND, "Not found");
+            }
+            return response;
+        }
         let mut context = tera::Context::new();
         context.insert("message", "Page not found");
         if let Ok(html) = app_state.tera.render("error.html", &context) {
@@ -709,7 +747,7 @@ pub async fn pretty_error_middleware(
 
 #[cfg(test)]
 mod tests {
-    use super::AuthError;
+    use super::{sanitize_path, AuthError};
 
     #[test]
     fn authentication_errors_use_safe_public_messages() {
@@ -718,6 +756,22 @@ mod tests {
                 .get_status_and_message()
                 .1,
             "An error occurred while hashing the password"
+        );
+    }
+
+    #[test]
+    fn sanitize_path_redacts_deck_hashes_and_numeric_ids() {
+        assert_eq!(
+            sanitize_path("/api/decks/secret-deck-key/webhooks/12/test"),
+            "/api/decks/{hash}/webhooks/{id}/test"
+        );
+        assert_eq!(
+            sanitize_path("/Webhooks/secret-deck-key"),
+            "/Webhooks/{hash}"
+        );
+        assert_eq!(
+            sanitize_path("/Contributions/secret-deck-key"),
+            "/Contributions/{hash}"
         );
     }
 }

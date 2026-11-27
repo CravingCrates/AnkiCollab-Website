@@ -23,7 +23,10 @@ pub async fn add_maintainer(
     deck: i64,
     username: String,
 ) -> Return<String> {
-    let normalized_username = username.to_lowercase();
+    let normalized_username = username.trim().to_lowercase();
+    if normalized_username.is_empty() {
+        return Err(UserNotFound);
+    }
     let client = database::client(db_state).await?;
     let user = match client
         .query_one(
@@ -62,7 +65,10 @@ pub async fn remove_maintainer(
     deck: i64,
     username: String,
 ) -> Return<String> {
-    let normalized_username = username.to_lowercase();
+    let normalized_username = username.trim().to_lowercase();
+    if normalized_username.is_empty() {
+        return Err(UserNotFound);
+    }
     let client = database::client(db_state).await?;
     let user = match client
         .query_one(
@@ -76,11 +82,14 @@ pub async fn remove_maintainer(
     };
     let user_id: i32 = user.get(0);
 
-    client
+    let deleted = client
         .execute(
             "DELETE FROM maintainers WHERE deck = $1 AND user_id = $2",
             &[&deck, &user_id],
         )
         .await?;
+    if deleted == 0 {
+        return Err(UserNotFound);
+    }
     Ok("removed".to_string())
 }

@@ -24,7 +24,7 @@ use crate::handlers::{
     decks as deck_handlers, maintainers as maintainer_handlers, notes as note_handlers,
     notetypes as notetype_handlers, notifications as notification_handlers, pages as page_handlers,
     stats as stats_handlers, subscription_policy as subscription_policy_handlers,
-    suggestions as suggestion_handlers,
+    suggestions as suggestion_handlers, webhooks as webhook_handlers,
 };
 use crate::user::Auth;
 use crate::{error, pairing, passkey};
@@ -127,6 +127,30 @@ pub(crate) fn build_router(
         )
         .route("/EditDeck/{deck_hash}", get(deck_handlers::edit_deck))
         .route("/EditDeck", post(deck_handlers::post_edit_deck))
+        .route(
+            "/Webhooks/{deck_hash}",
+            get(webhook_handlers::show_webhooks),
+        )
+        .route(
+            "/api/decks/{deck_hash}/webhooks",
+            post(webhook_handlers::api_create_webhook)
+                .layer(GovernorLayer::new(governor_conf.clone())),
+        )
+        .route(
+            "/api/decks/{deck_hash}/webhooks/{webhook_id}/update",
+            post(webhook_handlers::api_update_webhook)
+                .layer(GovernorLayer::new(governor_conf.clone())),
+        )
+        .route(
+            "/api/decks/{deck_hash}/webhooks/{webhook_id}/delete",
+            post(webhook_handlers::api_delete_webhook)
+                .layer(GovernorLayer::new(governor_conf.clone())),
+        )
+        .route(
+            "/api/decks/{deck_hash}/webhooks/{webhook_id}/test",
+            post(webhook_handlers::api_test_webhook)
+                .layer(GovernorLayer::new(governor_conf.clone())),
+        )
         .route(
             "/DeckSubscriptionPolicy/{subscriber_hash}/{base_hash}",
             get(subscription_policy_handlers::page_subscription_policy),

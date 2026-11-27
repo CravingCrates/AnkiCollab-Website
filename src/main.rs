@@ -33,6 +33,9 @@ pub mod stats_manager;
 pub mod structs;
 pub mod suggestion_manager;
 pub mod user;
+pub mod webhook_crypto;
+pub mod webhook_manager;
+pub mod webhook_worker;
 
 use std::net::SocketAddr;
 
@@ -56,6 +59,7 @@ async fn main() {
     let governor_conf = server::router::init_governor();
 
     server::bootstrap::spawn_background_sweeps(&state);
+    server::bootstrap::spawn_webhook_workers(&state);
 
     let auth = server::bootstrap::build_auth().await;
 

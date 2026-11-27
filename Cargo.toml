@@ -44,3 +44,5 @@ clap = { version = "4.6.9", features = ["derive"] }
 reqwest = "0.13.5"
 webauthn-rs = { version = "=0.6.2", default-features = false, features = ["conditional-ui"] }
 uuid = { version = "1.29.3", features = ["v4", "serde"] }
+aes-gcm = "0.11.1"
+getrandom = "0.4.2"

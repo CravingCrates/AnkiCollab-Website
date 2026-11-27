@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    {% set page_title = deck_name ~ " — Webhooks" %}
+    {% include "header_template.html" %}
+    <link href="/static/css/deck_insights.css" rel="stylesheet">
+    <link href="/static/css/webhooks.css" rel="stylesheet">
+    <script src="/static/js/api_service.js"></script>
+</head>
+{% include "layout_header.html" %}
+        <div id="webhooks-page"
+             class="di-page wh-page"
+             data-deck-hash="{{ hash }}"
+             data-max-webhooks="{{ max_webhooks }}">
+
+            <header class="di-header">
+                <div class="di-header-main">
+                    <nav class="di-breadcrumb" aria-label="Breadcrumb">
+                        <a href="/EditDeck/{{ hash }}" class="di-crumb-link">
+                            <i class="fa-solid fa-arrow-left" aria-hidden="true"></i>
+                            <span>Edit Deck</span>
+                        </a>
+                        <span class="di-crumb-sep" aria-hidden="true">/</span>
+                        <span>{{ deck_name }}</span>
+                        <span class="di-crumb-sep" aria-hidden="true">/</span>
+                        <span>Webhooks</span>
+                    </nav>
+                    <div class="di-title-row">
+                        <h1 class="di-title">Discord Webhooks</h1>
+                    </div>
+                    <p class="di-header-meta mb-0">
+                        <span>Push deck activity and scheduled summaries to Discord</span>
+                        <span aria-hidden="true">&middot;</span>
+                        <span class="di-num"><span id="webhook-count">{{ webhooks | length }}</span> of {{ max_webhooks }} configured</span>
+                    </p>
+                </div>
+                <div class="di-header-actions">
+                    <button type="button"
+                            id="wh-open-create-btn"
+                            class="wh-btn wh-btn-primary{% if webhooks | length >= max_webhooks or not webhooks_configured %} d-none{% endif %}">
+                        Add webhook
+                    </button>
+                    <span id="wh-limit-note"
+                          class="wh-limit-note{% if webhooks | length < max_webhooks or not webhooks_configured %} d-none{% endif %}">
+                        Limit of {{ max_webhooks }} reached
+                    </span>
+                </div>
+            </header>
+
+            {% if not webhooks_configured %}
+            <div class="wh-notice wh-notice-warn mb-3" role="alert">
+                <strong>Webhook notifications are disabled on this server.</strong>
+                The administrator has not configured <code>WEBHOOK_ENCRYPTION_KEY</code> yet.
+            </div>
+            {% endif %}
+
+            <div id="wh-feedback" class="wh-feedback d-none" role="status" aria-live="polite"></div>
+
+            <section class="di-card wh-list-card" aria-labelledby="wh-list-heading">
+                <div class="wh-section-head">
+                    <h2 id="wh-list-heading" class="wh-section-title">Configured Webhooks</h2>
+                </div>
+
+                <div id="webhooks-empty-state" class="wh-empty{% if webhooks | length > 0 %} d-none{% endif %}">
+                    <p class="wh-empty-title">No webhooks configured yet.</p>
+                    <p class="wh-empty-copy">
+                        Connect a Discord channel to receive suggestion alerts, review updates, or scheduled digests.
+                    </p>
+                    {% if webhooks_configured %}
+                    <button type="button" id="wh-empty-create-btn" class="wh-btn wh-btn-primary">
+                        Add webhook
+                    </button>
+                    {% endif %}
+                </div>
+
+                <div id="webhooks-list" class="wh-list{% if webhooks | length == 0 %} d-none{% endif %}">
+                    {% for wh in webhooks %}
+                    <details class="wh-item" data-webhook-id="{{ wh.id }}">
+                        <summary class="wh-summary">
+                            <span class="wh-summary-main">
+                                <span class="wh-summary-top">
+                                    <span id="wh-title-{{ wh.id }}" class="wh-item-name">{% if wh.label %}{{ wh.label }}{% else %}Discord Webhook #{{ wh.id }}{% endif %}</span>
+                                    <code class="wh-url-code">{{ wh.url_preview }}</code>
+                                </span>
+                                <span class="wh-summary-meta">
+                                    {% if wh.enabled %}
+                                    <span class="wh-status wh-status--active"><span class="wh-status-dot" aria-hidden="true"></span>Active</span>
+                                    {% elif wh.disabled_reason %}
+                                    <span class="wh-status wh-status--disabled"><span class="wh-status-dot" aria-hidden="true"></span>Auto-disabled</span>
+                                    {% else %}
+                                    <span class="wh-status wh-status--paused"><span class="wh-status-dot" aria-hidden="true"></span>Paused</span>
+                                    {% endif %}
+                                    <span aria-hidden="true">&middot;</span>
+                                    <span class="wh-summary-triggers di-num">{{ wh.active_event_count }} event{% if wh.active_event_count != 1 %}s{% endif %}{% if wh.digest_frequency != "none" %} &middot; {{ wh.digest_frequency | capitalize }} digest{% endif %}</span>
+                                    {% if wh.last_delivered_at %}
+                                    <span class="wh-last-delivered-wrap">
+                                        <span aria-hidden="true">&middot;</span>
+                                        Last delivered <span class="di-num wh-last-delivered">{{ wh.last_delivered_at }}</span>
+                                    </span>
+                                    {% endif %}
+                                </span>
+                            </span>
+                        </summary>
+
+                        <div class="wh-item-body">
+                            {% if wh.disabled_reason %}
+                            <div class="wh-notice wh-notice-danger wh-alert-reason" role="alert">
+                                {{ wh.disabled_reason }}
+                            </div>
+                            {% elif wh.last_error %}
+                            <div class="wh-notice wh-notice-warn wh-alert-error" role="alert">
+                                Last delivery error: {{ wh.last_error }}
+                            </div>
+                            {% endif %}
+
+                            <form class="wh-update-form" data-webhook-id="{{ wh.id }}" aria-labelledby="wh-title-{{ wh.id }}" novalidate>
+                                <div class="wh-enable-bar{% if not wh.enabled %} is-paused{% endif %}">
+                                    <div class="wh-enable-copy">
+                                        <label class="wh-enable-title" for="wh-enabled-{{ wh.id }}">Webhook delivery</label>
+                                        <span class="wh-enable-desc">{% if wh.enabled %}Active &mdash; matching events will be sent to Discord{% else %}Paused &mdash; notifications are disabled until turned back on{% endif %}</span>
+                                    </div>
+                                    <input type="checkbox"
+                                           switch
+                                           class="wh-switch-input"
+                                           id="wh-enabled-{{ wh.id }}"
+                                           name="enabled"
+                                           aria-label="Enable webhook delivery"
+                                           {% if wh.enabled %}checked{% endif %}>
+                                </div>
+
+                                <div class="wh-group">
+                                    <div class="wh-field-grid">
+                                        <div class="wh-field">
+                                            <label class="wh-label" for="wh-label-{{ wh.id }}">Label</label>
+                                            <span id="wh-label-hint-{{ wh.id }}" class="wh-hint">Optional name to identify this destination</span>
+                                            <input type="text"
+                                                   class="wh-input"
+                                                   id="wh-label-{{ wh.id }}"
+                                                   name="label"
+                                                   maxlength="64"
+                                                   value="{{ wh.label }}"
+                                                   aria-describedby="wh-label-hint-{{ wh.id }}"
+                                                   placeholder="e.g. Maintainer Queue">
+                                        </div>
+
+                                        <div class="wh-field">
+                                            <label class="wh-label" for="wh-url-{{ wh.id }}">Replace Webhook URL</label>
+                                            <span id="wh-url-hint-{{ wh.id }}" class="wh-hint">Leave blank to keep the current encrypted URL</span>
+                                            <input type="url"
+                                                   class="wh-input"
+                                                   id="wh-url-{{ wh.id }}"
+                                                   name="webhook_url"
+                                                   maxlength="300"
+                                                   autocorrect="off"
+                                                   autocapitalize="none"
+                                                   spellcheck="false"
+                                                   pattern="https://(discord\.com|discordapp\.com|ptb\.discord\.com|canary\.discord\.com)/api(/v[0-9]{1,2})?/webhooks/[0-9]{16,22}/[A-Za-z0-9_-]{50,160}/?(\?thread_id=[0-9]{16,22})?"
+                                                   aria-describedby="wh-url-hint-{{ wh.id }}"
+                                                   data-error="wh-url-err-{{ wh.id }}"
+                                                   placeholder="https://discord.com/api/webhooks/...">
+                                            <div id="wh-url-err-{{ wh.id }}" class="wh-field-error">
+                                                <span role="img" aria-label="Error">!</span> Enter a valid Discord webhook URL starting with https://discord.com/api/webhooks/.
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <fieldset class="wh-triggers-fieldset" {% if not wh.enabled %}disabled{% endif %}>
+                                <legend class="visually-hidden">Notification events and digest schedule</legend>
+                                <div class="wh-group">
+                                    <h3 class="wh-group-title">Events</h3>
+                                    <div class="wh-check-grid">
+                                        <label class="wh-check">
+                                            <input type="checkbox" class="wh-check-input" id="wh-{{ wh.id }}-submitted" name="on_suggestion_submitted" {% if wh.on_suggestion_submitted %}checked{% endif %}>
+                                            <span>New suggestion or deletion request</span>
+                                        </label>
+                                        <label class="wh-check">
+                                            <input type="checkbox" class="wh-check-input" id="wh-{{ wh.id }}-approved" name="on_suggestion_approved" {% if wh.on_suggestion_approved %}checked{% endif %}>
+                                            <span>Suggestion approved</span>
+                                        </label>
+                                        <label class="wh-check">
+                                            <input type="checkbox" class="wh-check-input" id="wh-{{ wh.id }}-denied" name="on_suggestion_denied" {% if wh.on_suggestion_denied %}checked{% endif %}>
+                                            <span>Suggestion denied</span>
+                                        </label>
+                                        <label class="wh-check">
+                                            <input type="checkbox" class="wh-check-input" id="wh-{{ wh.id }}-direct" name="on_direct_push" {% if wh.on_direct_push %}checked{% endif %}>
+                                            <span>Direct maintainer overwrite push</span>
+                                        </label>
+                                        <label class="wh-check">
+                                            <input type="checkbox" class="wh-check-input" id="wh-{{ wh.id }}-changelog" name="on_changelog_published" {% if wh.on_changelog_published %}checked{% endif %}>
+                                            <span>Changelog published</span>
+                                        </label>
+                                        <label class="wh-check">
+                                            <input type="checkbox" class="wh-check-input" id="wh-{{ wh.id }}-maintainer" name="on_maintainer_changed" {% if wh.on_maintainer_changed %}checked{% endif %}>
+                                            <span>Maintainer added or removed</span>
+                                        </label>
+                                        <label class="wh-check">
+                                            <input type="checkbox" class="wh-check-input" id="wh-{{ wh.id }}-milestone" name="on_subscriber_milestone" {% if wh.on_subscriber_milestone %}checked{% endif %}>
+                                            <span>Subscriber milestones (25, 50, 100, …)</span>
+                                        </label>
+                                    </div>
+                                </div>
+
+                                <div class="wh-group">
+                                    <h3 class="wh-group-title">Scheduled Digest</h3>
+                                    <div class="wh-digest-row">
+                                        <div class="wh-field">
+                                            <label class="wh-label" for="wh-{{ wh.id }}-freq">Frequency</label>
+                                            <select class="wh-select wh-digest-freq" id="wh-{{ wh.id }}-freq" name="digest_frequency">
+                                                <option value="none" {% if wh.digest_frequency == "none" %}selected{% endif %}>Off</option>
+                                                <option value="daily" {% if wh.digest_frequency == "daily" %}selected{% endif %}>Daily</option>
+                                                <option value="weekly" {% if wh.digest_frequency == "weekly" %}selected{% endif %}>Weekly</option>
+                                            </select>
+                                        </div>
+                                        <div class="wh-field wh-digest-hour-wrap{% if wh.digest_frequency == 'none' %} d-none{% endif %}">
+                                            <label class="wh-label" for="wh-{{ wh.id }}-hour">Time (UTC)</label>
+                                            <select class="wh-select" id="wh-{{ wh.id }}-hour" name="digest_hour_utc">
+                                                {% for h in range(end=24) %}
+                                                <option value="{{ h }}" {% if wh.digest_hour_utc == h %}selected{% endif %}>{% if h < 10 %}0{{ h }}:00{% else %}{{ h }}:00{% endif %}</option>
+                                                {% endfor %}
+                                            </select>
+                                        </div>
+                                        <div class="wh-field wh-digest-day-wrap{% if wh.digest_frequency != 'weekly' %} d-none{% endif %}">
+                                            <label class="wh-label" for="wh-{{ wh.id }}-day">Day</label>
+                                            <select class="wh-select" id="wh-{{ wh.id }}-day" name="digest_day_of_week">
+                                                <option value="1" {% if wh.digest_day_of_week == 1 %}selected{% endif %}>Monday</option>
+                                                <option value="2" {% if wh.digest_day_of_week == 2 %}selected{% endif %}>Tuesday</option>
+                                                <option value="3" {% if wh.digest_day_of_week == 3 %}selected{% endif %}>Wednesday</option>
+                                                <option value="4" {% if wh.digest_day_of_week == 4 %}selected{% endif %}>Thursday</option>
+                                                <option value="5" {% if wh.digest_day_of_week == 5 %}selected{% endif %}>Friday</option>
+                                                <option value="6" {% if wh.digest_day_of_week == 6 %}selected{% endif %}>Saturday</option>
+                                                <option value="7" {% if wh.digest_day_of_week == 7 %}selected{% endif %}>Sunday</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                    <label class="wh-check wh-digest-skip-wrap{% if wh.digest_frequency == 'none' %} d-none{% endif %}">
+                                        <input type="checkbox" class="wh-check-input" id="wh-{{ wh.id }}-skip" name="skip_empty_digest" {% if wh.skip_empty_digest %}checked{% endif %}>
+                                        <span>Skip digest when queue and activity are empty</span>
+                                    </label>
+                                </div>
+                                </fieldset>
+
+                                <div class="wh-item-actions">
+                                    <div class="wh-item-actions-left">
+                                        <button type="submit" class="wh-btn wh-btn-primary" {% if not webhooks_configured %}disabled{% endif %}>
+                                            Save changes
+                                        </button>
+                                        <button type="button" class="wh-btn wh-btn-secondary wh-test-btn" data-webhook-id="{{ wh.id }}" {% if not webhooks_configured %}disabled{% endif %}>
+                                            Send test
+                                        </button>
+                                    </div>
+                                    <button type="button" class="wh-btn wh-btn-danger-ghost wh-delete-btn" data-webhook-id="{{ wh.id }}">
+                                        Delete
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </details>
+                    {% endfor %}
+                </div>
+            </section>
+
+        </div>
+
+        <dialog id="wh-create-dialog" class="wh-dialog" closedby="any" aria-labelledby="wh-create-title">
+            <div class="wh-dialog-head">
+                <h1 id="wh-create-title" class="wh-dialog-title">Add Discord Webhook</h1>
+                <button type="button" class="wh-dialog-close" data-dialog-close="wh-create-dialog" aria-label="Close dialog">&times;</button>
+            </div>
+            <form id="wh-create-form" novalidate>
+                <div class="wh-dialog-body">
+                    <div id="wh-create-error" class="wh-notice wh-notice-danger d-none mb-3" role="alert"></div>
+                    <div class="wh-group wh-group-first">
+                        <div class="wh-field">
+                            <label class="wh-label" for="new-wh-url">Discord Webhook URL</label>
+                            <span id="new-wh-url-hint" class="wh-hint">In Discord: Channel Settings &rarr; Integrations &rarr; Webhooks &rarr; Copy Webhook URL</span>
+                            <input type="url"
+                                   class="wh-input"
+                                   id="new-wh-url"
+                                   name="webhook_url"
+                                   maxlength="300"
+                                   required
+                                   autofocus
+                                   autocorrect="off"
+                                   autocapitalize="none"
+                                   spellcheck="false"
+                                   pattern="https://(discord\.com|discordapp\.com|ptb\.discord\.com|canary\.discord\.com)/api(/v[0-9]{1,2})?/webhooks/[0-9]{16,22}/[A-Za-z0-9_-]{50,160}/?(\?thread_id=[0-9]{16,22})?"
+                                   aria-describedby="new-wh-url-hint"
+                                   data-error="new-wh-url-error"
+                                   placeholder="https://discord.com/api/webhooks/123456789012345678/...">
+                            <div id="new-wh-url-error" class="wh-field-error">
+                                <span role="img" aria-label="Error">!</span> Enter a valid Discord webhook URL starting with https://discord.com/api/webhooks/.
+                            </div>
+                        </div>
+
+                        <div class="wh-field mt-3">
+                            <label class="wh-label" for="new-wh-label">Label (optional)</label>
+                            <span id="new-wh-label-hint" class="wh-hint">Helps distinguish channels when multiple webhooks are configured</span>
+                            <input type="text"
+                                   class="wh-input"
+                                   id="new-wh-label"
+                                   name="label"
+                                   maxlength="64"
+                                   aria-describedby="new-wh-label-hint"
+                                   placeholder="e.g. Maintainer Queue">
+                        </div>
+                    </div>
+
+                    <div class="wh-group">
+                        <h2 class="wh-group-title">Events</h2>
+                        <div class="wh-check-grid">
+                            <label class="wh-check">
+                                <input type="checkbox" class="wh-check-input" id="new-wh-submitted" name="on_suggestion_submitted" checked>
+                                <span>New suggestion or deletion request</span>
+                            </label>
+                            <label class="wh-check">
+                                <input type="checkbox" class="wh-check-input" id="new-wh-approved" name="on_suggestion_approved">
+                                <span>Suggestion approved</span>
+                            </label>
+                            <label class="wh-check">
+                                <input type="checkbox" class="wh-check-input" id="new-wh-denied" name="on_suggestion_denied">
+                                <span>Suggestion denied</span>
+                            </label>
+                            <label class="wh-check">
+                                <input type="checkbox" class="wh-check-input" id="new-wh-direct" name="on_direct_push">
+                                <span>Direct maintainer overwrite push</span>
+                            </label>
+                            <label class="wh-check">
+                                <input type="checkbox" class="wh-check-input" id="new-wh-changelog" name="on_changelog_published">
+                                <span>Changelog published</span>
+                            </label>
+                            <label class="wh-check">
+                                <input type="checkbox" class="wh-check-input" id="new-wh-maintainer" name="on_maintainer_changed">
+                                <span>Maintainer added or removed</span>
+                            </label>
+                            <label class="wh-check">
+                                <input type="checkbox" class="wh-check-input" id="new-wh-milestone" name="on_subscriber_milestone">
+                                <span>Subscriber milestones (25, 50, 100, …)</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="wh-group">
+                        <h2 class="wh-group-title">Scheduled Digest</h2>
+                        <div class="wh-digest-row">
+                            <div class="wh-field">
+                                <label class="wh-label" for="new-wh-freq">Frequency</label>
+                                <select class="wh-select wh-digest-freq" id="new-wh-freq" name="digest_frequency">
+                                    <option value="none" selected>Off</option>
+                                    <option value="daily">Daily</option>
+                                    <option value="weekly">Weekly</option>
+                                </select>
+                            </div>
+                            <div class="wh-field wh-digest-hour-wrap d-none">
+                                <label class="wh-label" for="new-wh-hour">Time (UTC)</label>
+                                <select class="wh-select" id="new-wh-hour" name="digest_hour_utc">
+                                    {% for h in range(end=24) %}
+                                    <option value="{{ h }}" {% if h == 9 %}selected{% endif %}>{% if h < 10 %}0{{ h }}:00{% else %}{{ h }}:00{% endif %}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="wh-field wh-digest-day-wrap d-none">
+                                <label class="wh-label" for="new-wh-day">Day</label>
+                                <select class="wh-select" id="new-wh-day" name="digest_day_of_week">
+                                    <option value="1" selected>Monday</option>
+                                    <option value="2">Tuesday</option>
+                                    <option value="3">Wednesday</option>
+                                    <option value="4">Thursday</option>
+                                    <option value="5">Friday</option>
+                                    <option value="6">Saturday</option>
+                                    <option value="7">Sunday</option>
+                                </select>
+                            </div>
+                        </div>
+                        <label class="wh-check wh-digest-skip-wrap d-none">
+                            <input type="checkbox" class="wh-check-input" id="new-wh-skip" name="skip_empty_digest" checked>
+                            <span>Skip digest when queue and activity are empty</span>
+                        </label>
+                    </div>
+                </div>
+
+                <div class="wh-dialog-footer">
+                    <button type="button" class="wh-btn wh-btn-secondary" data-dialog-close="wh-create-dialog">Cancel</button>
+                    <button type="submit" class="wh-btn wh-btn-primary">Create webhook</button>
+                </div>
+            </form>
+        </dialog>
+
+        <dialog id="wh-delete-dialog" class="wh-dialog wh-dialog-sm" closedby="any" aria-labelledby="wh-delete-title">
+            <div class="wh-dialog-head">
+                <h1 id="wh-delete-title" class="wh-dialog-title">Delete webhook?</h1>
+                <button type="button" class="wh-dialog-close" data-dialog-close="wh-delete-dialog" aria-label="Close dialog">&times;</button>
+            </div>
+            <div class="wh-dialog-body">
+                <p class="wh-delete-copy">
+                    Notifications to <strong id="wh-delete-target">this webhook</strong> will stop immediately and its encrypted URL will be permanently removed.
+                </p>
+            </div>
+            <div class="wh-dialog-footer">
+                <button type="button" class="wh-btn wh-btn-secondary" data-dialog-close="wh-delete-dialog" autofocus>Cancel</button>
+                <button type="button" id="wh-confirm-delete-btn" class="wh-btn wh-btn-danger">Delete webhook</button>
+            </div>
+        </dialog>
+
+        {% include "layout_footer.html" %}
+        <script src="/static/js/webhooks.js"></script>
+</body>
+
+</html>

@@ -10,7 +10,10 @@ use crate::database::{self, AppState};
 use crate::error::{self, Error, NoteNotFoundContext};
 use crate::handlers::common::error_page;
 use crate::user::User;
-use crate::{media_reference_manager, note_history, note_manager, structs, suggestion_manager};
+use crate::{
+    media_reference_manager, note_history, note_manager, structs, suggestion_manager,
+    webhook_manager,
+};
 
 pub(crate) async fn review_note(
     State(appstate): State<Arc<AppState>>,
@@ -114,11 +117,23 @@ pub(crate) async fn accept_note(
     Path(note_id): Path<i64>,
     user: User,
 ) -> Result<impl IntoResponse, Error> {
+    let pending_commit = webhook_manager::pending_commit_for_note(&appstate, note_id).await;
+    let reviewer_username = user.username();
     let mut client = database::client(&appstate).await?;
     let tx = client.transaction().await?;
     match suggestion_manager::approve_card(&tx, &appstate, note_id, &user, false).await {
         Ok(res) => {
             tx.commit().await?;
+            if let Some(cid) = pending_commit {
+                webhook_manager::spawn_single_note_review_webhook(
+                    Arc::clone(&appstate),
+                    cid,
+                    note_id,
+                    true,
+                    reviewer_username,
+                    false,
+                );
+            }
             // Update media references post-commit for the approved note
             if let Ok(nid) = res.parse::<i64>() {
                 let state_clone = appstate.clone();
@@ -150,8 +165,22 @@ pub(crate) async fn deny_note(
     Path(note_id): Path<i64>,
     user: User,
 ) -> Result<impl IntoResponse, Error> {
+    let pending_commit = webhook_manager::pending_commit_for_note(&appstate, note_id).await;
+    let reviewer_username = user.username();
     match suggestion_manager::delete_card(&appstate, note_id, user).await {
-        Ok(res) => Ok(Redirect::to(&format!("/notes/{res}"))),
+        Ok(res) => {
+            if let Some(cid) = pending_commit {
+                webhook_manager::spawn_single_note_review_webhook(
+                    Arc::clone(&appstate),
+                    cid,
+                    note_id,
+                    false,
+                    reviewer_username,
+                    false,
+                );
+            }
+            Ok(Redirect::to(&format!("/notes/{res}")))
+        }
         Err(error) => {
             tracing::warn!(error = %error, note_id = note_id, "Failed to delete note");
             Err(error)
@@ -165,11 +194,31 @@ pub(crate) async fn remove_note_from_deck(
     Path(note_id): Path<i64>,
     user: User,
 ) -> Result<impl IntoResponse, Error> {
+    let reviewer_username = user.username();
     let mut client = database::client(&appstate).await?;
+    let deletion_commit: Option<i32> = client
+        .query_opt(
+            "SELECT commit FROM card_deletion_suggestions WHERE note = $1 AND commit IS NOT NULL LIMIT 1",
+            &[&note_id],
+        )
+        .await
+        .ok()
+        .flatten()
+        .map(|r| r.get(0));
     let tx = client.transaction().await?;
     match note_manager::mark_note_deleted(&tx, &appstate, note_id, user, false).await {
         Ok(res) => {
             tx.commit().await?;
+            if let Some(cid) = deletion_commit {
+                webhook_manager::spawn_single_note_review_webhook(
+                    Arc::clone(&appstate),
+                    cid,
+                    note_id,
+                    true,
+                    reviewer_username,
+                    false,
+                );
+            }
             // Post-commit cleanup of media references for denied note
             if let Ok(nid) = res.parse::<i64>() {
                 let state_clone = appstate.clone();
@@ -197,8 +246,33 @@ pub(crate) async fn deny_note_removal(
     Path(note_id): Path<i64>,
     user: User,
 ) -> Result<impl IntoResponse, Error> {
+    let reviewer_username = user.username();
+    let deletion_commit: Option<i32> = match database::client(&appstate).await {
+        Ok(client) => client
+            .query_opt(
+                "SELECT commit FROM card_deletion_suggestions WHERE note = $1 AND commit IS NOT NULL LIMIT 1",
+                &[&note_id],
+            )
+            .await
+            .ok()
+            .flatten()
+            .map(|r| r.get(0)),
+        Err(_) => None,
+    };
     match note_manager::deny_note_removal_request(&appstate, note_id, user).await {
-        Ok(res) => Ok(Redirect::to(&format!("/review/{res}"))),
+        Ok(res) => {
+            if let Some(cid) = deletion_commit {
+                webhook_manager::spawn_single_note_review_webhook(
+                    Arc::clone(&appstate),
+                    cid,
+                    note_id,
+                    false,
+                    reviewer_username,
+                    true,
+                );
+            }
+            Ok(Redirect::to(&format!("/review/{res}")))
+        }
         Err(error) => {
             tracing::warn!(error = %error, note_id = note_id, "Failed to deny note removal request");
             // Convert Box<dyn Error> to our Error type

@@ -252,6 +252,10 @@ button.hamburger:focus-visible {
 .gradient-4 {
     background-image: linear-gradient(230deg, #0e4cfd, #3d5ec0) !important;
 }
+.gradient-webhook {
+    background-image: linear-gradient(230deg, #4752c4, #2f3894) !important;
+    color: #fff !important;
+}
 
 /* --- 2. Placeholder Contrast Fix (SC 1.4.3) ---
    .form-control::placeholder is set to #f7fafc (~1.01:1 on white bg) in theme.

@@ -9,7 +9,7 @@ use axum::{
 use crate::database::{owned_deck_id, AppState};
 use crate::error::Error;
 use crate::user::User;
-use crate::{maintainer_manager, structs};
+use crate::{maintainer_manager, structs, webhook_manager};
 
 async fn render_maintainers(
     appstate: &Arc<AppState>,
@@ -47,12 +47,33 @@ pub(crate) async fn post_maintainers(
 
     let deck_id: i64 = owned_deck_id(&appstate, &data.deck, user.id()).await?;
 
+    let normalized_target = data.username.trim().to_lowercase();
+
     // Add new maintainer
     if data.action == 1 {
-        maintainer_manager::add_maintainer(&appstate, deck_id, data.username).await
+        let res = maintainer_manager::add_maintainer(&appstate, deck_id, normalized_target.clone())
+            .await?;
+        webhook_manager::spawn_maintainer_webhook(
+            Arc::clone(&appstate),
+            deck_id,
+            user.username(),
+            normalized_target,
+            true,
+        );
+        Ok(res)
     } else {
         // Delete existing maintainer
-        maintainer_manager::remove_maintainer(&appstate, deck_id, data.username).await
+        let res =
+            maintainer_manager::remove_maintainer(&appstate, deck_id, normalized_target.clone())
+                .await?;
+        webhook_manager::spawn_maintainer_webhook(
+            Arc::clone(&appstate),
+            deck_id,
+            user.username(),
+            normalized_target,
+            false,
+        );
+        Ok(res)
     }
 }
 

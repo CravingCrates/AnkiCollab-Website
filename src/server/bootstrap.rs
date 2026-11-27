@@ -10,7 +10,8 @@ use tracing_subscriber::{
 use crate::database::{self, AppState};
 use crate::stats_cache::StatsCache;
 use crate::user::Auth;
-use crate::{media_tokens, pairing, passkey};
+use crate::webhook_crypto::WebhookCipher;
+use crate::{media_tokens, pairing, passkey, webhook_worker};
 
 fn build_tera() -> Tera {
     let mut tera = Tera::default();
@@ -88,6 +89,10 @@ pub(crate) async fn build_app_state() -> Arc<AppState> {
     // Per-address rate limiting for the unauthenticated passkey sign-in endpoints.
     let passkey_guard = Arc::new(passkey::PasskeyGuard::new());
 
+    let webhook_cipher = WebhookCipher::from_env().map(Arc::new);
+    let http_client = webhook_worker::build_http_client();
+    let webhook_test_cooldown = Arc::new(webhook_worker::WebhookTestCooldown::new());
+
     Arc::new(database::AppState {
         db_pool: Arc::new(pool),
         tera: Arc::new(tera),
@@ -99,6 +104,9 @@ pub(crate) async fn build_app_state() -> Arc<AppState> {
         passkey_guard,
         pairing_attempts: Arc::new(pairing::CodeGuessTracker::new()),
         stats_cache: Arc::new(StatsCache::new()),
+        webhook_cipher,
+        http_client,
+        webhook_test_cooldown,
     })
 }
 
@@ -140,17 +148,57 @@ pub(crate) fn spawn_background_sweeps(state: &Arc<AppState>) {
     let passkey_guard = state.passkey_guard.clone();
     let pairing_attempts = state.pairing_attempts.clone();
     let stats_cache = state.stats_cache.clone();
+    let webhook_test_cooldown = state.webhook_test_cooldown.clone();
     std::thread::spawn(move || loop {
         std::thread::sleep(std::time::Duration::from_mins(1));
         challenge_store.retain_recent();
         passkey_guard.sweep();
         pairing_attempts.retain_recent();
         stats_cache.prune_expired();
+        webhook_test_cooldown.retain_recent();
         if !challenge_store.is_empty() {
             tracing::debug!(
                 outstanding = challenge_store.len(),
                 "pruned expired WebAuthn challenges"
             );
+        }
+    });
+}
+
+pub(crate) fn spawn_webhook_workers(state: &Arc<AppState>) {
+    if state.webhook_cipher.is_none() {
+        return;
+    }
+
+    let delivery_state = Arc::clone(state);
+    tokio::spawn(async move {
+        let mut ticker = tokio::time::interval(std::time::Duration::from_secs(10));
+        ticker.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
+        loop {
+            ticker.tick().await;
+            let _ = webhook_worker::process_pending_deliveries(&delivery_state).await;
+        }
+    });
+
+    let digest_state = Arc::clone(state);
+    tokio::spawn(async move {
+        let start = tokio::time::Instant::now() + std::time::Duration::from_secs(30);
+        let mut ticker = tokio::time::interval_at(start, std::time::Duration::from_mins(15));
+        ticker.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
+        loop {
+            ticker.tick().await;
+            let _ = webhook_worker::process_due_digests(&digest_state).await;
+        }
+    });
+
+    let prune_state = Arc::clone(state);
+    tokio::spawn(async move {
+        let start = tokio::time::Instant::now() + std::time::Duration::from_hours(1);
+        let mut ticker = tokio::time::interval_at(start, std::time::Duration::from_hours(24));
+        ticker.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
+        loop {
+            ticker.tick().await;
+            webhook_worker::prune_old_deliveries(&prune_state).await;
         }
     });
 }
@@ -566,5 +614,119 @@ mod tests {
             .unwrap();
         assert!(rendered_drill.contains("Regular Contributor"));
         assert!(!rendered_drill.contains("style=\""));
+    }
+
+    #[test]
+    fn webhooks_and_edit_deck_templates_compile_and_render() {
+        use crate::webhook_manager::{WebhookView, MAX_WEBHOOKS_PER_DECK};
+
+        let tera = build_tera();
+
+        let mut empty_ctx = tera::Context::new();
+        empty_ctx.insert("user", &serde_json::json!({ "username": "alice" }));
+        empty_ctx.insert("hash", "alpha-beta-gamma");
+        empty_ctx.insert("deck_name", "Anatomy");
+        empty_ctx.insert("webhooks", &Vec::<WebhookView>::new());
+        empty_ctx.insert("webhooks_configured", &false);
+        empty_ctx.insert("max_webhooks", &MAX_WEBHOOKS_PER_DECK);
+
+        let rendered_empty = tera.render("webhooks.html", &empty_ctx).unwrap();
+        assert!(rendered_empty.contains("Discord Webhooks"));
+        assert!(rendered_empty.contains("WEBHOOK_ENCRYPTION_KEY"));
+        assert!(!rendered_empty.contains("style=\""));
+        assert!(!rendered_empty.contains("rounded-pill"));
+        assert!(!rendered_empty.contains("class=\"badge"));
+        assert!(rendered_empty.contains("<dialog id=\"wh-create-dialog\""));
+        assert!(rendered_empty.contains("<dialog id=\"wh-delete-dialog\""));
+        assert!(rendered_empty.contains("id=\"wh-create-error\""));
+        assert!(rendered_empty.contains("autocorrect=\"off\""));
+        assert!(!rendered_empty.contains("fa-plus"));
+        assert!(!rendered_empty.contains("role=\"dialog\""));
+        assert!(!rendered_empty.contains("aria-modal"));
+
+        let populated_webhooks = vec![
+            WebhookView {
+                id: 1,
+                label: "Review Queue".to_string(),
+                url_preview: "discord.com/api/webhooks/1234…/••••abcd".to_string(),
+                enabled: true,
+                on_suggestion_submitted: true,
+                on_suggestion_approved: false,
+                on_suggestion_denied: true,
+                on_direct_push: false,
+                on_changelog_published: true,
+                on_maintainer_changed: false,
+                on_subscriber_milestone: true,
+                active_event_count: 4,
+                digest_frequency: "weekly".to_string(),
+                digest_hour_utc: 9,
+                digest_day_of_week: 1,
+                skip_empty_digest: true,
+                consecutive_failures: 0,
+                last_error: None,
+                last_delivered_at: Some("2026-11-26 09:00 UTC".to_string()),
+                disabled_reason: None,
+                created_at: "2026-11-20 12:00 UTC".to_string(),
+            },
+            WebhookView {
+                id: 2,
+                label: String::new(),
+                url_preview: "discord.com/api/webhooks/9999…/••••wxyz".to_string(),
+                enabled: false,
+                on_suggestion_submitted: false,
+                on_suggestion_approved: false,
+                on_suggestion_denied: false,
+                on_direct_push: false,
+                on_changelog_published: false,
+                on_maintainer_changed: false,
+                on_subscriber_milestone: false,
+                active_event_count: 0,
+                digest_frequency: "none".to_string(),
+                digest_hour_utc: 9,
+                digest_day_of_week: 1,
+                skip_empty_digest: true,
+                consecutive_failures: 1,
+                last_error: Some("Discord returned HTTP 404".to_string()),
+                last_delivered_at: None,
+                disabled_reason: Some("Auto-disabled: Discord returned HTTP 404".to_string()),
+                created_at: "2026-11-21 12:00 UTC".to_string(),
+            },
+        ];
+
+        let mut pop_ctx = tera::Context::new();
+        pop_ctx.insert("user", &serde_json::json!({ "username": "alice" }));
+        pop_ctx.insert("hash", "alpha-beta-gamma");
+        pop_ctx.insert("deck_name", "Anatomy");
+        pop_ctx.insert("webhooks", &populated_webhooks);
+        pop_ctx.insert("webhooks_configured", &true);
+        pop_ctx.insert("max_webhooks", &MAX_WEBHOOKS_PER_DECK);
+
+        let rendered_pop = tera.render("webhooks.html", &pop_ctx).unwrap();
+        assert!(rendered_pop.contains("Review Queue"));
+        assert!(rendered_pop.contains("4 events"));
+        assert!(rendered_pop.contains("Auto-disabled: Discord returned HTTP 404"));
+        assert!(rendered_pop.contains("<details class=\"wh-item\""));
+        assert!(rendered_pop.contains("wh-switch-input"));
+        assert!(rendered_pop.contains("wh-triggers-fieldset"));
+        assert!(rendered_pop.contains("<legend class=\"visually-hidden\">"));
+        assert!(rendered_pop.contains("aria-labelledby=\"wh-title-1\""));
+        assert!(!rendered_pop.contains("style=\""));
+        assert!(!rendered_pop.contains("rounded-pill"));
+        assert!(!rendered_pop.contains("class=\"badge"));
+
+        let mut edit_ctx = tera::Context::new();
+        edit_ctx.insert("user", &serde_json::json!({ "username": "alice" }));
+        edit_ctx.insert("hash", "alpha-beta-gamma");
+        edit_ctx.insert("description", "");
+        edit_ctx.insert("custom_css", "");
+        edit_ctx.insert("private", &false);
+        edit_ctx.insert("prevent_subdecks", &false);
+        edit_ctx.insert("restrict_notetypes", &true);
+        edit_ctx.insert("changelogs", &Vec::<crate::structs::ChangelogInfo>::new());
+        edit_ctx.insert("base_links", &Vec::<crate::structs::BasicDeckInfo>::new());
+
+        let rendered_edit = tera.render("edit_deck.html", &edit_ctx).unwrap();
+        assert!(rendered_edit.contains("/Webhooks/alpha-beta-gamma"));
+        assert!(rendered_edit.contains("Discord Webhooks"));
     }
 }

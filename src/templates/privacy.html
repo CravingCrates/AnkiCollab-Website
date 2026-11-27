@@ -117,6 +117,7 @@ embedded in the deck or add-on descriptions - when you view a deck on
 AnkiCollab, your browser will fetch any images that are hosted on remote 
 sites, and those remote sites will learn of your IP address and may send
  a tracking cookie when an image is fetched from them.</li>
+<li>If a deck's owner enables optional Discord webhook notifications for that deck, AnkiCollab transmits event notifications to the Discord webhook URL configured by the deck owner (operated by Discord Inc., USA). Depending on the notification types the deck owner selects, those payloads may include the deck or subdeck name, suggestion rationale and comment excerpt, affected note counts, the public username of the contributor or reviewing maintainer, optional review feedback, changelog text, maintainer changes, and aggregate deck counts (such as queue size, total/active subscriber counts, and overall deck retention). Webhook payloads never include subscriber identities, email addresses, IP addresses, or individual review history.</li>
 </ul>
 <h2>Data Retention</h2>
 <ul>
@@ -130,6 +131,7 @@ account yourself, from your profile page - your passkeys and every device you ha
 day, and how many suggestions it received - are not linked to any individual. 
 They are kept indefinitely, including after an account is deleted, because they 
 describe the deck rather than a person.</li>
+<li>Deck webhook URLs configured by a deck owner are stored encrypted at rest and are deleted immediately when removed by the owner or when the deck or owner account is deleted. Recent webhook delivery logs are automatically pruned after 14 days.</li>
 <li>Some of your user data may remain in backups and logs when your account is deleted.</li>
 <li>We will retain information when legally required to do so.</li>
 </ul>
@@ -168,6 +170,7 @@ interests).</li>
 the people who improve a deck, and to show a deck's maintainers whether their 
 subscribers are still using it (servicing a contract, and legitimate 
 interests).</li>
+<li>Optional Discord webhook configurations and deliveries are processed at the deck owner's request to provide real-time and periodic deck maintenance notifications (servicing a contract, and legitimate interests in deck maintenance).</li>
 </ul>
 <h2>Changes</h2>
 <p>If significant changes to this policy are 
@@ -181,7 +184,7 @@ same way, and notify you if they wish to use your data in a way not
 described here.</p>
 <h2>Contact</h2>
 <p>If you have any questions about this privacy policy, please email us at ankicollab@proton.me</p>
-<p><em>Last updated 2026-10-29.</em></p>
+<p><em>Last updated 2026-11-26.</em></p>
 <p>&nbsp;</p>
                             </div>
                         </div>

@@ -12,7 +12,7 @@ use crate::error::{self, Error};
 use crate::handlers::common::access_check;
 use crate::structs::{DeckId, FieldId, Return};
 use crate::user::User;
-use crate::{cleanser, media_reference_manager, structs, suggestion_manager};
+use crate::{cleanser, media_reference_manager, structs, suggestion_manager, webhook_manager};
 
 async fn get_deck_id(
     appstate: &Arc<AppState>,
@@ -47,6 +47,17 @@ async fn get_deck_by_move_id(appstate: &Arc<AppState>, move_id: i32) -> Return<D
     get_deck_id(appstate, query, &move_id).await
 }
 
+async fn pending_item_context(
+    client: &tokio_postgres::Client,
+    query: &str,
+    param: &(dyn tokio_postgres::types::ToSql + Sync),
+) -> Option<(i64, i32)> {
+    let row = client.query_opt(query, &[param]).await.ok().flatten()?;
+    let note_id: i64 = row.get(0);
+    let commit_id: Option<i32> = row.get(1);
+    commit_id.map(|cid| (note_id, cid))
+}
+
 pub(crate) async fn deny_tag(
     State(appstate): State<Arc<AppState>>,
     Path(tag_id): Path<i64>,
@@ -64,11 +75,28 @@ pub(crate) async fn deny_tag(
         return Err(error::Error::Unauthorized);
     }
 
+    let reviewer_username = user.username();
     let mut client = database::client(&appstate).await?; // needs mutable for transaction
+    let item_ctx = pending_item_context(
+        &client,
+        "SELECT note, commit FROM tags WHERE id = $1 AND reviewed = false",
+        &tag_id,
+    )
+    .await;
     let tx = client.transaction().await?;
     match suggestion_manager::deny_tag_change(&tx, tag_id, user.id()).await {
         Ok(res) => {
             tx.commit().await?;
+            if let Some((nid, cid)) = item_ctx {
+                webhook_manager::spawn_single_note_review_webhook(
+                    Arc::clone(&appstate),
+                    cid,
+                    nid,
+                    false,
+                    reviewer_username,
+                    true,
+                );
+            }
             Ok(Redirect::to(&format!("/review/{res}")))
         }
         Err(error) => {
@@ -96,11 +124,28 @@ pub(crate) async fn deny_note_move(
         return Err(error::Error::Unauthorized);
     }
 
+    let reviewer_username = user.username();
     let mut client = database::client(&appstate).await?;
+    let item_ctx = pending_item_context(
+        &client,
+        "SELECT note, commit FROM note_move_suggestions WHERE id = $1",
+        &move_id,
+    )
+    .await;
     let tx = client.transaction().await?;
     match suggestion_manager::deny_note_move_request(&tx, move_id, user.id()).await {
         Ok(res) => {
             tx.commit().await?;
+            if let Some((nid, cid)) = item_ctx {
+                webhook_manager::spawn_single_note_review_webhook(
+                    Arc::clone(&appstate),
+                    cid,
+                    nid,
+                    false,
+                    reviewer_username,
+                    true,
+                );
+            }
             Ok(Redirect::to(&format!("/review/{res}")))
         }
         Err(error) => {
@@ -128,11 +173,28 @@ pub(crate) async fn accept_note_move(
         return Err(error::Error::Unauthorized);
     }
 
+    let reviewer_username = user.username();
     let mut client = database::client(&appstate).await?;
+    let item_ctx = pending_item_context(
+        &client,
+        "SELECT note, commit FROM note_move_suggestions WHERE id = $1",
+        &move_id,
+    )
+    .await;
     let tx = client.transaction().await?;
     match suggestion_manager::approve_move_note_request_by_moveid(&tx, move_id, user.id()).await {
         Ok(res) => {
             tx.commit().await?;
+            if let Some((nid, cid)) = item_ctx {
+                webhook_manager::spawn_single_note_review_webhook(
+                    Arc::clone(&appstate),
+                    cid,
+                    nid,
+                    true,
+                    reviewer_username,
+                    true,
+                );
+            }
             Ok(Redirect::to(&format!("/review/{res}")))
         }
         Err(error) => {
@@ -160,11 +222,28 @@ pub(crate) async fn accept_tag(
         return Err(error::Error::Unauthorized);
     }
 
+    let reviewer_username = user.username();
     let mut client = database::client(&appstate).await?;
+    let item_ctx = pending_item_context(
+        &client,
+        "SELECT note, commit FROM tags WHERE id = $1 AND reviewed = false",
+        &tag_id,
+    )
+    .await;
     let tx = client.transaction().await?;
     match suggestion_manager::approve_tag_change(&tx, tag_id, true, user.id()).await {
         Ok(res) => {
             tx.commit().await?;
+            if let Some((nid, cid)) = item_ctx {
+                webhook_manager::spawn_single_note_review_webhook(
+                    Arc::clone(&appstate),
+                    cid,
+                    nid,
+                    true,
+                    reviewer_username,
+                    true,
+                );
+            }
             Ok(Redirect::to(&format!("/review/{res}")))
         }
         Err(error) => {
@@ -192,11 +271,28 @@ pub(crate) async fn deny_field(
         return Err(error::Error::Unauthorized);
     }
 
+    let reviewer_username = user.username();
     let mut client = database::client(&appstate).await?;
+    let item_ctx = pending_item_context(
+        &client,
+        "SELECT note, commit FROM fields WHERE id = $1 AND reviewed = false",
+        &field_id,
+    )
+    .await;
     let tx = client.transaction().await?;
     match suggestion_manager::deny_field_change(&tx, field_id, user.id()).await {
         Ok(res) => {
             tx.commit().await?;
+            if let Some((nid, cid)) = item_ctx {
+                webhook_manager::spawn_single_note_review_webhook(
+                    Arc::clone(&appstate),
+                    cid,
+                    nid,
+                    false,
+                    reviewer_username,
+                    true,
+                );
+            }
             Ok(Redirect::to(&format!("/review/{res}")))
         }
         Err(error) => {
@@ -224,11 +320,28 @@ pub(crate) async fn accept_field(
         return Err(error::Error::Unauthorized);
     }
 
+    let reviewer_username = user.username();
     let mut client = database::client(&appstate).await?;
+    let item_ctx = pending_item_context(
+        &client,
+        "SELECT note, commit FROM fields WHERE id = $1 AND reviewed = false",
+        &field_id,
+    )
+    .await;
     let tx = client.transaction().await?;
     match suggestion_manager::approve_field_change(&tx, field_id, true, user.id()).await {
         Ok(res) => {
             tx.commit().await?;
+            if let Some((nid, cid)) = item_ctx {
+                webhook_manager::spawn_single_note_review_webhook(
+                    Arc::clone(&appstate),
+                    cid,
+                    nid,
+                    true,
+                    reviewer_username,
+                    true,
+                );
+            }
             // Best-effort post-commit media reference refresh for this note
             if let Ok(nid) = res.parse::<i64>() {
                 let state_clone = appstate.clone();

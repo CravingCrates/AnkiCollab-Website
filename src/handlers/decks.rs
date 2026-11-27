@@ -11,7 +11,9 @@ use crate::error::{self, Error};
 use crate::handlers::common::{check_login, error_page, SharedConn};
 use crate::structs::{BasicDeckInfo, DeckOverview};
 use crate::user::User;
-use crate::{changelog_manager, cleanser, note_manager, notetype_manager, structs};
+use crate::{
+    changelog_manager, cleanser, note_manager, notetype_manager, structs, webhook_manager,
+};
 
 fn prepare_edit_deck_description(raw_desc: &str) -> (String, String) {
     (
@@ -135,8 +137,14 @@ pub(crate) async fn post_edit_deck(
         )
         .await?;
 
-    if !data.changelog.is_empty() {
+    if !data.changelog.trim().is_empty() {
         changelog_manager::insert_new_changelog(&appstate, &data.hash, &data.changelog).await?;
+        webhook_manager::spawn_changelog_webhook(
+            Arc::clone(&appstate),
+            data.hash.clone(),
+            user.username(),
+            data.changelog,
+        );
     }
 
     Ok(())

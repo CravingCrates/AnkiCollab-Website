@@ -16,6 +16,7 @@ use crate::structs::{
 use crate::user::User;
 use crate::{
     commit_manager, note_history, notetype_manager, notification_manager, suggestion_manager,
+    webhook_manager,
 };
 
 pub(crate) async fn approve_commit(
@@ -24,6 +25,8 @@ pub(crate) async fn approve_commit(
     Path(commit_id): Path<i32>,
 ) -> Result<impl IntoResponse, Error> {
     let actor_user_id = user.id();
+    let reviewer_username = user.username();
+    let pending_notes = webhook_manager::count_pending_commit_notes(&appstate, commit_id).await;
     let res = suggestion_manager::merge_by_commit(&appstate, commit_id, true, user).await?;
 
     notification_manager::create_commit_notification(
@@ -34,6 +37,19 @@ pub(crate) async fn approve_commit(
         actor_user_id,
     )
     .await?;
+
+    if pending_notes > 0 {
+        webhook_manager::spawn_commit_decision_webhook(
+            Arc::clone(&appstate),
+            commit_id,
+            true,
+            reviewer_username,
+            None,
+            false,
+            pending_notes,
+            false,
+        );
+    }
 
     Ok(match res {
         None => Redirect::to("/reviews"),
@@ -48,6 +64,7 @@ pub(crate) async fn deny_commit(
     payload: Option<Json<CommitDecisionRequest>>,
 ) -> Result<impl IntoResponse, Error> {
     let actor_user_id = user.id();
+    let reviewer_username = user.username();
     let decision = payload.map_or_default(|Json(p)| p);
     let silent = decision.silent.unwrap_or(false);
     let sanitized_reason = decision
@@ -56,6 +73,7 @@ pub(crate) async fn deny_commit(
         .map(ammonia::clean)
         .map(|r| r.trim().chars().take(2000).collect::<String>())
         .filter(|r| !r.is_empty());
+    let pending_notes = webhook_manager::count_pending_commit_notes(&appstate, commit_id).await;
 
     match suggestion_manager::merge_by_commit(&appstate, commit_id, false, user).await {
         Ok(res) => {
@@ -68,6 +86,19 @@ pub(crate) async fn deny_commit(
                     actor_user_id,
                 )
                 .await?;
+            }
+
+            if pending_notes > 0 {
+                webhook_manager::spawn_commit_decision_webhook(
+                    Arc::clone(&appstate),
+                    commit_id,
+                    false,
+                    reviewer_username,
+                    if silent { None } else { sanitized_reason },
+                    silent,
+                    pending_notes,
+                    false,
+                );
             }
 
             match res {
@@ -174,6 +205,23 @@ pub(crate) async fn bulk_note_action(
             )
             .await?;
         }
+
+        let remaining_pending =
+            webhook_manager::count_pending_commit_notes(&appstate, commit_id).await;
+        webhook_manager::spawn_commit_decision_webhook(
+            Arc::clone(&appstate),
+            commit_id,
+            approve,
+            user.username(),
+            if approve || silent {
+                None
+            } else {
+                sanitized_reason
+            },
+            if approve { false } else { silent },
+            succeeded.len(),
+            remaining_pending > 0 || !failed.is_empty(),
+        );
     }
 
     Ok(Json(BulkNoteActionResponse { succeeded, failed }))

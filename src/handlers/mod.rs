@@ -11,3 +11,4 @@ pub(crate) mod pages;
 pub(crate) mod stats;
 pub(crate) mod subscription_policy;
 pub(crate) mod suggestions;
+pub(crate) mod webhooks;
